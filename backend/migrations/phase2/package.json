@@ -1,0 +1,20 @@
+{
+  "name": "migration-phase2",
+  "version": "1.0.0",
+  "description": "Data migration scripts from PostgreSQL to MongoDB",
+  "main": "index.js",
+  "scripts": {
+    "export": "node export-postgres.js",
+    "transform": "node transform-data.js",
+    "import": "node import-mongo.js",
+    "verify": "node verify-integrity.js",
+    "migrate": "npm run export && npm run transform && npm run import && npm run verify"
+  },
+  "dependencies": {
+    "pg": "^8.11.0",
+    "mongoose": "^7.5.0",
+    "dotenv": "^16.3.1",
+    "fs-extra": "^11.1.1",
+    "uuid": "^9.0.1"
+  }
+}

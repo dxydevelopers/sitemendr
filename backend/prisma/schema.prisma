@@ -1,0 +1,417 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String           @id @default(uuid())
+  name                    String
+  email                   String           @unique
+  password                String
+  phone                   String?
+  role                    Role             @default(user)
+  isEmailVerified         Boolean          @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpires DateTime?
+  passwordResetToken      String?
+  passwordResetExpires    DateTime?
+  banned                  Boolean          @default(false)
+  lastLogin               DateTime?
+  subdomainsClaimed       Int              @default(0)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  blogPosts               BlogPost[]
+  payments                Payment[]
+  leadsAssigned           Lead[]           @relation("AssignedTo")
+  leadsOwned              Lead[]           @relation("Owner")
+  customDomains           CustomDomain[]
+  subscriptions           Subscription[]
+  comments                Comment[]
+  messages                Message[]
+  supportTickets          SupportTicket[]
+  supportMessages         SupportMessage[]
+  media                   Media[]
+  orders                  Order[]
+  bookings                Booking[]
+}
+
+enum Role {
+  user
+  admin
+  manager
+  client
+}
+
+model Assessment {
+  id                   String           @id @default(uuid())
+  sessionId            String           @unique
+  status               AssessmentStatus @default(in_progress)
+  source               Source           @default(direct)
+  referrer             String?
+  responses            Json             // Nested questionnaire responses
+  results              Json?            // AI processing results
+  processingStartedAt  DateTime?
+  processingCompletedAt DateTime?
+  processingError      String?
+  convertedToLead      Boolean          @default(false)
+  leadId               String?
+  lead                 Lead?            @relation(fields: [leadId], references: [id])
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  expiresAt            DateTime
+}
+
+enum AssessmentStatus {
+  in_progress
+  processing
+  completed
+  failed
+}
+
+enum Source {
+  homepage
+  email
+  social
+  referral
+  direct
+  assessment
+  contact_form
+  newsletter
+  paid_ad
+}
+
+model Lead {
+  id               String         @id @default(uuid())
+  source           Source
+  sourceDetails    Json?
+  name             String
+  email            String         @unique
+  phone            String?
+  company          Json?
+  qualification    Json?
+  communications   Json?          
+  status           String         @default("new")
+  notes            String?
+  assignedToId     String?
+  assignedTo       User?          @relation("AssignedTo", fields: [assignedToId], references: [id])
+  ownerId          String?
+  owner            User?          @relation("Owner", fields: [ownerId], references: [id])
+  consent          Json?
+  converted        Boolean        @default(false)
+  convertedAt      DateTime?
+  convertedTo      Json?
+  nextFollowUp     DateTime?
+  followUpNotes    String?
+  tags             String[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  lastActivity     DateTime       @default(now())
+  assessments      Assessment[]
+}
+
+model BlogPost {
+  id             String      @id @default(uuid())
+  title          String
+  slug           String      @unique
+  excerpt        String?
+  content        String
+  featuredImage  String?
+  authorId       String
+  author         User        @relation(fields: [authorId], references: [id])
+  category       String?
+  tags           String[]
+  status         PostStatus  @default(draft)
+  publishedAt    DateTime?
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String[]
+  readingTime    Int         @default(0)
+  views          Int         @default(0)
+  likes          Int         @default(0)
+  comments       Comment[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+enum PostStatus {
+  draft
+  published
+  archived
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  blogPostId String
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id])
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  content    String
+  status     String   @default("approved") // pending, approved, spam
+  createdAt  DateTime @default(now())
+}
+
+model CustomDomain {
+  id        String       @id @default(uuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  domain    String
+  siteId    String
+  subscription Subscription @relation(fields: [siteId], references: [id])
+  setup     String       // self, assisted
+  status    String       @default("pending") // pending, active, failed
+  sslEnabled Boolean      @default(false)
+  sslExpiresAt DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model ManagedDomainRequest {
+  id             String   @id @default(uuid())
+  email          String
+  domainInterest String
+  createdAt      DateTime @default(now())
+}
+
+model Payment {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  reference       String      @unique
+  amount          Float
+  currency        String      @default("USD")
+  status          String      @default("pending")
+  paymentMethod   String      @default("card")
+  gateway         String      @default("paystack")
+  gatewayResponse Json?
+  metadata        Json?
+  serviceType     String
+  description     String
+  invoiceId       String?     
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Subscription {
+  id                  String         @id @default(uuid())
+  userId              String
+  user                User           @relation(fields: [userId], references: [id])
+  siteName            String?
+  customName          String?
+  price               Float?
+  planType            String         @default("monthly")
+  domain              String?
+  totalPaid           Float          @default(0)
+  credit              Float          @default(0)
+  lastPaymentDate     DateTime?
+  expiresAt           DateTime?
+  status              String         @default("active") // active, suspended, cancelled
+  tier                String         @default("ai_foundation") // ai_foundation, pro_enhancement, enterprise
+  gracePeriodDays     Int            @default(7)
+  suspendedAt         DateTime?
+  reactivationAttempts Int           @default(0)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @default(now()) @updatedAt
+  suspended       Boolean        @default(false)
+  reviewRequested Boolean        @default(false)
+  reviewNotes     String?        // Notes for human review/revision
+  revisionCount   Int            @default(0)
+  performanceData Json?          // Store latest AI performance analysis
+  purchasedAddons Json?          // List of purchased add-ons
+  customDomains   CustomDomain[]
+  milestones      Milestone[]
+  template        Template?
+  products        Product[]
+  services        Service[]
+  orders          Order[]
+  bookings        Booking[]
+  supportTickets  SupportTicket[]
+}
+
+model Milestone {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  title          String
+  description    String?
+  status         String       @default("pending") // pending, in_progress, completed
+  progress       Int          @default(0)
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  subject   String
+  content   String
+  isRead    Boolean  @default(false)
+  sender    String   @default("System")
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  subscriptionId String?
+  subscription   Subscription?    @relation(fields: [subscriptionId], references: [id])
+  subject        String
+  message        String
+  status         String           @default("open") // open, in_progress, closed
+  priority       String           @default("medium") // low, medium, high
+  messages       SupportMessage[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model SupportMessage {
+  id        String        @id @default(uuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id])
+  senderId  String?       
+  sender    User?         @relation(fields: [senderId], references: [id])
+  content   String
+  isAdmin   Boolean       @default(false)
+  createdAt DateTime      @default(now())
+}
+
+model Template {
+  id             String       @id @default(uuid())
+  subscriptionId String       @unique
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  html           String
+  css            String?
+  js             String?
+  assets         Json?        // URL of images, etc.
+  aiModel        String       @default("gpt-4o")
+  isPublished    Boolean      @default(false)
+  publishedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Resource {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  type        String   // documentation, tool, guide
+  url         String?
+  content     String?
+  createdAt   DateTime @default(now())
+}
+
+model Media {
+  id        String   @id @default(uuid())
+  filename  String
+  url       String
+  mimetype  String
+  size      Int
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  externalId String       @unique // For socket.io room identification
+  type      String        @default("technical")
+  status    String        @default("waiting") // waiting, active, closed
+  userId    String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id])
+  text      String
+  sender    String      // user, bot, agent
+  timestamp DateTime    @default(now())
+}
+
+model Product {
+  id             String       @id @default(uuid())
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  name           String
+  description    String
+  price          Float
+  image          String?
+  category       String?
+  stock          Int          @default(0)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  orderItems     OrderItem[]
+}
+
+model Order {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  status         String       @default("pending") // pending, processing, shipped, delivered, cancelled
+  totalAmount    Float
+  items          OrderItem[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+}
+
+model Service {
+  id             String       @id @default(uuid())
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  name           String
+  description    String
+  duration       Int          // in minutes
+  price          Float
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  bookings       Booking[]
+}
+
+model Booking {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  serviceId      String
+  service        Service      @relation(fields: [serviceId], references: [id])
+  startTime      DateTime
+  endTime        DateTime
+  status         String       @default("confirmed") // confirmed, cancelled, completed
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
