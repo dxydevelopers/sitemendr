@@ -1,9 +1,4 @@
-let swaggerJsdoc;
-try {
-  swaggerJsdoc = require('swagger-jsdoc');
-} catch (error) {
-  console.warn('Swagger disabled: swagger-jsdoc module not found');
-}
+const swaggerJsdoc = require('swagger-jsdoc');
 
 const swaggerOptions = {
   definition: {
@@ -218,6 +213,6 @@ All errors follow a consistent format:
   apis: ['./routes/*.js', './controllers/*.js', './docs/**/*.yaml']
 };
 
-const swaggerSpec = swaggerJsdoc ? swaggerJsdoc(swaggerOptions) : null;
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 module.exports = swaggerSpec;
