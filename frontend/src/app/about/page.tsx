@@ -8,6 +8,7 @@ export default function AboutPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
 
   useEffect(() => {
     setIsVisible(true);

@@ -35,7 +35,7 @@ const SupportManager: React.FC = () => {
 
   const fetchTickets = async () => {
     try {
-      const res = await apiClient.getAdminSupportTickets() as { success: boolean; data: SupportTicket[] };
+      const res = await apiClient.getAdminSupportTickets() as unknown as { success: boolean; data: SupportTicket[] };
       if (res.success) setTickets(res.data);
     } catch (error) {
       console.error('Failed to fetch tickets', error);
@@ -46,7 +46,7 @@ const SupportManager: React.FC = () => {
 
   const fetchTicketDetails = async (id: string) => {
     try {
-      const res = await apiClient.getAdminSupportTicket(id) as { success: boolean; data: SupportTicket };
+      const res = await apiClient.getAdminSupportTicket(id) as unknown as { success: boolean; data: SupportTicket };
       if (res.success) setSelectedTicket(res.data);
     } catch (error) {
       console.error('Failed to fetch ticket details', error);

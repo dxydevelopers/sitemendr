@@ -199,8 +199,8 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
     setStatus(null);
     try {
       const res = await apiClient.uploadMedia(formData);
-      if (res.success && res.data?.url) {
-        updateSelectedContent(res.data.url);
+      if (res.success && (res.data as any)?.url) {
+        updateSelectedContent((res.data as any).url);
         setStatus({ type: 'success', message: 'Upload complete' });
       }
     } catch (error) {

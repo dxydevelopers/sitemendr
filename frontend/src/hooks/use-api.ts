@@ -119,7 +119,7 @@ export function useCurrentUser() {
 export function useSubscriptions() {
   return useQuery<Subscription[]>({
     queryKey: ['subscriptions'],
-    queryFn: () => fetchApi<ApiResponse<Subscription[]>>('/api/client/subscriptions'),
+    queryFn: () => fetchApi<ApiResponse<Subscription[]>>('/api/client/subscriptions').then(r => r.data || []),
     staleTime: 60 * 1000,
   });
 }
@@ -163,7 +163,7 @@ export function useCreateSubscription() {
 export function useAssessments() {
   return useQuery<Assessment[]>({
     queryKey: ['assessments'],
-    queryFn: () => fetchApi<ApiResponse<Assessment[]>>('/api/client/assessments'),
+    queryFn: () => fetchApi<ApiResponse<Assessment[]>>('/api/client/assessments').then(r => r.data || []),
     staleTime: 30 * 1000,
   });
 }
@@ -219,7 +219,7 @@ export function useCreateAssessment() {
 export function useLeads() {
   return useQuery<Lead[]>({
     queryKey: ['leads'],
-    queryFn: () => fetchApi<ApiResponse<Lead[]>>('/api/admin/leads'),
+    queryFn: () => fetchApi<ApiResponse<Lead[]>>('/api/admin/leads').then(r => r.data || []),
     staleTime: 30 * 1000,
   });
 }
@@ -252,7 +252,7 @@ export function useUpdateLead() {
 export function useSupportTickets() {
   return useQuery<SupportTicket[]>({
     queryKey: ['supportTickets'],
-    queryFn: () => fetchApi<ApiResponse<SupportTicket[]>>('/api/client/support'),
+    queryFn: () => fetchApi<ApiResponse<SupportTicket[]>>('/api/client/support').then(r => r.data || []),
     staleTime: 30 * 1000,
   });
 }
@@ -285,7 +285,7 @@ export function useCreateTicket() {
 export function useBlogPosts() {
   return useQuery<BlogPost[]>({
     queryKey: ['blogPosts'],
-    queryFn: () => fetchApi<ApiResponse<BlogPost[]>>('/api/blog'),
+    queryFn: () => fetchApi<ApiResponse<BlogPost[]>>('/api/blog').then(r => r.data || []),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

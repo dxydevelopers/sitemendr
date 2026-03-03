@@ -56,6 +56,14 @@ export interface Subscription {
   };
 }
 
+export interface Milestone {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  order: number;
+}
+
 class ApiClient {
   private baseURL: string;
   private cache: Record<string, { data: unknown; timestamp: number }> = {};
@@ -80,7 +88,7 @@ class ApiClient {
       
       // If there's already a pending request for the same endpoint, return that instead of starting a new one
       if (this.pendingRequests.has(cacheKey)) {
-        return this.pendingRequests.get(cacheKey);
+        return this.pendingRequests.get(cacheKey) as any;
       }
     }
 
@@ -899,25 +907,6 @@ class ApiClient {
   async runDNSVerification() {
     return this.request('/admin/automation/dns-verify', {
       method: 'POST',
-    });
-  }
-
-  // Generic methods
-  async get(endpoint: string) {
-    return this.request(endpoint);
-  }
-
-  async put(endpoint: string, data: unknown) {
-    return this.request(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async post(endpoint: string, data: unknown) {
-    return this.request(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(data),
     });
   }
 

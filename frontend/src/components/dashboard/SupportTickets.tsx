@@ -80,7 +80,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
     try {
       const response = await apiClient.getClientSupportTickets(subscriptionId);
       if (response.success) {
-        setTickets(response.data as SupportTicket[]);
+        setTickets(response.data as unknown as SupportTicket[]);
       }
     } catch (error) {
       console.error('Failed to fetch tickets:', error);
@@ -97,7 +97,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
     try {
       const response = await apiClient.createSupportTicket(newTicket);
       if (response.success) {
-        setTickets([response.data.ticket, ...tickets]);
+        setTickets([response.data.ticket as unknown as SupportTicket, ...tickets]);
         setNewTicket({ subject: '', message: '', priority: 'medium' });
         
         // If AI gave an immediate response, maybe show it?
@@ -142,7 +142,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
     try {
       const response = await apiClient.addSupportMessage(selectedTicket.id, ticketReply);
       if (response.success) {
-        const updatedMessages = [...selectedTicket.messages, response.data as TicketMessage];
+        const updatedMessages = [...selectedTicket.messages, response.data as unknown as TicketMessage];
         setSelectedTicket({ ...selectedTicket, messages: updatedMessages });
         setTicketReply('');
         // Update in main list too

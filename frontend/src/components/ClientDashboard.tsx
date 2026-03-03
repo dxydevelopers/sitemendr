@@ -207,7 +207,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     try {
       const res = await apiClient.analyzePerformance(url);
       if (res.success) {
-        setAnalysisResult(res.data);
+        setAnalysisResult(res.data as unknown as AnalysisResult);
       }
     } catch (error) {
       console.error('Analysis failed:', error);
@@ -254,14 +254,14 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         resourcesRes,
         domainsRes
       ] = await Promise.all([
-        apiClient.getClientStats(projectId) as Promise<{ success: boolean; stats: ClientStats }>,
-        apiClient.getClientProjects() as Promise<{ success: boolean; data: ClientProject[] }>,
-        apiClient.getClientActivities() as Promise<{ success: boolean; data: ClientActivity[] }>,
-        apiClient.getClientBilling() as Promise<{ success: boolean; data: BillingItem[] }>,
-        apiClient.getClientMessages() as Promise<{ success: boolean; messages: MessageItem[] }>,
-        apiClient.getClientSupportTickets() as Promise<{ success: boolean; data: SupportTicket[] }>,
-        apiClient.getClientResources() as Promise<{ success: boolean; data: ResourceItem[] }>,
-        apiClient.getClientDomains() as Promise<{ success: boolean; domains: CustomDomain[] }>
+        apiClient.getClientStats(projectId) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
+        apiClient.getClientProjects() as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
+        apiClient.getClientActivities() as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
+        apiClient.getClientBilling() as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
+        apiClient.getClientMessages() as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
+        apiClient.getClientSupportTickets() as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
+        apiClient.getClientResources() as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
+        apiClient.getClientDomains() as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>
       ]);
 
       // Map inconsistent backend response keys to frontend state

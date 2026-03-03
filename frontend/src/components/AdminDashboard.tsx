@@ -128,6 +128,13 @@ interface AnalyticsData {
   traffic: Record<string, unknown>;
   predictions: {
     recommendations: Recommendation[];
+    growthRate?: {
+      users?: number;
+      revenue?: number;
+    };
+    nextWeekUsers?: number | string;
+    nextWeekRevenue?: number | string;
+    nextWeekConversionRate?: number | string;
   };
 }
 
@@ -211,7 +218,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     setLoading(true);
     try {
       if (activeTab === 'dashboard') {
-        const res = await apiClient.getAdminStats() as { success: boolean; data: DashboardStats };
+        const res = await apiClient.getAdminStats() as unknown as { success: boolean; data: DashboardStats };
         if (res.success) setStats(res.data);
       } else if (activeTab === 'leads') {
         const res = await apiClient.getAdminLeads() as { success: boolean; data: Lead[] };
@@ -235,7 +242,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         const res = await apiClient.getMedia() as { success: boolean; data: MediaAsset[] };
         if (res.success) setMedia(res.data);
       } else if (activeTab === 'analytics') {
-        const res = await apiClient.getAdminAnalytics() as { success: boolean; analytics: AnalyticsData };
+        const res = await apiClient.getAdminAnalytics() as unknown as { success: boolean; analytics: AnalyticsData };
         if (res.success) setAnalytics(res.analytics);
       } else if (activeTab === 'system') {
         const res = await apiClient.getEnforcementSettings() as { success: boolean; data: EnforcementSettings };
@@ -963,8 +970,8 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                         </td>
                         <td className="p-5">
                           <span className="text-[8px] font-black text-ai-blue uppercase tracking-widest block">{lead.source?.replace('_', ' ') || 'DIRECT'}</span>
-                          {lead.sourceDetails?.subject && (
-                            <span className="text-[7px] text-medium-gray uppercase tracking-tighter opacity-50 block mt-0.5">{lead.sourceDetails.subject}</span>
+                          {!!lead.sourceDetails?.subject && (
+                            <span className="text-[7px] text-medium-gray uppercase tracking-tighter opacity-50 block mt-0.5">{lead.sourceDetails.subject as string}</span>
                           )}
                         </td>
                         <td className="p-5">
@@ -1663,12 +1670,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
               <PerformanceAudit 
                 data={{
                   metrics: {
-                    score: siteVitals.performance,
+                    score: (siteVitals as any).performance,
                     vitals: {
-                      fcp: siteVitals.coreWebVitals?.lcp, // Using LCP for FCP in simple view
+                      fcp: (siteVitals as any).coreWebVitals?.lcp, // Using LCP for FCP in simple view
                       tti: '1.2s',
-                      cls: siteVitals.coreWebVitals?.cls,
-                      lcp: siteVitals.coreWebVitals?.lcp
+                      cls: (siteVitals as any).coreWebVitals?.cls,
+                      lcp: (siteVitals as any).coreWebVitals?.lcp
                     }
                   }
                 }} 

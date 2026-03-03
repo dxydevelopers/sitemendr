@@ -60,8 +60,8 @@ export default function PaymentReactivatePage() {
         amount,
         currency,
         email: subscription.user?.email,
-        plan: subscription.plan,
-        description: `Subscription Reactivation - ${subscription.plan}`,
+        plan: subscription.planType,
+        description: `Subscription Reactivation - ${subscription.planType}`,
         serviceType: 'subscription_reactivation'
       };
 

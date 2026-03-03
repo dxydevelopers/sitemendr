@@ -27,7 +27,7 @@ export default function CommentManager() {
   const fetchComments = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.getAdminComments(filter) as { success: boolean; data: Comment[] };
+      const res = await apiClient.getAdminComments(filter) as unknown as { success: boolean; data: Comment[] };
       if (res.success) {
         setComments(res.data);
       }
