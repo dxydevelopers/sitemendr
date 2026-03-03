@@ -44,6 +44,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Render/other proxies set X-Forwarded-For; trust one proxy hop
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 const port = process.env.PORT || 5000;
 
