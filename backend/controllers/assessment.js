@@ -7,12 +7,15 @@ const { sendEmail } = require('../config/email');
 
 // OpenAI client for AI processing
 const OpenAI = require('openai');
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // Groq client for fallback AI processing
 const Groq = require('groq-sdk');
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
 
 
 const allowFallback = process.env.NODE_ENV !== 'production';
@@ -114,8 +117,21 @@ const generateAuthToken = (userId) => {
 
 // Advanced AI processing function using OpenAI with Groq fallback
 const processAssessmentAI = async (responses) => {
+  if (!openai) {
+    logger.warn('OPENAI_API_KEY missing; skipping OpenAI processing', { errorCode: 'ASSESSMENT_OPENAI_MISSING' });
+    if (groq) return await processAssessmentGroq(responses);
+    if (!allowFallback) {
+      throw new Error('AI processing unavailable');
+    }
+    return await processAssessmentFallback(responses);
+  }
   try {
-    const completion = await openai.chat.completions.create({
+    if (!openai) {
+        const missingError = new Error('OPENAI_MISSING');
+        missingError.code = 'OPENAI_MISSING';
+        throw missingError;
+      }
+      const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -183,6 +199,9 @@ const processAssessmentAI = async (responses) => {
 
 // Advanced AI processing using Groq (llama-3.3-70b)
 const processAssessmentGroq = async (responses) => {
+  if (!groq) {
+    throw new Error('GROQ_API_KEY missing');
+  }
   try {
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
@@ -447,6 +466,11 @@ const generateTemplateAI = async (subscriptionId, responses, results) => {
 
     let code;
     try {
+      if (!openai) {
+        const missingError = new Error('OPENAI_MISSING');
+        missingError.code = 'OPENAI_MISSING';
+        throw missingError;
+      }
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -461,7 +485,11 @@ const generateTemplateAI = async (subscriptionId, responses, results) => {
         errorCode: 'TEMPLATE_GEN_OPENAI_ERROR',
         error: oaError.message
       });
-      if (oaError.status === 429 || oaError.code === 'insufficient_quota') {
+      const shouldTryGroq = oaError.code === 'OPENAI_MISSING' || oaError.status === 429 || oaError.code === 'insufficient_quota';
+      if (shouldTryGroq) {
+        if (!groq) {
+          throw oaError;
+        }
         const groqCompletion = await groq.chat.completions.create({
           model: "llama-3.3-70b-versatile",
           messages: [
@@ -589,6 +617,12 @@ const generatePriceBreakdown = (features, basePrice) => {
  * Generate a real AI mockup image using DALL-E
  */
 const generateMockupAI = async (businessType, features, preferredStyle) => {
+  if (!openai) {
+    if (process.env.NODE_ENV === 'production') {
+      return null;
+    }
+    return `https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1000&auto=format&fit=crop&text=${encodeURIComponent(businessType + ' Website')}`;
+  }
   try {
     const prompt = `A professional, high-fidelity website mockup for a ${businessType} business. 
     Style: ${preferredStyle || 'modern and clean'}. 
@@ -1308,6 +1342,8 @@ exports.getStats = async (_req, res) => {
     });
   }
 };
+
+
 
 
 

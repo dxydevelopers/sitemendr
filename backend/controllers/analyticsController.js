@@ -73,46 +73,200 @@ exports.getDashboardAnalytics = async (req, res) => {
 
 // User analytics
 const getUserAnalytics = async (startDate, endDate) => {
-  const [
-    totalUsers,
-    newUsers,
-    activeUsers,
-    userGrowth,
-    userRetention,
-    userSegments
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
-    prisma.user.count({ where: { lastLogin: { gte: startDate, lte: endDate } } }),
-    // User growth over time
-    prisma.$queryRaw`
-      SELECT 
-        TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
-        COUNT(*)::int as count
-      FROM "User"
-      WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
-      GROUP BY _id
-      ORDER BY _id ASC
-    `,
-    // User retention (simplified)
-    prisma.user.count({
-      where: {
-        createdAt: { lt: startDate },
-        lastLogin: { gte: startDate, lte: endDate }
-      }
-    }),
-    // User segments by role
-    prisma.user.groupBy({
-      by: ['role'],
-      _count: {
-        _all: true
-      }
-    })
-  ]);
+  try {
+    const [
+      totalUsers,
+      newUsers,
+      activeUsers,
+      userGrowth,
+      userRetention,
+      userSegments
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
+      prisma.user.count({ where: { lastLogin: { gte: startDate, lte: endDate } } }),
+      // User growth over time
+      prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
+          COUNT(*)::int as count
+        FROM "User"
+        WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
+        GROUP BY _id
+        ORDER BY _id ASC
+      `,
+      // User retention (simplified)
+      prisma.user.count({
+        where: {
+          createdAt: { lt: startDate },
+          lastLogin: { gte: startDate, lte: endDate }
+        }
+      }),
+      // User segments by role
+      prisma.user.groupBy({
+        by: ['role'],
+        _count: {
+          _all: true
+        }
+      })
+    ]);
 
-      return {
+    return {
+      total: totalUsers,
+      new: newUsers,
+      active: activeUsers,
+      growth: userGrowth.map(row => ({ date: row._id, count: row.count })),
+      retention: userRetention,
+      segments: userSegments
+    };
+  } catch (error) {
+    logger.error('GET_USER_ANALYTICS_ERROR:', error);
+    return {
+      total: 0,
+      new: 0,
+      active: 0,
+      growth: [],
+      retention: 0,
+      segments: []
+    };
+  }
+};
+
+// Assessment analytics
+const getAssessmentAnalytics = async (startDate, endDate) => {
+  try {
+    const [total, converted, trends] = await Promise.all([
+      prisma.assessment.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
+      prisma.assessment.count({ where: { convertedToLead: true, createdAt: { gte: startDate, lte: endDate } } }),
+      prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
+          COUNT(*)::int as count
+        FROM "Assessment"
+        WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
+        GROUP BY _id
+        ORDER BY _id ASC
+      `
+    ]);
+
+    const conversionRate = total > 0 ? Math.round((converted / total) * 100) : 0;
+
+    return {
+      total,
+      conversionRate,
+      trends: trends.map(row => ({ date: row._id, count: row.count }))
+    };
+  } catch (error) {
+    logger.error('GET_ASSESSMENT_ANALYTICS_ERROR:', error);
+    return { total: 0, conversionRate: 0, trends: [] };
+  }
+};
+
+// Lead analytics
+const getLeadAnalytics = async (startDate, endDate) => {
+  try {
+    const [total, converted, trends] = await Promise.all([
+      prisma.lead.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
+      prisma.lead.count({ where: { converted: true, createdAt: { gte: startDate, lte: endDate } } }),
+      prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
+          COUNT(*)::int as count
+        FROM "Lead"
+        WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
+        GROUP BY _id
+        ORDER BY _id ASC
+      `
+    ]);
+
+    const conversionRate = total > 0 ? Math.round((converted / total) * 100) : 0;
+
+    return {
+      total,
+      conversionRate,
+      trends: trends.map(row => ({ date: row._id, count: row.count }))
+    };
+  } catch (error) {
+    logger.error('GET_LEAD_ANALYTICS_ERROR:', error);
+    return { total: 0, conversionRate: 0, trends: [] };
+  }
+};
+
+// Revenue analytics
+const getRevenueAnalytics = async (startDate, endDate) => {
+  try {
+    const [aggregate, trends] = await Promise.all([
+      prisma.payment.aggregate({
+        where: { status: 'success', createdAt: { gte: startDate, lte: endDate } },
+        _sum: { amount: true },
+        _count: { _all: true }
+      }),
+      prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
+          SUM("amount")::float as amount,
+          COUNT(*)::int as count
+        FROM "Payment"
+        WHERE status = 'success' AND "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
+        GROUP BY _id
+        ORDER BY _id ASC
+      `
+    ]);
+
+    const total = aggregate._sum.amount || 0;
+    const count = aggregate._count._all || 0;
+    const averageOrderValue = count > 0 ? Math.round((total / count) * 100) / 100 : 0;
+
+    return {
+      total,
+      averageOrderValue,
+      trends: trends.map(row => ({ date: row._id, amount: Number(row.amount || 0) }))
+    };
+  } catch (error) {
+    logger.error('GET_REVENUE_ANALYTICS_ERROR:', error);
+    return { total: 0, averageOrderValue: 0, trends: [] };
+  }
+};
+
+// Content analytics
+const getContentAnalytics = async () => {
+  try {
+    const [totalPosts, publishedPosts, draftPosts, viewAgg] = await Promise.all([
+      prisma.blogPost.count(),
+      prisma.blogPost.count({ where: { status: 'published' } }),
+      prisma.blogPost.count({ where: { status: 'draft' } }),
+      prisma.blogPost.aggregate({ _sum: { views: true } })
+    ]);
+
+    return {
+      totalPosts,
+      published: publishedPosts,
+      drafts: draftPosts,
+      totalViews: viewAgg._sum.views || 0
+    };
+  } catch (error) {
+    logger.error('GET_CONTENT_ANALYTICS_ERROR:', error);
+    return { totalPosts: 0, published: 0, drafts: 0, totalViews: 0 };
+  }
+};
+
+// Traffic analytics
+const getTrafficAnalytics = async () => {
+  try {
+    const [viewAgg, topBlogPosts] = await Promise.all([
+      prisma.blogPost.aggregate({ _sum: { views: true } }),
+      prisma.blogPost.findMany({
+        orderBy: { views: 'desc' },
+        take: 5,
+        select: { slug: true, views: true }
+      })
+    ]);
+
+    const totalViews = viewAgg._sum.views || 0;
+
+    return {
       pageViews: totalViews,
-      uniqueVisitors: totalSources,
+      uniqueVisitors: null,
       bounceRate: null,
       avgSessionDuration: null,
       topPages: topBlogPosts.map(p => ({
@@ -120,7 +274,7 @@ const getUserAnalytics = async (startDate, endDate) => {
         views: p.views,
         bounceRate: null
       })),
-      trafficSources: trafficSources,
+      trafficSources: [],
       deviceTypes: []
     };
   } catch (error) {
@@ -326,21 +480,20 @@ const convertToCSV = (data, type) => {
     case 'users':
       csv = 'Date,New Users,Active Users\n';
       data.analytics.users.growth.forEach(row => {
-        csv += `${row._id},${row.count},0\n`; // Simplified
+        csv += `${row.date || row._id},${row.count},0\n`;
       });
       break;
     case 'revenue':
       csv = 'Date,Revenue,Orders\n';
       data.analytics.revenue.trends.forEach(row => {
-        csv += `${row._id},${row.revenue / 100},${row.count}\n`;
+        csv += `${row.date || row._id},${row.amount || row.revenue / 100},0\n`;
       });
       break;
     default:
       csv = 'Metric,Value\n';
       csv += `Total Users,${data.analytics.users.total}\n`;
-      csv += `Total Revenue,${data.analytics.revenue.total / 100}\n`;
+      csv += `Total Revenue,${data.analytics.revenue.total}\n`;
   }
 
   return csv;
 };
-
