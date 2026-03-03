@@ -5,6 +5,11 @@
 
 const logger = require('../config/logger');
 
+const normalizeOrigin = (value) => {
+  if (typeof value !== 'string') return value;
+  return value.replace(/\/$/, '');
+};
+
 /**
  * Security headers middleware
  * Sets various HTTP security headers
@@ -271,12 +276,18 @@ const corsOptions = (req, res, next) => {
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     process.env.FRONTEND_URL
-  ].filter(Boolean);
+  ]
+    .filter(Boolean)
+    .map(normalizeOrigin);
   
   const origin = req.headers.origin;
+  const normalizedOrigin = normalizeOrigin(origin);
   
-  if (allowedOrigins.includes(origin) || !origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin || allowedOrigins[0]);
+  if (allowedOrigins.includes(normalizedOrigin) || !origin) {
+    const headerOrigin = origin || allowedOrigins[0];
+    if (headerOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', headerOrigin);
+    }
   } else {
     logger.warn(`CORS blocked request from: ${origin}`);
   }

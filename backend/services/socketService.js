@@ -2,10 +2,16 @@ const { Server } = require("socket.io");
 const logger = require("../config/logger");
 const { prisma } = require("../config/db");
 
+const normalizeOrigin = (value) => {
+  if (typeof value !== 'string') return value;
+  return value.replace(/\/$/, '');
+};
+
 const initSocket = (server) => {
+  const frontendOrigin = normalizeOrigin(process.env.FRONTEND_URL) || "http://localhost:3000";
   const io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || "http://localhost:3000",
+      origin: frontendOrigin,
       methods: ["GET", "POST"],
       credentials: true
     }

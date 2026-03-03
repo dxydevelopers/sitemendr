@@ -17,6 +17,11 @@ const { initSocket } = require("./services/socketService");
 const { initAutomation } = require("./services/automationService");
 const { verifyConnection: verifyEmailConnection } = require("./config/email");
 const logger = require("./config/logger");
+
+const normalizeOrigin = (value) => {
+  if (typeof value !== 'string') return value;
+  return value.replace(/\/$/, '');
+};
 const { responseTime, requestId } = require("./middleware/performance");
 const { securityHeaders, corsOptions, sanitizeInput } = require("./middleware/security");
 
@@ -49,8 +54,9 @@ app.use(cors({
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://127.0.0.1:3000'
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
+    ].map(normalizeOrigin);
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!origin || allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {
       logger.warn(`CORS blocked request from origin: ${origin}`);
