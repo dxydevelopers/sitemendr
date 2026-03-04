@@ -313,6 +313,11 @@ exports.verifyPayment = async (req, res) => {
 // Handle Paystack webhook (existing function, adding reactivation)
 exports.handleWebhook = async (req, res) => {
   try {
+    logger.info('Webhook received', {
+      provider: 'paystack',
+      ip: req.ip
+    });
+
     // Verify webhook signature
     if (!verifyWebhookSignature(req)) {
       logger.warn('Invalid webhook signature received', {
@@ -323,6 +328,11 @@ exports.handleWebhook = async (req, res) => {
     }
 
     const event = req.body;
+    logger.info('Webhook verified', {
+      provider: 'paystack',
+      event: event?.event,
+      reference: event?.data?.reference
+    });
 
     if (event.event === 'charge.success') {
       const { reference } = event.data;
@@ -334,6 +344,11 @@ exports.handleWebhook = async (req, res) => {
           status: 'completed',
           gatewayResponse: event.data
         }
+      });
+
+      logger.info('Payment marked completed from webhook', {
+        reference,
+        paymentId: payment.id
       });
 
       // Trigger post-payment processing
