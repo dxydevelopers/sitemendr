@@ -594,10 +594,10 @@ class ApiClient {
   }
 
   // Support Chat API
-  async chatWithSupport(message: string, history: Array<{ sender: string; text: string }> = []) {
+  async chatWithSupport(message: string, history: Array<{ sender: string; text: string }> = [], chatId?: string) {
     return this.request<{ success: boolean; message: string }>('/support/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify({ message, history, chatId }),
     });
   }
 

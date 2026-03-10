@@ -3,9 +3,11 @@
 import React, { 
   useState, 
   useEffect, 
-  useCallback 
+  useCallback,
+  useRef
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
 import { 
   BarChart3, 
   Rocket, 
@@ -171,6 +173,53 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const activeTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    let normalizedUrl = socketUrl;
+    if (!process.env.NEXT_PUBLIC_SOCKET_URL && normalizedUrl.includes('/api')) {
+      normalizedUrl = normalizedUrl.replace(/\/api$/, '');
+    }
+    
+    socketRef.current = io(normalizedUrl);
+
+    socketRef.current.on('connect', () => {
+      // Get userId from localStorage if available
+      if (typeof window !== 'undefined') {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            socketRef.current?.emit('join_user', user.id);
+          } catch (e) {}
+        }
+      }
+    });
+
+    socketRef.current.on('new_support_message', (data) => {
+      console.log('New support message:', data);
+      if (activeTabRef.current === 'support' || activeTabRef.current === 'dashboard') {
+        fetchData();
+      }
+    });
+
+    socketRef.current.on('new_system_message', (data) => {
+      console.log('New system message:', data);
+      if (activeTabRef.current === 'messages' || activeTabRef.current === 'dashboard') {
+        fetchData();
+      }
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [fetchData]);
 
   const handleExportCodebase = async (projectId: string) => {
     setExportingId(projectId);

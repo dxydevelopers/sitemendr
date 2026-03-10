@@ -64,11 +64,25 @@ const ChatSupport: React.FC = () => {
 
   useEffect(() => {
     // Initialize socket connection
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    // Remove /api from the end for socket connection if using API URL as fallback
+    if (!process.env.NEXT_PUBLIC_SOCKET_URL && socketUrl.includes('/api')) {
+      socketUrl = socketUrl.replace(/\/api$/, '');
+    }
     socketRef.current = io(socketUrl);
 
     socketRef.current.on('connect', () => {
-      socketRef.current?.emit('join_chat', chatId);
+      // Get userId from localStorage if available
+      let userId = null;
+      if (typeof window !== 'undefined') {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          try {
+            userId = JSON.parse(userData).id;
+          } catch (e) {}
+        }
+      }
+      socketRef.current?.emit('join_chat', { chatId, userId });
     });
 
     socketRef.current.on('chat_history', (history: ChatHistoryItem[]) => {
@@ -146,7 +160,7 @@ const ChatSupport: React.FC = () => {
           text: msg.text
         }));
 
-      const response = await apiClient.chatWithSupport(message, history);
+      const response = await apiClient.chatWithSupport(message, history, chatId);
       
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -156,6 +170,12 @@ const ChatSupport: React.FC = () => {
       };
 
       setMessages(prev => [...prev, botMsg]);
+
+      // Emit user message to socket even if no agent is connected for persistence
+      socketRef.current?.emit('send_message', {
+        ...userMsg,
+        chatId
+      });
     } catch (error) {
       console.error('Chat error:', error);
       const errorMsg: Message = {

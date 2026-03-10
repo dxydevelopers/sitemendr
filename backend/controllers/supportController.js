@@ -1,6 +1,7 @@
 const { prisma } = require('../config/db');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
+const { notifyAdmins } = require('../services/socketService');
 const logger = require('../config/logger');
 
 const openai = new OpenAI({
@@ -118,6 +119,15 @@ exports.createTicket = async (req, res) => {
       }
     });
 
+    // Notify admins of new support ticket
+    notifyAdmins('new_support_ticket', {
+      ticketId: ticket.id,
+      userId,
+      subject: ticket.subject,
+      priority: ticket.priority,
+      timestamp: ticket.createdAt
+    });
+
     res.status(201).json({
       success: true,
       data: {
@@ -212,6 +222,14 @@ exports.addMessage = async (req, res) => {
       }
     });
 
+    // Notify admins of new support message
+    notifyAdmins('new_support_message_from_user', {
+      ticketId: id,
+      userId,
+      messageId: newMessage.id,
+      timestamp: newMessage.createdAt
+    });
+
     // Reopen ticket if it was resolved
     if (ticket.status === 'resolved') {
       await prisma.supportTicket.update({
@@ -232,10 +250,39 @@ exports.addMessage = async (req, res) => {
  */
 exports.chatWithSupport = async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
+    const { message, history = [], chatId } = req.body;
 
     if (!message) {
       return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    // Persist user message if chatId is provided
+    if (chatId) {
+      try {
+        let session = await prisma.chatSession.findUnique({
+          where: { externalId: chatId }
+        });
+
+        if (!session) {
+          session = await prisma.chatSession.create({
+            data: {
+              externalId: chatId,
+              status: 'active'
+            }
+          });
+        }
+
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: session.id,
+            text: message,
+            sender: 'user',
+            timestamp: new Date()
+          }
+        });
+      } catch (dbErr) {
+        logger.error('ERROR_PERSISTING_USER_CHAT_MSG:', dbErr);
+      }
     }
 
     const messages = [
@@ -299,6 +346,28 @@ exports.chatWithSupport = async (req, res) => {
       }
       aiMessage = 'Our AI assistant is temporarily unavailable. Please create a support ticket and our team will help you.';
       usedProvider = 'fallback';
+    }
+
+    // Persist AI response if chatId is provided
+    if (chatId && aiMessage) {
+      try {
+        let session = await prisma.chatSession.findUnique({
+          where: { externalId: chatId }
+        });
+
+        if (session) {
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: session.id,
+              text: aiMessage,
+              sender: 'bot',
+              timestamp: new Date()
+            }
+          });
+        }
+      } catch (dbErr) {
+        logger.error('ERROR_PERSISTING_AI_CHAT_MSG:', dbErr);
+      }
     }
 
     res.json({

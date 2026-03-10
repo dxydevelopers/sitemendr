@@ -7,11 +7,24 @@ const normalizeOrigin = (value) => {
   return value.replace(/\/$/, '');
 };
 
+let io;
+
 const initSocket = (server) => {
-  const frontendOrigin = normalizeOrigin(process.env.FRONTEND_URL) || "http://localhost:3000";
-  const io = new Server(server, {
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ].map(normalizeOrigin);
+
+  io = new Server(server, {
     cors: {
-      origin: frontendOrigin,
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       methods: ["GET", "POST"],
       credentials: true
     }
@@ -22,17 +35,34 @@ const initSocket = (server) => {
   io.on("connection", (socket) => {
     logger.info(`User connected: ${socket.id}`);
 
+    // Join a private room for the user to receive notifications
+    socket.on("join_user", (userId) => {
+      socket.join(`user_${userId}`);
+      logger.info(`User ${socket.id} joined private room: user_${userId}`);
+    });
+
     // Join a specific room based on session/user ID
-    socket.on("join_chat", async (chatId) => {
+    socket.on("join_chat", async (data) => {
+      const chatId = typeof data === 'string' ? data : data.chatId;
+      const userId = typeof data === 'object' ? data.userId : null;
+      
       socket.join(chatId);
-      logger.info(`User ${socket.id} joined chat: ${chatId}`);
+      logger.info(`User ${socket.id} joined chat: ${chatId}${userId ? ` (User: ${userId})` : ''}`);
       
       // Send message history to the user/agent joining
       try {
-        const session = await prisma.chatSession.findUnique({
+        let session = await prisma.chatSession.findUnique({
           where: { externalId: chatId },
           include: { messages: { orderBy: { timestamp: 'asc' } } }
         });
+
+        // Link userId to session if it's missing
+        if (session && userId && !session.userId) {
+          await prisma.chatSession.update({
+            where: { id: session.id },
+            data: { userId }
+          });
+        }
         
         if (session) {
           socket.emit("chat_history", session.messages);
@@ -141,6 +171,12 @@ const initSocket = (server) => {
       }
     });
 
+    socket.on("agent_joined", (data) => {
+      const { chatId, agentName, type } = data;
+      logger.info(`Agent ${agentName} joining chat ${chatId}`);
+      socket.to(chatId).emit("agent_joined", { agentName, type });
+    });
+
     socket.on("disconnect", () => {
       logger.info(`User disconnected: ${socket.id}`);
     });
@@ -149,4 +185,28 @@ const initSocket = (server) => {
   return io;
 };
 
-module.exports = { initSocket };
+const getIO = () => {
+  if (!io) {
+    throw new Error("Socket.io not initialized!");
+  }
+  return io;
+};
+
+const notifyUser = (userId, event, data) => {
+  if (io) {
+    io.to(`user_${userId}`).emit(event, data);
+  }
+};
+
+const notifyAdmins = (event, data) => {
+  if (io) {
+    io.to("admin_room").emit(event, data);
+  }
+};
+
+module.exports = { 
+  initSocket, 
+  getIO, 
+  notifyUser, 
+  notifyAdmins 
+};

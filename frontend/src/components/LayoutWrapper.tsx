@@ -33,12 +33,24 @@ export default function LayoutWrapper({
     normalizedPath?.startsWith('/reset-password') ||
     normalizedPath?.startsWith('/verify-email');
 
+  const isAdminRoute = 
+    normalizedPath === '/admin' || 
+    normalizedPath?.startsWith('/admin/') ||
+    normalizedPath === '/admin-dashboard';
+
+  const isAuthRoute =
+    normalizedPath === '/login' || 
+    normalizedPath === '/register' || 
+    normalizedPath?.startsWith('/forgot-password') || 
+    normalizedPath?.startsWith('/reset-password') || 
+    normalizedPath?.startsWith('/verify-email');
+
   return (
     <PaymentEnforcer>
       {!isDashboardRoute && <Navigation />}
       {children}
       {!isDashboardRoute && <Footer />}
-      {!isDashboardRoute && <ChatSupport />}
+      {!isAdminRoute && !isAuthRoute && <ChatSupport />}
     </PaymentEnforcer>
   );
 }

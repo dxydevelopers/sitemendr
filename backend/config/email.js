@@ -85,7 +85,7 @@ const sendEmail = async ({ to, subject, html, from, replyTo }) => {
       to,
       subject,
       html,
-      replyTo,
+      replyTo: replyTo || emailFromDefault,
     });
     if (useLogTransport) {
       logger.info('Email payload captured (log transport)', {

@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const { sendEmail, verifyConnection } = require('../config/email');
+const { notifyUser } = require('../services/socketService');
 const { runSuspensionAutomation, suspendSubscription } = require('../scripts/suspensionAutomation');
 const { verifyDomains } = require('../scripts/dnsWorker');
 const logger = require('../config/logger');
@@ -703,8 +704,23 @@ exports.addSupportTicketMessage = async (req, res) => {
       }
     });
 
-    // Update ticket status if it was open to 'replied' or similar if needed
-    // For now we just keep it as is or the admin can manually change status
+    // Notify the user of the new support message
+    try {
+      const ticket = await prisma.supportTicket.findUnique({
+        where: { id },
+        select: { userId: true }
+      });
+      
+      if (ticket) {
+        notifyUser(ticket.userId, 'new_support_message', {
+          ticketId: id,
+          messageId: message.id,
+          timestamp: message.createdAt
+        });
+      }
+    } catch (err) {
+      logger.error('Error notifying user of support message', err);
+    }
 
     res.status(201).json({
       success: true,

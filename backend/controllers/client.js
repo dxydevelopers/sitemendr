@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const dns = require('dns').promises;
+const { notifyAdmins } = require('../services/socketService');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
 const logger = require('../config/logger');
@@ -345,6 +346,14 @@ exports.sendMessage = async (req, res) => {
         sender: 'USER',
         isRead: true 
       }
+    });
+
+    // Notify admins of new client message
+    notifyAdmins('new_client_message', {
+      messageId: message.id,
+      userId,
+      subject,
+      timestamp: message.createdAt
     });
 
     res.json({

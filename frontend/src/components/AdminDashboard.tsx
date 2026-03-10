@@ -1,7 +1,8 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
 import BlogEditor from './BlogEditor';
 import AssessmentModal from './AssessmentModal';
 import { apiClient } from '@/lib/api';
@@ -210,7 +211,53 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState(false);
   const [enforcementSettings, setEnforcementSettings] = useState<EnforcementSettings | null>(null);
   const [isSystemWorking, setIsSystemWorking] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const activeTabRef = useRef(activeTab);
   const router = useRouter();
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    let normalizedUrl = socketUrl;
+    if (!process.env.NEXT_PUBLIC_SOCKET_URL && normalizedUrl.includes('/api')) {
+      normalizedUrl = normalizedUrl.replace(/\/api$/, '');
+    }
+    
+    socketRef.current = io(normalizedUrl);
+
+    socketRef.current.on('connect', () => {
+      socketRef.current?.emit('admin_join');
+    });
+
+    socketRef.current.on('new_client_message', (data) => {
+      console.log('New client message:', data);
+      if (activeTabRef.current === 'dashboard') {
+        fetchData();
+      }
+    });
+
+    socketRef.current.on('new_support_ticket', (data) => {
+      console.log('New support ticket:', data);
+      if (activeTabRef.current === 'tickets' || activeTabRef.current === 'dashboard') {
+        fetchData();
+      }
+    });
+
+    socketRef.current.on('new_support_message_from_user', (data) => {
+      console.log('New support message from user:', data);
+      if (activeTabRef.current === 'tickets') {
+        fetchData();
+      }
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [fetchData]);
+
   const userGrowthTrend = analytics?.predictions?.growthRate?.users;
   const revenueGrowthTrend = analytics?.predictions?.growthRate?.revenue;
 
