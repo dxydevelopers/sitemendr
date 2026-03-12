@@ -6,16 +6,23 @@ const logger = require('../config/logger');
  */
 exports.getTiers = async (req, res) => {
   try {
+    logger.info('GET_TIERS_REQUEST_RECEIVED');
     const tiers = await supporterService.getTiers();
+    logger.info('GET_TIERS_SUCCESS', { count: tiers?.length });
     res.json({
       success: true,
       tiers
     });
   } catch (error) {
-    logger.error('Error in getTiers controller', { error: error.message });
+    logger.error('Error in getTiers controller', { 
+      message: error.message,
+      stack: error.stack,
+      modelExists: !!require('../config/db').prisma.supporterTier
+    });
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch supporter tiers'
+      message: 'Failed to fetch supporter tiers',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
