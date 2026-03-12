@@ -88,11 +88,31 @@ exports.initializePayment = async (req, res) => {
       email = authUser?.email?.toLowerCase();
     }
 
+    let finalAmount = amount;
+    let finalDescription = description;
+
+    // Handle Supporter Tier Initialization (Backend determines amount)
+    if (serviceType === 'supporter' && metadata?.tierId) {
+      const tier = await prisma.supporterTier.findUnique({
+        where: { id: metadata.tierId }
+      });
+      
+      if (!tier) {
+        return res.status(404).json({
+          success: false,
+          message: 'Supporter tier not found'
+        });
+      }
+      
+      finalAmount = tier.monthlyPrice;
+      finalDescription = `Sitemendr Supporter: ${tier.name}`;
+    }
+
     const missing = [];
-    if (amount === undefined || amount === null) missing.push('amount');
+    if (finalAmount === undefined || finalAmount === null) missing.push('amount');
     if (!email) missing.push('email');
     if (!serviceType) missing.push('serviceType');
-    if (!description) missing.push('description');
+    if (!finalDescription) missing.push('description');
 
     if (missing.length) {
       return res.status(400).json({
@@ -144,14 +164,14 @@ exports.initializePayment = async (req, res) => {
     // Use USD as the default currency across the system
     const targetCurrency = process.env.PAYSTACK_CURRENCY || 'USD';
     const sourceCurrency = finalMetadata.currency || 'USD';
-    let finalAmount = amount;
+    let paystackAmount = finalAmount;
 
     // Only convert if explicitly configured to use NGN and input is USD
     if (sourceCurrency === 'USD' && targetCurrency === 'NGN') {
       // Dynamic conversion logic if needed
       const rate = 1500; 
-      finalAmount = amount * rate;
-      logger.info('Converting USD to NGN for Paystack', { original: amount, converted: finalAmount, rate });
+      paystackAmount = finalAmount * rate;
+      logger.info('Converting USD to NGN for Paystack', { original: finalAmount, converted: paystackAmount, rate });
     }
 
     // Create payment record
@@ -159,16 +179,16 @@ exports.initializePayment = async (req, res) => {
       data: {
         userId,
         reference,
-        amount: Math.round(finalAmount * 100), // Convert to subunits (cents/kobo)
+        amount: Math.round(paystackAmount * 100), // Convert to subunits (cents/kobo)
         currency: targetCurrency,
         serviceType,
-        description,
+        description: finalDescription,
         metadata: finalMetadata
       }
     });
 
     // Initialize Paystack payment
-    const koboAmount = Math.round(finalAmount * 100);
+    const koboAmount = Math.round(paystackAmount * 100);
     logger.info('Initializing Paystack transaction', {
       email,
       amount: koboAmount,
