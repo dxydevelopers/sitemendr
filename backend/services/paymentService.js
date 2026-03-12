@@ -3,6 +3,7 @@ const logger = require('../config/logger');
 const { generateTemplateAI } = require('../controllers/assessment');
 const { sendEmail } = require('../config/email');
 const { deployTemplate } = require('./deploymentService');
+const supporterService = require('./supporterService');
 
 /**
  * Process a successful payment and trigger necessary provisioning
@@ -28,6 +29,10 @@ exports.processSuccessfulPayment = async (paymentId) => {
     // 2. Handle Add-ons
     else if (serviceType === 'addon') {
       await handleAddonProvisioning(payment);
+    }
+    // 3. Handle Supporter Subscriptions
+    else if (serviceType === 'supporter' || serviceType === 'supporter_subscription') {
+      await supporterService.handleSupporterActivation(payment);
     }
 
     logger.info('Payment processing completed successfully', { paymentId, serviceType });

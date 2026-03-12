@@ -38,6 +38,7 @@ model User {
   media                   Media[]
   orders                  Order[]
   bookings                Booking[]
+  supporters              Supporter[]
 }
 
 enum Role {
@@ -192,6 +193,8 @@ model Payment {
   serviceType     String
   description     String
   invoiceId       String?     
+  supporterId     String?
+  supporter       Supporter?  @relation(fields: [supporterId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
@@ -287,6 +290,7 @@ model SupportMessage {
   sender    User?         @relation(fields: [senderId], references: [id])
   content   String
   isAdmin   Boolean       @default(false)
+  isRead    Boolean       @default(false)
   createdAt DateTime      @default(now())
 }
 
@@ -370,6 +374,8 @@ model Order {
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
   status         String       @default("pending") // pending, processing, shipped, delivered, cancelled
   totalAmount    Float
+  discountCodeId String?
+  discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
   items          OrderItem[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -413,5 +419,270 @@ model Booking {
   notes          String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+// =============================================================================
+// Supporter Models
+// =============================================================================
+
+/// Supporter tier configuration (managed by admin)
+model SupporterTier {
+  id                String          @id @default(uuid())
+  name              String          // e.g., "Starter Supporter", "Founders Circle"
+  slug              String          @unique // e.g., "starter", "founders-circle"
+  description       String?
+  monthlyPrice      Float           // Monthly subscription price in USD
+  yearlyPrice       Float?          // Optional yearly price
+  discountPercent   Int             // Discount percentage: 5, 10, 15, 20, 25
+  displayOrder      Int             @default(0)
+  isActive          Boolean         @default(true)
+  
+  // Perks (JSON array of perk IDs)
+  perks             String[]        // e.g., ["badge", "wall", "early-access"]
+  
+  // Relations
+  supporters        Supporter[]
+  discountCodes     DiscountCode[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+/// Individual supporter subscription
+model Supporter {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  tierId            String
+  tier              SupporterTier   @relation(fields: [tierId], references: [id])
+  
+  // Subscription details
+  status            SupporterStatus @default(active)
+  reference         String          @unique // Paystack subscription reference
+  
+  // Billing
+  monthlyAmount     Float
+  currency          String          @default("USD")
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  lastPaymentDate   DateTime?
+  cancelAtPeriodEnd Boolean         @default(false)
+  
+  // Profile visibility
+  showOnWall        Boolean         @default(true)
+  spotlightTier     Int             @default(0) // 0=none, 1-5=tier level
+  
+  // Relations
+  discountCodes     DiscountCode[]
+  redeemedPerks     RedeemedPerk[]
+  payments          Payment[]
+  spotlights        SupporterSpotlight[]
+  eventRegistrations EventRegistration[]
+  votes             VoteChoice[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+enum SupporterStatus {
+  active
+  paused
+  cancelled
+  expired
+}
+
+/// Discount codes generated for supporters
+model DiscountCode {
+  id                String          @id @default(uuid())
+  code              String          @unique // e.g., "SUPPORTER-2024-XYZ123"
+  
+  // Ownership
+  supporterId       String?
+  supporter         Supporter?      @relation(fields: [supporterId], references: [id])
+  tierId            String?
+  tier              SupporterTier?  @relation(fields: [tierId], references: [id])
+  
+  // Discount details
+  discountType      DiscountType    @default(percentage)
+  discountValue     Float           // e.g., 10 for 10%
+  minPurchaseAmount Float?          // Minimum order amount to qualify
+  maxUses           Int?             // Maximum uses (null = unlimited)
+  currentUses       Int             @default(0)
+  
+  // Validity
+  isActive          Boolean         @default(true)
+  validFrom         DateTime        @default(now())
+  expiresAt         DateTime?
+  
+  // Relations
+  orders            Order[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+/// Perks that supporters can redeem
+model Perk {
+  id                String          @id @default(uuid())
+  name              String
+  slug              String          @unique
+  description       String?
+  icon              String?         // Icon name (e.g., "badge", "video")
+  tierRequired      String[]        // Required tier slugs
+  
+  // Redemption
+  isRedeemable      Boolean         @default(true)
+  maxRedemptions    Int?            // Per supporter limit
+  
+  // Content
+  redemptionUrl     String?         // Link to content (video, download, etc.)
+  redemptionCode    String?         // Secret code for manual redemption
+  
+  // Relations
+  redeemedPerks     RedeemedPerk[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+/// Track which perks a supporter has redeemed
+model RedeemedPerk {
+  id                String          @id @default(uuid())
+  supporterId       String
+  supporter         Supporter       @relation(fields: [supporterId], references: [id])
+  perkId            String
+  perk              Perk            @relation(fields: [perkId], references: [id])
+  
+  redeemedAt        DateTime        @default(now())
+  redemptionCode    String?         // For manual redemption
+  
+  @@unique([supporterId, perkId])
+}
+
+/// Supporter spotlight entries (public wall)
+model SupporterSpotlight {
+  id                String          @id @default(uuid())
+  supporterId       String
+  supporter         Supporter       @relation(fields: [supporterId], references: [id])
+  
+  message           String?         // Optional personal message
+  displayName       String?         // Custom display name
+  tierLevel         Int             // Snapshot of tier level
+  
+  isActive          Boolean         @default(true)
+  displayOrder      Int             @default(0)
+  
+  createdAt         DateTime        @default(now())
+}
+
+/// Community events (roundtables, AMAs)
+model CommunityEvent {
+  id                String          @id @default(uuid())
+  title              String
+  slug              String          @unique
+  description       String
+  eventType         EventType       // roundtable, ama, poll
+  
+  // Scheduling
+  scheduledAt       DateTime
+  durationMinutes   Int             @default(60)
+  timezone          String          @default("UTC")
+  
+  // Access
+  tierRequired      String[]        // Required tier slugs
+  maxParticipants   Int?
+  currentParticipants Int           @default(0)
+  
+  // Content
+  meetingLink       String?         // Zoom/Google Meet link
+  recordingUrl      String?         // Post-event recording
+  
+  // Status
+  status            EventStatus     @default(scheduled)
+  
+  // Relations
+  registrations     EventRegistration[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+enum EventType {
+  roundtable
+  ama
+  poll
+}
+
+enum EventStatus {
+  scheduled
+  live
+  completed
+  cancelled
+}
+
+/// Event registrations
+model EventRegistration {
+  id                String          @id @default(uuid())
+  eventId           String
+  event             CommunityEvent  @relation(fields: [eventId], references: [id])
+  supporterId       String
+  supporter         Supporter       @relation(fields: [supporterId], references: [id])
+  
+  status            String          @default("registered") // registered, attended, no-show
+  
+  registeredAt      DateTime        @default(now())
+  
+  @@unique([eventId, supporterId])
+}
+
+/// Product council voting
+model ProductVote {
+  id                String          @id @default(uuid())
+  title             String
+  description       String
+  options           String[]        // Voting options as JSON
+  
+  // Access
+  tierRequired      String[]        // Required tier slugs
+  
+  // Timing
+  startsAt          DateTime
+  endsAt            DateTime
+  
+  // Status
+  status            VoteStatus      @default(draft)
+  
+  // Relations
+  votes             VoteChoice[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+enum VoteStatus {
+  draft
+  active
+  closed
+  results
+}
+
+/// Individual vote choices
+model VoteChoice {
+  id                String          @id @default(uuid())
+  voteId            String
+  vote              ProductVote     @relation(fields: [voteId], references: [id])
+  supporterId       String
+  supporter         Supporter       @relation(fields: [supporterId], references: [id])
+  
+  optionIndex       Int             // Which option was chosen
+  
+  votedAt           DateTime        @default(now())
+  
+  @@unique([voteId, supporterId])
 }
 

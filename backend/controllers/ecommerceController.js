@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const logger = require('../config/logger');
+const discountService = require('../services/discountService');
 
 // Get all products
 exports.getAllProducts = async (req, res) => {
@@ -88,7 +89,7 @@ exports.deleteProduct = async (req, res) => {
 // Create order
 exports.createOrder = async (req, res) => {
   try {
-    const { items, subscriptionId } = req.body; // items: [{ productId, quantity }]
+    const { items, subscriptionId, discountCode } = req.body; // items: [{ productId, quantity }]
     const userId = req.user.id;
 
     if (!items || items.length === 0) {
@@ -120,6 +121,21 @@ exports.createOrder = async (req, res) => {
       });
     }
 
+    // Apply discount code if provided
+    let appliedDiscountCode = null;
+    let discountAmount = 0;
+    
+    if (discountCode) {
+      const validation = await discountService.validateDiscountCode(discountCode, userId, totalAmount);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
+      }
+      
+      appliedDiscountCode = validation.discountCode;
+      discountAmount = discountService.calculateDiscount(appliedDiscountCode, totalAmount);
+      totalAmount = Math.max(0, totalAmount - discountAmount);
+    }
+
     // Create order and update stock in a transaction
     const order = await prisma.$transaction(async (tx) => {
       const newOrder = await tx.order.create({
@@ -127,12 +143,21 @@ exports.createOrder = async (req, res) => {
           userId,
           subscriptionId,
           totalAmount,
+          discountCodeId: appliedDiscountCode?.id,
           items: {
             create: orderItemsData,
           },
         },
         include: { items: true },
       });
+
+      // Update discount code usage
+      if (appliedDiscountCode) {
+        await tx.discountCode.update({
+          where: { id: appliedDiscountCode.id },
+          data: { currentUses: { increment: 1 } }
+        });
+      }
 
       // Update stock
       for (const item of items) {

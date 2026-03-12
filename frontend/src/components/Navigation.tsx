@@ -59,6 +59,7 @@ export default function Navigation() {
   const guestNavItems = [
     { name: 'Home', href: '/' },
     { name: 'Services', href: '/services' },
+    { name: 'Supporters', href: '/support' },
     { name: 'Process', href: '/about#process' },
     { name: 'Pricing', href: '/payment' },
     { name: 'Contact', href: '/contact' },
@@ -66,6 +67,7 @@ export default function Navigation() {
 
   const clientNavItems = [
     { name: 'Dashboard', href: '/dashboard' },
+    { name: 'Supporter', href: '/supporter/dashboard' },
     { name: 'My Projects', href: '/dashboard/projects' },
     { name: 'Billing', href: '/dashboard/billing' },
     { name: 'Support', href: '/dashboard/support' },

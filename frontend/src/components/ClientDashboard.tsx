@@ -315,8 +315,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
       // Map inconsistent backend response keys to frontend state
       const projectList = (projectsRes as any).data || (projectsRes as any).projects;
+      console.log('DEBUG: projectList from API:', projectList);
       if (projectsRes.success && projectList && Array.isArray(projectList)) {
         setProjects(projectList);
+        console.log('DEBUG: Projects set in state:', projectList.length);
         // If no project is selected but we have projects, select the first one
         if (!projectId && projectList.length > 0 && !selectedProjectId) {
           setSelectedProjectId(projectList[0].id);
@@ -502,12 +504,22 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     { id: 'editor', label: 'Visual Editor', icon: <MousePointer2 className="w-5 h-5" /> },
     { id: 'audit', label: 'Performance', icon: <Zap className="w-5 h-5" /> },
     { id: 'domains', label: 'Domains', icon: <Globe className="w-5 h-5" /> },
-    { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
+    { 
+      id: 'messages', 
+      label: 'Messages', 
+      icon: <MessageSquare className="w-5 h-5" />,
+      count: messages.filter(m => !m.isRead && m.sender !== 'USER').length 
+    },
     { id: 'billing', label: 'Billing', icon: <CreditCard className="w-5 h-5" /> },
     { id: 'addons', label: 'Add-ons', icon: <ShoppingBag className="w-5 h-5" /> },
     { id: 'booking', label: 'Booking', icon: <Clock className="w-5 h-5" /> },
     { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" /> },
+    { 
+      id: 'support', 
+      label: 'Support', 
+      icon: <LifeBuoy className="w-5 h-5" />,
+      count: tickets.filter(t => t.status === 'open' || t.status === 'pending').length 
+    },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
 
@@ -562,7 +574,12 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                   <span className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === item.id ? 'opacity-100' : 'opacity-40'}`}>
                     {item.icon}
                   </span>
-                  <span className="font-semibold text-[13px] tracking-tight">{item.label}</span>
+                  <span className="font-semibold text-[13px] tracking-tight flex-1">{item.label}</span>
+                  {(item as any).count > 0 && (
+                    <span className="bg-ai-blue text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg shadow-ai-blue/20">
+                      {(item as any).count}
+                    </span>
+                  )}
                 </button>
               </li>
             ))}
@@ -694,8 +711,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     {/* Support Node */}
                     <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-tech-purple/30 transition-all">
                       <div className="flex justify-between items-start mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-tech-purple/10 border border-tech-purple/20 flex items-center justify-center text-tech-purple">
+                        <div className="w-10 h-10 rounded-xl bg-tech-purple/10 border border-tech-purple/20 flex items-center justify-center text-tech-purple relative">
                           <LifeBuoy className="w-5 h-5" />
+                          {tickets.filter(t => t.status === 'open' || t.status === 'pending').length > 0 && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-ai-blue border-2 border-darker-bg rounded-full"></div>
+                          )}
                         </div>
                         <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Support Center</span>
                       </div>
@@ -710,8 +730,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     {/* Comms Sync */}
                     <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-ai-blue/30 transition-all">
                       <div className="flex justify-between items-start mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-ai-blue/10 border border-ai-blue/20 flex items-center justify-center text-ai-blue">
+                        <div className="w-10 h-10 rounded-xl bg-ai-blue/10 border border-ai-blue/20 flex items-center justify-center text-ai-blue relative">
                           <MessageSquare className="w-5 h-5" />
+                          {messages.filter(m => !m.isRead && m.sender !== 'USER').length > 0 && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-ai-blue border-2 border-darker-bg rounded-full"></div>
+                          )}
                         </div>
                         <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Messages</span>
                       </div>

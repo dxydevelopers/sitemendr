@@ -14,5 +14,6 @@ router.post('/tickets', supportController.createTicket);
 router.get('/tickets', supportController.getUserTickets);
 router.get('/tickets/:id', supportController.getTicketDetails);
 router.post('/tickets/:id/messages', supportController.addMessage);
+router.post('/tickets/:id/read', supportController.markTicketRead);
 
 module.exports = router;

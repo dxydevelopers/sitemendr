@@ -372,6 +372,55 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+// Mark message as read
+exports.markMessageRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    await prisma.message.updateMany({
+      where: { id, userId },
+      data: { isRead: true }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to mark message as read', { error: error.message });
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Update a client message
+exports.updateMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subject, content } = req.body;
+    const userId = req.user.userId;
+
+    const message = await prisma.message.findFirst({
+      where: { id, userId }
+    });
+
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    if (message.sender !== 'USER') {
+      return res.status(403).json({ success: false, message: 'Cannot edit system messages' });
+    }
+
+    const updatedMessage = await prisma.message.update({
+      where: { id },
+      data: { subject, content }
+    });
+
+    res.json({ success: true, message: updatedMessage });
+  } catch (error) {
+    logger.error('Failed to update message', { error: error.message });
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // Get client resources
 exports.getResources = async (req, res) => {
   try {

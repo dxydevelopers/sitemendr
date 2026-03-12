@@ -34,6 +34,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   const [selectedMessage, setSelectedMessage] = useState<MessageItem | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -51,11 +52,16 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
     e.preventDefault();
     setIsSending(true);
     try {
-      await apiClient.sendClientMessage(formData.subject, formData.content);
+      if (editingMessageId) {
+        await apiClient.put(`/client/messages/${editingMessageId}`, formData);
+      } else {
+        await apiClient.sendClientMessage(formData.subject, formData.content);
+      }
       setSendSuccess(true);
       setTimeout(() => {
         setSendSuccess(false);
         setShowCompose(false);
+        setEditingMessageId(null);
         setFormData({ subject: '', content: '' });
         if (onRefresh) onRefresh();
       }, 2000);
@@ -66,12 +72,34 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
     }
   };
 
+  const handleEditMessage = (msg: MessageItem) => {
+    setFormData({
+      subject: msg.subject,
+      content: msg.content
+    });
+    setEditingMessageId(msg.id);
+    setShowCompose(true);
+  };
+
   const handleReply = (msg: MessageItem) => {
+    setEditingMessageId(null);
     setFormData({
       subject: `RE: ${msg.subject}`,
       content: `\n\n--- Original Message ---\nFrom: ${msg.sender || 'System'}\nDate: ${new Date(msg.createdAt).toLocaleString()}\n\n${msg.content}`
     });
     setShowCompose(true);
+  };
+
+  const handleSelectMessage = async (msg: MessageItem) => {
+    setSelectedMessage(msg);
+    if (!msg.isRead) {
+      try {
+        await apiClient.post(`/client/messages/${msg.id}/read`, {});
+        if (onRefresh) onRefresh();
+      } catch (error) {
+        console.error('Failed to mark message as read:', error);
+      }
+    }
   };
 
   return (
@@ -113,7 +141,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             filteredMessages.map((msg) => (
               <button
                 key={msg.id}
-                onClick={() => setSelectedMessage(msg)}
+                onClick={() => handleSelectMessage(msg)}
                 className={`w-full p-6 text-left border-b border-white/5 hover:bg-white/[0.02] transition-all relative group ${
                   selectedMessage?.id === msg.id ? 'bg-white/[0.03]' : ''
                 }`}
@@ -202,9 +230,19 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             </div>
             
             <div className="p-6 lg:p-8 border-t border-white/5 bg-white/[0.02] flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-ai-blue rounded-full animate-pulse"></div>
-                <p className="text-[9px] font-black text-ai-blue uppercase tracking-[0.3em]">Secure Connection Active</p>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-ai-blue rounded-full animate-pulse"></div>
+                  <p className="text-[9px] font-black text-ai-blue uppercase tracking-[0.3em]">Secure Connection Active</p>
+                </div>
+                {selectedMessage.sender === 'USER' && (
+                  <button 
+                    onClick={() => handleEditMessage(selectedMessage)}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[8px] font-black text-white/60 uppercase tracking-widest transition-all"
+                  >
+                    Edit Transmission
+                  </button>
+                )}
               </div>
               <button 
                 onClick={() => handleReply(selectedMessage)}
@@ -236,11 +274,14 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             <div className="p-8 lg:p-10 border-b border-white/5 flex items-center justify-between">
               <h2 className="text-xl lg:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-4">
                 <Plus className="w-6 h-6 text-ai-blue" />
-                Initialize <span className="text-ai-blue italic">Transmission</span>
+                {editingMessageId ? 'Update' : 'Initialize'} <span className="text-ai-blue italic">Transmission</span>
               </h2>
               <button 
                 disabled={isSending}
-                onClick={() => setShowCompose(false)} 
+                onClick={() => {
+                  setShowCompose(false);
+                  setEditingMessageId(null);
+                }} 
                 className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-500 transition-all disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
@@ -277,13 +318,16 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                 <button 
                   type="button"
                   disabled={isSending}
-                  onClick={() => setShowCompose(false)}
+                  onClick={() => {
+                    setShowCompose(false);
+                    setEditingMessageId(null);
+                  }}
                   className="order-2 sm:order-1 flex-1 py-5 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/5 transition-all disabled:opacity-50"
                 >
                   Terminate
                 </button>
                 <button 
-                  type="submit"
+                  type="submit" 
                   disabled={isSending || sendSuccess}
                   className={`order-1 sm:order-2 flex-[2] py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-lg ${
                     sendSuccess 
@@ -292,11 +336,11 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                   } disabled:opacity-50`}
                 >
                   {isSending ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Transmitting...</>
+                    <><Loader2 className="w-5 h-5 animate-spin" /> {editingMessageId ? 'Updating' : 'Transmitting'}...</>
                   ) : sendSuccess ? (
-                    <><CheckCircle2 className="w-5 h-5" /> Transmission Complete</>
+                    <><CheckCircle2 className="w-5 h-5" /> {editingMessageId ? 'Update' : 'Transmission'} Complete</>
                   ) : (
-                    <><Send className="w-5 h-5" /> Authorize Transmit</>
+                    <><Send className="w-5 h-5" /> Authorize {editingMessageId ? 'Update' : 'Transmit'}</>
                   )}
                 </button>
               </div>

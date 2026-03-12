@@ -22,6 +22,8 @@ export default function LayoutWrapper({
   const isDashboardRoute = 
     normalizedPath === '/dashboard' || 
     normalizedPath?.startsWith('/dashboard/') || 
+    normalizedPath === '/supporter/dashboard' || 
+    normalizedPath?.startsWith('/supporter/dashboard/') || 
     normalizedPath === '/admin' || 
     normalizedPath?.startsWith('/admin/') ||
     normalizedPath === '/admin-dashboard' ||

@@ -16,6 +16,8 @@ router.get('/activities', clientController.getActivities);
 router.get('/billing', clientController.getBilling);
 router.get('/messages', clientController.getMessages);
 router.post('/messages', clientController.sendMessage);
+router.post('/messages/:id/read', clientController.markMessageRead);
+router.put('/messages/:id', clientController.updateMessage);
 router.get('/resources', clientController.getResources);
 router.get('/support', clientController.getSupportTickets);
 router.post('/support', clientController.createSupportTicket);

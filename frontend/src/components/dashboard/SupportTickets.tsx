@@ -174,6 +174,27 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
     );
   }
 
+  const handleSelectTicket = async (ticket: SupportTicket) => {
+    setSelectedTicket(ticket);
+    setView('details');
+    
+    // Mark as read if has unread admin messages
+    const hasUnread = ticket.messages.some(m => m.isAdmin && !(m as any).isRead);
+    if (hasUnread) {
+      try {
+        await apiClient.post(`/support/tickets/${ticket.id}/read`, {});
+        // Refresh local state or just update the flag
+        setTickets(tickets.map(t => 
+          t.id === ticket.id 
+            ? { ...t, messages: t.messages.map(m => m.isAdmin ? { ...m, isRead: true } : m) } 
+            : t
+        ));
+      } catch (error) {
+        console.error('Failed to mark ticket as read:', error);
+      }
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-10 animate-fade-in pb-20 px-2">
       {/* Header */}
@@ -251,9 +272,12 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                 {tickets.map((ticket) => (
                   <button 
                     key={ticket.id}
-                    onClick={() => { setSelectedTicket(ticket); setView('details'); }}
-                    className="w-full p-8 lg:p-10 flex items-center justify-between hover:bg-white/[0.02] transition-all group"
+                    onClick={() => handleSelectTicket(ticket)}
+                    className="w-full p-8 lg:p-10 flex items-center justify-between hover:bg-white/[0.02] transition-all group relative"
                   >
+                    {ticket.messages.some(m => m.isAdmin && !(m as any).isRead) && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-ai-blue shadow-[0_0_10px_rgba(0,102,255,0.5)]"></div>
+                    )}
                     <div className="flex items-center gap-8">
                       <div className={`w-3 h-3 rounded-full animate-pulse ${ticket.status === 'open' ? 'bg-expert-green' : 'bg-white/20'}`}></div>
                       <div className="text-left space-y-1">

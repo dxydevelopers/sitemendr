@@ -322,9 +322,15 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
             </div>
           ))}
           {bookings.length === 0 && (
-            <div className="py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
-              <Calendar className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">Chronos ledger empty - no sessions scheduled</p>
+            <div className="py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px] flex flex-col items-center">
+              <Calendar className="w-16 h-16 text-white/5 mb-6" />
+              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em] mb-8">Chronos ledger empty - no sessions scheduled</p>
+              <button 
+                onClick={() => setActiveTab('services')}
+                className="px-10 py-5 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-2xl hover:scale-105 transition-all"
+              >
+                Schedule First Consultation
+              </button>
             </div>
           )}
         </div>

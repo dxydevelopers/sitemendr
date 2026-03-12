@@ -368,6 +368,25 @@ exports.handleWebhook = async (req, res) => {
           error: processingError.message
         });
       }
+    } else if (event.event === 'subscription.create') {
+      const { customer, plan, subscription_code } = event.data;
+      logger.info('Subscription created webhook received', { customer: customer.email, plan: plan.name, code: subscription_code });
+      
+      // Update supporter record status if exists
+      const { prisma } = require('../config/db');
+      await prisma.supporter.updateMany({
+        where: { reference: subscription_code },
+        data: { status: 'active' }
+      });
+    } else if (event.event === 'subscription.disable' || event.event === 'subscription.not_renew') {
+      const { subscription_code } = event.data;
+      logger.info('Subscription disabled/cancelled webhook received', { code: subscription_code });
+      
+      const { prisma } = require('../config/db');
+      await prisma.supporter.updateMany({
+        where: { reference: subscription_code },
+        data: { status: 'cancelled' }
+      });
     }
 
     res.json({ received: true });

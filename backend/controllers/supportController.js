@@ -246,6 +246,39 @@ exports.addMessage = async (req, res) => {
 };
 
 /**
+ * Mark ticket messages as read
+ */
+exports.markTicketRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    // Verify ownership
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id }
+    });
+
+    if (!ticket || ticket.userId !== userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    await prisma.supportMessage.updateMany({
+      where: { 
+        ticketId: id,
+        isAdmin: true,
+        isRead: false
+      },
+      data: { isRead: true }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('MARK_TICKET_READ_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
  * AI Support Bot Chat
  */
 exports.chatWithSupport = async (req, res) => {
@@ -288,7 +321,7 @@ exports.chatWithSupport = async (req, res) => {
     const messages = [
       {
         role: "system",
-        content: "You are the Sitemendr AI Assistant. You help clients with website building, technical repairs, and maintenance questions. Be professional, concise, and helpful. If you cannot solve an issue, suggest creating a support ticket."
+        content: "You are the Sitemendr AI Operations Assistant. You are an expert on Sitemendr's services: high-performance AI-generated websites, professional infrastructure maintenance, technical repairs, and managed hosting. You ONLY talk about Sitemendr and its services. If asked about anything outside of Sitemendr's scope, politely redirect the conversation back to how Sitemendr can help with their digital infrastructure. You are concise, professional, and technical. If a complex issue arises, suggest opening a support ticket for our human engineering team."
       },
       ...history.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
