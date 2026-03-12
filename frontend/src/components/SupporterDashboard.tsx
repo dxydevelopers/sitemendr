@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Info,
   Trophy,
-  Users
+  Users,
+  CheckCircle2
 } from 'lucide-react';
 import { apiClient, Supporter, User as UserType } from '@/lib/api';
 

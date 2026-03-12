@@ -176,6 +176,73 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
 
+  const fetchData = useCallback(async (projectId?: string) => {
+    try {
+      setLoading(true);
+      const [
+        statsRes, 
+        projectsRes, 
+        activitiesRes,
+        billingRes,
+        messagesRes,
+        ticketsRes,
+        resourcesRes,
+        domainsRes
+      ] = await Promise.all([
+        apiClient.getClientStats(projectId) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
+        apiClient.getClientProjects() as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
+        apiClient.getClientActivities() as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
+        apiClient.getClientBilling() as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
+        apiClient.getClientMessages() as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
+        apiClient.getClientSupportTickets() as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
+        apiClient.getClientResources() as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
+        apiClient.getClientDomains() as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>
+      ]);
+
+      // Map inconsistent backend response keys to frontend state
+      const projectList = (projectsRes as any).data || (projectsRes as any).projects;
+      console.log('DEBUG: projectList from API:', projectList);
+      if (projectsRes.success && projectList && Array.isArray(projectList)) {
+        setProjects(projectList);
+        console.log('DEBUG: Projects set in state:', projectList.length);
+        // If no project is selected but we have projects, select the first one
+        if (!projectId && projectList.length > 0 && !selectedProjectId) {
+          setSelectedProjectId(projectList[0].id);
+        }
+      }
+
+      const activityList = (activitiesRes as any).data || (activitiesRes as any).activities;
+      if (activitiesRes.success && activityList) setActivities(activityList);
+
+      const billingList = (billingRes as any).data || (billingRes as any).billing;
+      if (billingRes.success && billingList) setBilling(billingList);
+
+      const messageList = (messagesRes as any).messages || (messagesRes as any).data;
+      if (messagesRes.success && messageList) setMessages(messageList);
+      
+      const ticketList = (ticketsRes as any).data || (ticketsRes as any).tickets;
+      if (ticketsRes.success && ticketList) setTickets(ticketList);
+
+      const resourceList = (resourcesRes as any).data || (resourcesRes as any).resources;
+      if (resourcesRes.success && resourceList) setResources(resourceList);
+
+      const domainList = (domainsRes as any).domains || (domainsRes as any).data;
+      if (domainsRes.success && domainList) setDomains(domainList);
+
+      // Get user from localStorage
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        setProfileData({ name: parsedUser.name || '', phone: parsedUser.phone || '' });
+      }
+    } catch (err) {
+      console.error('Fetch failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProjectId]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
@@ -289,73 +356,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMessage, setProfileMessage] = useState({ type: '', text: '' });
-
-  const fetchData = useCallback(async (projectId?: string) => {
-    try {
-      setLoading(true);
-      const [
-        statsRes, 
-        projectsRes, 
-        activitiesRes,
-        billingRes,
-        messagesRes,
-        ticketsRes,
-        resourcesRes,
-        domainsRes
-      ] = await Promise.all([
-        apiClient.getClientStats(projectId) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
-        apiClient.getClientProjects() as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
-        apiClient.getClientActivities() as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
-        apiClient.getClientBilling() as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
-        apiClient.getClientMessages() as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
-        apiClient.getClientSupportTickets() as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
-        apiClient.getClientResources() as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
-        apiClient.getClientDomains() as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>
-      ]);
-
-      // Map inconsistent backend response keys to frontend state
-      const projectList = (projectsRes as any).data || (projectsRes as any).projects;
-      console.log('DEBUG: projectList from API:', projectList);
-      if (projectsRes.success && projectList && Array.isArray(projectList)) {
-        setProjects(projectList);
-        console.log('DEBUG: Projects set in state:', projectList.length);
-        // If no project is selected but we have projects, select the first one
-        if (!projectId && projectList.length > 0 && !selectedProjectId) {
-          setSelectedProjectId(projectList[0].id);
-        }
-      }
-
-      const activityList = (activitiesRes as any).data || (activitiesRes as any).activities;
-      if (activitiesRes.success && activityList) setActivities(activityList);
-
-      const billingList = (billingRes as any).data || (billingRes as any).billing;
-      if (billingRes.success && billingList) setBilling(billingList);
-
-      const messageList = (messagesRes as any).messages || (messagesRes as any).data;
-      if (messagesRes.success && messageList) setMessages(messageList);
-      
-      const ticketList = (ticketsRes as any).data || (ticketsRes as any).tickets;
-      if (ticketsRes.success && ticketList) setTickets(ticketList);
-
-      const resourceList = (resourcesRes as any).data || (resourcesRes as any).resources;
-      if (resourcesRes.success && resourceList) setResources(resourceList);
-
-      const domainList = (domainsRes as any).domains || (domainsRes as any).data;
-      if (domainsRes.success && domainList) setDomains(domainList);
-
-      // Get user from localStorage
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setProfileData({ name: parsedUser.name || '', phone: parsedUser.phone || '' });
-      }
-    } catch (err) {
-      console.error('Fetch failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedProjectId]);
 
   useEffect(() => {
     fetchData(selectedProjectId || undefined);

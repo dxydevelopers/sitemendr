@@ -5,6 +5,59 @@ import { apiClient, SupporterTier } from '@/lib/api';
 import SectionDivider from '@/components/SectionDivider';
 import { Check, Star, Zap, Shield, Crown, Heart } from 'lucide-react';
 
+const mockTiers: SupporterTier[] = [
+  {
+    id: 'starter-id',
+    name: 'Starter Supporter',
+    slug: 'starter',
+    monthlyPrice: 5,
+    discountPercent: 5,
+    displayOrder: 1,
+    isActive: true,
+    perks: ['exclusive-badge', 'supporter-wall', 'community-access'],
+  },
+  {
+    id: 'standard-id',
+    name: 'Standard Supporter',
+    slug: 'standard',
+    monthlyPrice: 15,
+    discountPercent: 10,
+    displayOrder: 2,
+    isActive: true,
+    perks: ['early-access', 'voting-rights', 'starter-perks'],
+  },
+  {
+    id: 'plus-id',
+    name: 'Plus Supporter',
+    slug: 'plus',
+    monthlyPrice: 30,
+    discountPercent: 15,
+    displayOrder: 3,
+    isActive: true,
+    perks: ['roundtable-invites', 'product-council', 'standard-perks'],
+  },
+  {
+    id: 'premium-id',
+    name: 'Premium Supporter',
+    slug: 'premium',
+    monthlyPrice: 60,
+    discountPercent: 20,
+    displayOrder: 4,
+    isActive: true,
+    perks: ['ama-access', 'spotlight-status', 'plus-perks'],
+  },
+  {
+    id: 'founders-id',
+    name: 'Founders Circle',
+    slug: 'founders-circle',
+    monthlyPrice: 100,
+    discountPercent: 25,
+    displayOrder: 5,
+    isActive: true,
+    perks: ['private-sessions', 'vip-support', 'premium-perks'],
+  },
+];
+
 const SupportPage = () => {
   const [tiers, setTiers] = useState<SupporterTier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,58 +216,5 @@ const SupportPage = () => {
     </main>
   );
 };
-
-const mockTiers: SupporterTier[] = [
-  {
-    id: 'starter-id',
-    name: 'Starter Supporter',
-    slug: 'starter',
-    monthlyPrice: 5,
-    discountPercent: 5,
-    displayOrder: 1,
-    isActive: true,
-    perks: ['exclusive-badge', 'supporter-wall', 'community-access'],
-  },
-  {
-    id: 'standard-id',
-    name: 'Standard Supporter',
-    slug: 'standard',
-    monthlyPrice: 15,
-    discountPercent: 10,
-    displayOrder: 2,
-    isActive: true,
-    perks: ['early-access', 'voting-rights', 'starter-perks'],
-  },
-  {
-    id: 'plus-id',
-    name: 'Plus Supporter',
-    slug: 'plus',
-    monthlyPrice: 30,
-    discountPercent: 15,
-    displayOrder: 3,
-    isActive: true,
-    perks: ['roundtable-invites', 'product-council', 'standard-perks'],
-  },
-  {
-    id: 'premium-id',
-    name: 'Premium Supporter',
-    slug: 'premium',
-    monthlyPrice: 60,
-    discountPercent: 20,
-    displayOrder: 4,
-    isActive: true,
-    perks: ['ama-access', 'spotlight-status', 'plus-perks'],
-  },
-  {
-    id: 'founders-id',
-    name: 'Founders Circle',
-    slug: 'founders-circle',
-    monthlyPrice: 100,
-    discountPercent: 25,
-    displayOrder: 5,
-    isActive: true,
-    perks: ['private-sessions', 'vip-support', 'premium-perks'],
-  },
-];
 
 export default SupportPage;

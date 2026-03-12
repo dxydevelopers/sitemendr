@@ -22,6 +22,11 @@ const PUBLIC_ROUTES = [
   '/verify-email',
   '/payment/reactivate',
   '/contact',
+  '/services',
+  '/about',
+  '/portfolio',
+  '/support',
+  '/supporter/dashboard',
   '/',
 ];
 

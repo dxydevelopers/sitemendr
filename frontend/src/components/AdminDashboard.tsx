@@ -215,6 +215,46 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const activeTabRef = useRef(activeTab);
   const router = useRouter();
 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (activeTab === 'dashboard') {
+        const res = await apiClient.getAdminStats() as unknown as { success: boolean; data: DashboardStats };
+        if (res.success) setStats(res.data);
+      } else if (activeTab === 'leads') {
+        const res = await apiClient.getAdminLeads() as { success: boolean; data: Lead[] };
+        if (res.success) setLeads(res.data);
+      } else if (activeTab === 'users') {
+        const res = await apiClient.getAdminUsers() as { success: boolean; data: User[] };
+        if (res.success) setUsers(res.data);
+      } else if (activeTab === 'subscriptions') {
+        const res = await apiClient.getAdminSubscriptions() as { success: boolean; data: Subscription[] };
+        if (res.success) setSubscriptions(res.data);
+      } else if (activeTab === 'assessments') {
+        const res = await apiClient.getAdminAssessments() as { success: boolean; data: Assessment[] };
+        if (res.success) setAssessments(res.data);
+      } else if (activeTab === 'review') {
+        const res = await apiClient.getAdminSubscriptions() as { success: boolean; data: Subscription[] };
+        if (res.success) {
+          // Filter for projects where the user explicitly requested a human review
+          setReviewProjects(res.data.filter((s) => s.reviewRequested === true));
+        }
+      } else if (activeTab === 'media') {
+        const res = await apiClient.getMedia() as { success: boolean; data: MediaAsset[] };
+        if (res.success) setMedia(res.data);
+      } else if (activeTab === 'analytics') {
+        const res = await apiClient.getAdminAnalytics() as unknown as { success: boolean; analytics: AnalyticsData };
+        if (res.success) setAnalytics(res.analytics);
+      } else if (activeTab === 'system') {
+        const res = await apiClient.getEnforcementSettings() as { success: boolean; data: EnforcementSettings };
+        if (res.success) setEnforcementSettings(res.data);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch ${activeTab} data:`, error);
+    }
+    setLoading(false);
+  }, [activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
@@ -260,46 +300,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
   const userGrowthTrend = analytics?.predictions?.growthRate?.users;
   const revenueGrowthTrend = analytics?.predictions?.growthRate?.revenue;
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (activeTab === 'dashboard') {
-        const res = await apiClient.getAdminStats() as unknown as { success: boolean; data: DashboardStats };
-        if (res.success) setStats(res.data);
-      } else if (activeTab === 'leads') {
-        const res = await apiClient.getAdminLeads() as { success: boolean; data: Lead[] };
-        if (res.success) setLeads(res.data);
-      } else if (activeTab === 'users') {
-        const res = await apiClient.getAdminUsers() as { success: boolean; data: User[] };
-        if (res.success) setUsers(res.data);
-      } else if (activeTab === 'subscriptions') {
-        const res = await apiClient.getAdminSubscriptions() as { success: boolean; data: Subscription[] };
-        if (res.success) setSubscriptions(res.data);
-      } else if (activeTab === 'assessments') {
-        const res = await apiClient.getAdminAssessments() as { success: boolean; data: Assessment[] };
-        if (res.success) setAssessments(res.data);
-      } else if (activeTab === 'review') {
-        const res = await apiClient.getAdminSubscriptions() as { success: boolean; data: Subscription[] };
-        if (res.success) {
-          // Filter for projects where the user explicitly requested a human review
-          setReviewProjects(res.data.filter((s) => s.reviewRequested === true));
-        }
-      } else if (activeTab === 'media') {
-        const res = await apiClient.getMedia() as { success: boolean; data: MediaAsset[] };
-        if (res.success) setMedia(res.data);
-      } else if (activeTab === 'analytics') {
-        const res = await apiClient.getAdminAnalytics() as unknown as { success: boolean; analytics: AnalyticsData };
-        if (res.success) setAnalytics(res.analytics);
-      } else if (activeTab === 'system') {
-        const res = await apiClient.getEnforcementSettings() as { success: boolean; data: EnforcementSettings };
-        if (res.success) setEnforcementSettings(res.data);
-      }
-    } catch (error) {
-      console.error(`Failed to fetch ${activeTab} data:`, error);
-    }
-    setLoading(false);
-  }, [activeTab]);
 
   useEffect(() => {
     fetchData();
