@@ -268,6 +268,7 @@ app.use((req, res) => {
 });
 
 const serverInstance = server.listen(port, () => {
+  logger.info('SERVER_STARTING', { port, nodeEnv: process.env.NODE_ENV });
   logger.info(`🚀 Sitemendr Backend API running on port ${port}`);
   logger.info(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
 });
@@ -288,5 +289,3 @@ const gracefulShutdown = () => {
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
-
-
