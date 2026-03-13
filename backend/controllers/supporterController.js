@@ -1,5 +1,6 @@
 const supporterService = require('../services/supporterService');
 const logger = require('../config/logger');
+const paymentController = require('./paymentController');
 
 /**
  * List all active supporter tiers
@@ -7,11 +8,25 @@ const logger = require('../config/logger');
 exports.getTiers = async (req, res) => {
   try {
     logger.info('GET_TIERS_REQUEST_RECEIVED');
+    const { prisma } = require('../config/db');
+    
+    // Explicit debug checks
+    const modelExists = !!prisma.supporterTier;
+    let rowCount = 0;
+    if (modelExists) {
+      rowCount = await prisma.supporterTier.count();
+    }
+
     const tiers = await supporterService.getTiers();
     logger.info('GET_TIERS_SUCCESS', { count: tiers?.length });
     res.json({
       success: true,
-      tiers
+      tiers,
+      debug: {
+        modelExists,
+        rowCount,
+        nodeEnv: process.env.NODE_ENV
+      }
     });
   } catch (error) {
     logger.error('Error in getTiers controller', { 
@@ -19,10 +34,12 @@ exports.getTiers = async (req, res) => {
       stack: error.stack,
       modelExists: !!require('../config/db').prisma.supporterTier
     });
+    console.error('DEBUG_GET_TIERS_ERROR:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch supporter tiers',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message,
+      stack: error.stack
     });
   }
 };
@@ -63,9 +80,7 @@ exports.getMySupporter = async (req, res) => {
  */
 exports.initializeSubscription = async (req, res) => {
   // Logic to initialize Paystack subscription would go here
-  // For now, redirecting to payment controller logic
-  res.status(501).json({
-    success: false,
-    message: 'Subscription initialization via this endpoint is not yet implemented. Use payment endpoints with serviceType=supporter'
-  });
+  // Redirecting to payment controller logic
+  req.body.serviceType = 'supporter';
+  return paymentController.initializePayment(req, res);
 };

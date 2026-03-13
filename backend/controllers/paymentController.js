@@ -194,6 +194,8 @@ exports.initializePayment = async (req, res) => {
       amount: koboAmount,
       currency: targetCurrency,
       reference,
+      hasSecretKey: !!PAYSTACK_SECRET_KEY,
+      secretKeyPrefix: PAYSTACK_SECRET_KEY ? PAYSTACK_SECRET_KEY.substring(0, 7) : 'NONE',
       callback_url: `${process.env.FRONTEND_URL}/payment/callback`
     });
 
@@ -210,6 +212,10 @@ exports.initializePayment = async (req, res) => {
           ...finalMetadata
         }
       };
+
+      if (!PAYSTACK_SECRET_KEY) {
+        throw new Error('PAYSTACK_SECRET_KEY is missing');
+      }
 
       const paystackResponse = await axios.post(
         `${PAYSTACK_BASE_URL}/transaction/initialize`,
@@ -259,8 +265,9 @@ exports.initializePayment = async (req, res) => {
     });
     res.status(error.response?.status || 500).json({
       success: false,
-      message: errorData?.message || 'Failed to initialize payment',
-      error: errorData
+      message: errorData?.message || error.message || 'Failed to initialize payment',
+      error: errorData || error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
