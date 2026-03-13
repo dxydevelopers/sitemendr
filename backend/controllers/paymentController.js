@@ -93,6 +93,14 @@ exports.initializePayment = async (req, res) => {
 
     // Handle Supporter Tier Initialization (Backend determines amount)
     if (serviceType === 'supporter' && metadata?.tierId) {
+      if (!prisma.supporterTier) {
+        logger.error('PRISMA_MODEL_MISSING', { model: 'supporterTier' });
+        return res.status(500).json({
+          success: false,
+          message: 'Supporter features are not initialized in the database client. Please run "npx prisma generate" on the server.'
+        });
+      }
+
       const tier = await prisma.supporterTier.findUnique({
         where: { id: metadata.tierId }
       });
