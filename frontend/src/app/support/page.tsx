@@ -85,6 +85,14 @@ const SupportPage = () => {
   }, []);
 
   const handleSubscribe = async (tierId: string) => {
+    // Check if user is logged in first
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sitemendr_auth_token') : null;
+    if (!token) {
+      alert('Please log in to become a supporter. We need your account to track your rewards and discounts.');
+      window.location.href = `/login?redirect=/support`;
+      return;
+    }
+
     try {
       const res = await apiClient.initializeSupporterSubscription(tierId);
       if (res.success && res.data?.paystack?.authorization_url) {

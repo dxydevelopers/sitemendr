@@ -88,6 +88,16 @@ exports.initializePayment = async (req, res) => {
       email = authUser?.email?.toLowerCase();
     }
 
+    // DEBUG LOG
+    if (!email) {
+      logger.warn('EMAIL_MISSING_FOR_PAYMENT', { 
+        serviceType, 
+        hasUser: !!req.user, 
+        userId: req.user?.userId,
+        body: req.body 
+      });
+    }
+
     let finalAmount = amount;
     let finalDescription = description;
 
@@ -123,6 +133,15 @@ exports.initializePayment = async (req, res) => {
     if (!finalDescription) missing.push('description');
 
     if (missing.length) {
+      // Specialized error for supporter tier if not logged in
+      if (serviceType === 'supporter' && !email && !req.user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Please log in to become a supporter. We need your account to track your rewards and discounts.',
+          requiresAuth: true
+        });
+      }
+
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missing.join(", ")}`
