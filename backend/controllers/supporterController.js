@@ -10,6 +10,16 @@ exports.getTiers = async (req, res) => {
     logger.info('GET_TIERS_REQUEST_RECEIVED');
     const { prisma } = require('../config/db');
     
+    // Check if the model is available in the Prisma client
+    if (!prisma.supporterTier) {
+      logger.error('PRISMA_MODEL_MISSING', { model: 'supporterTier' });
+      return res.status(500).json({
+        success: false,
+        message: 'Supporter features are not initialized in the database client. Please run "npx prisma generate" on the server.',
+        error: 'Prisma model "supporterTier" is missing'
+      });
+    }
+    
     // Explicit debug checks
     const modelExists = !!prisma.supporterTier;
     let rowCount = 0;
