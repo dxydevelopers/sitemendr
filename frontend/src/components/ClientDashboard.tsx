@@ -36,7 +36,8 @@ import {
   Menu,
   Plus,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Heart
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import SupportTickets from './dashboard/SupportTickets';
@@ -50,6 +51,7 @@ import VisualContentEditor from './dashboard/VisualContentEditor';
 import PerformanceAudit from './dashboard/PerformanceAudit';
 import EcommerceManager from './dashboard/EcommerceManager';
 import BookingManager from './dashboard/BookingManager';
+import SupporterDashboard from './SupporterDashboard';
 
 interface ClientStats {
   activeNodes: number;
@@ -511,6 +513,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       count: messages.filter(m => !m.isRead && m.sender !== 'USER').length 
     },
     { id: 'billing', label: 'Billing', icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'supporter', label: 'Supporter', icon: <Heart className="w-5 h-5 text-pink-500" /> },
     { id: 'addons', label: 'Add-ons', icon: <ShoppingBag className="w-5 h-5" /> },
     { id: 'booking', label: 'Booking', icon: <Clock className="w-5 h-5" /> },
     { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
@@ -1204,6 +1207,12 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               {activeTab === 'billing' && (
                 <div className="animate-fade-in">
                   <BillingViewer billing={billing} />
+                </div>
+              )}
+
+              {activeTab === 'supporter' && (
+                <div className="animate-fade-in h-full -m-6 lg:-m-10">
+                  <SupporterDashboard onLogout={handleLogoutAction} />
                 </div>
               )}
 

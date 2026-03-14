@@ -59,7 +59,10 @@ exports.getTiers = async (req, res) => {
  */
 exports.getMySupporter = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
     const supporter = await supporterService.getSupporterByUserId(userId);
     
     if (!supporter) {
