@@ -17,16 +17,19 @@ import {
   Zap,
   Upload,
   Trash2,
-  X
+  X,
+  Lock,
+  ShoppingBag
 } from 'lucide-react';
 
 interface VisualContentEditorProps {
   subscriptionId: string;
+  purchasedAddons?: any[];
   onSave?: () => void;
   onClose?: () => void;
 }
 
-const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionId, onSave, onClose }) => {
+const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionId, purchasedAddons = [], onSave, onClose }) => {
   const [template, setTemplate] = useState<{ html: string; css: string; js: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,7 +41,17 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const templateUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Check if Standard CMS addon is purchased
+  const isLocked = !purchasedAddons.some(addon => 
+    (typeof addon === 'string' && addon === 'addon_cms_basic') || 
+    (typeof addon === 'object' && addon?.id === 'addon_cms_basic')
+  );
+
   const fetchTemplate = useCallback(async () => {
+    if (isLocked) {
+      setLoading(false);
+      return;
+    }
     if (!subscriptionId || subscriptionId === 'undefined') {
       console.warn('VisualContentEditor: Missing subscriptionId, skipping fetch');
       setLoading(false);
@@ -327,6 +340,35 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
 
   return (
     <div className="flex flex-col min-h-[600px] lg:h-[800px] bg-darker-bg border border-white/5 rounded-3xl lg:rounded-[40px] overflow-hidden font-mono relative shadow-2xl">
+      {isLocked && (
+        <div className="absolute inset-0 z-[100] backdrop-blur-xl bg-black/60 flex items-center justify-center p-8 text-center">
+          <div className="max-w-md space-y-8 animate-in zoom-in duration-500">
+            <div className="w-24 h-24 bg-ai-blue/10 border border-ai-blue/20 rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-ai-blue/20 group">
+              <Lock className="w-10 h-10 text-ai-blue group-hover:rotate-12 transition-transform" />
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white leading-tight">
+                Module <span className="text-ai-blue italic">Restricted</span>
+              </h3>
+              <p className="text-sm text-white/40 font-bold uppercase tracking-wide leading-relaxed">
+                The <span className="text-white">Standard CMS Enhancement</span> is required to access visual editing protocols for this node.
+              </p>
+            </div>
+            <div className="pt-6">
+              <button 
+                onClick={() => {
+                  const addonsTab = document.querySelector('button[id="addons"]');
+                  if (addonsTab) (addonsTab as HTMLButtonElement).click();
+                }}
+                className="w-full flex items-center justify-center gap-4 py-6 bg-ai-blue text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-ai-blue/20"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                Initialize Deployment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="p-4 lg:p-6 border-b border-white/5 flex flex-wrap justify-between items-center bg-white/[0.01] backdrop-blur-xl gap-4">
         <div className="flex items-center gap-4">

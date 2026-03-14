@@ -116,6 +116,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             </h2>
             <button 
               onClick={() => {
+                setEditingMessageId(null);
                 setFormData({ subject: '', content: '' });
                 setShowCompose(true);
               }}
@@ -269,7 +270,12 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
       {/* Compose Modal */}
       {showCompose && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-10 bg-black/90 backdrop-blur-2xl animate-in fade-in duration-300">
-          <div className="absolute inset-0" onClick={() => !isSending && setShowCompose(false)}></div>
+          <div className="absolute inset-0" onClick={() => {
+            if (!isSending) {
+              setShowCompose(false);
+              setEditingMessageId(null);
+            }
+          }}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl">
             <div className="p-8 lg:p-10 border-b border-white/5 flex items-center justify-between">
               <h2 className="text-xl lg:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-4">

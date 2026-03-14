@@ -531,7 +531,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       id: 'support', 
       label: 'Support', 
       icon: <LifeBuoy className="w-5 h-5" />,
-      count: tickets.filter(t => t.status === 'open' || t.status === 'pending').length 
+      count: tickets.filter(t => 
+        (t.status === 'open' || t.status === 'pending') || 
+        (t as any).messages?.some((m: any) => !m.isRead && m.isAdmin)
+      ).length 
     },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
@@ -1240,6 +1243,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                   {(selectedProjectId || (projects.length > 0 ? projects[0].id : '')) ? (
                     <VisualContentEditor 
                       subscriptionId={selectedProjectId || (projects.length > 0 ? projects[0].id : '')} 
+                      purchasedAddons={projects.find(p => p.id === (selectedProjectId || (projects.length > 0 ? projects[0].id : '')))?.purchasedAddons}
                     />
                   ) : (
                     <div className="h-96 flex items-center justify-center border border-white/5 rounded-3xl bg-white/[0.01]">
