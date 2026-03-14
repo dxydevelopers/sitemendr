@@ -159,6 +159,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [resources, setResources] = useState<ResourceItem[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [domains, setDomains] = useState<CustomDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserData | null>(null);
@@ -189,7 +190,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         messagesRes,
         ticketsRes,
         resourcesRes,
-        domainsRes
+        domainsRes,
+        bookingsRes
       ] = await Promise.all([
         apiClient.getClientStats(projectId) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
         apiClient.getClientProjects() as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
@@ -198,7 +200,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         apiClient.getClientMessages() as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
         apiClient.getClientSupportTickets() as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
         apiClient.getClientResources() as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
-        apiClient.getClientDomains() as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>
+        apiClient.getClientDomains() as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>,
+        apiClient.getUserBookings(projectId) as unknown as Promise<any[]>
       ]);
 
       // Map inconsistent backend response keys to frontend state
@@ -230,6 +233,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
       const domainList = (domainsRes as any).domains || (domainsRes as any).data;
       if (domainsRes.success && domainList) setDomains(domainList);
+
+      if (bookingsRes) setBookings(bookingsRes);
 
       // Get user from localStorage
       const userData = localStorage.getItem('user');
@@ -502,20 +507,25 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'projects', label: 'My Projects', icon: <Rocket className="w-5 h-5" /> },
+    { 
+      id: 'projects', 
+      label: 'My Projects', 
+      icon: <Rocket className="w-5 h-5" />,
+      count: projects.length
+    },
     { id: 'editor', label: 'Visual Editor', icon: <MousePointer2 className="w-5 h-5" /> },
     { id: 'audit', label: 'Performance', icon: <Zap className="w-5 h-5" /> },
-    { id: 'domains', label: 'Domains', icon: <Globe className="w-5 h-5" /> },
+    { id: 'domains', label: 'Domains', icon: <Globe className="w-5 h-5" />, count: domains.length },
     { 
       id: 'messages', 
       label: 'Messages', 
       icon: <MessageSquare className="w-5 h-5" />,
       count: messages.filter(m => !m.isRead && m.sender !== 'USER').length 
     },
-    { id: 'billing', label: 'Billing', icon: <CreditCard className="w-5 h-5" /> },
+    { id: 'billing', label: 'Billing', icon: <CreditCard className="w-5 h-5" />, count: billing.length },
     { id: 'supporter', label: 'Supporter', icon: <Heart className="w-5 h-5 text-pink-500" /> },
     { id: 'addons', label: 'Add-ons', icon: <ShoppingBag className="w-5 h-5" /> },
-    { id: 'booking', label: 'Booking', icon: <Clock className="w-5 h-5" /> },
+    { id: 'booking', label: 'Booking', icon: <Clock className="w-5 h-5" />, count: bookings.length },
     { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
     { 
       id: 'support', 
@@ -1206,7 +1216,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
               {activeTab === 'billing' && (
                 <div className="animate-fade-in">
-                  <BillingViewer billing={billing} />
+                  <BillingViewer billing={billing} subscriptions={projects as any} />
                 </div>
               )}
 

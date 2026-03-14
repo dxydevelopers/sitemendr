@@ -25,6 +25,15 @@ exports.processSuccessfulPayment = async (paymentId) => {
     // 1. Handle Subscription (Setup, Renewal or Reactivation)
     if (serviceType === 'subscription' || serviceType === 'setup' || serviceType === 'subscription_reactivation') {
       await handleSubscriptionActivation(payment);
+      
+      // Update user role to client if they were a basic user
+      if (payment.user && payment.user.role === 'user') {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { role: 'client' }
+        });
+        logger.info('Updated user role to client', { userId });
+      }
     } 
     // 2. Handle Add-ons
     else if (serviceType === 'addon') {
@@ -33,6 +42,14 @@ exports.processSuccessfulPayment = async (paymentId) => {
     // 3. Handle Supporter Subscriptions
     else if (serviceType === 'supporter' || serviceType === 'supporter_subscription') {
       await supporterService.handleSupporterActivation(payment);
+      
+      // Update user role to client if they were a basic user
+      if (payment.user && payment.user.role === 'user') {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { role: 'client' }
+        });
+      }
     }
 
     logger.info('Payment processing completed successfully', { paymentId, serviceType });
@@ -263,14 +280,34 @@ async function triggerAITemplateGeneration(subscription, payment) {
  * Provision addons
  */
 async function handleAddonProvisioning(payment) {
-  const { metadata } = payment;
-  if (!metadata?.addonId || !metadata?.subscriptionId) return;
+  const { metadata, userId } = payment;
+  if (!metadata?.addonId) return;
+
+  let subscriptionId = metadata.subscriptionId;
+
+  // Fallback: If no subscription ID provided, find the user's most recent active subscription
+  if (!subscriptionId) {
+    const latestSub = await prisma.subscription.findFirst({
+      where: { userId, status: 'active' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true }
+    });
+    if (latestSub) {
+      subscriptionId = latestSub.id;
+      logger.info('Automatically linked addon to latest active subscription', { userId, subscriptionId });
+    }
+  }
+
+  if (!subscriptionId) {
+    logger.warn('Addon provisioning failed: No subscription found to attach it to', { userId, addonId: metadata.addonId });
+    return;
+  }
 
   try {
     // Mitigate schema mismatch by catching errors on missing columns
     try {
       const subscription = await prisma.subscription.findUnique({
-        where: { id: metadata.subscriptionId },
+        where: { id: subscriptionId },
         select: {
           id: true,
           purchasedAddons: true

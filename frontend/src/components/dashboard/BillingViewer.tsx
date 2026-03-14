@@ -12,6 +12,16 @@ interface BillingItem {
   reference: string;
 }
 
+interface Subscription {
+  id: string;
+  siteName?: string;
+  customName?: string;
+  planType: string;
+  status: string;
+  expiresAt?: string;
+  price?: number;
+}
+
 interface PaymentMethod {
   brand?: string;
   last4?: string;
@@ -22,20 +32,67 @@ interface PaymentMethod {
 interface BillingViewerProps {
   billing: BillingItem[];
   paymentMethod?: PaymentMethod | null;
+  subscriptions?: Subscription[];
 }
 
-const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod }) => {
+const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, subscriptions = [] }) => {
   return (
-    <div className="space-y-6 lg:space-y-8 animate-fade-in">
+    <div className="space-y-8 lg:space-y-12 animate-fade-in pb-20">
       <div className="flex justify-between items-center px-2">
         <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
           <CreditCard className="w-5 h-5 text-ai-blue" />
-          Billing
+          Financial Ledger
         </h2>
       </div>
 
-      {/* Mobile Billing Cards */}
-      <div className="block lg:hidden space-y-4">
+      {/* Subscription Summary */}
+      {subscriptions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+          {subscriptions.map((sub) => (
+            <div key={sub.id} className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 lg:p-10 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                <Zap className="w-20 h-20" />
+              </div>
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Active Protocol</span>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-white">{sub.siteName || sub.customName || 'Untitled Project'}</h3>
+                </div>
+                <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
+                  sub.status.toLowerCase() === 'active' 
+                    ? 'bg-expert-green/10 border-expert-green/20 text-expert-green' 
+                    : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
+                }`}>
+                  {sub.status}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Architecture</p>
+                  <p className="text-xs font-black text-white uppercase">{sub.planType.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Renewal_Date</p>
+                  <p className="text-xs font-black text-white uppercase">{sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString() : 'Lifetime'}</p>
+                </div>
+              </div>
+              
+              <div className="mt-10 pt-8 border-t border-white/5 flex justify-between items-center">
+                <div className="text-[10px] font-black uppercase tracking-widest text-ai-blue">
+                  {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Deployment Active'}
+                </div>
+                <button className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Transaction History</h3>
+        {/* Mobile Billing Cards */}
+        <div className="block lg:hidden space-y-4">
         {billing.length > 0 ? (
           billing.map((item) => (
             <div key={item.id} className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">

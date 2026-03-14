@@ -854,8 +854,8 @@ exports.optimizeContent = async (req, res) => {
     }
 
     const prompt = `
-      You are a professional web content optimizer. 
-      Refine the following ${type || 'text'} content for a high-tech, professional website.
+      You are the Sitemendr Neural Content Optimizer. 
+      Refine the following ${type || 'text'} content for a high-tech, professional website within the Sitemendr ecosystem.
       Instructions: ${instructions || 'Make it more compelling, clear, and professional.'}
       
       Original Content:

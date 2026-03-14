@@ -91,7 +91,7 @@ exports.analyzeSitePerformance = async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "You are a performance optimization expert. Analyze the following website metrics and provide 3-5 high-impact, technical recommendations for improvement. Return valid JSON with a 'summary' string and an 'actionPlan' array of objects containing 'task' and 'impact' fields."
+            content: "You are the Sitemendr Performance Auditor. Analyze the following website metrics within the Sitemendr infrastructure context and provide 3-5 high-impact, technical recommendations for improvement. Return valid JSON with a 'summary' string and an 'actionPlan' array of objects containing 'task' and 'impact' fields. Tone should be professional and technical."
           },
           {
             role: "user",
