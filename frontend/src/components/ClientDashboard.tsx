@@ -364,7 +364,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         
         // Prioritize isCurrent project
         if (!projectId && !selectedProjectId) {
-          const currentProject = mappedProjects.find(p => p.isCurrent);
+          const currentProject = mappedProjects.find((p: { isCurrent: boolean }) => p.isCurrent);
           setSelectedProjectId(currentProject ? currentProject.id : mappedProjects[0].id);
         }
       } else {
