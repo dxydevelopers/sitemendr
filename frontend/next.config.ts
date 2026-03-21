@@ -81,28 +81,38 @@ const nextConfig: NextConfig = {
   },
 
   // Silence Turbopack/webpack warning in Next 16
-  turbopack: {},
+  turbopack: {
+    // Force turbopack to only look at the frontend directory to avoid monorepo scanning overhead
+    root: process.cwd(),
+  },
   
   // Webpack configuration
-  webpack: (config, { isServer }) => {
-    // Optimize production builds
-    if (!isServer) {
+  webpack: (config, { isServer, dev }) => {
+    // Only optimize production client-side builds
+    if (!isServer && !dev) {
       config.optimization = {
         ...config.optimization,
         splitChunks: {
           chunks: 'all',
+          maxInitialRequests: 25,
+          minSize: 20000,
           cacheGroups: {
+            default: false,
+            vendors: false,
             // Separate vendor chunks
             vendor: {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
               chunks: 'all',
+              priority: 20,
             },
             // Common chunks
             common: {
+              name: 'common',
               minChunks: 2,
-              priority: -10,
+              priority: 10,
               reuseExistingChunk: true,
+              enforce: true,
             },
           },
         },

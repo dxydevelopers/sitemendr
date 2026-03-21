@@ -13,9 +13,14 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1. Save to DB using Prisma
-    await prisma.managedDomainRequest.create({
-      data: {
+    // 1. Save to DB using Prisma - UPSERT to prevent duplicates for same email
+    await prisma.managedDomainRequest.upsert({
+      where: { email },
+      update: {
+        domainInterest,
+        createdAt: new Date()
+      },
+      create: {
         email,
         domainInterest
       }

@@ -37,21 +37,79 @@ import {
   Plus,
   CheckCircle2,
   AlertCircle,
-  Heart
+  Heart,
+  Sparkles,
+  Gift
 } from 'lucide-react';
-import { apiClient } from '@/lib/api';
-import SupportTickets from './dashboard/SupportTickets';
-import TemplateViewer from './dashboard/TemplateViewer';
-import MilestoneViewer from './dashboard/MilestoneViewer';
-import BillingViewer from './dashboard/BillingViewer';
-import MessageViewer from './dashboard/MessageViewer';
-import ResourceLibrary from './dashboard/ResourceLibrary';
-import AddonMarketplace from './dashboard/AddonMarketplace';
-import VisualContentEditor from './dashboard/VisualContentEditor';
-import PerformanceAudit from './dashboard/PerformanceAudit';
-import EcommerceManager from './dashboard/EcommerceManager';
-import BookingManager from './dashboard/BookingManager';
-import SupporterDashboard from './SupporterDashboard';
+import { apiClient, SupporterTier } from '@/lib/api';
+import dynamic from 'next/dynamic';
+
+const SupportTickets = dynamic(() => import('./dashboard/SupportTickets'), { ssr: false });
+const TemplateViewer = dynamic(() => import('./dashboard/TemplateViewer'), { ssr: false });
+const MilestoneViewer = dynamic(() => import('./dashboard/MilestoneViewer'), { ssr: false });
+const BillingViewer = dynamic(() => import('./dashboard/BillingViewer'), { ssr: false });
+const MessageViewer = dynamic(() => import('./dashboard/MessageViewer'), { ssr: false });
+const ResourceLibrary = dynamic(() => import('./dashboard/ResourceLibrary'), { ssr: false });
+const AddonMarketplace = dynamic(() => import('./dashboard/AddonMarketplace'), { ssr: false });
+const VisualContentEditor = dynamic(() => import('./dashboard/VisualContentEditor'), { ssr: false });
+const PageEditor = dynamic(() => import('./dashboard/PageEditor'), { ssr: false });
+const PerformanceAudit = dynamic(() => import('./dashboard/PerformanceAudit'), { ssr: false });
+const EcommerceManager = dynamic(() => import('./dashboard/EcommerceManager'), { ssr: false });
+const BookingManager = dynamic(() => import('./dashboard/BookingManager'), { ssr: false });
+const SupporterDashboard = dynamic(() => import('./SupporterDashboard'), { ssr: false });
+
+const mockTiers: SupporterTier[] = [
+  {
+    id: 'starter-id',
+    name: 'Starter Supporter',
+    slug: 'starter',
+    monthlyPrice: 5,
+    discountPercent: 5,
+    displayOrder: 1,
+    isActive: true,
+    perks: ['exclusive-badge', 'supporter-wall', 'community-access'],
+  },
+  {
+    id: 'standard-id',
+    name: 'Standard Supporter',
+    slug: 'standard',
+    monthlyPrice: 15,
+    discountPercent: 10,
+    displayOrder: 2,
+    isActive: true,
+    perks: ['early-access', 'voting-rights', 'starter-perks'],
+  },
+  {
+    id: 'plus-id',
+    name: 'Plus Supporter',
+    slug: 'plus',
+    monthlyPrice: 30,
+    discountPercent: 15,
+    displayOrder: 3,
+    isActive: true,
+    perks: ['roundtable-invites', 'product-council', 'standard-perks'],
+  },
+  {
+    id: 'premium-id',
+    name: 'Premium Supporter',
+    slug: 'premium',
+    monthlyPrice: 60,
+    discountPercent: 20,
+    displayOrder: 4,
+    isActive: true,
+    perks: ['ama-access', 'spotlight-status', 'plus-perks'],
+  },
+  {
+    id: 'founders-id',
+    name: 'Founders Circle',
+    slug: 'founders-circle',
+    monthlyPrice: 100,
+    discountPercent: 25,
+    displayOrder: 5,
+    isActive: true,
+    perks: ['private-sessions', 'vip-support', 'premium-perks'],
+  },
+];
 
 interface ClientStats {
   activeNodes: number;
@@ -71,6 +129,8 @@ interface ClientProject {
   reviewRequested?: boolean;
   reviewNotes?: string;
   revisionCount?: number;
+  purchasedAddons?: string[] | string;
+  isCurrent?: boolean;
 }
 
 interface ClientActivity {
@@ -176,12 +236,62 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [revealTier, setRevealTier] = useState<SupporterTier | null>(null);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    // Check for search parameters
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    // Handle reveal parameter
+    const revealId = searchParams.get('reveal');
+    if (revealId) {
+      handleReveal(revealId);
+    }
+
+    // Handle tab parameter
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
+  const handleReveal = async (tierId: string) => {
+    try {
+      setIsRevealing(true);
+      const res = await apiClient.fetchAllSupporterTiers();
+      let tier = null;
+      if (res.success) {
+        tier = res.tiers.find(t => t.id === tierId);
+      }
+      
+      // Fallback to mock tiers if API fails or tier not found (could be a mock ID)
+      if (!tier) {
+        tier = mockTiers.find(t => t.id === tierId);
+      }
+
+      if (tier) {
+        setRevealTier(tier);
+        // Wait for animation
+        setTimeout(() => {
+          setIsRevealing(false);
+        }, 3000);
+      } else {
+        setIsRevealing(false);
+      }
+    } catch (err) {
+      console.error('Reveal failed', err);
+      setIsRevealing(false);
+    }
+  };
 
   const fetchData = useCallback(async (projectId?: string) => {
     try {
       setLoading(true);
+      setFetchError(null);
       const [
         statsRes, 
         projectsRes, 
@@ -191,29 +301,75 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         ticketsRes,
         resourcesRes,
         domainsRes,
-        bookingsRes
+        bookingsRes,
+        assessmentsRes
       ] = await Promise.all([
-        apiClient.getClientStats(projectId) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
-        apiClient.getClientProjects() as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
-        apiClient.getClientActivities() as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
-        apiClient.getClientBilling() as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
-        apiClient.getClientMessages() as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
-        apiClient.getClientSupportTickets() as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
-        apiClient.getClientResources() as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
-        apiClient.getClientDomains() as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>,
-        apiClient.getUserBookings(projectId) as unknown as Promise<any[]>
+        apiClient.getClientStats(projectId).catch(err => ({ success: false, stats: null })) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
+        apiClient.getClientProjects().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
+        apiClient.getClientActivities().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
+        apiClient.getClientBilling().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
+        apiClient.getClientMessages().catch(err => ({ success: false, messages: [] })) as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
+        apiClient.getClientSupportTickets().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
+        apiClient.getClientResources().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
+        apiClient.getClientDomains().catch(err => ({ success: false, domains: [] })) as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>,
+        apiClient.getUserBookings(projectId).catch(err => []) as unknown as Promise<any[]>,
+        apiClient.getClientAssessments().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: any[] }>
       ]);
 
-      // Map inconsistent backend response keys to frontend state
-      const projectList = (projectsRes as any).data || (projectsRes as any).projects;
+      console.log('DEBUG: statsRes:', statsRes);
+      console.log('DEBUG: projectsRes:', projectsRes);
+      console.log('DEBUG: assessmentsRes:', assessmentsRes);
+
+      if (statsRes.success && statsRes.stats) setStats(statsRes.stats);
+
+      // Map projects and assessments to the same list
+      const projectList = (projectsRes as any).data || (projectsRes as any).projects || (projectsRes as any).subscriptions || [];
+      const assessmentList = (assessmentsRes as any).data || (assessmentsRes as any).assessments || [];
+      
       console.log('DEBUG: projectList from API:', projectList);
-      if (projectsRes.success && projectList && Array.isArray(projectList)) {
-        setProjects(projectList);
-        console.log('DEBUG: Projects set in state:', projectList.length);
-        // If no project is selected but we have projects, select the first one
-        if (!projectId && projectList.length > 0 && !selectedProjectId) {
-          setSelectedProjectId(projectList[0].id);
+      console.log('DEBUG: assessmentList from API:', assessmentList);
+
+      const mappedProjects = projectList.map((p: any) => ({
+        id: p.id,
+        name: p.siteName || p.customName || 'Untitled Project',
+        status: p.suspended === false ? 'active' : 'suspended',
+        progress: p.progress || 100,
+        planType: p.planType,
+        siteUrl: p.siteUrl,
+        domain: p.domain,
+        reviewRequested: p.reviewRequested,
+        reviewNotes: p.reviewNotes,
+        revisionCount: p.revisionCount,
+        isCurrent: p.isCurrent
+      }));
+
+      // Add assessments that aren't yet subscriptions
+      assessmentList.forEach((a: any) => {
+        // If this assessment is already linked to a project we've mapped, skip it
+        if (mappedProjects.some((p: any) => p.id === a.id || p.id === a.subscriptionId)) return;
+        
+        mappedProjects.push({
+          id: a.id,
+          name: a.responses?.businessName || a.responses?.company || `Analysis ${a.id.slice(0, 8)}`,
+          status: 'pending',
+          progress: 10,
+          planType: a.responses?.selectedPackage || 'Analysis_Phase',
+          isCurrent: mappedProjects.length === 0
+        });
+      });
+
+      if (mappedProjects.length > 0) {
+        setProjects(mappedProjects);
+        console.log('DEBUG: Combined Projects/Assessments set in state:', mappedProjects.length, mappedProjects);
+        
+        // Prioritize isCurrent project
+        if (!projectId && !selectedProjectId) {
+          const currentProject = mappedProjects.find(p => p.isCurrent);
+          setSelectedProjectId(currentProject ? currentProject.id : mappedProjects[0].id);
         }
+      } else {
+        console.log('DEBUG: No projects or assessments found after mapping');
+        setProjects([]);
       }
 
       const activityList = (activitiesRes as any).data || (activitiesRes as any).activities;
@@ -244,7 +400,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         setProfileData({ name: parsedUser.name || '', phone: parsedUser.phone || '' });
       }
     } catch (err) {
-      console.error('Fetch failed:', err);
+      console.error('Fetch failed in ClientDashboard:', err);
+      setFetchError('Neural link interrupted. Failed to synchronize dashboard data. Please verify your connection.');
     } finally {
       setLoading(false);
     }
@@ -540,7 +697,82 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   ];
 
   return (
-    <div className="flex h-screen bg-darker-bg text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
+    <div className="relative min-h-screen bg-darker-bg">
+      {/* Unveiling Overlay */}
+      {(isRevealing || revealTier) && (
+        <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-all duration-1000 ${revealTier && !isRevealing ? 'bg-black/80 backdrop-blur-sm' : 'bg-black'}`}>
+          <div className="text-center relative">
+            {isRevealing ? (
+              <div className="animate-pulse flex flex-col items-center">
+                <div className="w-40 h-40 bg-ai-blue/10 border border-ai-blue/30 rounded-full flex items-center justify-center mb-8 relative">
+                  <Gift className="w-20 h-20 text-ai-blue animate-bounce" />
+                  <div className="absolute inset-0 bg-ai-blue/20 blur-3xl rounded-full"></div>
+                </div>
+                <h2 className="text-4xl font-black text-white uppercase tracking-[0.4em] animate-pulse">Unveiling Reward...</h2>
+                <div className="mt-4 flex gap-2 justify-center">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="w-2 h-2 rounded-full bg-ai-blue animate-[bounce_1.5s_infinite]" style={{ animationDelay: `${i * 0.2}s` }}></div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="animate-fade-in flex flex-col items-center p-8 bg-dark-bg border border-ai-blue/30 rounded-3xl shadow-[0_0_100px_rgba(0,102,255,0.2)] max-w-lg w-full">
+                <div className="absolute -top-12 -right-12 pointer-events-none">
+                  <Sparkles className="w-24 h-24 text-ai-blue/40 animate-pulse" />
+                </div>
+                
+                <div className="w-24 h-24 bg-ai-blue/10 rounded-2xl flex items-center justify-center mb-6 border border-ai-blue/20 shadow-inner">
+                  <Heart className="w-12 h-12 text-ai-blue" />
+                </div>
+                
+                <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em] mb-4">Package_Unveiled</span>
+                <h3 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">{revealTier?.name}</h3>
+                
+                <div className="h-px w-full bg-white/10 mb-6"></div>
+                
+                <div className="space-y-4 mb-10 text-left w-full">
+                  <div className="flex items-center gap-3 text-expert-green">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-xs font-black uppercase font-mono">{revealTier?.discountPercent}% Lifetime Discount</span>
+                  </div>
+                  <ul className="space-y-2">
+                    {revealTier?.perks.slice(0, 3).map((perk, i) => (
+                      <li key={i} className="flex items-center gap-3 text-[10px] font-mono text-medium-gray uppercase tracking-tighter">
+                        <CheckCircle2 className="w-3 h-3 text-ai-blue" />
+                        {perk.replace(/-/g, ' ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="flex flex-col gap-4 w-full">
+                  <button 
+                    onClick={() => {
+                      // Redirect to payment or supporter dashboard
+                      window.location.href = `/support?tier=${revealTier?.id}`;
+                    }}
+                    className="w-full py-5 bg-ai-blue text-white font-black uppercase tracking-[0.2em] text-[10px] hover:bg-white hover:text-ai-blue transition-all shadow-[0_0_20px_rgba(0,102,255,0.3)]"
+                  >
+                    Claim Reward - ${revealTier?.monthlyPrice}/mo
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setRevealTier(null);
+                      // Clear search params
+                      window.history.replaceState({}, '', window.location.pathname);
+                    }}
+                    className="w-full py-5 bg-transparent border border-white/10 text-medium-gray font-black uppercase tracking-[0.2em] text-[10px] hover:bg-white/5 transition-all"
+                  >
+                    Close Dashboard
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className={`flex h-screen bg-darker-bg text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative ${revealTier || isRevealing ? 'blur-md pointer-events-none' : ''}`}>
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -640,10 +872,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               <Menu className="w-5 h-5 text-ai-blue" />
             </button>
 
-            <h1 className="text-lg lg:text-xl font-bold text-white tracking-tight">
-              {menuItems.find(m => m.id === activeTab)?.label}
-            </h1>
-
             {projects.length > 0 && (
               <div className="hidden sm:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
                 <span className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Active Site:</span>
@@ -674,6 +902,18 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         </header>
 
         <main className="flex-1 p-6 lg:p-10 overflow-y-auto relative custom-scrollbar">
+          {fetchError && (
+            <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between animate-fade-in">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-red-500">{fetchError}</p>
+              </div>
+              <button onClick={() => fetchData()} className="px-4 py-2 bg-red-500 text-white font-black text-[8px] uppercase tracking-widest rounded-lg hover:bg-red-600 transition-all">
+                Retry Sync
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="h-full flex items-center justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ai-blue"></div>
@@ -684,10 +924,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                 <div className="space-y-6 lg:space-y-10 animate-fade-in">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: 'Nodes', value: stats?.activeNodes || 0, icon: <Zap className="w-8 h-8 text-ai-blue" />, unit: 'QTY' },
-                      { label: 'Uptime', value: stats?.uptime || '0.00', icon: <Globe className="w-8 h-8 text-expert-green" />, unit: '%' },
-                      { label: 'Security', value: stats?.securityLevel || 'MAX', icon: <Shield className="w-8 h-8 text-tech-purple" />, unit: 'SEC' },
-                      { label: 'Latency', value: stats?.latency || 0, icon: <Clock className="w-8 h-8 text-orange-500" />, unit: 'MS' },
+                      { label: 'Projects', value: stats?.activeNodes || 0, icon: <Zap className="w-8 h-8 text-ai-blue" />, unit: '' },
+                      { label: 'Uptime', value: stats?.uptime ? `${stats.uptime}%` : 'N/A', icon: <Globe className="w-8 h-8 text-expert-green" />, unit: '' },
+                      { label: 'Security', value: stats?.securityLevel || 'N/A', icon: <Shield className="w-8 h-8 text-tech-purple" />, unit: '' },
+                      { label: 'Response Time', value: stats?.latency ? `${stats.latency}ms` : 'N/A', icon: <Clock className="w-8 h-8 text-orange-500" />, unit: '' },
                     ].map((stat, i) => (
                       <div key={i} className="bg-white/[0.02] border border-white/5 p-4 lg:p-6 rounded-2xl group hover:border-ai-blue/30 transition-all">
                         <span className="text-[7px] lg:text-[8px] font-bold text-medium-gray uppercase tracking-widest block mb-1 group-hover:text-ai-blue transition-colors">{stat.label}</span>
@@ -707,11 +947,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                         <div className="w-10 h-10 rounded-xl bg-expert-green/10 border border-expert-green/20 flex items-center justify-center text-expert-green">
                           <CreditCard className="w-5 h-5" />
                         </div>
-                        <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Financial_Pulse</span>
+                        <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Billing</span>
                       </div>
                       {billing.length > 0 ? (
                         <div className="space-y-1">
-                          <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Last Transaction</p>
+                          <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Latest Payment</p>
                           <p className="text-xl font-black text-white">${(billing[0].amount / 100).toFixed(2)}</p>
                           <div className={`text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 ${billing[0].status === 'completed' ? 'text-expert-green' : 'text-orange-500'}`}>
                             <div className={`w-1 h-1 rounded-full ${billing[0].status === 'completed' ? 'bg-expert-green' : 'bg-orange-500'}`}></div>
@@ -719,9 +959,9 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                           </div>
                         </div>
                       ) : (
-                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">No transaction logs</p>
+                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">No billing history</p>
                       )}
-                      <button onClick={() => setActiveTab('billing')} className="mt-6 text-[8px] font-black text-ai-blue uppercase tracking-[0.2em] hover:text-white transition-colors">Access Ledger →</button>
+                      <button onClick={() => setActiveTab('billing')} className="mt-6 text-[8px] font-black text-ai-blue uppercase tracking-[0.2em] hover:text-white transition-colors">View Billing →</button>
                     </div>
 
                     {/* Support Node */}
@@ -733,17 +973,17 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-ai-blue border-2 border-darker-bg rounded-full"></div>
                           )}
                         </div>
-                        <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Support Center</span>
+                        <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Support</span>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Active Tickets</p>
-                        <p className="text-xl font-black text-white">{tickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length > 0 ? tickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length + ' Active' : 'All Resolved'}</p>
+                        <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Open Tickets</p>
+                        <p className="text-xl font-black text-white">{tickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length > 0 ? tickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length : 'All Resolved'}</p>
                         <p className="text-[8px] text-tech-purple font-black uppercase tracking-widest">{tickets.filter(t => t.status !== 'closed' && t.status !== 'resolved').length} tickets</p>
                       </div>
-                      <button onClick={() => setActiveTab('support')} className="mt-6 text-[8px] font-black text-ai-blue uppercase tracking-[0.2em] hover:text-white transition-colors">Open Inquiry →</button>
+                      <button onClick={() => setActiveTab('support')} className="mt-6 text-[8px] font-black text-ai-blue uppercase tracking-[0.2em] hover:text-white transition-colors">Get Support →</button>
                     </div>
 
-                    {/* Comms Sync */}
+                    {/* Inbox */}
                     <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-ai-blue/30 transition-all">
                       <div className="flex justify-between items-start mb-6">
                         <div className="w-10 h-10 rounded-xl bg-ai-blue/10 border border-ai-blue/20 flex items-center justify-center text-ai-blue relative">
@@ -752,7 +992,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-ai-blue border-2 border-darker-bg rounded-full"></div>
                           )}
                         </div>
-                        <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Messages</span>
+                        <span className="text-[7px] font-black text-medium-gray uppercase tracking-widest">Inbox</span>
                       </div>
                       {messages.length > 0 ? (
                         <div className="space-y-1">
@@ -761,9 +1001,9 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                           <p className="text-[8px] text-white/20 font-black uppercase tracking-widest">{new Date(messages[0].createdAt).toLocaleDateString()}</p>
                         </div>
                       ) : (
-                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">No messages</p>
+                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">No new messages</p>
                       )}
-                      <button onClick={() => setActiveTab('messages')} className="mt-6 text-[8px] font-black text-ai-blue uppercase tracking-[0.2em] hover:text-white transition-colors">Access Comms →</button>
+                      <button onClick={() => setActiveTab('messages')} className="mt-6 text-[8px] font-black text-ai-blue uppercase tracking-[0.2em] hover:text-white transition-colors">View Messages →</button>
                     </div>
                   </div>
 
@@ -778,19 +1018,19 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                       <div className="grid grid-cols-2 gap-4">
                         <button onClick={() => setActiveTab('editor')} className="p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-ai-blue hover:text-black transition-all flex flex-col gap-4 text-left group/btn">
                           <MousePointer2 className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Launch_Editor</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Open Editor</span>
                         </button>
-                        <button onClick={() => setActiveTab('ecommerce')} className="p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-expert-green hover:text-black transition-all flex flex-col gap-4 text-left group/btn">
+                        <button onClick={() => setActiveTab('addons')} className="p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-expert-green hover:text-black transition-all flex flex-col gap-4 text-left group/btn">
                           <ShoppingBag className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Asset_Manager</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Add-ons</span>
                         </button>
                         <button onClick={() => setActiveTab('booking')} className="p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-tech-purple hover:text-white transition-all flex flex-col gap-4 text-left group/btn">
                           <Clock className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Time Tracking</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Bookings</span>
                         </button>
                         <button onClick={() => setActiveTab('addons')} className="p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-orange-500 hover:text-black transition-all flex flex-col gap-4 text-left group/btn">
                           <Plus className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Browse Addons</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Browse Add-ons</span>
                         </button>
                       </div>
                     </div>
@@ -799,10 +1039,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                       <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-4">
                           <Users className="w-5 h-5 text-ai-blue" />
-                          <h3 className="text-xs lg:text-sm font-black uppercase tracking-widest text-white">Referral Program</h3>
+                          <h3 className="text-xs lg:text-sm font-black uppercase tracking-widest text-white">Refer & Earn</h3>
                         </div>
                         <p className="text-[9px] lg:text-[10px] text-white/60 uppercase mb-8 leading-relaxed max-w-xl font-medium">
-                          Deploy your referral link to earn service credits. For every active node commissioned through your link, you receive $50 in infrastructure credits.
+                          Share your referral link to earn credits. For every new website created through your link, you receive $50 in credits.
                         </p>
                         <div className="space-y-4">
                           <div className="bg-black/40 border border-white/10 rounded-2xl px-5 py-4 font-mono text-[9px] text-ai-blue flex items-center truncate">
@@ -828,13 +1068,13 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     <div className="lg:col-span-2 space-y-4 lg:space-y-6">
                       <h2 className="text-base lg:text-lg font-bold tracking-tight uppercase flex items-center gap-3">
                         <span className="w-1.5 h-6 bg-ai-blue rounded-full"></span>
-                        Active Projects
+                        My Projects
                       </h2>
                       <div className="grid gap-3 lg:gap-4">
                         {projects.length > 0 ? projects.map((project) => (
                           <div key={project.id} className="bg-white/[0.02] border border-white/5 p-4 lg:p-6 rounded-2xl flex justify-between items-center group hover:bg-white/[0.04] transition-all cursor-pointer" onClick={() => { setSelectedProjectId(project.id); setActiveTab('projects'); }}>
                             <div>
-                              <p className="text-[8px] lg:text-[10px] text-ai-blue font-black uppercase mb-1">NODE-{project.id.slice(0, 8)}</p>
+                              <p className="text-[8px] lg:text-[10px] text-ai-blue font-black uppercase mb-1">Project-{project.id.slice(0, 8)}</p>
                               <p className="text-sm lg:text-base font-black uppercase truncate max-w-[120px] sm:max-w-none">{project.name}</p>
                             </div>
                             <div className="text-right flex flex-col items-end">
@@ -845,7 +1085,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             </div>
                           </div>
                         )) : (
-                          <div className="p-10 border border-dashed border-white/10 rounded-2xl text-center text-medium-gray uppercase text-[10px]">No active protocols</div>
+                          <div className="p-10 border border-dashed border-white/10 rounded-2xl text-center text-medium-gray uppercase text-[10px]">No active projects</div>
                         )}
                       </div>
                     </div>
@@ -853,7 +1093,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     <div className="space-y-4 lg:space-y-6">
                       <h2 className="text-base lg:text-lg font-bold tracking-tight uppercase flex items-center gap-3">
                         <span className="w-1.5 h-6 bg-tech-purple rounded-full"></span>
-                        Event Logs
+                        Recent Activity
                       </h2>
                       <div className="bg-white/[0.02] border border-white/5 p-4 lg:p-6 rounded-2xl space-y-4 lg:space-y-5">
                         {activities.map((act, i) => (
@@ -896,10 +1136,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                 onClick={() => setSelectedProjectId(project.id)}
                                 className="text-[9px] lg:text-[10px] font-black text-ai-blue uppercase tracking-widest flex items-center gap-2 hover:text-white transition-colors"
                               >
-                                Manage Node <ChevronRight className="w-3 h-3" />
+                                Manage Project <ChevronRight className="w-3 h-3" />
                               </button>
                               
-                              {project.status.toUpperCase() !== 'LIVE' && (
+                              {project.status.toUpperCase() !== 'active' && (
                                 <button 
                                   onClick={() => handleRegenerate(project.id)}
                                   disabled={regeneratingId === project.id}
@@ -908,7 +1148,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   {regeneratingId === project.id ? (
                                     <><Loader2 className="w-3 h-3 animate-spin" /> Processing...</>
                                   ) : (
-                                    <><Zap className="w-3 h-3" /> Content Refresh</>
+                                    <><Zap className="w-3 h-3" /> Regenerate Content</>
                                   )}
                                 </button>
                               )}
@@ -928,7 +1168,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                               )}
                             </div>
                             
-                            {project.status.toUpperCase() === 'LIVE' && project.siteUrl && (
+                            {project.status === 'active' && project.siteUrl && (
                               <button 
                                 onClick={() => handleAnalyzeSite(project.id, project.siteUrl!)}
                                 disabled={isAnalyzing}
@@ -962,7 +1202,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     <div className="space-y-8 lg:space-y-10">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <button onClick={() => setSelectedProjectId(null)} className="flex items-center gap-2 text-medium-gray hover:text-white uppercase text-[9px] lg:text-[10px] font-black">
-                          <ChevronRight className="w-4 h-4 rotate-180" /> Back to Repository
+                          <ChevronRight className="w-4 h-4 rotate-180" /> Back to Projects
                         </button>
                         
                         {projects.find(p => p.id === selectedProjectId) && (
@@ -981,7 +1221,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   if (confirm('Request a professional design review? Our experts will manually refine your site for peak performance.')) {
                                     try {
                                       await apiClient.requestProjectReview(selectedProjectId!);
-                                      alert('Review protocol activated. Our team has been notified.');
+                                      alert('Review request sent. We\'ll review your site soon.');
                                       fetchData();
                                     } catch {
                                       alert('Failed to request review.');
@@ -1013,7 +1253,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             &quot;{projects.find(p => p.id === selectedProjectId)?.reviewNotes}&quot;
                           </p>
                           <p className="mt-4 text-[7px] lg:text-[8px] text-medium-gray uppercase font-black tracking-widest">
-                            Revision_Count: {projects.find(p => p.id === selectedProjectId)?.revisionCount || 0}
+                            Revisions: {projects.find(p => p.id === selectedProjectId)?.revisionCount || 0}
                           </p>
                         </div>
                       )}
@@ -1025,7 +1265,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                               <div>
                                 <span className="text-[7px] lg:text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Plan</span>
                                 <h3 className="text-lg lg:text-xl font-black uppercase tracking-tight text-white">
-                                  {projects.find(p => p.id === selectedProjectId)?.planType?.replace('_', ' ')}
+                                  {projects.find(p => p.id === selectedProjectId)?.planType?.replaceAll('_', ' ')}
                                 </h3>
                               </div>
                               <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-ai-blue/10 border border-ai-blue/20 flex items-center justify-center">
@@ -1034,7 +1274,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             </div>
                             
                             <p className="text-[9px] lg:text-[10px] text-medium-gray font-medium uppercase leading-relaxed mb-8">
-                              Your project is currently operating on the <span className="text-white">{projects.find(p => p.id === selectedProjectId)?.planType}</span> infrastructure. 
+                              Your project is on the <span className="text-white">{projects.find(p => p.id === selectedProjectId)?.planType}</span> plan. 
                               Upgrade to unlock professional refinement and advanced scaling capabilities.
                             </p>
                             
@@ -1056,11 +1296,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             
                             <div className="space-y-3 lg:space-y-4">
                               {[
-                                { label: 'Design Completed', checked: true },
+                                { label: 'Design Completed', checked: (projects.find(p => p.id === selectedProjectId)?.progress || 0) >= 100 },
                                 { label: 'Template Ready', checked: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 20 },
                                 { label: 'Domain Connected', checked: !!projects.find(p => p.id === selectedProjectId)?.domain },
                                 { label: 'Payment Enabled', checked: projects.find(p => p.id === selectedProjectId)?.planType !== 'ai_foundation' },
-                                { label: 'Site Live', checked: projects.find(p => p.id === selectedProjectId)?.status?.toUpperCase() === 'LIVE' },
+                                { label: 'Site Live', checked: projects.find(p => p.id === selectedProjectId)?.status === 'active' },
                               ].map((item, i) => (
                                 <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
                                   <span className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-medium-gray truncate pr-4">{item.label}</span>
@@ -1122,7 +1362,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="text-xs font-black uppercase text-white">{d.domain}</p>
-                            <p className="text-[8px] text-medium-gray uppercase mt-1">Project: {d.subscription?.siteName || d.subscription?.customName || 'NODE'}</p>
+                            <p className="text-[8px] text-medium-gray uppercase mt-1">Project: {d.subscription?.siteName || d.subscription?.customName || 'Untitled'}</p>
                           </div>
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
                             d.status?.toLowerCase() === 'verified' ? 'bg-expert-green/10 text-expert-green' : 'bg-orange-500/10 text-orange-500'
@@ -1219,13 +1459,31 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
               {activeTab === 'billing' && (
                 <div className="animate-fade-in">
-                  <BillingViewer billing={billing} subscriptions={projects as any} />
+                  <BillingViewer 
+                    billing={billing} 
+                    subscriptions={projects as any}
+                    onManageSubscription={(id) => {
+                      router.push('/payment');
+                    }}
+                    onDownloadReceipt={(id) => {
+                      alert('Receipt download coming soon. Contact billing@sitemendr.com for invoices.');
+                    }}
+                    onUpdatePaymentMethod={() => {
+                      router.push('/payment');
+                    }}
+                    onChangeBillingEmail={() => {
+                      alert('Please contact support@sitemendr.com to change your billing email.');
+                    }}
+                    onRequestAudit={() => {
+                      alert('Billing audit request submitted. Our team will contact you within 24 hours.');
+                    }}
+                  />
                 </div>
               )}
 
               {activeTab === 'supporter' && (
                 <div className="animate-fade-in h-full -m-6 lg:-m-10">
-                  <SupporterDashboard onLogout={handleLogoutAction} />
+                  <SupporterDashboard onLogout={handleLogoutAction} isNested={true} />
                 </div>
               )}
 
@@ -1241,7 +1499,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               {activeTab === 'editor' && (
                 <div className="animate-fade-in">
                   {(selectedProjectId || (projects.length > 0 ? projects[0].id : '')) ? (
-                    <VisualContentEditor 
+                    <PageEditor 
                       subscriptionId={selectedProjectId || (projects.length > 0 ? projects[0].id : '')} 
                       purchasedAddons={projects.find(p => p.id === (selectedProjectId || (projects.length > 0 ? projects[0].id : '')))?.purchasedAddons}
                     />
@@ -1417,6 +1675,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             </>
           )}
         </main>
+      </div>
       </div>
 
       {/* Domain Modal */}

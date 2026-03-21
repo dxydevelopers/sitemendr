@@ -7,12 +7,17 @@ const { checkPaymentStatus, enforcePaymentForAPI } = require('../middleware/paym
 // All client routes require authentication
 router.use(authenticate);
 router.use(checkPaymentStatus);
+
+// Discovery routes - allowed even if payment is pending
+router.get('/stats', clientController.getDashboardStats);
+router.get('/projects', clientController.getProjects);
+router.get('/assessments', clientController.getAssessments);
+router.get('/activities', clientController.getActivities);
+
+// Active management routes - require valid payment status
 router.use(enforcePaymentForAPI);
 
-router.get('/stats', clientController.getDashboardStats);
 router.get('/vitals/:subscriptionId', clientController.getSiteVitals);
-router.get('/projects', clientController.getProjects);
-router.get('/activities', clientController.getActivities);
 router.get('/billing', clientController.getBilling);
 router.get('/messages', clientController.getMessages);
 router.post('/messages', clientController.sendMessage);

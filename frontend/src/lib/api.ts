@@ -1,5 +1,5 @@
 // API client for communicating with the backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export interface User {
   id: string;
@@ -47,6 +47,13 @@ export interface Subscription {
   tier: string;
   expiresAt: string;
   lastPaymentDate?: string;
+  siteName?: string;
+  customName?: string;
+  reviewRequested?: boolean;
+  reviewNotes?: string;
+  revisionCount?: number;
+  isCurrent?: boolean;
+  createdAt?: string;
   paymentStatus?: {
     active: boolean;
     daysOverdue: number;
@@ -107,11 +114,26 @@ class ApiClient {
   private pendingRequests: Map<string, Promise<unknown>> = new Map();
 
   constructor(baseURL: string) {
-    this.baseURL = baseURL;
+    // Clean up baseURL: remove trailing slash
+    let cleanedBaseURL = baseURL.replace(/\/$/, '');
+    
+    // If it ends with /api, remove it because our request method adds it
+    if (cleanedBaseURL.endsWith('/api')) {
+      cleanedBaseURL = cleanedBaseURL.substring(0, cleanedBaseURL.length - 4);
+    }
+    
+    this.baseURL = cleanedBaseURL;
   }
 
   private async request<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
+    // Ensure the endpoint starts with /api if it doesn't already
+    let normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    
+    if (!normalizedEndpoint.startsWith('/api/') && normalizedEndpoint !== '/api') {
+      normalizedEndpoint = `/api${normalizedEndpoint}`;
+    }
+
+    const url = `${this.baseURL}${normalizedEndpoint}`;
     
     // Simple 30-second cache for GET requests to profile and stats to prevent rate limiting
     const cacheKey = `${options.method || 'GET'}:${endpoint}`;
@@ -144,7 +166,12 @@ class ApiClient {
         const authToken = localStorage.getItem('sitemendr_auth_token');
         const sessionToken = localStorage.getItem('assessment_session_token');
         
-        if (authToken) {
+        // Prioritize sessionToken for assessment-related endpoints
+        const isAssessmentEndpoint = endpoint.startsWith('/assessment/') || endpoint.startsWith('/api/assessment/');
+        
+        if (isAssessmentEndpoint && sessionToken) {
+          headers.Authorization = `Bearer ${sessionToken}`;
+        } else if (authToken) {
           headers.Authorization = `Bearer ${authToken}`;
         } else if (sessionToken) {
           headers.Authorization = `Bearer ${sessionToken}`;
@@ -182,9 +209,12 @@ class ApiClient {
             localStorage.removeItem('user');
           }
           
-          const error = new Error(errorData.message || `API request failed with status ${response.status}`);
-          (error as Error & { status: number }).status = response.status;
-          throw error;
+          // Instead of throwing, return error response so UI can handle it gracefully
+          return {
+            success: false,
+            message: errorData.message || `Request failed: ${response.status}`,
+            status: response.status
+          } as T;
         }
 
         const data = await response.json();
@@ -223,8 +253,12 @@ class ApiClient {
   }
 
   // Generic HTTP methods
-  async get<T = unknown>(endpoint: string, options: RequestInit = {}) {
-    return this.request<T>(endpoint, { ...options, method: 'GET' });
+  async get(endpoint: string, options: RequestInit = {}) {
+    return this.request(endpoint, { ...options, method: 'GET' });
+  }
+
+  async fetchAllSupporterTiers() {
+    return this.request<{ success: boolean; tiers: SupporterTier[] }>('/supporters/tiers');
   }
 
   async post<T = unknown>(endpoint: string, body: unknown, options: RequestInit = {}) {
@@ -321,6 +355,13 @@ class ApiClient {
     return this.request<{ success: boolean; message: string }>(`/auth/verify-email/${token}`);
   }
 
+  async checkUserExistence(email: string) {
+    return this.request<{ success: boolean; exists: boolean; message?: string }>('/auth/check-user', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
   async resendVerification() {
     return this.request<{ success: boolean; message: string }>('/auth/resend-verification', {
       method: 'POST',
@@ -360,7 +401,7 @@ class ApiClient {
   }
 
   async processAssessment(assessmentId: string, finalResponses: Record<string, unknown>) {
-    return this.request<{ success: boolean; results: AssessmentResultsData; assessmentId: string }>(`/assessment/${assessmentId}/process`, {
+    return this.request<{ success: boolean; results: AssessmentResultsData; assessmentId: string; token?: string; user?: any; projectCreated?: boolean }>(`/assessment/${assessmentId}/process`, {
       method: 'POST',
       body: JSON.stringify({ finalResponses }),
     });
@@ -391,6 +432,10 @@ class ApiClient {
     return this.request<{ success: boolean; data: Subscription[] }>('/client/projects');
   }
 
+  async getClientAssessments() {
+    return this.request<{ success: boolean; data: any[] }>('/client/assessments');
+  }
+
   async getProjectTemplate(subscriptionId: string) {
     return this.request<{ success: boolean; data: { html: string; css: string; js: string } }>(`/client/projects/${subscriptionId}/template`);
   }
@@ -418,6 +463,106 @@ class ApiClient {
 
   async requestProjectReview(subscriptionId: string) {
     return this.request<{ success: boolean; message: string }>(`/client/projects/${subscriptionId}/request-review`, {
+      method: 'POST',
+    });
+  }
+
+  // ============================================
+  // PAGE EDITOR API
+  // ============================================
+
+  // Pages
+  async getPages(subscriptionId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/editor/pages?subscriptionId=${subscriptionId}`);
+  }
+
+  async getPage(pageId: string) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/pages/${pageId}`);
+  }
+
+  async createPage(data: { subscriptionId: string; type?: string; slug?: string; title: string; isHome?: boolean }) {
+    return this.request<{ success: boolean; data: unknown }>('/editor/pages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePage(pageId: string, data: { title?: string; slug?: string; type?: string; isPublished?: boolean; isHome?: boolean }) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/pages/${pageId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePage(pageId: string) {
+    return this.request<{ success: boolean; message: string }>(`/editor/pages/${pageId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async publishPage(pageId: string) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/pages/${pageId}/publish`, {
+      method: 'POST',
+    });
+  }
+
+  async unpublishPage(pageId: string) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/pages/${pageId}/unpublish`, {
+      method: 'POST',
+    });
+  }
+
+  // Sections
+  async getSectionTemplates(category?: string) {
+    const query = category ? `?category=${category}` : '';
+    return this.request<{ success: boolean; data: unknown[] }>(`/editor/sections${query}`);
+  }
+
+  async getSectionCategories() {
+    return this.request<{ success: boolean; data: string[] }>('/editor/sections/categories');
+  }
+
+  async addSectionToPage(pageId: string, sectionId: string, settings?: Record<string, unknown>, order?: number) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/pages/${pageId}/sections`, {
+      method: 'POST',
+      body: JSON.stringify({ sectionId, settings, order }),
+    });
+  }
+
+  async updatePageSection(pageId: string, sectionId: string, settings?: Record<string, unknown>, order?: number) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/pages/${pageId}/sections/${sectionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ settings, order }),
+    });
+  }
+
+  async removeSectionFromPage(pageId: string, sectionId: string) {
+    return this.request<{ success: boolean; message: string }>(`/editor/pages/${pageId}/sections/${sectionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async reorderSections(pageId: string, sections: { id: string; order: number }[]) {
+    return this.request<{ success: boolean; message: string }>(`/editor/pages/${pageId}/sections/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ sections }),
+    });
+  }
+
+  // Theme
+  async getThemeSettings(subscriptionId: string) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/theme?subscriptionId=${subscriptionId}`);
+  }
+
+  async updateThemeSettings(subscriptionId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/theme/${subscriptionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resetTheme(subscriptionId: string) {
+    return this.request<{ success: boolean; data: unknown }>(`/editor/theme/${subscriptionId}/reset`, {
       method: 'POST',
     });
   }
@@ -948,14 +1093,10 @@ class ApiClient {
   }
 
   async healthCheck() {
-    return this.request('/health');
+    return this.request('/api/health');
   }
 
   // Supporter API methods
-  async getSupporterTiers() {
-    return this.request<{ success: boolean; tiers: SupporterTier[] }>('/supporters/tiers');
-  }
-
   async getMySupporterStatus() {
     return this.request<{ success: boolean; isSupporter: boolean; supporter: Supporter | null }>('/supporters/me');
   }

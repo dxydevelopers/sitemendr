@@ -5,20 +5,42 @@ import Link from 'next/link';
 import { Terminal, ArrowUp, X, User as UserIcon, LogOut, ChevronDown } from 'lucide-react';
 import { apiClient, User } from '@/lib/api';
 
+const guestNavItems = [
+  { name: 'Home', href: '/' },
+  { name: 'Services', href: '/services' },
+  { name: 'Supporters', href: '/support' },
+  { name: 'Process', href: '/about#process' },
+  { name: 'Pricing', href: '/payment' },
+  { name: 'Contact', href: '/contact' },
+];
+
+const clientNavItems = [
+  { name: 'Dashboard', href: '/dashboard' },
+  { name: 'Supporters', href: '/support' },
+  { name: 'My Rewards', href: '/supporter/dashboard' },
+  { name: 'My Projects', href: '/dashboard/projects' },
+  { name: 'Billing', href: '/dashboard/billing' },
+  { name: 'Support', href: '/dashboard/support' },
+];
+
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    console.log('Navigation: Mounting...');
+    setMounted(true);
     fetchUser();
   }, []);
 
   const fetchUser = async () => {
     try {
       const res = await apiClient.getProfile();
+      console.log('Navigation: Profile response:', res);
       if (res.success) setUser(res.user);
     } catch {
       // User not logged in, ignore
@@ -56,24 +78,11 @@ export default function Navigation() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const guestNavItems = [
-    { name: 'Home', href: '/' },
-    { name: 'Services', href: '/services' },
-    { name: 'Supporters', href: '/support' },
-    { name: 'Process', href: '/about#process' },
-    { name: 'Pricing', href: '/payment' },
-    { name: 'Contact', href: '/contact' },
-  ];
-
-  const clientNavItems = [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Supporter', href: '/supporter/dashboard' },
-    { name: 'My Projects', href: '/dashboard/projects' },
-    { name: 'Billing', href: '/dashboard/billing' },
-    { name: 'Support', href: '/dashboard/support' },
-  ];
-
-  const currentNavItems = user ? clientNavItems : guestNavItems;
+  const currentNavItems = (mounted && user) ? clientNavItems : guestNavItems;
+  
+  if (mounted) {
+    console.log('Navigation: Rendering on client with items:', currentNavItems.map(i => i.name));
+  }
 
   return (
     <>
@@ -122,7 +131,7 @@ export default function Navigation() {
               </Link>
             ))}
             <div className="ml-6 pl-6 border-l border-white/5 flex items-center gap-6">
-              {user ? (
+              {(mounted && user) ? (
                 <div className="relative">
                   <button 
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -253,7 +262,7 @@ export default function Navigation() {
         <div className={`pt-12 w-full max-w-sm transition-all duration-700 delay-500 ${
           isMenuOpen ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
         }`}>
-          {user ? (
+          {(mounted && user) ? (
             <div className="space-y-4">
               <div className="p-6 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-4 mb-8">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-ai-blue to-tech-purple flex items-center justify-center font-black text-white">

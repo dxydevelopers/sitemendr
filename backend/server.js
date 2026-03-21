@@ -162,6 +162,7 @@ const supporterRoutes = require("./routes/supporterRoutes");
 const ecommerceRoutes = require("./routes/ecommerceRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const swaggerRoutes = require("./routes/swaggerRoutes");
+const pageEditorRoutes = require("./routes/pageEditorRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/assessment", assessmentRoutes);
@@ -178,6 +179,7 @@ app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/supporters", supporterRoutes);
 app.use("/api/media", mediaRoutes);
+app.use("/api/editor", pageEditorRoutes);
 app.use("/api/ecommerce", ecommerceRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api-docs", swaggerRoutes);
@@ -260,7 +262,17 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  logger.warn('404_NOT_FOUND:', { path: req.path, method: req.method });
+  logger.warn('404_NOT_FOUND:', { 
+    path: req.path, 
+    method: req.method,
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl,
+    headers: {
+      'user-agent': req.headers['user-agent'],
+      'authorization': req.headers['authorization'] ? 'Present' : 'Missing',
+      'host': req.headers['host']
+    }
+  });
   res.status(404).json({
     success: false,
     message: 'API endpoint not found'

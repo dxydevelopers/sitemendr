@@ -22,6 +22,10 @@ const loginValidation = [
 // Public routes (no authentication required)
 router.post('/register', registerValidation, authController.register);
 router.post('/login', loginValidation, authController.login);
+router.post('/check-user', [
+  body('email').isEmail().withMessage('Enter a valid email address').normalizeEmail(),
+  validate
+], authController.checkUserExistence);
 router.post('/forgot-password', [
   body('email').isEmail().withMessage('Enter a valid email address').normalizeEmail(),
   validate

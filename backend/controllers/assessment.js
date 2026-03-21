@@ -36,6 +36,10 @@ const validateSessionToken = (token) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'assessment_secret');
     return decoded.sessionId;
   } catch (error) {
+    logger.error('Assessment session token validation failed', {
+      error: error.message,
+      tokenSnippet: token?.substring(0, 15) + '...'
+    });
     return null;
   }
 };
@@ -727,10 +731,16 @@ const generateNextSteps = (package) => {
   return baseSteps;
 };
 
+// Valid source enum values
+const validSources = ['homepage', 'email', 'social', 'referral', 'direct', 'assessment', 'contact_form', 'newsletter', 'paid_ad'];
+
 // Assessment routes
 exports.startAssessment = async (req, res) => {
   try {
     const { source = 'direct', referrer } = req.body;
+
+    // Validate and normalize source to a valid enum value
+    const normalizedSource = (source && validSources.includes(source)) ? source : 'direct';
 
     const sessionId = generateSessionId();
     const sessionToken = generateSessionToken(sessionId);
@@ -738,7 +748,7 @@ exports.startAssessment = async (req, res) => {
     const assessment = await prisma.assessment.create({
       data: {
         sessionId,
-        source: source === 'direct' ? 'direct' : source, // Basic validation for enum
+        source: normalizedSource,
         referrer,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         responses: {}
@@ -770,9 +780,17 @@ exports.generateTemplateAI = generateTemplateAI;
 exports.saveResponses = async (req, res) => {
   try {
     const { authorization } = req.headers;
+    if (!authorization) {
+      logger.warn('Save responses attempt WITHOUT Authorization header');
+      return res.status(401).json({ success: false, message: 'Authorization required' });
+    }
+
     const sessionId = validateSessionToken(authorization?.replace('Bearer ', ''));
 
     if (!sessionId) {
+      logger.warn('Save responses attempt with INVALID session token', { 
+        header: authorization?.substring(0, 20) + '...' 
+      });
       return res.status(401).json({
         success: false,
         message: 'Invalid or expired session'
@@ -783,6 +801,7 @@ exports.saveResponses = async (req, res) => {
 
     const assessment = await prisma.assessment.findUnique({ where: { sessionId } });
     if (!assessment) {
+      logger.warn('Assessment NOT FOUND in saveResponses', { sessionId });
       return res.status(404).json({
         success: false,
         message: 'Assessment not found'
@@ -845,23 +864,27 @@ exports.processAssessment = async (req, res) => {
     // Check if database is available
     let assessment;
     try {
+      // Direct ping to ensure DB is alive
+      await prisma.$queryRaw`SELECT 1`;
+      
       assessment = await prisma.assessment.findUnique({ where: { sessionId } });
+      if (!assessment) {
+        logger.warn('Assessment NOT FOUND in processAssessment', { sessionId });
+        return res.status(404).json({
+          success: false,
+          message: 'Assessment not found. Your session may have expired.'
+        });
+      }
     } catch (dbError) {
-      logger.error('Database connection error in processAssessment', {
-        errorCode: 'PROCESS_ASSESSMENT_DB_CONN_ERROR',
-        error: dbError.message
+      logger.error('DATABASE_AVAILABILITY_ERROR in processAssessment', {
+        sessionId,
+        error: dbError.message,
+        stack: dbError.stack
       });
       return res.status(503).json({
         success: false,
-        message: 'Database temporarily unavailable. Please try again.',
+        message: 'Neural link to database failed. Our systems are recovering. Please try again in a moment.',
         retryable: true
-      });
-    }
-
-    if (!assessment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Assessment not found'
       });
     }
 
@@ -877,9 +900,11 @@ exports.processAssessment = async (req, res) => {
         }
       });
     } catch (dbError) {
-      logger.error('Database update error in processAssessment', {
-        errorCode: 'PROCESS_ASSESSMENT_DB_UPDATE_ERROR',
-        error: dbError.message
+      logger.error('DATABASE_UPDATE_ERROR in processAssessment', {
+        assessmentId: assessment.id,
+        sessionId,
+        error: dbError.message,
+        stack: dbError.stack
       });
       return res.status(503).json({
         success: false,
@@ -891,6 +916,180 @@ exports.processAssessment = async (req, res) => {
     // Process with AI (synchronous - wait for results)
     const results = await processAssessmentAI(updatedResponses);
     
+    // Create user and subscription if it's a new user or link to existing user
+    let token = null;
+    let user = null;
+    let projectCreated = false;
+    const { isNewUser, email, name, phone, company, password, userExists } = finalResponses || {};
+    
+    // Determine if this is a new user
+    // If userExists is explicitly false, it's a new user
+    // If userExists is explicitly true, it's an existing user
+    // Otherwise, check if targetUser exists in database
+    let isNew = true;
+    if (userExists === true) {
+      isNew = false; // Frontend says user exists
+    } else if (userExists === false) {
+      isNew = true; // Frontend says user is new
+    } else {
+      isNew = !targetUser; // Fallback to database check
+    }
+
+    try {
+      if (email) {
+        const userEmail = email.toLowerCase();
+        let targetUser = await prisma.user.findUnique({ where: { email: userEmail } });
+
+        if (isNew && !targetUser) {
+          // Use password provided by user OR generate temp one if not provided
+          let userPassword = password;
+          
+          if (!userPassword) {
+            // Generate random password if none provided (fallback)
+            userPassword = crypto.randomBytes(8).toString('hex');
+          }
+          
+          const salt = await bcrypt.genSalt(12);
+          const hashedPassword = await bcrypt.hash(userPassword, salt);
+
+          // Create user
+          targetUser = await prisma.user.create({
+            data: {
+              name: name || 'Valued Client',
+              email: userEmail,
+              password: hashedPassword,
+              phone: phone || null,
+              role: 'user',
+              isEmailVerified: false,
+            }
+          });
+
+          // Send welcome email (with their chosen password or notice they set it)
+          await sendEmail({
+            to: userEmail,
+            subject: 'Welcome to Sitemendr - Your Account Details',
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 15px;">
+                <h2 style="color: #0066FF; text-transform: uppercase; letter-spacing: 2px;">Identity_Verified</h2>
+                <p>Greetings, operative. Your technical profile has been synchronized.</p>
+                <p>Your account has been created and your project is ready in your dashboard.</p>
+                <p>Login to your command center to review your project blueprint:</p>
+                <a href="${process.env.FRONTEND_URL}/login" style="display: inline-block; background: #0066FF; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">Access Dashboard</a>
+              </div>
+            `,
+          }).catch(err => logger.error('FAILED_TO_SEND_WELCOME_EMAIL', err));
+
+          // Generate token for immediate login
+          token = generateAuthToken(targetUser.id);
+          user = {
+            id: targetUser.id,
+            name: targetUser.name,
+            email: targetUser.email,
+            role: targetUser.role
+          };
+        } else if (targetUser) {
+          user = {
+            id: targetUser.id,
+            name: targetUser.name,
+            email: targetUser.email,
+            role: targetUser.role
+          };
+          // Generate token for existing users too so they stay logged in
+          token = generateAuthToken(targetUser.id);
+        }
+
+        if (targetUser) {
+          // Create a subscription (Project) for this user based on assessment
+          const tier = results.recommendedPackage || 'ai_foundation';
+          const price = results.pricing?.estimatedTotal || 299;
+          
+          const subscription = await prisma.subscription.create({
+            data: {
+              userId: targetUser.id,
+              siteName: company || `${targetUser.name}'s Project`,
+              tier: tier,
+              price: parseFloat(price),
+              status: 'active',
+              planType: 'monthly',
+              reviewRequested: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          });
+
+          projectCreated = true;
+
+          // Create initial milestones based on assessment results
+          await prisma.milestone.createMany({
+            data: [
+              {
+                subscriptionId: subscription.id,
+                title: 'Project Blueprint',
+                description: 'AI assessment and architecture blueprint synchronization completed.',
+                status: 'completed',
+                progress: 100,
+                order: 1
+              },
+              {
+                subscriptionId: subscription.id,
+                title: 'Initial Build',
+                description: 'Constructing core system components and neural interface structures.',
+                status: 'in_progress',
+                progress: 25,
+                order: 2
+              },
+              {
+                subscriptionId: subscription.id,
+                title: 'Optimization Phase',
+                description: 'Polishing UI components and refining backend logic paths.',
+                status: 'pending',
+                progress: 0,
+                order: 3
+              },
+              {
+                subscriptionId: subscription.id,
+                title: 'Deployment Ready',
+                description: 'Final system integrity check and public node deployment.',
+                status: 'pending',
+                progress: 0,
+                order: 4
+              }
+            ]
+          });
+
+          // Create initial template record
+          await prisma.template.create({
+            data: {
+              subscriptionId: subscription.id,
+              html: `
+                <div style="font-family: 'Inter', sans-serif; max-width: 1200px; margin: 0 auto; padding: 100px 20px; text-align: center;">
+                  <span style="display: inline-block; padding: 5px 15px; background: rgba(0, 102, 255, 0.1); color: #0066FF; border-radius: 20px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px;">System_Initialized</span>
+                  <h1 style="font-size: 60px; font-weight: 900; color: #1a1a1a; text-transform: uppercase; letter-spacing: -2px; line-height: 1; margin-bottom: 30px;">${company || targetUser.name + ' Blueprint'}</h1>
+                  <p style="font-size: 18px; color: #666; max-width: 700px; margin: 0 auto 50px; text-transform: uppercase; letter-spacing: 1px; line-height: 1.6;">${results.aiInsights?.substring(0, 200) || 'Your AI-powered digital infrastructure is being constructed.'}</p>
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px;">
+                    ${(results.recommendedFeatures || ['Scalable Architecture', 'Neural SEO', 'Core Engine']).slice(0, 3).map(f => `
+                      <div style="padding: 40px; background: #fff; border: 1px solid #f0f0f0; border-radius: 30px; text-align: left;">
+                        <div style="width: 40px; height: 40px; background: #0066FF; border-radius: 10px; margin-bottom: 20px;"></div>
+                        <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">${f}</h3>
+                        <p style="font-size: 11px; color: #999; text-transform: uppercase; line-height: 1.5;">Module integration pending completion of initial build cycle.</p>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `,
+              css: "body { background: #fafafa; margin: 0; }",
+              js: "console.log('Project neural link active.');",
+              aiModel: results.processingMethod || 'gpt-4o'
+            }
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Error creating user, subscription or milestones during assessment processing', error);
+      // We don't throw here to ensure results are still returned to the client,
+      // but the projectCreated flag will be false
+    }
+
     try {
       await prisma.assessment.update({
         where: { id: assessment.id },
@@ -906,14 +1105,16 @@ exports.processAssessment = async (req, res) => {
         error: dbError.message
       });
       // Still return results even if final update fails
-      logger.warn('Assessment processed but final save failed', { errorCode: 'ASSESSMENT_SAVE_FAILED' });
     }
 
     res.json({
       success: true,
       assessmentId: assessment.id,
       results,
-      processedWithFallback: !results.aiGenerated // Flag to indicate if fallback was used
+      processedWithFallback: !results.aiGenerated, // Flag to indicate if fallback was used
+      token, // Return token for new users
+      user,   // Return user info
+      projectCreated
     });
   } catch (error) {
     logger.error('Process assessment error', {
@@ -1106,9 +1307,10 @@ exports.convertToLead = async (req, res) => {
               <div style="text-align: center; margin-bottom: 20px;">
                 <h1 style="color: #0066FF; margin: 0;">Sitemendr AI</h1>
               </div>
-              <h2 style="color: #333;">Lead Updated.</h2>
+              <h2 style="color: #333;">Protocol Updated.</h2>
               <p>Hello <strong>${name}</strong>,</p>
               <p>We've updated your profile with your latest technical assessment results.</p>
+              <p><strong>Note:</strong> Your previous blueprint has been archived as "Historical" in your dashboard to make room for this new configuration.</p>
               <p>Your new personalized architecture blueprint and AI-generated template are now available in your dashboard.</p>
               <div style="text-align: center; margin: 35px 0;">
                 <a href="${process.env.FRONTEND_URL}/login" style="background: #0066FF; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Updated Dashboard</a>
@@ -1259,6 +1461,30 @@ exports.convertToLead = async (req, res) => {
     // 6. Generate auth token for immediate access
     const authToken = generateAuthToken(user.id);
 
+    // 7. Notify Admin of new lead
+    try {
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL || 'admin@sitemendr.com',
+        subject: `📬 New High-Value Lead: ${name} (Package: ${finalPackage})`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #0066FF;">New Assessment Completed</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Company:</strong> ${company || 'N/A'}</p>
+            <p><strong>Selected Package:</strong> ${finalPackage}</p>
+            <p><strong>Estimated Price:</strong> $${estimatedPrice}</p>
+            <p><strong>Lead Score:</strong> ${lead.qualification.score}/100</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL}/admin/dashboard" style="background: #0066FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View in Admin Panel</a>
+            </div>
+          </div>
+        `
+      });
+    } catch (adminEmailError) {
+      logger.error('Failed to notify admin of new lead', { error: adminEmailError.message });
+    }
+
     res.status(201).json({
       success: true,
       leadId: lead.id,
@@ -1270,6 +1496,7 @@ exports.convertToLead = async (req, res) => {
         email: user.email,
         role: user.role
       },
+      projectCreated: true,
       message: isNewUser 
         ? 'Protocol initiated. Your secure terminal access has been provisioned.' 
         : 'Lead updated. New protocol added to your secure terminal.',
@@ -1282,7 +1509,9 @@ exports.convertToLead = async (req, res) => {
   } catch (error) {
     logger.error('Convert to lead error', {
       errorCode: 'CONVERT_TO_LEAD_ERROR',
-      error: error.message
+      error: error.message,
+      stack: error.stack,
+      email: req.body.email
     });
     if (error.code === 'P2002') { // Prisma unique constraint violation
       return res.status(400).json({
@@ -1292,7 +1521,9 @@ exports.convertToLead = async (req, res) => {
     }
     res.status(500).json({
       success: false,
-      message: 'Failed to capture lead'
+      message: 'Failed to capture lead',
+      error: error.message,
+      stack: error.stack
     });
   }
 };

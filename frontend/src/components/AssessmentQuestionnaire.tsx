@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { apiClient, saveSessionToken } from '@/lib/api';
+import { apiClient, saveSessionToken, clearSessionToken } from '@/lib/api';
 import { Sparkles, Palette, Briefcase, Layout, ChevronRight, ChevronLeft, Send, CheckCircle2, X } from 'lucide-react';
 import AssessmentResults, { AssessmentResultsData } from './AssessmentResults';
 
@@ -22,9 +22,10 @@ interface AssessmentData {
   phone: string;
   company: string;
   website: string;
+  password?: string;
   assessmentId?: string;
   selectedPackage?: string;
-  [key: string]: string | string[] | undefined;
+  [key: string]: string | string[] | boolean | undefined;
 }
 
 interface AssessmentQuestionnaireProps {
@@ -241,8 +242,13 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
     email: '',
     phone: '',
     company: '',
-    website: ''
+    website: '',
+    password: ''
   });
+
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [userExists, setUserExists] = useState<boolean | null>(null);
+  const [password, setPassword] = useState('');
 
   // Handle pre-selected plan from PricingPreview
   useEffect(() => {
@@ -285,6 +291,8 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResultsData | null>(null);
   const [showResults, setShowResults] = useState(false);
 
@@ -342,7 +350,17 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
       }
     } catch (error) {
       console.error('Error saving responses:', error);
-      setErrors({ submit: 'Failed to save responses. Please try again.' });
+      if (error && typeof error === 'object' && 'status' in error && error.status === 401) {
+        setAssessmentId('');
+        clearSessionToken();
+        setErrors({ submit: 'Your session has expired. Re-initializing assessment node. Please wait...' });
+        // Force re-initialization
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+        return;
+      }
+      setErrors({ submit: 'Failed to synchronize responses with neural core. Please try again.' });
     } finally {
       setIsProcessing(false);
     }
@@ -373,9 +391,15 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
 
   const handleSubmit = async () => {
     const contactErrors: Record<string, string> = {};
-    if (!data.name) contactErrors.name = 'Name is required';
-    if (!data.email) contactErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(data.email)) contactErrors.email = 'Please enter a valid email';
+    if (!data.email) {
+      contactErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(data.email)) {
+      contactErrors.email = 'Please enter a valid email';
+    }
+
+    if (showPasswordField && !password) {
+      contactErrors.password = 'Password is required for existing accounts';
+    }
 
     if (Object.keys(contactErrors).length > 0) {
       setErrors(contactErrors);
@@ -387,15 +411,95 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
       return;
     }
 
+    // Phase 1: Check if user exists (if not already shown password field)
+    if (!showPasswordField) {
+      setIsCheckingEmail(true);
+      setErrors({});
+      
+      let checkResponse;
+      try {
+        checkResponse = await apiClient.checkUserExistence(data.email);
+      } catch (error: any) {
+        console.error('checkUserExistence error:', error);
+        // Show error in UI but allow user to continue as new user
+        setErrors({ submit: `Connection issue: ${error.message || 'Please continue as new user'}` });
+      }
+      
+      setIsCheckingEmail(false);
+      
+      // Handle error responses gracefully - show in UI and allow continue as new user
+      if (!checkResponse || checkResponse.success === false) {
+        const errorMsg = checkResponse?.message || 'Unable to verify account. You may continue as a new user.';
+        console.warn('checkUserExistence failed:', errorMsg);
+        setErrors({ submit: errorMsg });
+        setUserExists(false);
+        setShowPasswordField(true);
+        setWelcomeMessage('New operative detected. Create a password to establish your account.');
+        return;
+      }
+      
+      // Success - user exists
+      if (checkResponse.exists) {
+        setUserExists(true);
+        setShowPasswordField(true);
+        setWelcomeMessage(`Welcome back. Enter your password to proceed.`);
+      } else {
+        setUserExists(false);
+        setShowPasswordField(true);
+        setWelcomeMessage('New operative detected. Create a password to establish your account.');
+      }
+      return;
+    }
+
+    // Password is required for both new and existing users
+    if (!password) {
+      setErrors({ password: 'Password is required to proceed' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Process the assessment with AI and get results
-      const response = await apiClient.processAssessment(assessmentId, data);
+      // Both new and existing users must provide password
+      // For existing: we verify it via login
+      // For new: the backend will create account with this password
+      if (userExists) {
+        // Existing user - verify password first
+        try {
+          await apiClient.login({ email: data.email, password });
+        } catch {
+          setIsSubmitting(false);
+          setErrors({ password: 'Invalid password for this account.' });
+          return;
+        }
+      }
 
-      // Store results and show results component
-      setAssessmentResults(response.results);
-      setShowResults(true);
+      // Process the assessment with AI and get results
+      // Pass password and userExists to tell backend how to handle the account
+      const response = await apiClient.processAssessment(assessmentId, {
+        ...data,
+        password: password,
+        userExists: userExists
+      }) as any;
+
+      // For new users, auto-login after account creation
+      if (userExists === false && password) {
+        try {
+          await apiClient.login({ email: data.email, password });
+        } catch (loginError) {
+          console.warn('Auto-login failed for new user:', loginError);
+        }
+      } else if (userExists && password) {
+        // Existing user already logged in via the earlier login call
+        // Just save the token if returned
+      }
+
+      // Save auth token
+      const token = response?.token || localStorage.getItem('sitemendr_auth_token');
+      if (token) {
+        localStorage.setItem('sitemendr_auth_token', token);
+        saveSessionToken(token);
+      }
 
       // Notify parent component with safe data mapping
       const safeData: AssessmentData = {
@@ -420,9 +524,20 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
       };
       
       onComplete(safeData, response.results);
+
+      // Redirect to dashboard immediately - results will be shown there
+      // Pass assessmentId to dashboard so it can fetch/show results
+      const resultsParam = encodeURIComponent(JSON.stringify(response.results));
+      window.location.href = `/dashboard?tab=projects&assessment=complete&results=${resultsParam}`;
+
     } catch (error) {
       console.error('Assessment submission error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process assessment. Please try again.';
+      if (error && typeof error === 'object' && 'status' in error && error.status === 401) {
+        setAssessmentId('');
+        setErrors({ submit: 'Your session has expired. Re-initializing assessment...' });
+        return;
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Database temporarily unavailable. Please try again.';
       setErrors({ submit: `Failed to process assessment: ${errorMessage}. Please ensure the backend server is running.` });
     } finally {
       setIsSubmitting(false);
@@ -435,7 +550,13 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
       const initializeAssessment = async () => {
         setIsInitializing(true);
         try {
-          const response = await apiClient.startAssessment('homepage');
+          const response = await apiClient.startAssessment('homepage') as any;
+          
+          // Check if the API call was successful
+          if (!response.success) {
+            throw new Error(response.message || 'Failed to start assessment');
+          }
+          
           setAssessmentId(response.assessmentId);
           saveSessionToken(response.sessionToken);
         } catch (error) {
@@ -452,35 +573,63 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
 
   const renderQuestion = () => {
     if (currentStep > questions.length - 1) {
-      // Contact form
+      // Contact form - Simplified for new flow
       return (
         <div className="space-y-8 animate-fade-in-up">
           <div className="text-center">
-            <h2 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">Signal_Acquisition</h2>
-            <p className="text-medium-gray text-sm font-mono uppercase tracking-widest opacity-60">Complete technical profile for AI synthesis</p>
+            <h2 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">Identity_Verification</h2>
+            <p className="text-medium-gray text-sm font-mono uppercase tracking-widest opacity-60">
+              {welcomeMessage || (showPasswordField ? 'Existing operative detected. Provide credentials.' : 'Enter your email to link your technical profile.')}
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {[
-              { label: 'Your Name', field: 'name', type: 'text', placeholder: 'Enter your name' },
-              { label: 'Email Address', field: 'email', type: 'email', placeholder: 'your@email.com' },
-              { label: 'Phone Number', field: 'phone', type: 'tel', placeholder: '+1 000 000 0000' },
-              { label: 'Company Name', field: 'company', type: 'text', placeholder: 'Your company name' }
-            ].map((input) => (
-              <div key={input.field} className="space-y-2">
-                <label className="font-mono text-[9px] text-ai-blue uppercase tracking-[0.3em] ml-1">{input.label}</label>
+          <div className="max-w-md mx-auto space-y-5">
+            <div className="space-y-2">
+              <label className="font-mono text-[9px] text-ai-blue uppercase tracking-[0.3em] ml-1">Email Address</label>
+              <input
+                type="email"
+                value={data.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled={showPasswordField || isSubmitting}
+                className={`w-full px-5 py-4 bg-ai-blue/5 border rounded-lg text-white font-mono text-sm focus:border-ai-blue focus:bg-ai-blue/10 focus:outline-none transition-all placeholder:text-white/10 ${
+                  errors.email ? 'border-red-500/50' : 'border-ai-blue/20'
+                }`}
+                placeholder="your@email.com"
+              />
+              {errors.email && <p className="text-red-500 font-mono text-[9px] mt-1 ml-1 uppercase tracking-tighter">{errors.email}</p>}
+            </div>
+
+            {showPasswordField && (
+              <div className="space-y-2 animate-fade-in">
+                <div className="flex justify-between items-center px-1">
+                  <label className="font-mono text-[9px] text-ai-blue uppercase tracking-[0.3em]">Access Password</label>
+                  <button 
+                    onClick={() => { setShowPasswordField(false); setErrors({}); }}
+                    className="font-mono text-[9px] text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors"
+                  >
+                    Change Email
+                  </button>
+                </div>
                 <input
-                  type={input.type}
-                  value={data[input.field as keyof AssessmentData] as string}
-                  onChange={(e) => handleInputChange(input.field, e.target.value)}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className={`w-full px-5 py-4 bg-ai-blue/5 border rounded-lg text-white font-mono text-sm focus:border-ai-blue focus:bg-ai-blue/10 focus:outline-none transition-all placeholder:text-white/10 ${
-                    errors[input.field] ? 'border-red-500/50' : 'border-ai-blue/20'
+                    errors.password ? 'border-red-500/50' : 'border-ai-blue/20'
                   }`}
-                  placeholder={input.placeholder}
+                  placeholder="••••••••"
+                  autoFocus
                 />
-                {errors[input.field] && <p className="text-red-500 font-mono text-[9px] mt-1 ml-1 uppercase tracking-tighter">{errors[input.field]}</p>}
+                {errors.password && <p className="text-red-500 font-mono text-[9px] mt-1 ml-1 uppercase tracking-tighter">{errors.password}</p>}
               </div>
-            ))}
+            )}
+            
+            {isCheckingEmail && (
+              <div className="flex items-center justify-center gap-2 py-2">
+                <div className="w-3 h-3 border-2 border-ai-blue/30 border-t-ai-blue rounded-full animate-spin"></div>
+                <span className="font-mono text-[9px] text-ai-blue/60 uppercase tracking-widest">Verifying Identity...</span>
+              </div>
+            )}
           </div>
         </div>
       );

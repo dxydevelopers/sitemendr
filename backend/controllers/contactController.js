@@ -117,6 +117,28 @@ exports.subscribeNewsletter = async (req, res) => {
         tags: ["newsletter"]
       }
     });
+    
+    // Send welcome email to subscriber
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Welcome to the Sitemendr Intel Stream",
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h1 style="color: #0066FF; margin: 0;">Sitemendr AI</h1>
+            </div>
+            <h2 style="color: #333;">Transmission Received.</h2>
+            <p>You've successfully subscribed to the Sitemendr newsletter.</p>
+            <p>Stay tuned for the latest updates on AI-driven web infrastructure, performance benchmarks, and digital scaling strategies.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #666; font-size: 12px;">You're receiving this because you subscribed at sitemendr.com. You can unsubscribe at any time.</p>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      logger.error("Failed to send newsletter welcome email", { error: emailError.message });
+    }
 
     res.json({ success: true, message: "Subscribed successfully!" });
   } catch (error) {

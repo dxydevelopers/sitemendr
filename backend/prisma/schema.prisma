@@ -173,7 +173,7 @@ model CustomDomain {
 
 model ManagedDomainRequest {
   id             String   @id @default(uuid())
-  email          String
+  email          String   @unique
   domainInterest String
   createdAt      DateTime @default(now())
 }
@@ -233,6 +233,8 @@ model Subscription {
   orders          Order[]
   bookings        Booking[]
   supportTickets  SupportTicket[]
+  pages          Page[]
+  themeSettings  ThemeSettings?
 }
 
 model Milestone {
@@ -307,6 +309,100 @@ model Template {
   publishedAt    DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+// ===========================================
+// VISUAL EDITOR MODELS (Shopify-like)
+// ===========================================
+
+// Page types for the visual editor
+enum PageType {
+  HOME
+  PRODUCT
+  COLLECTION
+  BLOG
+  CART
+  CUSTOM
+}
+
+// Page model - represents a single page that can be edited
+model Page {
+  id             String     @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  type           PageType   @default(CUSTOM)
+  slug           String     // e.g., "/", "/products", "/about"
+  title          String
+  isPublished    Boolean    @default(false)
+  isHome         Boolean    @default(false)
+  sections       PageSection[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([subscriptionId, slug])
+}
+
+// Section placement within a page
+model PageSection {
+  id          String           @id @default(uuid())
+  pageId      String
+  page        Page             @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  sectionId   String
+  section     SectionTemplate  @relation(fields: [sectionId], references: [id])
+  order       Int              // Position in the page (0, 1, 2, ...)
+  settings    Json?            // Section-specific settings (overrides defaults)
+
+  @@unique([pageId, order])
+}
+
+// Pre-built section templates
+model SectionTemplate {
+  id              String   @id @default(uuid())
+  name            String   // e.g., "Hero Banner", "Product Grid"
+  category        String   // e.g., "header", "hero", "product", "footer"
+  icon            String?  // Icon name for UI
+  description     String?  // Brief description
+  defaultSettings Json    // Default values for section settings
+  schema          Json     // Settings schema (what fields are editable)
+  componentName  String   // React component name to render
+  isBuiltIn       Boolean  @default(true)  // true = system section, false = custom
+  isActive        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  pageSections    PageSection[]
+}
+
+// Theme settings per subscription
+model ThemeSettings {
+  id               String   @id @default(uuid())
+  subscriptionId   String   @unique
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id])
+  
+  // Colors
+  primaryColor     String   @default("#3B82F6")
+  secondaryColor   String   @default("#1E293B")
+  accentColor     String   @default("#10B981")
+  backgroundColor  String   @default("#FFFFFF")
+  textColor       String   @default("#1F2937")
+  
+  // Fonts
+  headingFont      String   @default("Inter")
+  bodyFont         String   @default("Inter")
+  
+  // Spacing
+  borderRadius    String   @default("8px")
+  containerWidth  String   @default("1280px")
+  
+  // Button styles
+  buttonStyle     String   @default("rounded") // rounded, square, pill
+  buttonSize      String   @default("medium") // small, medium, large
+  
+  // Custom CSS
+  customCss       String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Resource {

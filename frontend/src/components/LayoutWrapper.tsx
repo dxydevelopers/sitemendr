@@ -1,10 +1,12 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
-import ChatSupport from "@/components/ChatSupport";
-import PaymentEnforcer from "@/components/PaymentEnforcer";
+import dynamic from 'next/dynamic';
+
+const Navigation = dynamic(() => import("@/components/Navigation"), { ssr: true });
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: true });
+const ChatSupport = dynamic(() => import("@/components/ChatSupport"), { ssr: false });
+const PaymentEnforcer = dynamic(() => import("@/components/PaymentEnforcer"), { ssr: true });
 
 export default function LayoutWrapper({
   children,

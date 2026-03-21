@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CreditCard, Download, ExternalLink, Clock } from 'lucide-react';
+import { CreditCard, Download, ExternalLink, Clock, Zap } from 'lucide-react';
 
 interface BillingItem {
   id: string;
@@ -33,9 +33,14 @@ interface BillingViewerProps {
   billing: BillingItem[];
   paymentMethod?: PaymentMethod | null;
   subscriptions?: Subscription[];
+  onManageSubscription?: (subscriptionId: string) => void;
+  onDownloadReceipt?: (billingId: string) => void;
+  onUpdatePaymentMethod?: () => void;
+  onChangeBillingEmail?: () => void;
+  onRequestAudit?: () => void;
 }
 
-const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, subscriptions = [] }) => {
+const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, subscriptions = [], onManageSubscription, onDownloadReceipt, onUpdatePaymentMethod, onChangeBillingEmail, onRequestAudit }) => {
   return (
     <div className="space-y-8 lg:space-y-12 animate-fade-in pb-20">
       <div className="flex justify-between items-center px-2">
@@ -82,7 +87,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
                 <div className="text-[10px] font-black uppercase tracking-widest text-ai-blue">
                   {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Deployment Active'}
                 </div>
-                <button className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
+                <button onClick={() => onManageSubscription?.(sub.id)} className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
               </div>
             </div>
           ))}
@@ -173,7 +178,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
                       </span>
                     </td>
                     <td className="p-6">
-                      <button className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-ai-blue hover:text-white transition-colors">
+                      <button onClick={() => onDownloadReceipt?.(item.id)} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-ai-blue hover:text-white transition-colors">
                         <Download className="w-3 h-3" />
                         Receipt
                       </button>
@@ -191,8 +196,9 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
           </table>
         </div>
       </div>
+    </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="p-6 lg:p-8 bg-white/[0.02] border border-white/5 rounded-3xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none group-hover:scale-110 transition-transform">
             <CreditCard className="w-12 h-12" />
@@ -213,7 +219,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
               <p className="text-[10px] text-ai-blue font-black uppercase">No active payment method attached</p>
             </div>
           )}
-          <button className="mt-8 text-[9px] font-black text-medium-gray hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2">
+          <button onClick={onUpdatePaymentMethod} className="mt-8 text-[9px] font-black text-medium-gray hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2">
             {paymentMethod ? 'Update Security Credentials' : 'Add Payment Method'} <ExternalLink className="w-3 h-3" />
           </button>
         </div>
@@ -223,10 +229,10 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
           <p className="text-xs font-black uppercase mb-1">Accounts Payable</p>
           <p className="text-[10px] text-medium-gray font-bold uppercase">billing@sitemendr.com</p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <button className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+            <button onClick={onChangeBillingEmail} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
               Change Email
             </button>
-            <button className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+            <button onClick={onRequestAudit} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
               Request Audit
             </button>
           </div>

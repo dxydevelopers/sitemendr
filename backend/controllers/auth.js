@@ -230,6 +230,37 @@ exports.login = async (req, res) => {
   }
 };
 
+// Check if user exists
+exports.checkUserExistence = async (req, res) => {
+  try {
+    const email = req.body.email?.toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true }
+    });
+
+    res.json({
+      success: true,
+      exists: !!user,
+      name: user ? user.name : null
+    });
+  } catch (error) {
+    logger.error('CHECK_USER_EXISTENCE_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check user existence'
+    });
+  }
+};
+
 // Get current user profile
 exports.getProfile = async (req, res) => {
   try {

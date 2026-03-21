@@ -717,6 +717,37 @@ exports.addSupportTicketMessage = async (req, res) => {
           messageId: message.id,
           timestamp: message.createdAt
         });
+
+        // Also notify via email
+        const user = await prisma.user.findUnique({
+          where: { id: ticket.userId },
+          select: { email: true, name: true }
+        });
+
+        if (user && user.email) {
+          try {
+            await sendEmail({
+              to: user.email,
+              subject: `New Response: Support Ticket #${id.slice(0, 8)}`,
+              html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                  <h2 style="color: #0066FF;">Support Response Received</h2>
+                  <p>Hello <strong>${user.name}</strong>,</p>
+                  <p>An expert has responded to your support request:</p>
+                  <blockquote style="background: #f4f4f4; padding: 15px; border-left: 5px solid #0066ff; margin: 20px 0;">
+                    ${content}
+                  </blockquote>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${process.env.FRONTEND_URL}/dashboard?tab=support" style="background: #0066FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View in Dashboard</a>
+                  </div>
+                  <p style="color: #666; font-size: 12px;">This is an automated notification. Please log in to your dashboard to reply.</p>
+                </div>
+              `
+            });
+          } catch (eEmail) {
+            logger.error('Failed to send support response email', eEmail);
+          }
+        }
       }
     } catch (err) {
       logger.error('Error notifying user of support message', err);

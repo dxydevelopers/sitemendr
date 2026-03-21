@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 
 const clients = [
-  { name: 'BrightStar Media', logo: 'https://via.placeholder.com/150x50?text=BrightStar' },
-  { name: 'Summit Consulting', logo: 'https://via.placeholder.com/150x50?text=Summit' },
-  { name: 'Apex Dynamics', logo: 'https://via.placeholder.com/150x50?text=Apex' },
-  { name: 'Nova Health', logo: 'https://via.placeholder.com/150x50?text=Nova' },
-  { name: 'Urban Kitchen', logo: 'https://via.placeholder.com/150x50?text=Urban' },
-  { name: 'Pinnacle Law', logo: 'https://via.placeholder.com/150x50?text=Pinnacle' },
+  { name: 'BrightStar Media', color: 'from-pink-500 to-rose-500' },
+  { name: 'Summit Consulting', color: 'from-blue-500 to-cyan-500' },
+  { name: 'Apex Dynamics', color: 'from-purple-500 to-violet-500' },
+  { name: 'Nova Health', color: 'from-green-500 to-emerald-500' },
+  { name: 'Urban Kitchen', color: 'from-orange-500 to-amber-500' },
+  { name: 'Pinnacle Law', color: 'from-indigo-500 to-blue-500' },
 ];
 
 export default function ClientLogos() {
@@ -42,12 +42,12 @@ export default function ClientLogos() {
           {clients.map((client, index) => (
             <div 
               key={index}
-              className={`flex items-center justify-center p-4 grayscale opacity-50 hover:opacity-100 hover:grayscale-0 transition-all duration-300 ${
+              className={`flex items-center justify-center p-4 rounded-xl bg-gradient-to-br ${client.color} bg-opacity-10 border border-white/5 hover:scale-105 transition-all duration-300 ${
                 isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
               }`}
               style={{ transitionDelay: `${index * 100}ms` }}
             >
-              <div className="text-white/60 font-semibold text-lg">
+              <div className="text-white font-semibold text-lg">
                 {client.name}
               </div>
             </div>

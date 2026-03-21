@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiClient, SupporterTier } from '@/lib/api';
 import SectionDivider from '@/components/SectionDivider';
-import { Check, Star, Zap, Shield, Crown, Heart } from 'lucide-react';
+import AirdropGifts from '@/components/AirdropGifts';
+import { Check, Star, Zap, Shield, Crown, Heart, ArrowLeft, CreditCard } from 'lucide-react';
 
 const mockTiers: SupporterTier[] = [
   {
@@ -58,19 +60,21 @@ const mockTiers: SupporterTier[] = [
   },
 ];
 
-const SupportPage = () => {
+const SupportContent = () => {
   const [tiers, setTiers] = useState<SupporterTier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const tierIdParam = searchParams.get('tier');
+  
+  const selectedTier = tiers.find(t => t.id === tierIdParam);
 
   useEffect(() => {
     const fetchTiers = async () => {
       try {
-        const res = await apiClient.getSupporterTiers();
+        const res = await apiClient.fetchAllSupporterTiers();
         if (res.success && res.tiers.length > 0) {
           setTiers(res.tiers);
         } else {
-          // Fallback mock tiers if none in DB yet
           setTiers(mockTiers);
         }
       } catch (err) {
@@ -85,11 +89,10 @@ const SupportPage = () => {
   }, []);
 
   const handleSubscribe = async (tierId: string) => {
-    // Check if user is logged in first
     const token = typeof window !== 'undefined' ? localStorage.getItem('sitemendr_auth_token') : null;
     if (!token) {
       alert('Please log in to become a supporter. We need your account to track your rewards and discounts.');
-      window.location.href = `/login?redirect=/support`;
+      window.location.href = `/login?redirect=/support?tier=${tierId}`;
       return;
     }
 
@@ -103,7 +106,7 @@ const SupportPage = () => {
     } catch (err: any) {
       alert(err.message || 'An error occurred. Please ensure you are logged in.');
       if (err.status === 401) {
-        window.location.href = `/login?redirect=/support`;
+        window.location.href = `/login?redirect=/support?tier=${tierId}`;
       }
     }
   };
@@ -127,81 +130,99 @@ const SupportPage = () => {
     );
   }
 
+  if (selectedTier) {
+    return (
+      <main className="min-h-screen bg-black text-white selection:bg-ai-blue/30 pt-32 pb-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <button 
+            onClick={() => window.location.href = '/support'}
+            className="flex items-center gap-2 text-medium-gray hover:text-white uppercase text-[10px] font-black mb-12 transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Airdrops
+          </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 bg-[#050505] border border-white/5 p-8 md:p-12 rounded-[40px] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-ai-blue/5 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
+            
+            <div>
+              <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mb-8 shadow-2xl">
+                {getTierIcon(selectedTier.slug)}
+              </div>
+              <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em] mb-4 block">Selected_Reward</span>
+              <h1 className="text-4xl md:text-5xl font-black mb-4 uppercase tracking-tighter">{selectedTier.name}</h1>
+              <p className="text-medium-gray text-sm opacity-60 mb-8 leading-relaxed italic font-medium">
+                You are about to claim this mystery package. This will activate your {selectedTier.discountPercent}% lifetime discount and unlock all associated community perks.
+              </p>
+              
+              <div className="space-y-4">
+                {selectedTier.perks.map((perk, i) => (
+                  <div key={i} className="flex items-center gap-4 text-[11px] font-mono text-white/80 uppercase">
+                    <div className="w-1.5 h-1.5 rounded-full bg-ai-blue"></div>
+                    {perk.replace(/-/g, ' ')}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-center gap-8 border-t md:border-t-0 md:border-l border-white/5 pt-8 md:pt-0 md:pl-12">
+              <div className="space-y-1">
+                <p className="text-[10px] font-mono text-medium-gray uppercase tracking-widest">Subscription Cost</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-6xl font-black text-white tracking-tighter">${selectedTier.monthlyPrice}</span>
+                  <span className="text-xs font-mono text-medium-gray uppercase">/mo</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button 
+                  onClick={() => handleSubscribe(selectedTier.id)}
+                  className="w-full py-6 bg-ai-blue text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-white hover:text-ai-blue transition-all shadow-[0_0_30px_rgba(0,102,255,0.2)]"
+                >
+                  Confirm Subscription
+                </button>
+                <div className="flex items-center justify-center gap-3 text-medium-gray/40">
+                  <CreditCard className="w-4 h-4" />
+                  <span className="text-[9px] font-mono font-black uppercase tracking-widest">Secure Checkout via Paystack</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-ai-blue/5 border border-ai-blue/10 rounded-2xl">
+                <p className="text-[9px] text-ai-blue/80 font-mono leading-relaxed uppercase italic">
+                  * Lifetime discount is applied automatically to your account upon successful activation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-black text-white selection:bg-ai-blue/30">
       <section className="pt-32 pb-20 relative overflow-hidden">
-        {/* Background Technical Decoration */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,102,255,0.05)_0%,transparent_70%)]"></div>
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        </div>
-
+        {/* ... */}
         <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
           <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-ai-blue/5 border border-ai-blue/20 mb-8">
             <div className="w-2 h-2 rounded-full bg-ai-blue animate-pulse"></div>
             <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em]">COMMUNITY_SUPPORT: ACTIVE</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-black mb-8 text-white tracking-tighter">
-            Become a <span className="italic text-ai-blue">Supporter</span>
+            Exclusive <span className="italic text-ai-blue">Airdrops</span>
           </h1>
           <p className="text-xl text-medium-gray max-w-2xl mx-auto font-medium opacity-60 italic mb-12">
-            Support the evolution of Sitemendr and unlock exclusive rewards, discounts, and community perks.
+            Support the evolution of Sitemendr and unlock mystery reward packages with lifetime benefits.
           </p>
         </div>
       </section>
 
-      <SectionDivider label="Select Your Tier" id="tiers" align="center" />
+      <SectionDivider label="Unveil Your Package" id="tiers" align="center" />
 
       <section className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            {tiers.map((tier) => (
-              <div
-                key={tier.id}
-                className="group relative bg-[#0a0a0a] border border-white/5 hover:border-ai-blue/40 transition-all duration-500 p-6 flex flex-col h-full hover:-translate-y-2"
-              >
-                {/* HUD elements */}
-                <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/10 group-hover:border-ai-blue/50 transition-colors"></div>
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/10 group-hover:border-ai-blue/50 transition-colors"></div>
-
-                <div className="mb-6">
-                  <div className="mb-4">{getTierIcon(tier.slug)}</div>
-                  <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2 font-mono group-hover:text-ai-blue transition-colors">{tier.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-white">${tier.monthlyPrice}</span>
-                    <span className="text-[8px] font-mono text-medium-gray uppercase tracking-widest opacity-40">/month</span>
-                  </div>
-                </div>
-
-                <div className="h-px w-full bg-white/5 mb-6"></div>
-
-                <div className="mb-6 space-y-4 flex-grow">
-                  <div className="flex items-center gap-2 text-[10px] font-mono text-expert-green uppercase font-black">
-                    <Zap className="w-3 h-3" />
-                    <span>{tier.discountPercent}% OFF EVERYTHING</span>
-                  </div>
-                  <ul className="space-y-3">
-                    {tier.perks.map((perk, i) => (
-                      <li key={i} className="flex items-start gap-3 text-[10px] font-mono text-medium-gray">
-                        <Check className="w-3 h-3 text-ai-blue mt-0.5 flex-shrink-0" />
-                        <span className="opacity-70 group-hover:opacity-100 transition-opacity uppercase tracking-tighter">{perk.replace(/-/g, ' ')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <button
-                  onClick={() => handleSubscribe(tier.id)}
-                  className="w-full py-4 bg-transparent border border-white/10 text-white font-mono font-black text-[10px] uppercase tracking-[0.2em] hover:bg-ai-blue hover:border-ai-blue transition-all duration-300"
-                >
-                  Support Now
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AirdropGifts />
       </section>
 
+      {/* ... (Why Support section) */}
       <section className="py-20 bg-[#050505] border-y border-white/5">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-black mb-8 uppercase tracking-tighter">Why Support Sitemendr?</h2>
@@ -225,4 +246,10 @@ const SupportPage = () => {
   );
 };
 
-export default SupportPage;
+export default function SupportPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="w-12 h-12 border-4 border-ai-blue/20 border-t-ai-blue rounded-full animate-spin"></div></div>}>
+      <SupportContent />
+    </Suspense>
+  );
+}

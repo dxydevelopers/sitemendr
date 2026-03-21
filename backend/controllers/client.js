@@ -135,12 +135,21 @@ exports.getProjects = async (req, res) => {
         customName: true,
         planType: true,
         domain: true,
+        status: true,
         createdAt: true,
         suspended: true,
         reviewRequested: true,
         reviewNotes: true,
         revisionCount: true,
-        milestones: true,
+        milestones: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            progress: true,
+            order: true
+          }
+        },
         purchasedAddons: true,
         template: {
           select: {
@@ -189,6 +198,7 @@ exports.getProjects = async (req, res) => {
         status: sub.suspended ? 'Suspended' : (progress === 100 ? 'Completed' : 'Operational'),
         planType: sub.planType,
         domain: sub.domain,
+        isCurrent: sub.status === 'active',
         createdAt: sub.createdAt,
         reviewRequested: sub.reviewRequested,
         reviewNotes: sub.reviewNotes,
@@ -987,7 +997,7 @@ exports.regenerateProjectAI = async (req, res) => {
       where: {
         OR: [
           { lead: { email: subscription.user.email } },
-          { userId: userId }
+          { lead: { ownerId: userId } }
         ]
       },
       orderBy: { createdAt: 'desc' }
@@ -1078,5 +1088,35 @@ exports.exportProjectCodebase = async (req, res) => {
       error: error.message
     });
     res.status(500).json({ success: false, message: 'Failed to bundle codebase for export' });
+  }
+};
+
+// Get client assessments
+exports.getAssessments = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const assessments = await prisma.assessment.findMany({
+      where: { 
+        lead: {
+          ownerId: userId
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      assessments
+    });
+  } catch (error) {
+    logger.error('Failed to get client assessments', {
+      errorCode: 'GET_CLIENT_ASSESSMENTS_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve assessments'
+    });
   }
 };

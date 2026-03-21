@@ -3,18 +3,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-import BlogEditor from './BlogEditor';
-import AssessmentModal from './AssessmentModal';
+import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api';
-import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Menu } from 'lucide-react';
-import SupportManager from './dashboard/SupportManager';
-import LiveSupportManager from './dashboard/LiveSupportManager';
-import MilestoneManager from './dashboard/MilestoneManager';
-import TemplateEditor from './dashboard/TemplateEditor';
-import CommentManager from './dashboard/CommentManager';
-import AdminSystemHealth from './dashboard/AdminSystemHealth';
-import PerformanceAudit from './dashboard/PerformanceAudit';
-import BookingManager from './dashboard/BookingManager';
+import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Menu, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles } from 'lucide-react';
+
+const BlogEditor = dynamic(() => import('./BlogEditor'), { ssr: false });
+const AssessmentModal = dynamic(() => import('./AssessmentModal'), { ssr: false });
+const SupportManager = dynamic(() => import('./dashboard/SupportManager'), { ssr: false });
+const LiveSupportManager = dynamic(() => import('./dashboard/LiveSupportManager'), { ssr: false });
+const MilestoneManager = dynamic(() => import('./dashboard/MilestoneManager'), { ssr: false });
+const TemplateEditor = dynamic(() => import('./dashboard/TemplateEditor'), { ssr: false });
+const CommentManager = dynamic(() => import('./dashboard/CommentManager'), { ssr: false });
+const AdminSystemHealth = dynamic(() => import('./dashboard/AdminSystemHealth'), { ssr: false });
+const PerformanceAudit = dynamic(() => import('./dashboard/PerformanceAudit'), { ssr: false });
+const BookingManager = dynamic(() => import('./dashboard/BookingManager'), { ssr: false });
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -95,6 +97,7 @@ interface Subscription {
   customName?: string;
   siteName?: string;
   createdAt?: string;
+  isCurrent?: boolean;
   user?: {
     name: string;
     email: string;
@@ -480,22 +483,22 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   };
 
   const tabs = [
-    { id: 'dashboard', name: 'Dashboard', icon: <Layout className="w-4 h-4" /> },
-    { id: 'leads', name: 'Leads', icon: <FileText className="w-4 h-4" /> },
-    { id: 'users', name: 'Users', icon: <Layout className="w-4 h-4" /> },
+    { id: 'dashboard', name: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'leads', name: 'Leads', icon: <Folder className="w-4 h-4" /> },
+    { id: 'users', name: 'Users', icon: <Users className="w-4 h-4" /> },
     { id: 'subscriptions', name: 'Subscriptions', icon: <ShoppingBag className="w-4 h-4" /> },
-    { id: 'assessments', name: 'Assessments', icon: <FileText className="w-4 h-4" /> },
+    { id: 'assessments', name: 'Assessments', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'review', name: 'Human Review', icon: <Eye className="w-4 h-4" /> },
-    { id: 'media', name: 'Media Library', icon: <Layout className="w-4 h-4" /> },
-    { id: 'blog', name: 'Blog', icon: <FileText className="w-4 h-4" /> },
-    { id: 'analytics', name: 'Analytics', icon: <Layout className="w-4 h-4" /> },
+    { id: 'media', name: 'Media Library', icon: <Folder className="w-4 h-4" /> },
+    { id: 'blog', name: 'Blog', icon: <PenLine className="w-4 h-4" /> },
+    { id: 'analytics', name: 'Analytics', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'bookings', name: 'Bookings', icon: <Clock className="w-4 h-4" /> },
-    { id: 'tickets', name: 'Tickets', icon: <FileText className="w-4 h-4" /> },
-    { id: 'live-support', name: 'Live Chat', icon: <Layout className="w-4 h-4" /> },
-    { id: 'milestones', name: 'Milestones', icon: <Layout className="w-4 h-4" /> },
-    { id: 'comments', name: 'Comments', icon: <FileText className="w-4 h-4" /> },
-    { id: 'health', name: 'Vitals', icon: <Layout className="w-4 h-4" /> },
-    { id: 'system', name: 'System', icon: <Layout className="w-4 h-4" /> },
+    { id: 'tickets', name: 'Tickets', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'live-support', name: 'Live Chat', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'milestones', name: 'Milestones', icon: <Activity className="w-4 h-4" /> },
+    { id: 'comments', name: 'Comments', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'health', name: 'Vitals', icon: <Activity className="w-4 h-4" /> },
+    { id: 'system', name: 'System', icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
@@ -1252,7 +1255,14 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                             sub.status === 'ACTIVE' ? 'bg-expert-green/20 text-expert-green' : 'bg-red-500/20 text-red-500'
                           }`}>{sub.status}</span>
                         </div>
-                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">{sub.customName || sub.siteName}</h3>
+                          <h3 className="text-xl font-black uppercase tracking-tight mb-2">
+                            {sub.customName || sub.siteName}
+                            {!sub.isCurrent && (
+                              <span className="ml-3 px-2 py-0.5 bg-white/5 border border-white/10 text-white/30 text-[7px] font-black rounded uppercase tracking-widest">
+                                HISTORICAL_ATTEMPT
+                              </span>
+                            )}
+                          </h3>
                         <div className="flex flex-wrap items-center gap-4">
                           <div className="flex items-center gap-2">
                             <span className="text-[8px] text-medium-gray font-black uppercase tracking-widest">Client:</span>

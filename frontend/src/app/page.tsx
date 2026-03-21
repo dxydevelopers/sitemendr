@@ -2,23 +2,28 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import ImmersiveHero from '@/components/ImmersiveHero';
-import FeatureBento from '@/components/FeatureBento';
-import GlobalNetwork from '@/components/GlobalNetwork';
-import ServiceShowcase from '@/components/ServiceShowcase';
-import ProcessSection from '@/components/ProcessSection';
-import WhyChooseUs from '@/components/WhyChooseUs';
-import PricingPreview from '@/components/PricingPreview';
-import Testimonials from '@/components/Testimonials';
-import CTASection from '@/components/CTASection';
 import SectionDivider from '@/components/SectionDivider';
-import AssessmentQuestionnaire from '@/components/AssessmentQuestionnaire';
-import ClientLogos from '@/components/ClientLogos';
-import FAQ from '@/components/FAQ';
-import Guarantees from '@/components/Guarantees';
-import ContactMethods from '@/components/ContactMethods';
-import AssessmentResults, { AssessmentResultsData } from '@/components/AssessmentResults';
-import LeadCapture from '@/components/LeadCapture';
+
+// Dynamic imports for below-the-fold components
+const FeatureBento = dynamic(() => import('@/components/FeatureBento'), { ssr: true });
+const GlobalNetwork = dynamic(() => import('@/components/GlobalNetwork'), { ssr: true });
+const ServiceShowcase = dynamic(() => import('@/components/ServiceShowcase'), { ssr: true });
+const ProcessSection = dynamic(() => import('@/components/ProcessSection'), { ssr: true });
+const WhyChooseUs = dynamic(() => import('@/components/WhyChooseUs'), { ssr: true });
+const PricingPreview = dynamic(() => import('@/components/PricingPreview'), { ssr: true });
+const AirdropGifts = dynamic(() => import('@/components/AirdropGifts'), { ssr: true });
+const Testimonials = dynamic(() => import('@/components/Testimonials'), { ssr: true });
+const CTASection = dynamic(() => import('@/components/CTASection'), { ssr: true });
+const AssessmentQuestionnaire = dynamic(() => import('@/components/AssessmentQuestionnaire'), { ssr: false });
+const ClientLogos = dynamic(() => import('@/components/ClientLogos'), { ssr: true });
+const FAQ = dynamic(() => import('@/components/FAQ'), { ssr: true });
+const Guarantees = dynamic(() => import('@/components/Guarantees'), { ssr: true });
+const ContactMethods = dynamic(() => import('@/components/ContactMethods'), { ssr: true });
+import type { AssessmentResultsData } from '@/components/AssessmentResults';
+const AssessmentResults = dynamic(() => import('@/components/AssessmentResults'), { ssr: false });
+const LeadCapture = dynamic(() => import('@/components/LeadCapture'), { ssr: false });
 
 interface AssessmentData {
   businessType: string;
@@ -159,6 +164,19 @@ function HomeContent() {
 
       <SectionDivider label="Pricing" id="pricing" align="center" />
       <PricingPreview onStartAssessment={handleStartAssessment} />
+
+      <SectionDivider label="Community Support" id="supporter" align="center" />
+      <section className="py-24">
+        <div className="text-center mb-16 px-6">
+          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white tracking-tighter">
+            Exclusive <span className="italic text-ai-blue">Airdrops</span>
+          </h2>
+          <p className="text-lg md:text-xl text-medium-gray max-w-2xl mx-auto font-medium opacity-60 italic">
+            Support the evolution of Sitemendr and unlock mystery reward packages.
+          </p>
+        </div>
+        <AirdropGifts />
+      </section>
 
       <SectionDivider label="What Our Clients Say" id="MOD_07" align="center" />
       <Testimonials />

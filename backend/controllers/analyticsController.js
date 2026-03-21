@@ -326,7 +326,7 @@ const getPredictiveAnalytics = async (startDate, endDate) => {
       SELECT 
         TO_CHAR("createdAt", 'YYYY-MM-DD') as _id,
         COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE status = 'converted')::int as converted
+        COUNT(*) FILTER (WHERE "converted" = true)::int as converted
       FROM "Lead"
       WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
       GROUP BY _id
