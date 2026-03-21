@@ -1501,7 +1501,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                   {(selectedProjectId || (projects.length > 0 ? projects[0].id : '')) ? (
                     <PageEditor 
                       subscriptionId={selectedProjectId || (projects.length > 0 ? projects[0].id : '')} 
-                      purchasedAddons={projects.find(p => p.id === (selectedProjectId || (projects.length > 0 ? projects[0].id : '')))?.purchasedAddons}
+                      purchasedAddons={(projects.find((p: { id: string }) => p.id === (selectedProjectId || (projects.length > 0 ? projects[0].id : '')))?.purchasedAddons as unknown[])}
                     />
                   ) : (
                     <div className="h-96 flex items-center justify-center border border-white/5 rounded-3xl bg-white/[0.01]">

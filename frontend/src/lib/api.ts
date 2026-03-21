@@ -108,6 +108,89 @@ export interface Supporter {
   }>;
 }
 
+// Client Dashboard Types
+export interface ClientProject {
+  id: string;
+  name: string;
+  status: string;
+  progress: number;
+  planType: string;
+  siteUrl?: string;
+  domain?: string;
+  reviewRequested?: boolean;
+  reviewNotes?: string;
+  revisionCount?: number;
+  isCurrent?: boolean;
+  purchasedAddons?: string | string[];
+  suspended?: boolean;
+}
+
+export interface ClientStats {
+  totalProjects: number;
+  activeProjects: number;
+  totalRevenue: number;
+  recentActivity: number;
+}
+
+export interface ClientActivity {
+  id: string;
+  type: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface BillingItem {
+  id: string;
+  amount: number;
+  status: string;
+  date: string;
+  description: string;
+}
+
+export interface MessageItem {
+  id: string;
+  from: string;
+  subject: string;
+  preview: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+}
+
+export interface ResourceItem {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+}
+
+export interface CustomDomain {
+  id: string;
+  domain: string;
+  status: string;
+  sslEnabled: boolean;
+}
+
+export interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface AnalysisResult {
+  id: string;
+  status: string;
+  result?: unknown;
+}
+
 class ApiClient {
   private baseURL: string;
   private cache: Record<string, { data: unknown; timestamp: number }> = {};
