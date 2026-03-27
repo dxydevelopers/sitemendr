@@ -491,7 +491,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await apiClient.updateUserProfile(profileData);
+      const res = await apiClient.updateProfile(profileData);
       if (res.success) {
         setProfileMessage({ text: 'Profile synchronization complete.', type: 'success' });
         const updatedUser = { ...user, ...profileData };

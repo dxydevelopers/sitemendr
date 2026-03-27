@@ -246,7 +246,7 @@ class ApiClient {
 
       // Add authorization header if we have a session token or auth token
       if (typeof window !== 'undefined') {
-        const authToken = localStorage.getItem('sitemendr_auth_token');
+        const authToken = localStorage.getItem('sitemendr_auth_token') || localStorage.getItem('token');
         const sessionToken = localStorage.getItem('assessment_session_token');
         
         // Prioritize sessionToken for assessment-related endpoints
@@ -261,15 +261,20 @@ class ApiClient {
         }
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const config: RequestInit = {
         ...options,
         headers,
+        signal: controller.signal,
       };
 
       const isProfileCheck = endpoint === '/auth/profile' || endpoint.includes('/auth/profile');
 
       try {
         const response = await fetch(url, config);
+        clearTimeout(timeoutId);
         
         // Handle network errors
         if (!response.ok || response.status >= 400) {
@@ -516,11 +521,26 @@ class ApiClient {
   }
 
   async getClientProjects() {
-    return this.request<{ success: boolean; data: Subscription[] }>('/client/projects');
+    try {
+      // Try to fetch from the specific subscription endpoint first (returns object)
+      const subResponse = await this.request<{ success: boolean; data?: Subscription; subscription?: Subscription }>('/subscriptions/my-subscription');
+      const singleSub = subResponse.data || subResponse.subscription;
+      if (singleSub) return { success: true, data: [singleSub] };
+
+      // Fallback to projects endpoint (returns array)
+      return this.request<{ success: boolean; data: Subscription[] }>('/client/projects');
+    } catch (err) {
+      console.error('Error fetching client projects:', err);
+      return { success: false, data: [] };
+    }
   }
 
   async getClientAssessments() {
-    return this.request<{ success: boolean; data: any[] }>('/client/assessments');
+    const response = await this.request<{ success: boolean; data?: any[]; assessments?: any[] }>('/client/assessments');
+    return {
+      success: response.success,
+      data: response.data || response.assessments || []
+    };
   }
 
   async getProjectTemplate(subscriptionId: string) {
