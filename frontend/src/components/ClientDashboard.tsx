@@ -509,7 +509,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     setAnalyzedProjectId(projectId);
     try {
       const res = await apiClient.analyzePerformance(url);
-      setAnalysisResult(res);
+      setAnalysisResult(res.data as unknown as AnalysisResult);
       setActiveTab('audit');
     } catch (err) {
       alert('Audit failed.');
@@ -537,6 +537,34 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     apiClient.logout();
     if (onLogout) onLogout();
     router.push('/login');
+  };
+
+  const handleVerifyDomain = async (domainId: string) => {
+    setVerifyingDomainId(domainId);
+    try {
+      const res = await apiClient.verifyDomainDNS(domainId);
+      if (res.success && res.verified) {
+        alert('Domain verified successfully!');
+        fetchData();
+      } else {
+        alert(res.message || 'Verification failed. Please check your DNS records.');
+      }
+    } catch (err) {
+      alert('Verification failed.');
+    } finally {
+      setVerifyingDomainId(null);
+    }
+  };
+
+  const handleDeleteDomain = async (domainId: string) => {
+    if (!confirm('Are you sure you want to delete this domain?')) return;
+    try {
+      await apiClient.delete(`/client/domains/${domainId}`);
+      alert('Domain deleted.');
+      fetchData();
+    } catch (err) {
+      alert('Failed to delete domain.');
+    }
   };
 
   if (loading && !stats) {

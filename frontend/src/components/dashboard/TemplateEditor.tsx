@@ -252,7 +252,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
               {status.type === 'success' ? (
                 <Check className="w-3 h-3 text-expert-green" />
               ) : (
-                <AlertTriangle className="w-3 h-3 text-red-500" />
+                <TriangleAlert className="w-3 h-3 text-red-500" />
               )}
               <span className={`text-[9px] font-black uppercase tracking-widest ${
                 status.type === 'success' ? 'text-expert-green' : 'text-red-500'
