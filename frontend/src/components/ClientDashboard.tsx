@@ -508,7 +508,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     setIsAnalyzing(true);
     setAnalyzedProjectId(projectId);
     try {
-      const res = await apiClient.analyzeSite(url);
+      const res = await apiClient.analyzePerformance(url);
       setAnalysisResult(res);
       setActiveTab('audit');
     } catch (err) {
@@ -1653,7 +1653,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                   if (!newDomain.domain || !newDomain.siteId) return;
                   setIsSubmittingDomain(true);
                   try {
-                    await apiClient.attachDomain(newDomain.siteId, newDomain.domain, newDomain.setup);
+                    await apiClient.addCustomDomain({ 
+                      siteId: newDomain.siteId, 
+                      domain: newDomain.domain, 
+                      setup: newDomain.setup 
+                    });
                     alert('Domain linked to neural network. Please update DNS records.');
                     fetchData();
                     setIsDomainModalOpen(false);
@@ -1701,7 +1705,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                   if (!managedDomain.domainInterest) return;
                   setIsSubmittingDomain(true);
                   try {
-                    await apiClient.requestManagedDomain(managedDomain.domainInterest);
+                    await apiClient.requestManagedDomain(user?.email || '', managedDomain.domainInterest);
                     alert('Deployment request received. A technician will contact you.');
                     setIsManagedDomainModalOpen(false);
                   } catch (err) {
