@@ -476,7 +476,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const handleRegenerate = async (projectId: string) => {
     setRegeneratingId(projectId);
     try {
-      const res = await apiClient.regenerateProject(projectId);
+      const res = await apiClient.regenerateProjectAI(projectId);
       if (res.success) {
         alert('Regeneration protocol initiated. Your node will be updated shortly.');
         fetchData();
