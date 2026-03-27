@@ -9,7 +9,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
  */
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
+  // Check both 'token' (new) and 'sitemendr_auth_token' (legacy)
+  return localStorage.getItem('token') || localStorage.getItem('sitemendr_auth_token');
 }
 
 /**
@@ -27,10 +28,16 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
   
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+  
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
+    signal: controller.signal,
   });
+  
+  clearTimeout(timeoutId);
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'An error occurred' }));
@@ -58,7 +65,9 @@ export function useLogin() {
       });
       
       if (response.data?.token) {
+        // Store in both keys for compatibility
         localStorage.setItem('token', response.data.token);
+        localStorage.setItem('sitemendr_auth_token', response.data.token);
       }
       
       return response;
@@ -78,7 +87,10 @@ export function useLogout() {
   
   return useMutation({
     mutationFn: async () => {
+      // Remove both token keys
       localStorage.removeItem('token');
+      localStorage.removeItem('sitemendr_auth_token');
+      localStorage.removeItem('user');
       return { success: true };
     },
     onSuccess: () => {
@@ -94,18 +106,25 @@ export function useCurrentUser() {
   return useQuery<User | null>({
     queryKey: ['user'],
     queryFn: async () => {
-      const token = getAuthToken();
-      if (!token) return null;
-      
       try {
-        const response = await fetchApi<ApiResponse<User>>('/api/auth/me');
-        return response.data || null;
-      } catch {
-        localStorage.removeItem('token');
+        // Quick synchronous check for token
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('sitemendr_auth_token') : null;
+        if (!token) return null;
+        
+        const response = await fetchApi<ApiResponse<User> & { user?: User }>('/api/auth/profile');
+        return response.data || response.user || null;
+      } catch (err) {
+        console.error('[useCurrentUser] Error fetching user:', err);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('sitemendr_auth_token');
+        }
         return null;
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 0, // No retries for faster failure
+    enabled: typeof window !== 'undefined' && (!!localStorage.getItem('token') || !!localStorage.getItem('sitemendr_auth_token')),
   });
 }
 
@@ -119,8 +138,24 @@ export function useCurrentUser() {
 export function useSubscriptions() {
   return useQuery<Subscription[]>({
     queryKey: ['subscriptions'],
-    queryFn: () => fetchApi<ApiResponse<Subscription[]>>('/api/client/subscriptions').then(r => r.data || []),
+    queryFn: async () => {
+      try {
+        // Try to fetch from the specific subscription endpoint first (returns object)
+        const subResponse = await fetchApi<ApiResponse<Subscription> & { subscription?: Subscription }>('/api/subscriptions/my-subscription');
+        const singleSub = subResponse.data || subResponse.subscription;
+        if (singleSub) return [singleSub];
+
+        // Fallback to projects endpoint (returns array)
+        const projectsResponse = await fetchApi<ApiResponse<Subscription[]> & { projects?: Subscription[] }>('/api/client/projects');
+        return projectsResponse.data || projectsResponse.projects || [];
+      } catch (err) {
+        console.error('[useSubscriptions] Error fetching subscriptions:', err);
+        return []; // Return empty array on error instead of throwing
+      }
+    },
     staleTime: 60 * 1000,
+    enabled: !!getAuthToken(),
+    retry: 0, // No retries for faster failure
   });
 }
 
@@ -132,6 +167,7 @@ export function useSubscription(id: string) {
     queryKey: ['subscription', id],
     queryFn: () => fetchApi<ApiResponse<Subscription>>(`/api/client/subscriptions/${id}`).then(r => r.data || null),
     enabled: !!id,
+    retry: 0,
   });
 }
 
@@ -163,8 +199,18 @@ export function useCreateSubscription() {
 export function useAssessments() {
   return useQuery<Assessment[]>({
     queryKey: ['assessments'],
-    queryFn: () => fetchApi<ApiResponse<Assessment[]>>('/api/client/assessments').then(r => r.data || []),
+    queryFn: async () => {
+      try {
+        const response = await fetchApi<ApiResponse<Assessment[]> & { assessments?: Assessment[] }>('/api/client/assessments');
+        return response.data || response.assessments || [];
+      } catch (err) {
+        console.error('[useAssessments] Error fetching assessments:', err);
+        return []; // Return empty array on error instead of throwing
+      }
+    },
     staleTime: 30 * 1000,
+    enabled: !!getAuthToken(),
+    retry: 0, // No retries for faster failure
   });
 }
 

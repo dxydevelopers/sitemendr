@@ -6,8 +6,8 @@ import {
   Globe, 
   Lock, 
   Wifi, 
-  AlertTriangle, 
-  CheckCircle, 
+  TriangleAlert, 
+  Check, 
   Database,
   Code,
   Terminal
@@ -100,9 +100,9 @@ export default function HTTPSConfig() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'good': return <CheckCircle className="w-5 h-5 text-expert-green" />;
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
-      case 'error': return <AlertTriangle className="w-5 h-5 text-red-500" />;
+      case 'good': return <Check className="w-5 h-5 text-expert-green" />;
+      case 'warning': return <TriangleAlert className="w-5 h-5 text-yellow-500" />;
+      case 'error': return <TriangleAlert className="w-5 h-5 text-red-500" />;
       default: return <div className="w-5 h-5 rounded-full bg-white/20" />;
     }
   };

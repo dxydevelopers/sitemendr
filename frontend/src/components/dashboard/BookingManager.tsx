@@ -7,9 +7,9 @@ import {
   Plus, 
   User, 
   Briefcase, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle,
+  Check, 
+  X, 
+  TriangleAlert,
   MoreVertical,
   ChevronRight,
   Trash2,
@@ -183,10 +183,10 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'confirmed': return <CheckCircle className="w-4 h-4 text-expert-green" />;
-      case 'cancelled': return <XCircle className="w-4 h-4 text-red-500" />;
+      case 'confirmed': return <Check className="w-4 h-4 text-expert-green" />;
+      case 'cancelled': return <X className="w-4 h-4 text-red-500" />;
       case 'pending': return <Clock className="w-4 h-4 text-ai-blue animate-pulse" />;
-      default: return <AlertCircle className="w-4 h-4 text-white/40" />;
+      default: return <TriangleAlert className="w-4 h-4 text-white/40" />;
     }
   };
 

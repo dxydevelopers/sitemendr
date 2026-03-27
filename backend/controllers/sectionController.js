@@ -1,7 +1,6 @@
 'use strict';
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/db');
 
 // Get all section templates
 const getSectionTemplates = async (req, res) => {

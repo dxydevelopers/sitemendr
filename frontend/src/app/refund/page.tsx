@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCcw, DollarSign, Ban, CheckCircle2, ChevronRight, Terminal } from 'lucide-react';
+import { RefreshCcw, DollarSign, Ban, Check, ChevronRight, Terminal } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function RefundPolicy() {
@@ -67,7 +67,7 @@ export default function RefundPolicy() {
                 <div className="flex items-start gap-8">
                   <div className="hidden md:flex flex-col items-center">
                     <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-ai-blue group-hover:scale-110 transition-transform duration-500">
-                      {i === 0 ? <Ban size={20} /> : i === 1 ? <DollarSign size={20} /> : <CheckCircle2 size={20} />}
+                      {i === 0 ? <Ban size={20} /> : i === 1 ? <DollarSign size={20} /> : <Check size={20} />}
                     </div>
                     {i !== sections.length - 1 && <div className="w-px h-full bg-gradient-to-b from-white/10 to-transparent my-4"></div>}
                   </div>

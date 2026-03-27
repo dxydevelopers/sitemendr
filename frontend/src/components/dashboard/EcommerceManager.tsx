@@ -8,7 +8,7 @@ import {
   Tag, 
   Trash2, 
   Edit, 
-  CheckCircle,
+  Check,
   Truck
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -245,7 +245,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     <div className={`flex items-center gap-2 text-[10px] font-black uppercase ${
                       order.status.toLowerCase() === 'completed' ? 'text-expert-green' : 'text-orange-500'
                     }`}>
-                      <CheckCircle className="w-3.5 h-3.5" />
+                      <Check className="w-3.5 h-3.5" />
                       {order.status}
                     </div>
                   </div>

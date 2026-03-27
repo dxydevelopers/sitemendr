@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
+import { ArrowLeft, RefreshCw, TriangleAlert, Check, Loader } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 
@@ -100,7 +100,7 @@ export default function PaymentReactivatePage() {
       <main className="min-h-screen bg-darker-bg text-white flex items-center justify-center p-6">
         <div className="max-w-md mx-auto text-center">
           <div className="w-16 h-16 mx-auto mb-4">
-            <AlertTriangle className="w-full h-full text-red-500" />
+            <TriangleAlert className="w-full h-full text-red-500" />
           </div>
           <h1 className="text-2xl font-black uppercase tracking-tight">No Subscription Found</h1>
           <p className="text-medium-gray mt-2">Unable to find your subscription details.</p>
@@ -124,7 +124,7 @@ export default function PaymentReactivatePage() {
         <div className="text-center mb-12">
           <div className="w-20 h-20 mx-auto mb-6">
             {isSuspended ? (
-              <AlertTriangle className="w-full h-full text-orange-500" />
+              <TriangleAlert className="w-full h-full text-orange-500" />
             ) : (
               <RefreshCw className="w-full h-full text-ai-blue" />
             )}
@@ -183,7 +183,7 @@ export default function PaymentReactivatePage() {
             <div className="space-y-6">
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 bg-ai-blue/20 border border-ai-blue/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-ai-blue" />
+                  <Check className="w-4 h-4 text-ai-blue" />
                 </div>
                 <div>
                   <h3 className="font-black text-white uppercase tracking-tight">Immediate Access</h3>
@@ -193,7 +193,7 @@ export default function PaymentReactivatePage() {
               
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 bg-expert-green/20 border border-expert-green/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-expert-green" />
+                  <Check className="w-4 h-4 text-expert-green" />
                 </div>
                 <div>
                   <h3 className="font-black text-white uppercase tracking-tight">No Data Loss</h3>
@@ -203,7 +203,7 @@ export default function PaymentReactivatePage() {
 
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 bg-tech-purple/20 border border-tech-purple/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-tech-purple" />
+                  <Check className="w-4 h-4 text-tech-purple" />
                 </div>
                 <div>
                   <h3 className="font-black text-white uppercase tracking-tight">Secure Payment</h3>
@@ -214,7 +214,7 @@ export default function PaymentReactivatePage() {
               {isSuspended && (
                 <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
                   <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5" />
+                    <TriangleAlert className="w-5 h-5 text-orange-500 mt-0.5" />
                     <div>
                       <h4 className="font-black text-orange-500 uppercase tracking-tight">Payment Required</h4>
                       <p className="text-medium-gray text-sm mt-1">Your subscription was suspended due to a failed payment. Reactivating will process the outstanding payment.</p>

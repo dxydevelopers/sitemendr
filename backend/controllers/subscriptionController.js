@@ -4,40 +4,45 @@ const { sendEmail } = require('../config/email');
 const { processSuccessfulPayment } = require('../services/paymentService');
 const { deployTemplate } = require('../services/deploymentService');
 const logger = require('../config/logger');
+const { withTimeout } = require('../utils/promise');
 
 // Get user's subscription
 exports.getUserSubscription = async (req, res) => {
   try {
     // Mitigate schema mismatch by selecting known columns
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        userId: req.user.userId,
-        status: { not: 'cancelled' }
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        userId: true,
-        siteName: true,
-        customName: true,
-        price: true,
-        planType: true,
-        domain: true,
-        totalPaid: true,
-        credit: true,
-        lastPaymentDate: true,
-        expiresAt: true,
-        status: true,
-        tier: true,
-        gracePeriodDays: true,
-        suspendedAt: true,
-        reactivationAttempts: true,
-        createdAt: true,
-        updatedAt: true,
-        suspended: true,
-        customDomains: true
-      }
-    });
+    const subscription = await withTimeout(
+      prisma.subscription.findFirst({
+        where: {
+          userId: req.user.userId,
+          status: { not: 'cancelled' }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          userId: true,
+          siteName: true,
+          customName: true,
+          price: true,
+          planType: true,
+          domain: true,
+          totalPaid: true,
+          credit: true,
+          lastPaymentDate: true,
+          expiresAt: true,
+          status: true,
+          tier: true,
+          gracePeriodDays: true,
+          suspendedAt: true,
+          reactivationAttempts: true,
+          createdAt: true,
+          updatedAt: true,
+          suspended: true,
+          customDomains: true
+        }
+      }),
+      5000,
+      'Timeout retrieving user subscription'
+    );
 
     if (!subscription) {
       return res.json({

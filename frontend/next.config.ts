@@ -77,15 +77,17 @@ const nextConfig: NextConfig = {
   // Enable experimental features for better performance
   experimental: {
     // Optimize package imports
-    optimizePackageImports: ['lucide-react', 'date-fns'],
+    optimizePackageImports: ['date-fns'],
   },
 
-  // Silence Turbopack/webpack warning in Next 16
-  turbopack: {
-    // Force turbopack to only look at the frontend directory to avoid monorepo scanning overhead
-    root: process.cwd(),
-  },
-  
+  // NOTE: Turbopack config commented out due to HMR issues with lucide-react
+  // turbopack: {
+  //   root: __dirname,
+  // },
+
+  // Required empty turbopack config to silence warning since we have webpack config
+  turbopack: {},
+
   // Webpack configuration
   webpack: (config, { isServer, dev }) => {
     // Only optimize production client-side builds

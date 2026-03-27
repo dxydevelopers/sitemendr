@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { sendEmail } = require('../config/email');
 const bcrypt = require('bcryptjs');
 const logger = require('../config/logger');
+const { withTimeout } = require('../utils/promise');
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -273,7 +274,11 @@ exports.getProfile = async (req, res) => {
       });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await withTimeout(
+      prisma.user.findUnique({ where: { id: userId } }),
+      5000,
+      'Database connection timed out while retrieving profile'
+    );
     
     if (!user) {
       return res.status(404).json({

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { apiClient } from '@/lib/api';
 import {
-  CheckCircle2,
+  Check,
   Sparkles,
   TrendingUp,
   Target,
@@ -293,7 +293,7 @@ export default function AssessmentResults({
                     {results?.recommendedFeatures && results.recommendedFeatures.length > 0 ? (
                     results.recommendedFeatures.map((feature, index) => (
                       <div key={index} className="flex items-center gap-3">
-                        <CheckCircle2 className="w-4 h-4 text-expert-green flex-shrink-0" />
+                        <Check className="w-4 h-4 text-expert-green flex-shrink-0" />
                         <span className="text-sm text-white/70 font-mono uppercase tracking-tighter">{feature.replace(/_/g, ' ')}</span>
                       </div>
                     ))

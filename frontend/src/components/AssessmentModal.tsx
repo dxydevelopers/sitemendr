@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Clipboard, CheckCircle } from 'lucide-react';
+import { X, Clipboard, Check } from 'lucide-react';
 
 interface Assessment {
   id: string;
@@ -66,7 +66,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({ assessment, isOpen, o
             <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl">
               <span className="text-[8px] font-black text-medium-gray uppercase tracking-[0.3em] mb-2 block">Status</span>
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-expert-green" />
+                <Check className="w-4 h-4 text-expert-green" />
                 <p className="text-expert-green font-bold text-sm uppercase">Verified</p>
               </div>
             </div>

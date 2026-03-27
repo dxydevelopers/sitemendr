@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { apiClient, saveSessionToken, clearSessionToken } from '@/lib/api';
-import { Sparkles, Palette, Briefcase, Layout, ChevronRight, ChevronLeft, Send, CheckCircle2, X } from 'lucide-react';
+import { Sparkles, Palette, Briefcase, Layout, ChevronRight, ChevronLeft, Send, Check, X } from 'lucide-react';
 import AssessmentResults, { AssessmentResultsData } from './AssessmentResults';
 
 interface AssessmentData {
@@ -715,7 +715,7 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
                         : 'border-white/20 group-hover:border-ai-blue/40'
                     }`}>
                       {isChecked && (
-                        <CheckCircle2 className="w-3 h-3 text-ai-blue" />
+                        <Check className="w-3 h-3 text-ai-blue" />
                       )}
                     </div>
                     <span className={`font-mono text-xs tracking-widest transition-colors uppercase ${

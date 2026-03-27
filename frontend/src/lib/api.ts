@@ -494,6 +494,10 @@ class ApiClient {
     return this.request<{ success: boolean; results: AssessmentResultsData }>(`/assessment/${assessmentId}/results`);
   }
 
+  async getAssessmentDetails(assessmentId: string) {
+    return this.request<{ success: boolean; data: any }>(`/assessment/${assessmentId}/details`);
+  }
+
   async convertToLead(assessmentId: string, leadData: Record<string, unknown>) {
     return this.request(`/assessment/${assessmentId}/lead`, {
       method: 'POST',

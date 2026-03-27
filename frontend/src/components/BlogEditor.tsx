@@ -14,8 +14,8 @@ import {
   FileText, 
   Sparkles,
   ArrowLeft,
-  CheckCircle,
-  XCircle
+  Check,
+  X
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
@@ -517,7 +517,7 @@ export default function BlogEditor() {
                     onClick={() => setImageUrl('')}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/[0.02] border border-white/10 rounded-xl hover:border-red-400/40 hover:text-red-400 transition-colors text-sm"
                   >
-                    <XCircle className="w-4 h-4" />
+                    <X className="w-4 h-4" />
                     Clear Image
                   </button>
                 </div>
@@ -531,11 +531,11 @@ export default function BlogEditor() {
                     Generate with AI
                   </button>
                   <button className="w-full flex items-center gap-3 px-4 py-3 bg-white/[0.02] border border-white/10 rounded-xl hover:border-ai-blue/40 transition-colors">
-                    <CheckCircle className="w-5 h-5" />
+                    <Check className="w-5 h-5" />
                     Validate Content
                   </button>
                   <button className="w-full flex items-center gap-3 px-4 py-3 bg-white/[0.02] border border-white/10 rounded-xl hover:border-ai-blue/40 transition-colors">
-                    <XCircle className="w-5 h-5" />
+                    <X className="w-5 h-5" />
                     Discard Changes
                   </button>
                 </div>

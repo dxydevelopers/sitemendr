@@ -7,8 +7,8 @@ import {
   Phone, 
   Building2, 
   Globe, 
-  AlertCircle, 
-  CheckCircle, 
+  TriangleAlert, 
+  Check, 
   Eye, 
   EyeOff,
   Sparkles
@@ -273,14 +273,14 @@ export default function FormValidation() {
                   )}
                   
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    {status === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
-                    {status === 'success' && <CheckCircle className="w-5 h-5 text-ai-blue" />}
+                    {status === 'error' && <TriangleAlert className="w-5 h-5 text-red-500" />}
+                    {status === 'success' && <Check className="w-5 h-5 text-ai-blue" />}
                   </div>
                 </div>
 
                 {field.error && field.touched && (
                   <p className="mt-2 text-red-500 text-sm flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
+                    <TriangleAlert className="w-4 h-4" />
                     {field.error}
                   </p>
                 )}

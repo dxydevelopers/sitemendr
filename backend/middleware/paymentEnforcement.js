@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const logger = require('../config/logger');
+const { withTimeout } = require('../utils/promise');
 
 // Payment enforcement middleware
 const checkPaymentStatus = async (req, res, next) => {
@@ -15,22 +16,26 @@ const checkPaymentStatus = async (req, res, next) => {
     }
 
     // Get subscription status - explicitly select columns to avoid missing column errors
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        userId: clientId,
-        status: { not: 'cancelled' }
-      },
-      select: {
-        id: true,
-        userId: true,
-        status: true,
-        tier: true,
-        price: true,
-        expiresAt: true,
-        createdAt: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    const subscription = await withTimeout(
+      prisma.subscription.findFirst({
+        where: {
+          userId: clientId,
+          status: { not: 'cancelled' }
+        },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          tier: true,
+          price: true,
+          expiresAt: true,
+          createdAt: true
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      5000,
+      'Database connection timed out during payment enforcement check'
+    );
 
     if (!subscription) {
       // No subscription found - allow access for new clients or redirect to signup
@@ -91,9 +96,13 @@ const checkPaymentStatus = async (req, res, next) => {
 // Get enforcement configuration based on tier
 const getEnforcementConfig = async (tier) => {
   try {
-    const setting = await prisma.setting.findUnique({
-      where: { key: 'payment_enforcement' }
-    });
+    const setting = await withTimeout(
+      prisma.setting.findUnique({
+        where: { key: 'payment_enforcement' }
+      }),
+      2000,
+      'Timeout getting enforcement config'
+    );
 
     const configs = setting ? setting.value : {
       ai_foundation: {

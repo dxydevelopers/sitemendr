@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../../lib/api';
-import { Trash2, Edit2, Plus, Save, X, CheckCircle2, Clock, Circle } from 'lucide-react';
+import { Trash2, Edit2, Plus, Save, X, Check, Clock, Circle } from 'lucide-react';
 
 interface Milestone {
   id: string;
@@ -278,7 +278,7 @@ const MilestoneManager: React.FC = () => {
                             <div className="flex items-start gap-4">
                               <div className="mt-1">
                                 {ms.status.toUpperCase() === 'COMPLETED' ? (
-                                  <CheckCircle2 className="w-4 h-4 text-expert-green" />
+                                  <Check className="w-4 h-4 text-expert-green" />
                                 ) : ms.status.toUpperCase() === 'IN_PROGRESS' ? (
                                   <Clock className="w-4 h-4 text-ai-blue animate-pulse" />
                                 ) : (

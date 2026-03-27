@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { 
   Activity, 
-  AlertTriangle, 
-  CheckCircle, 
+  TriangleAlert, 
+  Check, 
   Clock, 
   TrendingUp, 
   Eye, 
@@ -246,7 +246,7 @@ export default function Monitoring() {
           <div className="grid md:grid-cols-3 gap-6">
             <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
-                <AlertTriangle className="w-6 h-6 text-red-500" />
+                <TriangleAlert className="w-6 h-6 text-red-500" />
                 <span className="font-bold text-red-400 uppercase tracking-widest">Critical Alerts</span>
               </div>
               <div className="text-2xl font-black text-white">0</div>
@@ -255,7 +255,7 @@ export default function Monitoring() {
 
             <div className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
-                <AlertTriangle className="w-6 h-6 text-yellow-500" />
+                <TriangleAlert className="w-6 h-6 text-yellow-500" />
                 <span className="font-bold text-yellow-400 uppercase tracking-widest">Warnings</span>
               </div>
               <div className="text-2xl font-black text-white">1</div>
@@ -264,7 +264,7 @@ export default function Monitoring() {
 
             <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
-                <CheckCircle className="w-6 h-6 text-green-500" />
+                <Check className="w-6 h-6 text-green-500" />
                 <span className="font-bold text-green-400 uppercase tracking-widest">Healthy</span>
               </div>
               <div className="text-2xl font-black text-white">98%</div>

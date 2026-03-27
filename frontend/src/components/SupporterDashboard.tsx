@@ -18,7 +18,7 @@ import {
   Info,
   Trophy,
   Users,
-  CheckCircle2
+  Check
 } from 'lucide-react';
 import { apiClient, Supporter, User as UserType } from '@/lib/api';
 
@@ -211,7 +211,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
             {supporter.tier?.perks.map((perk, i) => (
               <div key={i} className="bg-black border border-white/5 p-6 md:p-8 hover:border-ai-blue/30 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-ai-blue/5 border border-ai-blue/10 flex items-center justify-center mb-6 group-hover:bg-ai-blue/10 transition-all">
-                  <CheckCircle2 className="w-6 h-6 text-ai-blue" />
+                  <Check className="w-6 h-6 text-ai-blue" />
                 </div>
                 <h5 className="text-sm font-black uppercase tracking-tight mb-2">{perk.replace(/-/g, ' ')}</h5>
                 <p className="text-[10px] text-medium-gray font-mono opacity-60 leading-relaxed uppercase">

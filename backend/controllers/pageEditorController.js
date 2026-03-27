@@ -1,7 +1,6 @@
 'use strict';
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/db');
 
 // Get all pages for a subscription
 const getPages = async (req, res) => {

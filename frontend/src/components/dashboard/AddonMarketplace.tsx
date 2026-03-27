@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
   Plus, 
   ShoppingBag, 
-  CheckCircle, 
+  Check, 
   Database, 
   Layout, 
   Zap, 
@@ -245,7 +245,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
                     <><Loader2 className="w-4 h-4 animate-spin" /> Transmitting...</>
                   ) : isPurchased ? (
                     <>
-                      <CheckCircle className="w-4 h-4" />
+                      <Check className="w-4 h-4" />
                       <span>Module_Live</span>
                     </>
                   ) : (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CreditCard, Zap, ShieldCheck, Users, Globe, CheckCircle, Loader } from 'lucide-react';
+import { ArrowLeft, CreditCard, Zap, ShieldCheck, Users, Globe, Check, Loader } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 
@@ -190,7 +190,7 @@ export default function PaymentPage() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-12">
             <div className="w-20 h-20 mx-auto mb-6">
-              <CheckCircle className="w-full h-full text-expert-green" />
+              <Check className="w-full h-full text-expert-green" />
             </div>
             <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter uppercase">
               You&apos;re All <span className="bg-gradient-to-r from-expert-green to-ai-blue bg-clip-text text-transparent">Set</span>
@@ -337,7 +337,7 @@ export default function PaymentPage() {
               <ul className="space-y-3 mb-8 flex-grow">
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-center gap-3">
-                    <CheckCircle className="w-4 h-4 text-expert-green flex-shrink-0" />
+                    <Check className="w-4 h-4 text-expert-green flex-shrink-0" />
                     <span className="text-sm text-medium-gray">{feature}</span>
                   </li>
                 ))}

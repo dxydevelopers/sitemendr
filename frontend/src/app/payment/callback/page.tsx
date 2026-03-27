@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader } from 'lucide-react';
 import Link from 'next/link';
 
 import { apiClient } from '@/lib/api';
@@ -88,7 +88,7 @@ export default function PaymentCallbackPage() {
           {status === 'success' && (
             <>
               <div className="w-16 h-16 mx-auto">
-                <CheckCircle className="w-full h-full text-expert-green" />
+                <Check className="w-full h-full text-expert-green" />
               </div>
               <h1 className="text-2xl font-black uppercase tracking-tight">Payment Successful</h1>
               <p className="text-medium-gray">{message}</p>
@@ -104,7 +104,7 @@ export default function PaymentCallbackPage() {
           {status === 'failed' && (
             <>
               <div className="w-16 h-16 mx-auto">
-                <XCircle className="w-full h-full text-red-500" />
+                <X className="w-full h-full text-red-500" />
               </div>
               <h1 className="text-2xl font-black uppercase tracking-tight">Payment Failed</h1>
               <p className="text-medium-gray">{message}</p>

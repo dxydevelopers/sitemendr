@@ -1,6 +1,6 @@
 'use client';
 
-import { Scale, Gavel, ScrollText, AlertCircle, ChevronRight, Terminal } from 'lucide-react';
+import { Scale, Gavel, ScrollText, TriangleAlert, ChevronRight, Terminal } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function TermsOfService() {
@@ -67,7 +67,7 @@ export default function TermsOfService() {
                 <div className="flex items-start gap-8">
                   <div className="hidden md:flex flex-col items-center">
                     <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-ai-blue group-hover:scale-110 transition-transform duration-500">
-                      {i === 0 ? <Gavel size={20} /> : i === 1 ? <ScrollText size={20} /> : <AlertCircle size={20} />}
+                      {i === 0 ? <Gavel size={20} /> : i === 1 ? <ScrollText size={20} /> : <TriangleAlert size={20} />}
                     </div>
                     {i !== sections.length - 1 && <div className="w-px h-full bg-gradient-to-b from-white/10 to-transparent my-4"></div>}
                   </div>

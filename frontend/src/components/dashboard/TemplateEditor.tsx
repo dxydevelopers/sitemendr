@@ -10,8 +10,8 @@ import {
   Layout, 
   FileCode, 
   Terminal,
-  CheckCircle2,
-  AlertCircle,
+  Check,
+  TriangleAlert,
   Loader2,
   Image as ImageIcon,
   X
@@ -250,9 +250,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
           {status && (
             <div className={`flex items-center gap-2 transition-all animate-fade-in`}>
               {status.type === 'success' ? (
-                <CheckCircle2 className="w-3 h-3 text-expert-green" />
+                <Check className="w-3 h-3 text-expert-green" />
               ) : (
-                <AlertCircle className="w-3 h-3 text-red-500" />
+                <AlertTriangle className="w-3 h-3 text-red-500" />
               )}
               <span className={`text-[9px] font-black uppercase tracking-widest ${
                 status.type === 'success' ? 'text-expert-green' : 'text-red-500'

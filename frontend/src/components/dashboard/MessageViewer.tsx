@@ -12,7 +12,7 @@ import {
   Plus, 
   X,
   Loader2,
-  CheckCircle2
+  Check
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
@@ -344,7 +344,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                   {isSending ? (
                     <><Loader2 className="w-5 h-5 animate-spin" /> {editingMessageId ? 'Updating' : 'Transmitting'}...</>
                   ) : sendSuccess ? (
-                    <><CheckCircle2 className="w-5 h-5" /> {editingMessageId ? 'Update' : 'Transmission'} Complete</>
+                    <><Check className="w-5 h-5" /> {editingMessageId ? 'Update' : 'Transmission'} Complete</>
                   ) : (
                     <><Send className="w-5 h-5" /> Authorize {editingMessageId ? 'Update' : 'Transmit'}</>
                   )}

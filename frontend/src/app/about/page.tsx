@@ -1,6 +1,6 @@
 'use client';
 
-import { Terminal, Users, Target, ShieldCheck, Sparkles, Cpu, Globe, Zap, Award, Code2, Database, Cloud, Lock, ArrowRight, CheckCircle, Clock, MapPin, Mail, Phone, Linkedin, Twitter, Github, Star, Building2, Rocket, Heart, Eye, ChevronRight, Quote, Shield, Infinity, Layers2, Workflow, Puzzle, Activity, ArrowUpRight, ExternalLink } from 'lucide-react';
+import { Terminal, Users, Target, ShieldCheck, Sparkles, Cpu, Globe, Zap, Award, Code2, Database, Cloud, Lock, ArrowRight, Check, Clock, MapPin, Mail, Phone, Linkedin, Twitter, Github, Star, Building2, Rocket, Heart, Eye, ChevronRight, Quote, Shield, Infinity, Layers2, Workflow, Puzzle, Activity, ArrowUpRight, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 
@@ -195,7 +195,7 @@ export default function AboutPage() {
   ];
 
   const stats = [
-    { value: '500+', label: 'Projects Delivered', icon: <CheckCircle className="w-5 h-5" />, trend: '+12%' },
+    { value: '500+', label: 'Projects Delivered', icon: <Check className="w-5 h-5" />, trend: '+12%' },
     { value: '99.99%', label: 'Uptime SLA', icon: <Activity className="w-5 h-5" />, trend: 'Stable' },
     { value: '50+', label: 'Enterprise Clients', icon: <Building2 className="w-5 h-5" />, trend: '+8%' },
     { value: '24/7', label: 'Support Coverage', icon: <Users className="w-5 h-5" />, trend: 'Always' },
@@ -364,7 +364,7 @@ export default function AboutPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 {tabContent[activeTab].points.map((point, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                     <span className="text-sm text-gray-300 font-light">{point}</span>
                   </div>
                 ))}

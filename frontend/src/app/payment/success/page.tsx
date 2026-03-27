@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CheckCircle, Home, ExternalLink } from 'lucide-react';
+import { Check, Home, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 
@@ -89,7 +89,7 @@ export default function PaymentSuccessPage() {
       <div className="max-w-4xl mx-auto px-6">
         <div className="text-center mb-12">
           <div className="w-20 h-20 mx-auto mb-6">
-            <CheckCircle className="w-full h-full text-expert-green" />
+            <Check className="w-full h-full text-expert-green" />
           </div>
           <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter uppercase">
             Payment <span className="bg-gradient-to-r from-expert-green to-ai-blue bg-clip-text text-transparent">Successful</span>
@@ -137,7 +137,7 @@ export default function PaymentSuccessPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 bg-expert-green/20 border border-expert-green/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-expert-green" />
+                  <Check className="w-4 h-4 text-expert-green" />
                 </div>
                 <div>
                   <h3 className="font-black text-white uppercase tracking-tight">Account Activated</h3>

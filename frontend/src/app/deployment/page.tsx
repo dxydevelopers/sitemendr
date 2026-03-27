@@ -5,9 +5,9 @@ import {
   Cloud, 
   ShieldCheck, 
   Zap, 
-  CheckCircle, 
+  Check, 
   Clock, 
-  AlertTriangle, 
+  TriangleAlert, 
   Eye, 
   EyeOff,
   Globe,
@@ -149,9 +149,9 @@ export default function DeploymentPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircle className="w-5 h-5 text-expert-green" />;
+      case 'completed': return <Check className="w-5 h-5 text-expert-green" />;
       case 'in_progress': return <Clock className="w-5 h-5 text-ai-blue animate-spin" />;
-      case 'failed': return <AlertTriangle className="w-5 h-5 text-red-500" />;
+      case 'failed': return <TriangleAlert className="w-5 h-5 text-red-500" />;
       default: return <div className="w-5 h-5 rounded-full bg-white/20" />;
     }
   };

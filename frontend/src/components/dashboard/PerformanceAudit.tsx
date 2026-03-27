@@ -6,12 +6,12 @@ import {
   Shield, 
   Search, 
   Smartphone, 
-  AlertTriangle, 
+  TriangleAlert, 
   Info,
   ArrowUpRight,
   RefreshCw,
   Rocket,
-  CheckCircle2,
+  Check,
   Loader2
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -175,7 +175,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
             {isOptimizing ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Optimizing...</>
             ) : optimizationComplete ? (
-              <><CheckCircle2 className="w-4 h-4" /> Optimized</>
+              <><Check className="w-4 h-4" /> Optimized</>
             ) : (
               <><Rocket className="w-4 h-4" /> Global Boost</>
             )}
@@ -222,7 +222,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
               auditData.recommendations.map((rec: Recommendation, idx: number) => (
                 <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-3xl group hover:bg-white/[0.04] hover:border-ai-blue/30 transition-all cursor-pointer">
                   <div className={`w-12 h-12 flex-shrink-0 rounded-2xl flex items-center justify-center bg-white/5 ${rec.priority === 'HIGH' ? 'text-red-500' : 'text-ai-blue'}`}>
-                    {rec.priority === 'HIGH' ? <AlertTriangle className="w-5 h-5" /> : <Info className="w-5 h-5" />}
+                    {rec.priority === 'HIGH' ? <TriangleAlert className="w-5 h-5" /> : <Info className="w-5 h-5" />}
                   </div>
                   <div className="flex-1 space-y-2">
                     <p className="text-xs lg:text-[13px] font-bold text-white tracking-tight leading-relaxed">{rec.message}</p>
@@ -241,7 +241,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
               ))
             ) : (
               <div className="py-20 text-center border border-white/5 border-dashed rounded-[32px]">
-                <CheckCircle2 className="w-12 h-12 text-expert-green/20 mx-auto mb-4" />
+                <Check className="w-12 h-12 text-expert-green/20 mx-auto mb-4" />
                 <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">System optimized - no pending advisories</p>
               </div>
             )}

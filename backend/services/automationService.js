@@ -7,21 +7,27 @@ const { isDbConnected } = require('../config/db');
 /**
  * Initialize automated operational tasks
  */
-exports.initAutomation = () => {
+exports.initAutomation = async () => {
   logger.info('Initializing operational automation service');
 
-  // Run initial audits on startup
-  runSuspensionAutomation().catch(err => {
-    logger.error('Initial suspension automation run failed', { error: err.message });
-  });
+  try {
+    // Run initial audits sequentially on startup to avoid connection bursts
+    logger.info('Running initial suspension audit...');
+    await runSuspensionAutomation();
 
-  verifyDomains().catch(err => {
-    logger.error('Initial DNS verification failed', { error: err.message });
-  });
+    logger.info('Running initial DNS verification...');
+    await verifyDomains();
 
-  provisionSSL().catch(err => {
-    logger.error('Initial SSL provisioning run failed', { error: err.message });
-  });
+    logger.info('Running initial SSL provisioning...');
+    await provisionSSL();
+
+    logger.info('Initial background tasks completed successfully');
+  } catch (err) {
+    logger.error('One or more initial automation tasks failed', { 
+      errorCode: 'AUTOMATION_STARTUP_ERROR',
+      error: err.message 
+    });
+  }
 
   const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
   
