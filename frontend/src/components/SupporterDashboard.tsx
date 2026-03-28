@@ -64,7 +64,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
 
   if (loading) {
     return (
-      <div className={`${isNested ? 'h-[400px]' : 'min-h-screen'} bg-black flex items-center justify-center`}>
+      <div className={`${isNested ? 'h-[400px] min-h-[300px]' : 'min-h-screen'} bg-black flex items-center justify-center p-4`}>
         <div className="w-12 h-12 border-4 border-ai-blue/20 border-t-ai-blue rounded-full animate-spin"></div>
       </div>
     );
@@ -72,8 +72,8 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
 
   if (!supporter) {
     return (
-      <div className={`${isNested ? 'py-10' : 'min-h-screen'} bg-black text-white p-6`}>
-        <div className="text-center mb-16">
+      <div className={`${isNested ? 'py-4 px-2 sm:py-10 sm:px-6' : 'min-h-screen'} bg-black text-white`}>
+        <div className="text-center mb-8 sm:mb-16 px-4">
           <div className="w-20 h-20 bg-ai-blue/10 rounded-full flex items-center justify-center mb-8 mx-auto">
             <Gift className="w-10 h-10 text-ai-blue animate-pulse" />
           </div>
@@ -98,10 +98,10 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
   ];
 
   const content = (
-    <div className="p-4 md:p-8 lg:p-12 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 lg:p-12 max-w-6xl mx-auto w-full overflow-x-hidden">
       {/* Horizontal Tabs for nested or mobile */}
       {(isNested || true) && (
-        <div className="mb-8 overflow-x-auto no-scrollbar">
+        <div className="mb-8 overflow-x-auto no-scrollbar px-2 sm:px-0">
           <div className="flex items-center gap-2 min-w-max border-b border-white/5 pb-4">
             {tabs.map((tab) => (
               <button

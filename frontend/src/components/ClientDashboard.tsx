@@ -302,6 +302,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     try {
       setLoading(true);
       setFetchError(null);
+      
+      // Log start for debugging
+      console.log('[ClientDashboard] Starting fetch...');
+      
       const [
         statsRes, 
         projectsRes, 
@@ -314,16 +318,16 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         bookingsRes,
         assessmentsRes
       ] = await Promise.all([
-        apiClient.getClientStats(projectId).catch(err => ({ success: false, stats: null })) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
-        apiClient.getClientProjects().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
-        apiClient.getClientActivities().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
-        apiClient.getClientBilling().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
-        apiClient.getClientMessages().catch(err => ({ success: false, messages: [] })) as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
-        apiClient.getClientSupportTickets().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
-        apiClient.getClientResources().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
-        apiClient.getClientDomains().catch(err => ({ success: false, domains: [] })) as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>,
-        apiClient.getUserBookings(projectId).catch(err => []) as unknown as Promise<any[]>,
-        apiClient.getClientAssessments().catch(err => ({ success: false, data: [] })) as unknown as Promise<{ success: boolean; data: any[] }>
+        apiClient.getClientStats(projectId).catch(err => { console.error('Stats error:', err); return { success: false, stats: null }; }) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
+        apiClient.getClientProjects().catch(err => { console.error('Projects error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
+        apiClient.getClientActivities().catch(err => { console.error('Activities error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
+        apiClient.getClientBilling().catch(err => { console.error('Billing error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
+        apiClient.getClientMessages().catch(err => { console.error('Messages error:', err); return { success: false, messages: [] }; }) as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
+        apiClient.getClientSupportTickets().catch(err => { console.error('Tickets error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
+        apiClient.getClientResources().catch(err => { console.error('Resources error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
+        apiClient.getClientDomains().catch(err => { console.error('Domains error:', err); return { success: false, domains: [] }; }) as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>,
+        apiClient.getUserBookings(projectId).catch(err => { console.error('Bookings error:', err); return []; }) as unknown as Promise<any[]>,
+        apiClient.getClientAssessments().catch(err => { console.error('Assessments error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: any[] }>
       ]);
 
       if (statsRes.success && statsRes.stats) setStats(statsRes.stats);
@@ -401,9 +405,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         setProfileData({ name: parsedUser.name || '', phone: parsedUser.phone || '' });
       }
     } catch (err) {
+      console.error('[ClientDashboard] Fetch failed:', err);
       console.error('Fetch failed in ClientDashboard:', err);
       setFetchError('Neural link interrupted. Failed to synchronize dashboard data. Please verify your connection.');
     } finally {
+      console.log('[ClientDashboard] Fetch complete, setting loading to false');
       setLoading(false);
     }
   }, [selectedProjectId]);
@@ -596,11 +602,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
       <div className="flex relative z-10 min-h-screen">
         {/* Sidebar */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-50 w-72 lg:w-80 bg-black/40 backdrop-blur-2xl border-r border-white/5 transition-transform duration-500 transform
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}>
-          <div className="h-full flex flex-col p-8">
+        <aside className={`fixed inset-y-0 left-0 z-50 w-72 lg:w-80 bg-black/40 backdrop-blur-2xl border-r border-white/5 transition-transform duration-500 transform overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+          <div className="h-full flex flex-col p-8 pb-20">
             <div className="flex items-center gap-4 mb-14 px-2 group">
               <div className="w-12 h-12 bg-ai-blue rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(0,102,255,0.4)] group-hover:scale-110 transition-transform">
                 <Rocket className="w-6 h-6 text-white" />
@@ -1481,7 +1484,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             )}
 
             {activeTab === 'supporter' && (
-              <div className="animate-fade-in h-full -m-6 lg:-m-10">
+              <div className="animate-fade-in h-full -m-6 lg:-m-10 overflow-x-hidden">
                 <SupporterDashboard onLogout={handleLogoutAction} isNested={true} />
               </div>
             )}
