@@ -115,35 +115,7 @@ function HomeContent() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white selection:bg-ai-blue/30">
-      {/* Mission Control HUD */}
-      <div className="fixed bottom-10 left-10 z-[100] hidden 2xl:block pointer-events-none group">
-        <div className="bg-black/90 backdrop-blur-2xl border border-ai-blue/20 p-6 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] pointer-events-auto transition-all duration-500 hover:border-ai-blue/50 hover:translate-y-[-5px]">
-          <div className="absolute -inset-0.5 bg-gradient-to-br from-ai-blue/20 to-tech-purple/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <div className="relative">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-2 h-2 rounded-full bg-expert-green animate-pulse shadow-[0_0_15px_#10B981]"></div>
-              <span className="font-mono text-[10px] text-white/80 uppercase tracking-widest font-black">All Systems Operational</span>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-16">
-                <span className="font-mono text-[8px] text-white/30 uppercase tracking-[0.2em]">System Status</span>
-                <span className="font-mono text-[9px] text-ai-blue font-black uppercase">Online</span>
-              </div>
-              <div className="flex items-center justify-between gap-16">
-                <span className="font-mono text-[8px] text-white/30 uppercase tracking-[0.2em]">Server Uptime</span>
-                <span className="font-mono text-[9px] text-expert-green font-black uppercase tracking-tighter">99.9%</span>
-              </div>
-              <div className="h-[1px] w-full bg-white/5"></div>
-              <div className="flex items-center justify-between gap-16">
-                <span className="font-mono text-[8px] text-white/30 uppercase tracking-[0.2em]">Account Status</span>
-                <span className="font-mono text-[9px] text-white/60 font-black uppercase tracking-tighter">Guest</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <main className="min-h-screen bg-gray-900 text-white">
       <ImmersiveHero onStartAssessment={handleStartAssessment} />
 
       <SectionDivider label="Our Features" id="MOD_01" align="center" />
@@ -164,19 +136,6 @@ function HomeContent() {
 
       <SectionDivider label="Pricing" id="pricing" align="center" />
       <PricingPreview onStartAssessment={handleStartAssessment} />
-
-      <SectionDivider label="Community Support" id="supporter" align="center" />
-      <section className="py-24">
-        <div className="text-center mb-16 px-6">
-          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white tracking-tighter">
-            Exclusive <span className="italic text-ai-blue">Airdrops</span>
-          </h2>
-          <p className="text-lg md:text-xl text-medium-gray max-w-2xl mx-auto font-medium opacity-60 italic">
-            Support the evolution of Sitemendr and unlock mystery reward packages.
-          </p>
-        </div>
-        <AirdropGifts />
-      </section>
 
       <SectionDivider label="What Our Clients Say" id="MOD_07" align="center" />
       <Testimonials />

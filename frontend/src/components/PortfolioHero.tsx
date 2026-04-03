@@ -87,6 +87,11 @@ export default function PortfolioHero() {
                   alt="Featured Project"
                   fill
                   className="object-cover"
+                  unoptimized
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
                 />
               </div>
 
@@ -117,6 +122,11 @@ export default function PortfolioHero() {
                       alt="E-commerce Dashboard"
                       fill
                       className="object-cover"
+                      unoptimized
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     <div className="absolute bottom-6 left-6">

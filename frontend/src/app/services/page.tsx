@@ -180,6 +180,10 @@ export default function Services() {
           loop
           muted
           playsInline
+          onError={(e) => {
+            const video = e.currentTarget;
+            video.style.display = 'none';
+          }}
           className="h-full w-full object-cover opacity-40 scale-105 animate-slow-zoom"
         >
           <source src="https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-a-server-room-12629-large.mp4" type="video/mp4" />

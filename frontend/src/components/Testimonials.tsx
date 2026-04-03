@@ -183,6 +183,11 @@ export default function Testimonials() {
                             width={128}
                             height={128}
                             className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+                            unoptimized
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
                           />
                         </div>
                         {/* Frame HUD */}

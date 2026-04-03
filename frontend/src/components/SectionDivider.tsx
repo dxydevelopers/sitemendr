@@ -10,30 +10,22 @@ interface SectionDividerProps {
 
 const SectionDivider: React.FC<SectionDividerProps> = ({ label, id, align = 'left' }) => {
   return (
-    <div id={id} className="relative w-full max-w-7xl mx-auto px-6 overflow-hidden pointer-events-none">
-      <div className={`flex items-center gap-8 py-12 ${
+    <div id={id} className="relative w-full max-w-7xl mx-auto px-6 overflow-hidden">
+      <div className={`flex items-center gap-6 py-10 ${
         align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'
       }`}>
         {/* Horizontal Line */}
-        <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
         
-        {/* HUD Content */}
-        <div className="flex items-center gap-4">
-          <div className="w-1.5 h-1.5 rounded-full bg-ai-blue animate-pulse shadow-[0_0_8px_#0066FF]"></div>
-          {label && (
-            <span className="font-mono text-[9px] font-black text-white/20 uppercase tracking-[0.5em]">
-              {label}
-            </span>
-          )}
-          {id && (
-            <span className="font-mono text-[9px] font-black text-ai-blue/30 uppercase tracking-[0.3em]">
-              [{id}]
-            </span>
-          )}
-        </div>
+        {/* Label */}
+        {label && (
+          <h2 className="text-xl font-semibold text-white whitespace-nowrap">
+            {label}
+          </h2>
+        )}
 
         {/* Horizontal Line */}
-        <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
       </div>
     </div>
   );

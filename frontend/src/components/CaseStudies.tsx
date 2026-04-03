@@ -466,6 +466,11 @@ export default function CaseStudies() {
                       alt={study.title}
                       fill
                       className="object-cover transition-transform duration-700 group-hover:scale-110"
+                      unoptimized
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
                     
@@ -606,6 +611,11 @@ export default function CaseStudies() {
                     alt={study.title}
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-110"
+                    unoptimized
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
                   

@@ -44,6 +44,10 @@ export default function ModernHeroSection({ onStartAssessment }: ModernHeroSecti
           loop
           muted
           playsInline
+          onError={(e) => {
+            const video = e.currentTarget;
+            video.style.display = 'none';
+          }}
           className="w-full h-full object-cover opacity-20 grayscale contrast-12"
         >
           <source src="https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-a-circuit-board-1549-large.mp4" type="video/mp4" />

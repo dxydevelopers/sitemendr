@@ -303,38 +303,58 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       setLoading(true);
       setFetchError(null);
       
-      // Log start for debugging
       console.log('[ClientDashboard] Starting fetch...');
       
-      const [
-        statsRes, 
-        projectsRes, 
-        activitiesRes,
-        billingRes,
-        messagesRes,
-        ticketsRes,
-        resourcesRes,
-        domainsRes,
-        bookingsRes,
-        assessmentsRes
-      ] = await Promise.all([
-        apiClient.getClientStats(projectId).catch(err => { console.error('Stats error:', err); return { success: false, stats: null }; }) as unknown as Promise<{ success: boolean; stats: ClientStats }>,
-        apiClient.getClientProjects().catch(err => { console.error('Projects error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: ClientProject[] }>,
-        apiClient.getClientActivities().catch(err => { console.error('Activities error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: ClientActivity[] }>,
-        apiClient.getClientBilling().catch(err => { console.error('Billing error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: BillingItem[] }>,
-        apiClient.getClientMessages().catch(err => { console.error('Messages error:', err); return { success: false, messages: [] }; }) as unknown as Promise<{ success: boolean; messages: MessageItem[] }>,
-        apiClient.getClientSupportTickets().catch(err => { console.error('Tickets error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: SupportTicket[] }>,
-        apiClient.getClientResources().catch(err => { console.error('Resources error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: ResourceItem[] }>,
-        apiClient.getClientDomains().catch(err => { console.error('Domains error:', err); return { success: false, domains: [] }; }) as unknown as Promise<{ success: boolean; domains: CustomDomain[] }>,
-        apiClient.getUserBookings(projectId).catch(err => { console.error('Bookings error:', err); return []; }) as unknown as Promise<any[]>,
-        apiClient.getClientAssessments().catch(err => { console.error('Assessments error:', err); return { success: false, data: [] }; }) as unknown as Promise<{ success: boolean; data: any[] }>
+      // Fetch data sequentially to avoid blocking on slow requests
+      // Each request has its own timeout and won't block others
+      const fetchWithTimeout = async (promise: Promise<any>, name: string, timeoutMs = 8000) => {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), timeoutMs);
+          const result = await Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`${name} timed out`)), timeoutMs))
+          ]);
+          clearTimeout(timeout);
+          console.log(`[ClientDashboard] ${name} completed`);
+          return result;
+        } catch (err) {
+          console.error(`[ClientDashboard] ${name} failed:`, err);
+          return null;
+        }
+      };
+
+      // Fetch all data in parallel but with individual timeouts
+      const [statsRes, projectsRes, activitiesRes, billingRes, messagesRes, ticketsRes, resourcesRes, domainsRes, bookingsRes, assessmentsRes] = await Promise.all([
+        fetchWithTimeout(apiClient.getClientStats(projectId), 'stats'),
+        fetchWithTimeout(apiClient.getClientProjects(), 'projects'),
+        fetchWithTimeout(apiClient.getClientActivities(), 'activities'),
+        fetchWithTimeout(apiClient.getClientBilling(), 'billing'),
+        fetchWithTimeout(apiClient.getClientMessages(), 'messages'),
+        fetchWithTimeout(apiClient.getClientSupportTickets(), 'tickets'),
+        fetchWithTimeout(apiClient.getClientResources(), 'resources'),
+        fetchWithTimeout(apiClient.getClientDomains(), 'domains'),
+        fetchWithTimeout(apiClient.getUserBookings(projectId), 'bookings'),
+        fetchWithTimeout(apiClient.getClientAssessments(), 'assessments'),
       ]);
 
-      if (statsRes.success && statsRes.stats) setStats(statsRes.stats);
+      // Extract results - handle nulls from timed out requests
+      const safeStatsRes = statsRes || { success: false, stats: null };
+      const safeProjectsRes = projectsRes || { success: false, data: [] };
+      const safeActivitiesRes = activitiesRes || { success: false, data: [] };
+      const safeBillingRes = billingRes || { success: false, data: [] };
+      const safeMessagesRes = messagesRes || { success: false, messages: [] };
+      const safeTicketsRes = ticketsRes || { success: false, data: [] };
+      const safeResourcesRes = resourcesRes || { success: false, data: [] };
+      const safeDomainsRes = domainsRes || { success: false, domains: [] };
+      const safeBookingsRes = bookingsRes || [];
+      const safeAssessmentsRes = assessmentsRes || { success: false, data: [] };
+
+      if (safeStatsRes.success && safeStatsRes.stats) setStats(safeStatsRes.stats);
 
       // Map projects and assessments to the same list
-      const projectList = (projectsRes as any).data || (projectsRes as any).projects || (projectsRes as any).subscriptions || [];
-      const assessmentList = (assessmentsRes as any).data || (assessmentsRes as any).assessments || [];
+      const projectList = (safeProjectsRes as any).data || (safeProjectsRes as any).projects || (safeProjectsRes as any).subscriptions || [];
+      const assessmentList = (safeAssessmentsRes as any).data || (safeAssessmentsRes as any).assessments || [];
       
       const mappedProjects = projectList.map((p: any) => ({
         id: p.id,
@@ -377,25 +397,25 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         setProjects([]);
       }
 
-      const activityList = (activitiesRes as any).data || (activitiesRes as any).activities;
-      if (activitiesRes.success && activityList) setActivities(activityList);
+      const activityList = (safeActivitiesRes as any).data || (safeActivitiesRes as any).activities;
+      if (safeActivitiesRes.success && activityList) setActivities(activityList);
 
-      const billingList = (billingRes as any).data || (billingRes as any).billing;
-      if (billingRes.success && billingList) setBilling(billingList);
+      const billingList = (safeBillingRes as any).data || (safeBillingRes as any).billing;
+      if (safeBillingRes.success && billingList) setBilling(billingList);
 
-      const messageList = (messagesRes as any).messages || (messagesRes as any).data;
-      if (messagesRes.success && messageList) setMessages(messageList);
+      const messageList = (safeMessagesRes as any).messages || (safeMessagesRes as any).data;
+      if (safeMessagesRes.success && messageList) setMessages(messageList);
       
-      const ticketList = (ticketsRes as any).data || (ticketsRes as any).tickets;
-      if (ticketsRes.success && ticketList) setTickets(ticketList);
+      const ticketList = (safeTicketsRes as any).data || (safeTicketsRes as any).tickets;
+      if (safeTicketsRes.success && ticketList) setTickets(ticketList);
 
-      const resourceList = (resourcesRes as any).data || (resourcesRes as any).resources;
-      if (resourcesRes.success && resourceList) setResources(resourceList);
+      const resourceList = (safeResourcesRes as any).data || (safeResourcesRes as any).resources;
+      if (safeResourcesRes.success && resourceList) setResources(resourceList);
 
-      const domainList = (domainsRes as any).domains || (domainsRes as any).data;
-      if (domainsRes.success && domainList) setDomains(domainList);
+      const domainList = (safeDomainsRes as any).domains || (safeDomainsRes as any).data;
+      if (safeDomainsRes.success && domainList) setDomains(domainList);
 
-      if (bookingsRes) setBookings(bookingsRes);
+      if (safeBookingsRes) setBookings(safeBookingsRes);
 
       // Get user from localStorage
       const userData = localStorage.getItem('user');
@@ -610,21 +630,21 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               </div>
               <div>
                 <h1 className="text-lg font-black uppercase tracking-tight">Sitemendr</h1>
-                <p className="text-[9px] font-black text-ai-blue uppercase tracking-widest opacity-60">Control_Center.v2</p>
+                <p className="text-[9px] font-medium text-blue-600 uppercase tracking-widest">Client Portal</p>
               </div>
             </div>
 
             <nav className="flex-1 space-y-10">
               <div className="space-y-2">
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] px-6 mb-4 block">System_Nodes</span>
+                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] px-6 mb-4 block">Main Menu</span>
                 <div className="space-y-2">
                   {[
-                    { id: 'dashboard', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
-                    { id: 'projects', label: 'Control Center', icon: <Rocket className="w-5 h-5" />, count: projects.length },
-                    { id: 'messages', label: 'Inbound Comms', icon: <MessageSquare className="w-5 h-5" />, count: messages.filter(m => !m.isRead).length },
-                    { id: 'billing', label: 'Finance Node', icon: <CreditCard className="w-5 h-5" /> },
-                    { id: 'resources', label: 'Neural Library', icon: <BookOpen className="w-5 h-5" /> },
-                    { id: 'support', label: 'Tactical Support', icon: <LifeBuoy className="w-5 h-5" /> },
+                    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
+                    { id: 'projects', label: 'My Projects', icon: <Rocket className="w-5 h-5" />, count: projects.length },
+                    { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" />, count: messages.filter(m => !m.isRead).length },
+                    { id: 'billing', label: 'Billing', icon: <CreditCard className="w-5 h-5" /> },
+                    { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
+                    { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" /> },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -657,11 +677,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               </div>
 
               <div className="space-y-2">
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] px-6 mb-4 block">Personalization</span>
+                <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider px-6 mb-4 block">Account</span>
                 <div className="space-y-2">
                   {[
-                    { id: 'settings', label: 'System Settings', icon: <Settings className="w-5 h-5" /> },
-                    { id: 'supporter', label: 'Support Wall', icon: <Heart className="w-5 h-5" /> },
+                    { id: 'settings', label: 'Account Settings', icon: <Settings className="w-5 h-5" /> },
+                    { id: 'supporter', label: 'Rewards Program', icon: <Heart className="w-5 h-5" /> },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -686,13 +706,13 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               </div>
             </nav>
 
-            <div className="pt-10 mt-auto">
+            <div className="pt-6 mt-auto">
               <button 
                 onClick={handleLogoutAction}
-                className="w-full flex items-center gap-4 px-6 py-4 text-red-400 hover:bg-red-500/10 rounded-xl transition-all group font-black text-xs uppercase tracking-widest"
+                className="w-full flex items-center gap-3 px-6 py-3 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
               >
-                <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                Terminate Session
+                <LogOut className="w-4 h-4" />
+                Sign Out
               </button>
             </div>
           </div>
@@ -710,20 +730,20 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             </div>
 
             <div className="hidden lg:flex flex-col">
-              <h2 className="text-xl font-black uppercase tracking-tight">
-                {activeTab === 'dashboard' && 'Neural_Overview'}
-                {activeTab === 'projects' && 'Project_Matrix'}
-                {activeTab === 'messages' && 'Communications_Array'}
-                {activeTab === 'billing' && 'Financial_Ledger'}
-                {activeTab === 'resources' && 'Knowledge_Base'}
-                {activeTab === 'support' && 'Tactical_Support'}
-                {activeTab === 'settings' && 'System_Configuration'}
-                {activeTab === 'supporter' && 'Supporter_Grid'}
-                {activeTab === 'audit' && 'Performance_Pulse'}
+              <h2 className="text-xl font-semibold text-gray-900">
+                {activeTab === 'dashboard' && 'Dashboard'}
+                {activeTab === 'projects' && 'My Projects'}
+                {activeTab === 'messages' && 'Messages'}
+                {activeTab === 'billing' && 'Billing & Payments'}
+                {activeTab === 'resources' && 'Resources'}
+                {activeTab === 'support' && 'Support'}
+                {activeTab === 'settings' && 'Account Settings'}
+                {activeTab === 'supporter' && 'Rewards Program'}
+                {activeTab === 'audit' && 'Performance Audit'}
               </h2>
-              <p className="text-[10px] font-black text-medium-gray uppercase tracking-widest mt-1 opacity-60 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-expert-green rounded-full animate-pulse"></span>
-                Status: Operational. Link established.
+              <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                Welcome back, {user?.name || 'User'}
               </p>
             </div>
 

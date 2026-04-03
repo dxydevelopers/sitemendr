@@ -128,6 +128,10 @@ export default function Contact() {
           loop
           muted
           playsInline
+          onError={(e) => {
+            const video = e.currentTarget;
+            video.style.display = 'none';
+          }}
           className="h-full w-full object-cover opacity-30 grayscale animate-slow-zoom"
         >
           <source src="https://assets.mixkit.co/videos/preview/mixkit-data-processing-in-a-server-room-22700-large.mp4" type="video/mp4" />

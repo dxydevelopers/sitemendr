@@ -262,7 +262,7 @@ class ApiClient {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout (increased for slow database)
 
       const config: RequestInit = {
         ...options,
@@ -315,14 +315,32 @@ class ApiClient {
         return data;
       } catch (error) {
         if (error instanceof TypeError && error.message === 'Failed to fetch') {
-          throw new Error('Unable to connect to the server. Please check your internet connection and ensure the backend server is running.');
+          return {
+            success: false,
+            message: 'Unable to connect to the server. Please check your internet connection and ensure the backend server is running.',
+            status: 0
+          } as T;
+        }
+        
+        // Handle abort errors (timeouts)
+        if ((error as Error).name === 'AbortError') {
+          return {
+            success: false,
+            message: 'Request timed out. The server is taking too long to respond.',
+            status: 408
+          } as T;
         }
         
         // Don't log 401 for profile check as it's expected when not logged in
         if ((error as { status?: number }).status !== 401 || !isProfileCheck) {
           console.error('API request error:', error);
         }
-        throw error;
+        // Return error response instead of throwing to allow graceful handling
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : 'Request failed',
+          status: (error as { status?: number }).status || 500
+        } as T;
       } finally {
         // Clean up pending requests
         if (!options.method || options.method === 'GET') {
