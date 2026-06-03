@@ -1543,9 +1543,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                     <ArrowLeft className="h-3.5 w-3.5" />
                                     Build overview
                                   </button>
-                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
-                                    {isProjectRequest(currentBuildRecord) ? 'Build request' : 'Build project'}
-                                  </p>
                                   <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-white">{currentBuildRecord.name}</h3>
                                   <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/42">
                                     <span>{currentBuildRecord.businessName || 'Business pending'}</span>
