@@ -193,7 +193,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Transmission Log</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Message thread</span>
               </div>
 
               <div className="flex justify-between items-start gap-4">
@@ -234,14 +234,14 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-ai-blue rounded-full animate-pulse"></div>
-                  <p className="text-[9px] font-black text-ai-blue uppercase tracking-[0.3em]">Secure Connection Active</p>
+                  <p className="text-[9px] font-black text-ai-blue uppercase tracking-[0.3em]">Message thread open</p>
                 </div>
                 {selectedMessage.sender === 'USER' && (
                   <button 
                     onClick={() => handleEditMessage(selectedMessage)}
                     className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[8px] font-black text-white/60 uppercase tracking-widest transition-all"
                   >
-                    Edit Transmission
+                    Edit message
                   </button>
                 )}
               </div>
@@ -250,7 +250,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                 className="w-full sm:w-auto px-8 py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-ai-blue/20"
               >
                 <Send className="w-4 h-4" />
-                Transmit Reply
+                Reply
               </button>
             </div>
           </>
@@ -259,9 +259,9 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             <div className="w-24 h-24 rounded-[32px] bg-white/[0.02] border border-dashed border-white/10 flex items-center justify-center mb-10 group-hover:rotate-12 transition-transform">
               <Mail className="w-10 h-10 text-white/10" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-white/40 mb-4">Select_Transmission</h3>
+            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-white/40 mb-4">Select a message</h3>
             <p className="text-[10px] font-black uppercase tracking-widest text-white/20 max-w-[200px] leading-relaxed">
-              Awaiting selection from encrypted message stream
+              Choose a thread to read, reply, or continue the conversation.
             </p>
           </div>
         )}
@@ -280,7 +280,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             <div className="p-8 lg:p-10 border-b border-white/5 flex items-center justify-between">
               <h2 className="text-xl lg:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-4">
                 <Plus className="w-6 h-6 text-ai-blue" />
-                {editingMessageId ? 'Update' : 'Initialize'} <span className="text-ai-blue italic">Transmission</span>
+                {editingMessageId ? 'Update' : 'New'} <span className="text-ai-blue italic">Message</span>
               </h2>
               <button 
                 disabled={isSending}
@@ -296,7 +296,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             
             <form onSubmit={handleSendMessage} className="p-8 lg:p-10 space-y-8">
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Subject_Line</label>
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Subject</label>
                 <input 
                   type="text"
                   required
@@ -309,7 +309,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
               </div>
               
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Data_Content</label>
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Message</label>
                 <textarea 
                   required
                   disabled={isSending}
@@ -330,7 +330,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                   }}
                   className="order-2 sm:order-1 flex-1 py-5 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/5 transition-all disabled:opacity-50"
                 >
-                  Terminate
+                  Cancel
                 </button>
                 <button 
                   type="submit" 
@@ -342,11 +342,11 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                   } disabled:opacity-50`}
                 >
                   {isSending ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> {editingMessageId ? 'Updating' : 'Transmitting'}...</>
+                    <><Loader2 className="w-5 h-5 animate-spin" /> {editingMessageId ? 'Updating' : 'Sending'}...</>
                   ) : sendSuccess ? (
-                    <><Check className="w-5 h-5" /> {editingMessageId ? 'Update' : 'Transmission'} Complete</>
+                    <><Check className="w-5 h-5" /> {editingMessageId ? 'Update' : 'Message'} sent</>
                   ) : (
-                    <><Send className="w-5 h-5" /> Authorize {editingMessageId ? 'Update' : 'Transmit'}</>
+                    <><Send className="w-5 h-5" /> {editingMessageId ? 'Save update' : 'Send message'}</>
                   )}
                 </button>
               </div>

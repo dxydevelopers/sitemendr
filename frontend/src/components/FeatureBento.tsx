@@ -63,10 +63,10 @@ export default function FeatureBento() {
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="mb-12">
           <h2 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tighter uppercase leading-none">
-            The <span className="bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent italic">Core</span> Stack
+            What Your <span className="bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent italic">Website</span> Gets
           </h2>
           <p className="text-xl text-white/50 max-w-2xl font-light">
-            Every layer of our software is engineered for maximum performance, security, and scalability.
+            The essentials clients notice first: speed, clarity, trust, and a smooth experience on every device.
           </p>
         </div>
 
@@ -77,15 +77,15 @@ export default function FeatureBento() {
               <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500">
                 <Cpu className="w-8 h-8 text-ai-blue" />
               </div>
-              <h3 className="text-4xl font-black text-white mb-6 leading-none uppercase">Distributed <br /> Intelligence</h3>
+              <h3 className="text-4xl font-black text-white mb-6 leading-none uppercase">Smart <br /> Workflows</h3>
               <p className="text-lg text-white/60 mb-8 max-w-sm">
-                Our AI-driven backend automatically optimizes resource allocation across global clusters in real-time.
+                We simplify the repetitive parts of your business so customers can move from interest to action with less friction.
               </p>
               <div className="mt-auto flex items-center gap-4">
                 <div className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
                   <div className="h-full bg-ai-blue w-3/4 animate-[shimmer_2s_infinite]"></div>
                 </div>
-                <span className="font-mono text-xs text-ai-blue">75% Load</span>
+                <span className="font-mono text-xs text-ai-blue">Live</span>
               </div>
             </div>
             {/* Subtle glow on hover */}
@@ -99,9 +99,9 @@ export default function FeatureBento() {
                 <Lock className="w-6 h-6 text-expert-green" />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-white mb-3 uppercase">Zero-Trust Security</h3>
+                <h3 className="text-2xl font-black text-white mb-3 uppercase">Protected by Default</h3>
                 <p className="text-white/50 font-light">
-                  Military-grade encryption for every data packet. Compliance and security aren&apos;t features&mdash;they&apos;re our foundation.
+                  We set up practical protections, safe forms, and secure access so your business and customer data stay guarded.
                 </p>
               </div>
             </div>
@@ -111,18 +111,18 @@ export default function FeatureBento() {
           <div className="md:col-span-2 lg:col-span-3 group relative overflow-hidden rounded-[3rem] border border-white/10 hover:border-tech-purple/40 transition-all duration-700">
              <div className="flex items-center justify-between mb-8 p-8">
                 <Globe className="w-8 h-8 text-tech-purple" />
-                <div className="font-mono text-[10px] text-tech-purple bg-tech-purple/10 px-3 py-1 rounded-full uppercase tracking-widest">Global Edge</div>
+                <div className="font-mono text-[10px] text-tech-purple bg-tech-purple/10 px-3 py-1 rounded-full uppercase tracking-widest">Worldwide</div>
              </div>
              <div className="px-8 pb-8">
-               <h3 className="text-xl font-bold text-white uppercase mb-2">Ultra-Low Latency</h3>
-               <p className="text-white/50 text-sm">Deploying content from 50+ edge nodes worldwide for sub-20ms response times.</p>
+               <h3 className="text-xl font-bold text-white uppercase mb-2">Loads Quickly</h3>
+               <p className="text-white/50 text-sm">Fast pages help customers browse, buy, and contact you without waiting.</p>
              </div>
           </div>
 
           <div className="md:col-span-2 lg:col-span-2 group relative overflow-hidden rounded-[3rem] border border-white/10 hover:border-ai-blue/40 transition-all duration-700">
             <div className="p-8">
               <BarChart3 className="w-10 h-10 text-ai-blue mb-6" />
-              <h3 className="text-xl font-bold text-white uppercase mb-2">Real-time Analytics</h3>
+              <h3 className="text-xl font-bold text-white uppercase mb-2">Clear Analytics</h3>
               <div className="flex gap-1 h-8 items-end">
                 {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8].map((h, i) => (
                   <div key={i} className="flex-1 bg-ai-blue/40 rounded-t" style={{ height: `${h * 100}%` }}></div>
@@ -134,16 +134,16 @@ export default function FeatureBento() {
           <div className="md:col-span-2 lg:col-span-2 group relative overflow-hidden rounded-[3rem] border border-white/10 hover:border-pink-500/40 transition-all duration-700">
             <div className="p-8">
               <Smartphone className="w-10 h-10 text-pink-500 mb-6" />
-              <h3 className="text-xl font-bold text-white uppercase mb-2">Cross-Platform</h3>
-              <p className="text-white/50 text-sm">One codebase, infinite possibilities. Native performance on Web, iOS, and Android.</p>
+              <h3 className="text-xl font-bold text-white uppercase mb-2">Mobile Ready</h3>
+              <p className="text-white/50 text-sm">Your site feels polished on phones, tablets, laptops, and desktops.</p>
             </div>
           </div>
 
           <div className="md:col-span-2 lg:col-span-2 group relative overflow-hidden rounded-[3rem] border border-white/10 hover:border-expert-green/40 transition-all duration-700">
             <div className="p-8">
               <Zap className="w-10 h-10 text-expert-green mb-6 animate-pulse" />
-              <h3 className="text-xl font-bold text-white uppercase mb-2">Instant Scale</h3>
-              <p className="text-white/50 text-sm">Our infrastructure scales automatically to meet any traffic spike in milliseconds.</p>
+              <h3 className="text-xl font-bold text-white uppercase mb-2">Ready to Grow</h3>
+              <p className="text-white/50 text-sm">We build with room for more pages, products, bookings, and customers.</p>
             </div>
           </div>
         </div>
@@ -151,4 +151,3 @@ export default function FeatureBento() {
     </section>
   );
 }
-

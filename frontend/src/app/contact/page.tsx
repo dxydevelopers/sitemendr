@@ -1,53 +1,84 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { apiClient } from '@/lib/api';
-import { 
-  Mail, 
-  Phone, 
-  MessageSquare, 
-  Send, 
-  Sparkles, 
-  Terminal,
-  Cpu,
+import Image from 'next/image';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowRight,
+  Check,
+  Headphones,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Send,
   ShieldCheck,
-  MapPin
 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
-const contactItems = [
+const contactRoutes = [
   {
-    icon: MapPin,
-    label: 'Office',
-    value: 'Nairobi, Kenya',
-    link: 'https://www.google.com/maps/search/Nairobi+Kenya', // Generic Nairobi location search
-    color: 'from-orange-500/20 to-red-500/20',
-    iconColor: 'text-orange-400'
+    label: 'New project',
+    detail: 'Use this when you want to discuss a website, workspace, repair, commerce setup, or ongoing maintenance.',
+    icon: MessageSquare,
+    tone: 'text-ai-blue',
   },
   {
-    icon: Mail,
+    label: 'Client support',
+    detail: 'Use this when you already have work in progress and need help with files, billing, access, or a project record.',
+    icon: Headphones,
+    tone: 'text-expert-green',
+  },
+  {
+    label: 'Private workspace',
+    detail: 'Use this when you want the conversation to move into a client account with messages, approvals, and delivery context.',
+    icon: ShieldCheck,
+    tone: 'text-tech-purple',
+  },
+];
+
+const directContacts = [
+  {
     label: 'Email',
     value: 'support@sitemendr.com',
-    link: 'mailto:support@sitemendr.com',
-    color: 'from-blue-500/20 to-cyan-500/20',
-    iconColor: 'text-blue-400'
+    href: 'mailto:support@sitemendr.com',
+    icon: Mail,
+    tone: 'text-ai-blue',
   },
   {
-    icon: Phone,
     label: 'Phone',
     value: '+254 790 057 596',
-    link: 'tel:+254790057596',
-    color: 'from-purple-500/20 to-pink-500/20',
-    iconColor: 'text-purple-400'
+    href: 'tel:+254790057596',
+    icon: Phone,
+    tone: 'text-expert-green',
   },
   {
-    icon: MessageSquare,
     label: 'WhatsApp',
     value: '+254 790 057 596',
-    link: 'https://wa.me/254790057596',
-    color: 'from-green-500/20 to-emerald-500/20',
-    iconColor: 'text-green-400'
-  }
+    href: 'https://wa.me/254790057596',
+    icon: MessageSquare,
+    tone: 'text-amber-300',
+  },
+  {
+    label: 'Operating center',
+    value: 'Nairobi, Kenya',
+    href: 'https://www.google.com/maps/search/Nairobi+Kenya',
+    icon: MapPin,
+    tone: 'text-tech-purple',
+  },
 ];
+
+const projectTypes = [
+  'Custom development',
+  'Business website',
+  'Repair or recovery',
+  'Maintenance',
+  'eCommerce or dropshipping',
+  'Workspace or account help',
+];
+
+const inputClass =
+  'w-full border-0 border-b border-white/12 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/28 focus:border-ai-blue';
 
 interface ContactResponse {
   success: boolean;
@@ -60,7 +91,7 @@ export default function Contact() {
     lastName: '',
     email: '',
     projectType: '',
-    message: ''
+    message: '',
   });
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,48 +102,52 @@ export default function Contact() {
 
   useEffect(() => {
     setIsLoaded(true);
+
+    if (window.location.search.includes('intent=sales')) {
+      setFormData((prev) => ({ ...prev, projectType: prev.projectType || 'Custom development' }));
+    }
   }, []);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData(prev => ({
+  const handleInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [event.target.name]: event.target.value,
     }));
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setIsSubmitting(true);
     setSubmitStatus({ type: null, message: null });
 
     try {
-      const data = await apiClient.sendContactMessage({
-        name: `${formData.firstName} ${formData.lastName}`,
+      const data = (await apiClient.sendContactMessage({
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
         email: formData.email,
         message: formData.message,
-        subject: formData.projectType
-      }) as ContactResponse;
+        subject: formData.projectType,
+      })) as ContactResponse;
 
       if (data.success) {
         setSubmitStatus({
           type: 'success',
-          message: data.message || 'Transmission successful. Our engineers will contact you shortly.'
+          message: data.message || 'Your message has been received. The Sitemendr team will respond with the right next step.',
         });
         setFormData({
           firstName: '',
           lastName: '',
           email: '',
           projectType: '',
-          message: ''
+          message: '',
         });
       } else {
-        throw new Error(data.message || 'Uplink failed. Please retry transmission.');
+        throw new Error(data.message || 'The message could not be sent. Please try again or use email directly.');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'System error. Direct communication channel is currently unstable.';
+      const errorMessage = error instanceof Error ? error.message : 'The message could not be sent. Please use email or WhatsApp directly.';
       setSubmitStatus({
         type: 'error',
-        message: errorMessage
+        message: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
@@ -120,199 +155,229 @@ export default function Contact() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Immersive Background Video */}
-      <div className="absolute inset-0 z-0">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          onError={(e) => {
-            const video = e.currentTarget;
-            video.style.display = 'none';
+    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-20 pt-24 text-white">
+      <div className="fixed inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.35) 1px, transparent 0)',
+            backgroundSize: '36px 36px',
           }}
-          className="h-full w-full object-cover opacity-30 grayscale animate-slow-zoom"
-        >
-          <source src="https://assets.mixkit.co/videos/preview/mixkit-data-processing-in-a-server-room-22700-large.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/20"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]"></div>
+        />
       </div>
 
-      {/* OS HUD Elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-24 left-12 opacity-20">
-          <div className="flex items-center gap-3 mb-2">
-            <Terminal className="w-4 h-4 text-ai-blue" />
-            <span className="font-mono text-[8px] uppercase tracking-[0.4em]">Contact Us</span>
-          </div>
-          <div className="w-48 h-[1px] bg-gradient-to-r from-ai-blue/50 to-transparent"></div>
-        </div>
-
-        <div className="absolute bottom-12 right-12 opacity-20 text-right">
-          <div className="flex items-center justify-end gap-3 mb-2">
-            <span className="font-mono text-[8px] uppercase tracking-[0.4em]">Encryption: 256-BIT_AES</span>
-            <ShieldCheck className="w-4 h-4 text-expert-green" />
-          </div>
-          <div className="w-48 h-[1px] bg-gradient-to-l from-expert-green/50 to-transparent"></div>
-        </div>
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-40 pb-32">
-        <div className={`transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
-          <div className="text-center mb-24">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8">
-              <Sparkles className="w-4 h-4 text-ai-blue" />
-              <span className="text-[10px] font-bold text-white uppercase tracking-[0.3em]">Direct Communication Line</span>
-            </div>
-            <h1 className="text-4xl md:text-6xl font-black mb-8 tracking-tighter uppercase leading-none">
-              Initiate <br />
-              <span className="bg-gradient-to-r from-ai-blue via-tech-purple to-pink-500 bg-clip-text text-transparent italic">Deployment</span>
+      <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 md:px-10">
+        <section className={`grid min-h-[690px] items-center gap-12 transition duration-700 lg:grid-cols-[0.9fr_1.1fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+          <div>
+            <h1 className="max-w-5xl text-5xl font-black leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
+              Start the conversation with the right context.
             </h1>
-            <p className="text-xl text-white/50 max-w-2xl mx-auto font-light leading-relaxed">
-              Connect with our engineering team to transform your digital infrastructure into a high-performance ecosystem.
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/62 md:text-xl">
+              Contact is not a waiting room. It is where the work begins to take shape: what you need, what already exists, what is broken, what must be built, and how the next decision should be handled.
+            </p>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <ContactButton href="/register" tone="light">
+                Create workspace
+              </ContactButton>
+              <ContactButton href="/services">
+                View services
+              </ContactButton>
+            </div>
+          </div>
+
+          <div className="relative min-h-[560px] overflow-hidden">
+            <Image
+              src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1700&h=1300&fit=crop&crop=center"
+              alt=""
+              fill
+              priority
+              unoptimized
+              sizes="(min-width: 1024px) 610px, 100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.78),rgba(5,7,10,0.08)_50%,rgba(5,7,10,0.45))]" />
+            <div className="absolute bottom-8 left-6 max-w-lg pr-6 sm:left-10">
+              <p className="text-2xl font-black leading-tight tracking-tight md:text-4xl">
+                The best first message is not long. It is clear.
+              </p>
+              <p className="mt-4 text-sm leading-7 text-white/66 md:text-base">
+                Tell us what exists, what you want changed, and what cannot be allowed to fail.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-24 grid gap-10 border-y border-white/10 py-14 md:py-20 lg:grid-cols-[0.72fr_1.28fr]">
+          <div>
+            <h2 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
+              Choose the kind of conversation you need.
+            </h2>
+            <p className="mt-6 max-w-xl text-base leading-8 text-white/58">
+              A good contact page should route the message before it becomes noise. These are the three practical reasons people usually reach Sitemendr.
             </p>
           </div>
-
-          <div className="grid lg:grid-cols-[1fr_2fr] gap-12 items-start">
-            {/* Contact Info Cards */}
-            <div className="space-y-6">
-              {contactItems.map((item, i) => (
-                <div
-                  key={i}
-                  className="group relative p-8 rounded-[2rem] bg-white/[0.02] border border-white/10 backdrop-blur-3xl hover:border-ai-blue/40 transition-all duration-500 cursor-pointer overflow-hidden"
-                  onClick={() => item.link && window.open(item.link, '_blank')}
-                >
-                  <div className="relative z-10 flex items-center gap-6">
-                    <div className={`p-4 rounded-2xl bg-white/5 text-white/40 group-hover:scale-110 transition-transform duration-500`}>
-                      <item.icon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-1">{item.label}</div>
-                      <div className="text-lg font-bold text-white uppercase tracking-tight">{item.value}</div>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-ai-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="grid gap-8 md:grid-cols-3">
+            {contactRoutes.map((route) => {
+              const Icon = route.icon;
+              return (
+                <div key={route.label} className="border-t border-white/10 pt-7">
+                  <Icon className={`h-7 w-7 ${route.tone}`} />
+                  <h3 className="mt-7 text-2xl font-black tracking-tight">{route.label}</h3>
+                  <p className="mt-4 text-sm leading-7 text-white/58">{route.detail}</p>
                 </div>
-              ))}
-
-              <div className="p-8 rounded-[2rem] bg-gradient-to-br from-ai-blue/20 to-tech-purple/20 border border-white/10 backdrop-blur-3xl">
-                <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-ai-blue" />
-                  System Metrics
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <span className="font-mono text-[10px] text-white/40 uppercase tracking-widest">Average Response Time</span>
-                    <span className="font-mono text-xs text-ai-blue">24ms</span>
-                  </div>
-                  <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-ai-blue w-[90%] animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Immersive Form */}
-            <div className="relative p-12 rounded-[3rem] bg-white/[0.02] border border-white/10 backdrop-blur-3xl overflow-hidden group">
-              {/* Form Corner Brackets */}
-              <div className="absolute top-12 left-12 w-12 h-12 border-t-2 border-l-2 border-white/5 group-hover:border-ai-blue/20 transition-colors"></div>
-              <div className="absolute bottom-12 right-12 w-12 h-12 border-b-2 border-r-2 border-white/5 group-hover:border-ai-blue/20 transition-colors"></div>
-
-              <form onSubmit={handleSubmit} className="relative z-10 space-y-12">
-                {submitStatus.type && (
-                  <div className={`p-6 rounded-2xl border font-mono text-[10px] uppercase tracking-widest ${
-                    submitStatus.type === 'success' 
-                      ? 'bg-expert-green/10 border-expert-green/30 text-expert-green' 
-                      : 'bg-red-500/10 border-red-500/30 text-red-400'
-                  }`}>
-                    {submitStatus.type === 'success' ? '✓ STATUS: ' : '⚠ ERROR: '}
-                    {submitStatus.message}
-                  </div>
-                )}
-
-                <div className="grid md:grid-cols-2 gap-12">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      placeholder="FIRST_NAME"
-                      className="w-full bg-transparent border-b border-white/10 py-4 font-mono text-xs tracking-[0.2em] focus:border-ai-blue outline-none transition-all placeholder:text-white/20"
-                      required
-                    />
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      placeholder="LAST_NAME"
-                      className="w-full bg-transparent border-b border-white/10 py-4 font-mono text-xs tracking-[0.2em] focus:border-ai-blue outline-none transition-all placeholder:text-white/20"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="Email Address"
-                    className="w-full bg-transparent border-b border-white/10 py-4 font-mono text-xs tracking-[0.2em] focus:border-ai-blue outline-none transition-all placeholder:text-white/20"
-                    required
-                  />
-                </div>
-
-                <div className="relative">
-                  <select
-                    name="projectType"
-                    value={formData.projectType}
-                    onChange={handleInputChange}
-                    className="w-full bg-transparent border-b border-white/10 py-4 font-mono text-xs tracking-[0.2em] focus:border-ai-blue outline-none transition-all appearance-none text-white/60 cursor-pointer"
-                    required
-                  >
-                    <option value="" className="bg-black">Project Type</option>
-                    <option value="web-app" className="bg-black">WEB_INFRASTRUCTURE</option>
-                    <option value="mobile-app" className="bg-black">MOBILE_ECOSYSTEM</option>
-                    <option value="api" className="bg-black">API_DEVELOPMENT</option>
-                    <option value="consulting" className="bg-black">TECHNICAL_CONSULTING</option>
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <textarea
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    rows={4}
-                    placeholder="Your Message..."
-                    className="w-full bg-transparent border-b border-white/10 py-4 font-mono text-xs tracking-[0.2em] focus:border-ai-blue outline-none transition-all resize-none placeholder:text-white/20"
-                    required
-                  ></textarea>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className={`w-full group/btn relative px-12 py-8 bg-white text-black font-black text-xs uppercase tracking-[0.5em] rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_0_60px_rgba(255,255,255,0.1)] active:scale-[0.98] font-mono ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-ai-blue/10 to-transparent -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] skew-x-[-20deg]"></div>
-                  <span className="relative z-10 flex items-center justify-center gap-4">
-                    {isSubmitting ? 'Transmitting...' : 'Transmit Message'}
-                    <Send className={`w-5 h-5 transition-transform duration-500 ${isSubmitting ? 'animate-pulse' : 'group-hover:translate-x-2'}`} />
-                  </span>
-                </button>
-              </form>
-            </div>
+              );
+            })}
           </div>
-        </div>
+        </section>
+
+        <section className="grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          <aside>
+            <h2 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
+              Direct channels.
+            </h2>
+            <p className="mt-6 text-base leading-8 text-white/58">
+              Use the form for project context. Use the direct channels when the matter is immediate or already attached to an existing account.
+            </p>
+
+            <div className="mt-10 divide-y divide-white/10 border-y border-white/10">
+              {directContacts.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : undefined}
+                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    className="group grid gap-4 py-6 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                  >
+                    <Icon className={`h-5 w-5 ${item.tone}`} />
+                    <span>
+                      <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{item.label}</span>
+                      <span className="mt-2 block text-lg font-semibold text-white/84">{item.value}</span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-white/34 transition group-hover:translate-x-1 group-hover:text-white" />
+                  </a>
+                );
+              })}
+            </div>
+          </aside>
+
+          <form onSubmit={handleSubmit} className="border-t border-white/10 pt-8">
+            <div className="grid gap-8 md:grid-cols-2">
+              <Field label="First name">
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  autoComplete="given-name"
+                  required
+                />
+              </Field>
+              <Field label="Last name">
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  autoComplete="family-name"
+                  required
+                />
+              </Field>
+            </div>
+
+            <div className="mt-8 grid gap-8 md:grid-cols-2">
+              <Field label="Email address">
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  autoComplete="email"
+                  required
+                />
+              </Field>
+              <Field label="What do you need?">
+                <select
+                  name="projectType"
+                  value={formData.projectType}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  required
+                >
+                  <option value="" className="bg-[#05070a]">Choose a path</option>
+                  {projectTypes.map((type) => (
+                    <option key={type} value={type} className="bg-[#05070a]">
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            <Field label="Tell us what should happen next" className="mt-8">
+              <textarea
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                rows={7}
+                className={`${inputClass} resize-none`}
+                placeholder="Briefly describe the business, the current situation, what you want changed, and any urgent constraint."
+                required
+              />
+            </Field>
+
+            {submitStatus.type && (
+              <div className={`mt-8 border-l pl-5 text-sm leading-7 ${
+                submitStatus.type === 'success' ? 'border-expert-green text-expert-green' : 'border-red-400 text-red-300'
+              }`}>
+                {submitStatus.message}
+              </div>
+            )}
+
+            <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-center">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex min-h-[52px] items-center justify-center gap-3 bg-white px-6 py-4 text-center text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmitting ? 'Sending message' : 'Send message'}
+                <Send className="h-4 w-4" />
+              </button>
+              <p className="flex max-w-md items-start gap-3 text-sm leading-7 text-white/50">
+                <Check className="mt-1 h-4 w-4 shrink-0 text-expert-green" />
+                We use the message to route the request, prepare the first response, and decide whether it belongs in a private workspace.
+              </p>
+            </div>
+          </form>
+        </section>
       </div>
     </main>
+  );
+}
+
+function Field({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{label}</span>
+      <div className="mt-3">{children}</div>
+    </label>
+  );
+}
+
+function ContactButton({ href, children, tone = 'dark' }: { href: string; children: React.ReactNode; tone?: 'light' | 'dark' }) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs ${
+        tone === 'light' ? 'bg-white text-black hover:bg-ai-blue hover:text-white' : 'bg-white/[0.06] text-white ring-1 ring-white/12 hover:bg-white/[0.1]'
+      }`}
+    >
+      {children}
+      <ArrowRight className="h-4 w-4" />
+    </Link>
   );
 }

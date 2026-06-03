@@ -22,6 +22,7 @@ import {
   Clock, 
   Bell, 
   Settings,
+  ArrowLeft,
   ChevronRight,
   FileText,
   ShoppingBag,
@@ -32,13 +33,15 @@ import {
   MousePointer2,
   Download,
   Loader2,
-  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Check,
   TriangleAlert,
   Heart,
   Sparkles,
-  Gift
+  Gift,
+  ExternalLink
 } from 'lucide-react';
 import { apiClient, SupporterTier } from '@/lib/api';
 import dynamic from 'next/dynamic';
@@ -51,6 +54,16 @@ const BillingViewer = dynamic(() => import('./dashboard/BillingViewer'), { ssr: 
 const MessageViewer = dynamic(() => import('./dashboard/MessageViewer'), { ssr: false });
 const ResourceLibrary = dynamic(() => import('./dashboard/ResourceLibrary'), { ssr: false });
 const AddonMarketplace = dynamic(() => import('./dashboard/AddonMarketplace'), { ssr: false });
+
+const normalizeDashboardTab = (tab?: string | null) => {
+  const groupOnlyTabs: Record<string, string> = {
+    workspaces: 'dashboard',
+    support: 'messages',
+    account: 'settings',
+  };
+
+  return tab ? groupOnlyTabs[tab] || tab : 'dashboard';
+};
 const VisualContentEditor = dynamic(() => import('./dashboard/VisualContentEditor'), { ssr: false });
 const PageEditor = dynamic(() => import('./dashboard/PageEditor'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('./dashboard/PerformanceAudit'), { ssr: false });
@@ -58,21 +71,22 @@ const EcommerceManager = dynamic(() => import('./dashboard/EcommerceManager'), {
 const BookingManager = dynamic(() => import('./dashboard/BookingManager'), { ssr: false });
 const SupporterDashboard = dynamic(() => import('./SupporterDashboard'), { ssr: false });
 const AssessmentResults = dynamic(() => import('./AssessmentResults'), { ssr: false });
+const AssessmentQuestionnaire = dynamic(() => import('./AssessmentQuestionnaire'), { ssr: false });
 
 const mockTiers: SupporterTier[] = [
   {
     id: 'starter-id',
-    name: 'Starter Supporter',
+    name: 'Starter Member',
     slug: 'starter',
     monthlyPrice: 5,
     discountPercent: 5,
     displayOrder: 1,
     isActive: true,
-    perks: ['exclusive-badge', 'supporter-wall', 'community-access'],
+    perks: ['member-badge', 'community-updates', 'community-access'],
   },
   {
     id: 'standard-id',
-    name: 'Standard Supporter',
+    name: 'Standard Member',
     slug: 'standard',
     monthlyPrice: 15,
     discountPercent: 10,
@@ -82,7 +96,7 @@ const mockTiers: SupporterTier[] = [
   },
   {
     id: 'plus-id',
-    name: 'Plus Supporter',
+    name: 'Plus Member',
     slug: 'plus',
     monthlyPrice: 30,
     discountPercent: 15,
@@ -92,7 +106,7 @@ const mockTiers: SupporterTier[] = [
   },
   {
     id: 'premium-id',
-    name: 'Premium Supporter',
+    name: 'Premium Member',
     slug: 'premium',
     monthlyPrice: 60,
     discountPercent: 20,
@@ -121,10 +135,39 @@ interface ClientStats {
 
 interface ClientProject {
   id: string;
+  recordType?: 'request' | 'project';
+  assessmentId?: string;
   name: string;
+  businessName?: string;
   status: string;
   progress: number;
   planType?: string;
+  budget?: string;
+  timeline?: string;
+  summary?: string;
+  priority?: string;
+  quotedAmount?: number;
+  quoteCurrency?: string;
+  paymentAgreementType?: string;
+  paymentAgreementStatus?: string;
+  depositAmount?: number;
+  totalAgreedAmount?: number;
+  paymentDueDate?: string;
+  paymentInstructions?: string;
+  paymentConfirmedAt?: string;
+  stagingUrl?: string;
+  stagingNotes?: string;
+  stagingReviewStatus?: string;
+  stagingReviewedAt?: string;
+  launchUrl?: string;
+  launchNotes?: string;
+  launchApprovedAt?: string;
+  handoffNotes?: string;
+  completionNotes?: string;
+  completionAcknowledgedAt?: string;
+  completedAt?: string;
+  buildMilestones?: BuildMilestone[];
+  clientNotes?: string;
   siteUrl?: string;
   domain?: string;
   reviewRequested?: boolean;
@@ -132,6 +175,19 @@ interface ClientProject {
   revisionCount?: number;
   purchasedAddons?: string[] | string;
   isCurrent?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface BuildMilestone {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  progress: number;
+  order: number;
+  dueDate?: string;
+  clientNote?: string;
 }
 
 interface ClientActivity {
@@ -212,7 +268,7 @@ interface AnalysisResult {
 
 const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> = ({ onLogout, initialTab }) => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(initialTab || 'dashboard');
+  const [activeTab, setActiveTab] = useState(normalizeDashboardTab(initialTab));
   const [stats, setStats] = useState<ClientStats | null>(null);
   const [projects, setProjects] = useState<ClientProject[]>([]);
   const [activities, setActivities] = useState<ClientActivity[]>([]);
@@ -237,8 +293,18 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [selectedAssessment, setSelectedAssessment] = useState<any | null>(null);
+  const [activeBuildChapter, setActiveBuildChapter] = useState<string | null>(null);
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [showProjectRequestModal, setShowProjectRequestModal] = useState(false);
+  const [quoteMessage, setQuoteMessage] = useState('');
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [stagingReviewMessage, setStagingReviewMessage] = useState('');
+  const [stagingReviewSubmitting, setStagingReviewSubmitting] = useState(false);
+  const [handoffMessage, setHandoffMessage] = useState('');
+  const [handoffSubmitting, setHandoffSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>(null);
   const [revealTier, setRevealTier] = useState<SupporterTier | null>(null);
   const [isRevealing, setIsRevealing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -265,7 +331,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     // Handle tab parameter
     const tabParam = searchParams.get('tab');
     if (tabParam) {
-      setActiveTab(tabParam);
+      setActiveTab(normalizeDashboardTab(tabParam));
     }
   }, []);
 
@@ -307,25 +373,29 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       
       // Fetch data sequentially to avoid blocking on slow requests
       // Each request has its own timeout and won't block others
-      const fetchWithTimeout = async (promise: Promise<any>, name: string, timeoutMs = 8000) => {
+      const fetchWithTimeout = async (promise: Promise<any>, name: string, timeoutMs = 20000) => {
+        let timeout: ReturnType<typeof setTimeout> | undefined;
         try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), timeoutMs);
           const result = await Promise.race([
             promise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error(`${name} timed out`)), timeoutMs))
+            new Promise((resolve) => {
+              timeout = setTimeout(() => {
+                console.warn(`[ClientDashboard] ${name} timed out after ${timeoutMs}ms`);
+                resolve(null);
+              }, timeoutMs);
+            })
           ]);
-          clearTimeout(timeout);
-          console.log(`[ClientDashboard] ${name} completed`);
+          if (timeout) clearTimeout(timeout);
+          if (result) console.log(`[ClientDashboard] ${name} completed`);
           return result;
         } catch (err) {
-          console.error(`[ClientDashboard] ${name} failed:`, err);
+          console.warn(`[ClientDashboard] ${name} unavailable:`, err);
           return null;
         }
       };
 
       // Fetch all data in parallel but with individual timeouts
-      const [statsRes, projectsRes, activitiesRes, billingRes, messagesRes, ticketsRes, resourcesRes, domainsRes, bookingsRes, assessmentsRes] = await Promise.all([
+      const [statsRes, projectsRes, activitiesRes, billingRes, messagesRes, ticketsRes, resourcesRes, domainsRes, bookingsRes] = await Promise.all([
         fetchWithTimeout(apiClient.getClientStats(projectId), 'stats'),
         fetchWithTimeout(apiClient.getClientProjects(), 'projects'),
         fetchWithTimeout(apiClient.getClientActivities(), 'activities'),
@@ -333,9 +403,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         fetchWithTimeout(apiClient.getClientMessages(), 'messages'),
         fetchWithTimeout(apiClient.getClientSupportTickets(), 'tickets'),
         fetchWithTimeout(apiClient.getClientResources(), 'resources'),
-        fetchWithTimeout(apiClient.getClientDomains(), 'domains'),
+        fetchWithTimeout(apiClient.getClientDomains(), 'domains', 30000),
         fetchWithTimeout(apiClient.getUserBookings(projectId), 'bookings'),
-        fetchWithTimeout(apiClient.getClientAssessments(), 'assessments'),
       ]);
 
       // Extract results - handle nulls from timed out requests
@@ -348,20 +417,46 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       const safeResourcesRes = resourcesRes || { success: false, data: [] };
       const safeDomainsRes = domainsRes || { success: false, domains: [] };
       const safeBookingsRes = bookingsRes || [];
-      const safeAssessmentsRes = assessmentsRes || { success: false, data: [] };
 
       if (safeStatsRes.success && safeStatsRes.stats) setStats(safeStatsRes.stats);
 
-      // Map projects and assessments to the same list
+      // Projects includes Build requests from ProjectRequest plus legacy active projects.
       const projectList = (safeProjectsRes as any).data || (safeProjectsRes as any).projects || (safeProjectsRes as any).subscriptions || [];
-      const assessmentList = (safeAssessmentsRes as any).data || (safeAssessmentsRes as any).assessments || [];
       
       const mappedProjects = projectList.map((p: any) => ({
         id: p.id,
-        name: p.siteName || p.customName || 'Untitled Project',
-        status: p.suspended === false ? 'active' : 'suspended',
-        progress: p.progress || 100,
-        planType: p.planType,
+        recordType: p.recordType,
+        assessmentId: p.assessmentId,
+        name: p.name || p.title || p.siteName || p.customName || 'Untitled Project',
+        status: String(p.status || (p.suspended === false ? 'active' : 'suspended')).toLowerCase(),
+        progress: p.progress ?? 0,
+        planType: p.planType || p.packageIntent,
+        budget: p.budget,
+        timeline: p.timeline,
+        summary: p.summary,
+        priority: p.priority,
+        quotedAmount: p.quotedAmount,
+        quoteCurrency: p.quoteCurrency,
+        paymentAgreementType: p.paymentAgreementType,
+        paymentAgreementStatus: p.paymentAgreementStatus,
+        depositAmount: p.depositAmount,
+        totalAgreedAmount: p.totalAgreedAmount,
+        paymentDueDate: p.paymentDueDate,
+        paymentInstructions: p.paymentInstructions,
+        paymentConfirmedAt: p.paymentConfirmedAt,
+        stagingUrl: p.stagingUrl,
+        stagingNotes: p.stagingNotes,
+        stagingReviewStatus: p.stagingReviewStatus,
+        stagingReviewedAt: p.stagingReviewedAt,
+        launchUrl: p.launchUrl,
+        launchNotes: p.launchNotes,
+        launchApprovedAt: p.launchApprovedAt,
+        handoffNotes: p.handoffNotes,
+        completionNotes: p.completionNotes,
+        completionAcknowledgedAt: p.completionAcknowledgedAt,
+        completedAt: p.completedAt,
+        buildMilestones: p.buildMilestones || [],
+        clientNotes: p.clientNotes,
         siteUrl: p.siteUrl,
         domain: p.domain,
         reviewRequested: p.reviewRequested,
@@ -370,28 +465,12 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         isCurrent: p.isCurrent
       }));
 
-      // Add assessments that aren't yet subscriptions
-      assessmentList.forEach((a: any) => {
-        // If this assessment is already linked to a project we've mapped, skip it
-        if (mappedProjects.some((p: any) => p.id === a.id || p.id === a.subscriptionId)) return;
-        
-        mappedProjects.push({
-          id: a.id,
-          name: a.responses?.businessName || a.responses?.company || `Analysis ${a.id.slice(0, 8)}`,
-          status: 'pending',
-          progress: 10,
-          planType: a.responses?.selectedPackage || 'Analysis_Phase',
-          isCurrent: mappedProjects.length === 0
-        });
-      });
-
       if (mappedProjects.length > 0) {
         setProjects(mappedProjects);
         
-        // Prioritize isCurrent project
-        if (!projectId && !selectedProjectId) {
-          const currentProject = mappedProjects.find((p: { isCurrent: boolean }) => p.isCurrent);
-          setSelectedProjectId(currentProject ? currentProject.id : mappedProjects[0].id);
+        if (projectId && !selectedProjectId) {
+          const requestedProject = mappedProjects.find((p: { id: string }) => p.id === projectId);
+          if (requestedProject) setSelectedProjectId(requestedProject.id);
         }
       } else {
         setProjects([]);
@@ -427,7 +506,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     } catch (err) {
       console.error('[ClientDashboard] Fetch failed:', err);
       console.error('Fetch failed in ClientDashboard:', err);
-      setFetchError('Neural link interrupted. Failed to synchronize dashboard data. Please verify your connection.');
+      setFetchError('The workspace could not load all account data. Please check your connection and try again.');
     } finally {
       console.log('[ClientDashboard] Fetch complete, setting loading to false');
       setLoading(false);
@@ -504,7 +583,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     try {
       const res = await apiClient.regenerateProjectAI(projectId);
       if (res.success) {
-        alert('Regeneration protocol initiated. Your node will be updated shortly.');
+        alert('Update request started. Your project record will refresh shortly.');
         fetchData();
       }
     } catch (err) {
@@ -525,7 +604,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         setUser(updatedUser as any);
       }
     } catch (err) {
-      setProfileMessage({ text: 'Neural update failed.', type: 'error' });
+      setProfileMessage({ text: 'Profile update failed.', type: 'error' });
     }
     setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
   };
@@ -544,18 +623,101 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     }
   };
 
-  const handleViewAssessment = async (projectId: string) => {
+  const handleViewAssessment = async (project: ClientProject) => {
+    const fallbackAssessment = {
+      id: project.assessmentId || project.id,
+      createdAt: project.createdAt || new Date().toISOString(),
+      source: 'Build brief',
+      responses: {
+        buildType: briefType,
+        goals: briefGoals || 'Not recorded',
+        requiredFeatures: briefFeatures || 'Not recorded',
+        audience: briefAudience || 'Not recorded',
+        existingMaterial: briefMaterial || 'Not recorded',
+        styleDirection: briefStyle || 'Not recorded',
+        budget: project.budget || 'Not specified',
+        timeline: project.timeline || 'Flexible',
+      },
+    };
+
+    if (!project.assessmentId) {
+      setSelectedAssessment(fallbackAssessment);
+      setShowAssessmentModal(true);
+      return;
+    }
+
     try {
-      setLoading(true);
-      const res = await apiClient.getAssessmentDetails(projectId);
+      const res = await apiClient.getAssessmentDetails(project.assessmentId);
       if (res.success) {
-        setSelectedAssessment(res.data);
+        setSelectedAssessment(res.data || fallbackAssessment);
+        setShowAssessmentModal(true);
+      } else {
+        setSelectedAssessment(fallbackAssessment);
         setShowAssessmentModal(true);
       }
     } catch (err) {
-      alert('Failed to retrieve analysis data.');
+      setSelectedAssessment(fallbackAssessment);
+      setShowAssessmentModal(true);
+    }
+  };
+
+  const handleQuoteResponse = async (project: ClientProject, action: 'accept' | 'discuss' | 'decline') => {
+    if (!project?.id || quoteSubmitting) return;
+
+    setQuoteSubmitting(true);
+    try {
+      const res = await apiClient.respondToProjectQuote(project.id, action, quoteMessage.trim());
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to respond to quote');
+      }
+
+      setQuoteMessage('');
+      await fetchData(project.id);
+      setSelectedProjectId(project.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to respond to quote.');
     } finally {
-      setLoading(false);
+      setQuoteSubmitting(false);
+    }
+  };
+
+  const handleStagingReviewResponse = async (project: ClientProject, action: 'approve' | 'changes') => {
+    if (!project?.id || stagingReviewSubmitting) return;
+
+    setStagingReviewSubmitting(true);
+    try {
+      const res = await apiClient.respondToStagingReview(project.id, action, stagingReviewMessage.trim());
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to respond to staging review');
+      }
+
+      setStagingReviewMessage('');
+      await fetchData(project.id);
+      setSelectedProjectId(project.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to respond to staging review.');
+    } finally {
+      setStagingReviewSubmitting(false);
+    }
+  };
+
+  const handleHandoffResponse = async (project: ClientProject, action: 'complete' | 'issue') => {
+    if (!project?.id || handoffSubmitting) return;
+
+    setHandoffSubmitting(true);
+    try {
+      const res = await apiClient.respondToHandoff(project.id, action, handoffMessage.trim());
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to respond to handoff');
+      }
+
+      setHandoffMessage('');
+      await fetchData(project.id);
+      setSelectedProjectId(project.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to respond to handoff.');
+    } finally {
+      setHandoffSubmitting(false);
     }
   };
 
@@ -595,7 +757,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
   if (loading && !stats) {
     return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#05070a] flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-8">
           <div className="relative">
             <div className="w-24 h-24 border-4 border-ai-blue/10 rounded-full animate-spin border-t-ai-blue shadow-[0_0_30px_rgba(0,102,255,0.2)]"></div>
@@ -604,728 +766,1318 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             </div>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <h2 className="text-xl font-black uppercase tracking-[0.4em] text-white">Synchronizing</h2>
-            <p className="text-[10px] font-mono text-medium-gray uppercase tracking-widest animate-pulse">Establishing Secure Neural Link...</p>
+            <h2 className="text-xl font-black uppercase tracking-[0.4em] text-white">Loading</h2>
+            <p className="text-[10px] font-mono text-medium-gray uppercase tracking-widest animate-pulse">Preparing your Sitemendr workspace...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  type DashboardNavItem = {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    count?: number;
+    children?: Array<{
+      id: string;
+      label: string;
+      count?: number;
+    }>;
+  };
+
+  const openTickets = tickets.filter(ticket => ticket.status !== 'resolved' && ticket.status !== 'closed').length;
+  const unreadMessages = messages.filter(m => !m.isRead).length;
+
+  const mainNav: DashboardNavItem[] = [
+    { id: 'dashboard', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
+    {
+      id: 'workspaces',
+      label: 'Workspaces',
+      icon: <Rocket className="w-5 h-5" />,
+      children: [
+        { id: 'projects', label: 'Build' },
+        { id: 'audit', label: 'Repair' },
+        { id: 'business', label: 'Merchant' },
+      ],
+    },
+    {
+      id: 'projects',
+      label: 'Projects',
+      icon: <FileText className="w-5 h-5" />,
+      count: projects.length,
+      children: [
+        { id: 'projects', label: 'Project records', count: projects.length },
+        { id: 'editor', label: 'Editor' },
+        { id: 'audit', label: 'Performance' },
+        { id: 'domains', label: 'Domains', count: domains.length },
+      ],
+    },
+  ];
+
+  const manageNav: DashboardNavItem[] = [
+    {
+      id: 'business',
+      label: 'Merchant',
+      icon: <ShoppingBag className="w-5 h-5" />,
+      children: [
+        { id: 'ecommerce', label: 'Commerce' },
+        { id: 'booking', label: 'Bookings', count: bookings.length },
+      ],
+    },
+    {
+      id: 'billing',
+      label: 'Billing',
+      icon: <CreditCard className="w-5 h-5" />,
+      count: billing.length,
+      children: [
+        { id: 'billing', label: 'Invoices', count: billing.length },
+        { id: 'addons', label: 'Add-ons' },
+      ],
+    },
+    {
+      id: 'support',
+      label: 'Support',
+      icon: <LifeBuoy className="w-5 h-5" />,
+      count: tickets.length + unreadMessages,
+      children: [
+        { id: 'messages', label: 'Messages', count: unreadMessages },
+        { id: 'tickets', label: 'Tickets', count: openTickets },
+        { id: 'resources', label: 'Resources', count: resources.length },
+      ],
+    },
+  ];
+
+  const accountNav: DashboardNavItem[] = [
+    {
+      id: 'account',
+      label: 'Account',
+      icon: <User className="w-5 h-5" />,
+      children: [
+        { id: 'supporter', label: 'Community' },
+        { id: 'settings', label: 'Settings' },
+      ],
+    },
+  ];
+
+  const allNavItems = [
+    ...mainNav,
+    ...manageNav,
+    ...accountNav,
+    { id: 'editor', label: 'Editor', icon: <MousePointer2 className="w-5 h-5" /> },
+    { id: 'audit', label: 'Performance', icon: <Zap className="w-5 h-5" /> },
+    { id: 'domains', label: 'Domains', icon: <Globe className="w-5 h-5" /> },
+    { id: 'ecommerce', label: 'Commerce', icon: <ShoppingBag className="w-5 h-5" /> },
+    { id: 'booking', label: 'Bookings', icon: <Clock className="w-5 h-5" /> },
+    { id: 'addons', label: 'Add-ons', icon: <Plus className="w-5 h-5" /> },
+    { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
+    { id: 'tickets', label: 'Tickets', icon: <LifeBuoy className="w-5 h-5" /> },
+    { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'supporter', label: 'Community', icon: <Users className="w-5 h-5" /> },
+    { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
+  ];
+  const currentTab = allNavItems.find(item => item.id === activeTab);
+
+  const navGroups: Record<string, string[]> = {
+    workspaces: ['workspaces', 'projects', 'audit', 'business'],
+    projects: ['projects', 'domains', 'editor', 'audit'],
+    business: ['business', 'ecommerce', 'booking'],
+    billing: ['billing', 'addons'],
+    support: ['support', 'messages', 'tickets', 'resources'],
+    account: ['account', 'supporter', 'settings'],
+  };
+
+  const isNavActive = (id: string) => (navGroups[id] || [id]).includes(activeTab);
+  const selectedProject = selectedProjectId ? projects.find(project => project.id === selectedProjectId) : projects.find(project => project.isCurrent) || projects[0];
+  const selectedProjectRecord = selectedProjectId ? projects.find(project => project.id === selectedProjectId) || null : projects[0] || null;
+  const buildLifecycle = [
+    { status: 'submitted', label: 'Submitted', detail: 'Request received' },
+    { status: 'in_review', label: 'Review', detail: 'Team is scoping' },
+    { status: 'quote_ready', label: 'Quote', detail: 'Scope and quote ready' },
+    { status: 'approved', label: 'Approved', detail: 'Build confirmed' },
+    { status: 'payment_agreement', label: 'Agreement', detail: 'Payment terms' },
+    { status: 'in_development', label: 'Development', detail: 'Work in progress' },
+    { status: 'staging_review', label: 'Staging', detail: 'Preview review' },
+    { status: 'launched', label: 'Launched', detail: 'Live release' },
+    { status: 'handoff', label: 'Handoff', detail: 'Ownership transfer' },
+    { status: 'completed', label: 'Complete', detail: 'Build closed' },
+  ];
+  const buildPhases = [
+    { label: 'Brief', detail: 'Request captured', statuses: ['submitted', 'in_review'] },
+    { label: 'Scope', detail: 'Quote and approval', statuses: ['quote_ready', 'approved'] },
+    { label: 'Agreement', detail: 'Payment terms', statuses: ['payment_agreement'] },
+    { label: 'Build', detail: 'Design and development', statuses: ['in_development'] },
+    { label: 'Review', detail: 'Staging and fixes', statuses: ['staging_review'] },
+    { label: 'Launch', detail: 'Release and handoff', statuses: ['launched', 'handoff', 'completed'] },
+  ];
+  const buildJourneyChapters = [
+    { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Request, goals, scope inputs', statuses: ['submitted', 'in_review'] },
+    { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Quote response and scope decision', statuses: ['quote_ready', 'approved'] },
+    { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Terms before development starts', statuses: ['payment_agreement'] },
+    { id: 'build', label: 'Build', eyebrow: 'Delivery', detail: 'Milestones and team updates', statuses: ['in_development'] },
+    { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Preview approval or changes', statuses: ['staging_review'] },
+    { id: 'launch', label: 'Launch', eyebrow: 'Handoff', detail: 'Live link, access, completion', statuses: ['launched', 'handoff', 'completed'] },
+  ];
+  const statusAlias: Record<string, string> = {
+    quoted: 'quote_ready',
+    awaiting_payment: 'approved',
+    payment_pending: 'payment_agreement',
+    active: 'in_development',
+    operational: 'launched',
+  };
+  const normalizeBuildStatus = (status?: string) => statusAlias[status || ''] || status || 'submitted';
+  const requestStatuses = [...buildLifecycle.map(step => step.status), 'quoted', 'awaiting_payment', 'rejected', 'cancelled', 'archived'];
+  const currentBuildRecord = selectedProjectRecord || projects[0] || null;
+  const currentBuildStatus = normalizeBuildStatus(currentBuildRecord?.status);
+  const currentLifecycleIndex = Math.max(0, buildLifecycle.findIndex(step => step.status === currentBuildStatus));
+  const currentPhaseIndex = Math.max(0, buildPhases.findIndex(phase => phase.statuses.includes(currentBuildStatus)));
+  const defaultBuildChapter = buildJourneyChapters.find(chapter => chapter.statuses.includes(currentBuildStatus)) || buildJourneyChapters[0];
+  const defaultBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === defaultBuildChapter.id));
+  const requestedBuildChapter = buildJourneyChapters.find(chapter => chapter.id === activeBuildChapter);
+  const requestedBuildChapterIndex = requestedBuildChapter ? buildJourneyChapters.findIndex(chapter => chapter.id === requestedBuildChapter.id) : -1;
+  const selectedBuildChapter = requestedBuildChapter && (requestedBuildChapterIndex <= defaultBuildChapterIndex || currentBuildStatus === 'completed')
+    ? requestedBuildChapter
+    : defaultBuildChapter;
+  const selectedBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === selectedBuildChapter.id));
+  const buildPageProgress = Math.round(((defaultBuildChapterIndex + 1) / buildJourneyChapters.length) * 100);
+  const currentBuildMilestones = currentBuildRecord?.buildMilestones || [];
+  const activeBuildMilestone = currentBuildMilestones.find(milestone => milestone.status === 'in_progress')
+    || currentBuildMilestones.find(milestone => milestone.status === 'pending')
+    || currentBuildMilestones[currentBuildMilestones.length - 1];
+  const buildBriefLines = (currentBuildRecord?.summary || '').split('\n').filter(Boolean);
+  const getBriefValue = (label: string) => {
+    const match = buildBriefLines.find(line => line.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+    return match ? match.slice(label.length + 1).trim() : '';
+  };
+  const briefGoals = getBriefValue('Goals');
+  const briefFeatures = getBriefValue('Required features');
+  const briefAudience = getBriefValue('Users');
+  const briefMaterial = getBriefValue('Existing material');
+  const briefStyle = getBriefValue('Style direction');
+  const briefInsight = getBriefValue('Assessment insight');
+  const briefType = getBriefValue('Build type') || getBriefValue('Business type') || currentBuildRecord?.planType?.replace(/_/g, ' ') || 'Custom build';
+  const buildMilestoneProgress = currentBuildMilestones.length
+    ? Math.round(currentBuildMilestones.reduce((sum, milestone) => sum + (milestone.progress || (milestone.status === 'completed' ? 100 : 0)), 0) / currentBuildMilestones.length)
+    : currentBuildRecord?.progress || 0;
+  const getLifecycleIndex = (project?: ClientProject | null) => Math.max(0, buildLifecycle.findIndex(step => step.status === normalizeBuildStatus(project?.status)));
+  const isProjectRequest = (project?: ClientProject | null) => Boolean(project && (project.recordType === 'request' || requestStatuses.includes(project.status)));
+  const isActiveProject = (project?: ClientProject | null) => Boolean(project && !isProjectRequest(project) && ['active', 'completed', 'operational'].includes(project.status));
+  const averageProgress = projects.length
+    ? Math.round(projects.reduce((sum, project) => sum + (project.progress || 0), 0) / projects.length)
+    : 0;
+  const renderNavSection = (label: string, items: DashboardNavItem[]) => (
+    <div className="space-y-1">
+      <span className={`block px-3 pb-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/28 transition-all duration-200 ${
+        isSidebarExpanded ? 'md:opacity-100' : 'md:h-0 md:overflow-hidden md:opacity-0'
+      }`}>
+        {label}
+      </span>
+      <div className="space-y-1">
+        {items.map((item) => (
+          <div key={item.id} className="space-y-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (item.children?.length) {
+                  setIsSidebarExpanded(true);
+                  setOpenSidebarGroup(openSidebarGroup === item.id ? null : item.id);
+                } else {
+                  setActiveTab(item.id);
+                  setOpenSidebarGroup(null);
+                  setSelectedProjectId(null);
+                  setIsSidebarOpen(false);
+                }
+              }}
+              className={`group/nav relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 ${
+                isSidebarExpanded ? 'md:justify-start' : 'md:justify-center'
+              } ${
+                isNavActive(item.id)
+                  ? 'bg-ai-blue/14 text-white'
+                  : 'text-white/52 hover:text-white hover:bg-white/[0.05]'
+              }`}
+            >
+              <span className={`grid h-8 w-8 shrink-0 place-items-center transition-all ${
+                isNavActive(item.id)
+                  ? 'text-ai-blue'
+                  : 'text-white/42 group-hover/nav:text-white/80'
+              }`}>
+                {item.icon}
+              </span>
+              <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold tracking-tight transition-all duration-200 ${
+                isSidebarExpanded ? 'md:w-auto md:opacity-100' : 'md:w-0 md:flex-none md:opacity-0'
+              }`}>
+                {item.label}
+              </span>
+              {Boolean(item.count) && (
+                <span className={`min-w-5 rounded-full bg-ai-blue px-1.5 py-0.5 text-center text-[9px] font-black text-white transition-all duration-200 ${
+                  isSidebarExpanded ? 'md:static md:bg-white/10 md:text-white/78' : 'md:absolute md:right-1.5 md:top-1.5'
+                }`}>
+                  {item.count}
+                </span>
+              )}
+              {item.children?.length && (
+                <ChevronRight className={`hidden h-4 w-4 shrink-0 text-white/28 transition md:block ${
+                  isSidebarExpanded && openSidebarGroup === item.id ? 'rotate-90 text-white/60' : ''
+                } ${isSidebarExpanded ? 'opacity-100' : 'opacity-0'}`} />
+              )}
+            </button>
+
+            {item.children?.length && isSidebarExpanded && openSidebarGroup === item.id && (
+              <div className="ml-11 space-y-1 border-l border-white/[0.07] pl-3">
+                {item.children.map((child) => (
+                  <button
+                    key={child.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(child.id);
+                      setSelectedProjectId(null);
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`flex min-h-9 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[12px] font-semibold transition ${
+                      activeTab === child.id
+                        ? 'bg-white/[0.07] text-white'
+                        : 'text-white/44 hover:bg-white/[0.04] hover:text-white'
+                    }`}
+                  >
+                    <span className="truncate">{child.label}</span>
+                    {Boolean(child.count) && (
+                      <span className="min-w-5 rounded-full bg-white/10 px-1.5 py-0.5 text-center text-[9px] font-black text-white/70">
+                        {child.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-dark-bg text-white font-sans selection:bg-ai-blue/30 overflow-x-hidden">
-      {/* HUD Background Decorations */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0">
-        <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-ai-blue rounded-full blur-[160px] opacity-20"></div>
+    <div className="min-h-screen bg-[#05070a] text-white font-sans selection:bg-ai-blue/30 overflow-x-hidden">
+      {/* Workspace background */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff07_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:80px_80px] opacity-30"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_64%_4%,rgba(0,102,255,0.16),transparent_34%),radial-gradient(circle_at_88%_78%,rgba(245,158,11,0.10),transparent_30%),radial-gradient(circle_at_18%_84%,rgba(16,185,129,0.08),transparent_30%)]"></div>
       </div>
 
       <div className="flex relative z-10 min-h-screen">
         {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-72 lg:w-80 bg-black/40 backdrop-blur-2xl border-r border-white/5 transition-transform duration-500 transform overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-          <div className="h-full flex flex-col p-8 pb-20">
-            <div className="flex items-center gap-4 mb-14 px-2 group">
-              <div className="w-12 h-12 bg-ai-blue rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(0,102,255,0.4)] group-hover:scale-110 transition-transform">
-                <Rocket className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-black uppercase tracking-tight">Sitemendr</h1>
-                <p className="text-[9px] font-medium text-blue-600 uppercase tracking-widest">Client Portal</p>
-              </div>
+        <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#05070a]/94 backdrop-blur-2xl border-r border-white/[0.10] transition-[width,transform] duration-300 transform overflow-x-hidden overflow-y-auto md:translate-x-0 ${
+          isSidebarExpanded ? 'md:w-64' : 'md:w-20'
+        } ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="h-full flex flex-col px-3 py-4 pb-8">
+            <div className={`mb-6 flex items-center gap-3 px-1 transition-all duration-200 ${
+              isSidebarExpanded ? 'justify-between' : 'justify-center'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('dashboard')}
+                className={`group hidden min-w-0 items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.05] md:flex ${
+                  isSidebarExpanded ? 'w-auto opacity-100' : 'w-0 overflow-hidden opacity-0'
+                }`}
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#05070a]">
+                  <Terminal className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black tracking-tight text-white">Sitemendr</span>
+                  <span className="block truncate text-[10px] font-semibold text-white/42">Client workspace</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSidebarExpanded(value => !value)}
+                className="hidden md:grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white/52 transition hover:bg-white/[0.06] hover:text-white"
+                aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              >
+                {isSidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+              </button>
             </div>
 
-            <nav className="flex-1 space-y-10">
-              <div className="space-y-2">
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] px-6 mb-4 block">Main Menu</span>
-                <div className="space-y-2">
-                  {[
-                    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
-                    { id: 'projects', label: 'My Projects', icon: <Rocket className="w-5 h-5" />, count: projects.length },
-                    { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" />, count: messages.filter(m => !m.isRead).length },
-                    { id: 'billing', label: 'Billing', icon: <CreditCard className="w-5 h-5" /> },
-                    { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
-                    { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" /> },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setSelectedProjectId(null);
-                        setIsSidebarOpen(false);
-                      }}
-                      className={`w-full text-left px-6 py-4 rounded-xl transition-all duration-300 flex items-center gap-4 group relative overflow-hidden ${
-                        activeTab === item.id
-                          ? 'bg-ai-blue/10 text-white border border-ai-blue/20 shadow-[0_0_20px_rgba(0,102,255,0.1)]'
-                          : 'text-medium-gray hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {activeTab === item.id && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-6 bg-ai-blue shadow-[0_0_10px_rgba(0,102,255,0.8)]"></div>
-                      )}
-                      <span className={`transition-all duration-300 group-hover:scale-110 ${activeTab === item.id ? 'opacity-100 text-ai-blue scale-110' : 'opacity-40'}`}>
-                        {item.icon}
-                      </span>
-                      <span className="font-semibold text-[13px] tracking-tight flex-1">{item.label}</span>
-                      {(item as any).count > 0 && (
-                        <span className="px-2 py-0.5 bg-ai-blue text-white text-[10px] font-black rounded-full animate-pulse">
-                          {item.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider px-6 mb-4 block">Account</span>
-                <div className="space-y-2">
-                  {[
-                    { id: 'settings', label: 'Account Settings', icon: <Settings className="w-5 h-5" /> },
-                    { id: 'supporter', label: 'Rewards Program', icon: <Heart className="w-5 h-5" /> },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setSelectedProjectId(null);
-                        setIsSidebarOpen(false);
-                      }}
-                      className={`w-full text-left px-6 py-4 rounded-xl transition-all duration-300 flex items-center gap-4 group relative overflow-hidden ${
-                        activeTab === item.id
-                          ? 'bg-ai-blue/10 text-white border border-ai-blue/20'
-                          : 'text-medium-gray hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <span className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === item.id ? 'opacity-100 text-ai-blue' : 'opacity-40'}`}>
-                        {item.icon}
-                      </span>
-                      <span className="font-semibold text-[13px] tracking-tight">{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <nav className="flex-1 space-y-7">
+              {renderNavSection('Main', mainNav)}
+              {renderNavSection('Manage', manageNav)}
+              {renderNavSection('Account', accountNav)}
             </nav>
 
-            <div className="pt-6 mt-auto">
+            <div className="pt-5 mt-auto space-y-2 border-t border-white/[0.07]">
               <button 
                 onClick={handleLogoutAction}
-                className="w-full flex items-center gap-3 px-6 py-3 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-white/44 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors text-sm font-semibold ${
+                  isSidebarExpanded ? 'md:justify-start' : 'md:justify-center'
+                }`}
               >
-                <LogOut className="w-4 h-4" />
-                Sign Out
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span className={`transition-all duration-200 ${
+                  isSidebarExpanded ? 'md:w-auto md:opacity-100' : 'md:w-0 md:overflow-hidden md:opacity-0'
+                }`}>Sign Out</span>
               </button>
             </div>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-80 min-h-screen">
+        <main className={`flex-1 min-h-screen transition-[margin] duration-300 ${isSidebarExpanded ? 'md:ml-64' : 'md:ml-20'}`}>
           {/* Header */}
-          <header className="h-24 lg:h-32 flex items-center justify-between px-8 lg:px-14 bg-black/20 backdrop-blur-xl border-b border-white/5 sticky top-0 z-40">
-            <div className="flex items-center gap-4 lg:hidden">
-              <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-medium-gray hover:text-white">
-                <Menu className="w-6 h-6" />
-              </button>
-              <h1 className="text-lg font-black uppercase">Sitemendr</h1>
-            </div>
-
-            <div className="hidden lg:flex flex-col">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {activeTab === 'dashboard' && 'Dashboard'}
-                {activeTab === 'projects' && 'My Projects'}
-                {activeTab === 'messages' && 'Messages'}
-                {activeTab === 'billing' && 'Billing & Payments'}
-                {activeTab === 'resources' && 'Resources'}
-                {activeTab === 'support' && 'Support'}
-                {activeTab === 'settings' && 'Account Settings'}
-                {activeTab === 'supporter' && 'Rewards Program'}
-                {activeTab === 'audit' && 'Performance Audit'}
-              </h2>
-              <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                Welcome back, {user?.name || 'User'}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-4 lg:gap-8">
-              <div className="hidden sm:flex items-center gap-4 px-5 py-2.5 bg-white/5 border border-white/5 rounded-2xl group cursor-pointer hover:border-ai-blue/30 transition-all">
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-tight leading-none">{user?.name || 'Authorized_User'}</p>
-                  <p className="text-[8px] font-mono text-ai-blue uppercase tracking-widest mt-1 opacity-60">Client Node</p>
+          <header className="min-h-20 flex items-center justify-between gap-5 px-5 sm:px-8 lg:px-10 sticky top-0 z-40">
+            <div className="flex min-w-0 items-center gap-3">
+              {activeTab !== 'dashboard' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setSelectedProjectId(null);
+                  }}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/74 transition hover:bg-white/[0.06] hover:text-white"
+                  aria-label="Back to categories"
+                >
+                  <ArrowLeft className="h-6 w-6" />
+                </button>
+              ) : (
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/[0.055] text-white/78 md:hidden">
+                  <Terminal className="h-5 w-5" />
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-ai-blue/20 border border-ai-blue/30 flex items-center justify-center text-ai-blue group-hover:scale-110 transition-transform">
+              )}
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-black tracking-tight md:text-lg">{activeTab === 'dashboard' ? 'Overview' : currentTab?.label || 'Workspace'}</h1>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="hidden sm:flex items-center gap-3 px-2 py-2 group cursor-pointer transition-all"
+              >
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase tracking-tight leading-none text-white/72">{user?.name || 'Account'}</p>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-white/[0.055] flex items-center justify-center text-white/72 group-hover:bg-white/10 group-hover:text-white transition">
                   <User className="w-5 h-5" />
                 </div>
-              </div>
+              </button>
 
-              <div className="flex items-center gap-2 lg:gap-4">
+              <div className="flex items-center gap-2">
                 <div className="relative group">
-                  <button className="p-3 lg:p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all text-medium-gray hover:text-white relative">
+                  <button onClick={() => setActiveTab('messages')} className="grid h-11 w-11 place-items-center rounded-full hover:bg-white/[0.06] transition-all text-white/58 hover:text-white relative">
                     <Bell className="w-5 h-5 lg:w-6 h-6" />
-                    <span className="absolute top-3 right-3 w-2 h-2 bg-ai-blue rounded-full border-2 border-dark-bg"></span>
+                    {unreadMessages > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-ai-blue rounded-full border-2 border-[#05070a]"></span>}
                   </button>
                 </div>
-                <button className="lg:hidden p-3 bg-white/5 border border-white/5 rounded-2xl text-medium-gray">
-                  <User className="w-6 h-6" />
+                <button onClick={() => setActiveTab('settings')} className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.06] text-white/72 transition hover:bg-white/10 hover:text-white lg:hidden">
+                  <User className="w-5 h-5" />
                 </button>
               </div>
             </div>
           </header>
 
-          <div className="p-8 lg:p-14">
+          <div className="p-5 sm:p-7 lg:p-9 xl:p-10">
             {fetchError && (
               <div className="mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500">
                 <TriangleAlert className="w-6 h-6 text-red-500 flex-shrink-0" />
                 <div className="flex-1">
-                  <h4 className="text-sm font-black uppercase text-red-500">Neural Sync Error</h4>
+                  <h4 className="text-sm font-black uppercase text-red-500">Workspace Sync Error</h4>
                   <p className="text-xs text-red-400/70 font-medium">{fetchError}</p>
                 </div>
-                <button onClick={() => fetchData()} className="px-4 py-2 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 transition-all">Retry Link</button>
+                <button onClick={() => fetchData()} className="px-4 py-2 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 transition-all">Retry</button>
               </div>
             )}
 
             {/* TAB CONTENT */}
-            {activeTab === 'dashboard' && (
-              <div className="space-y-12 animate-fade-in">
-                {/* Hero / Welcome */}
-                <div className="relative p-10 lg:p-14 bg-gradient-to-br from-ai-blue/10 to-tech-purple/10 border border-white/5 rounded-[3rem] overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:scale-110 transition-transform duration-1000">
-                    <Rocket className="w-40 h-40 text-ai-blue rotate-12" />
-                  </div>
-                  <div className="relative z-10 max-w-2xl space-y-6">
-                    <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-ai-blue">
-                      <Sparkles className="w-4 h-4" /> Welcome back, Commander
-                    </div>
-                    <h1 className="text-4xl lg:text-6xl font-black uppercase tracking-tighter leading-none">
-                      Your Digital <span className="text-ai-blue">Empire</span> Is Expanding
-                    </h1>
-                    <p className="text-medium-gray text-sm lg:text-base leading-relaxed opacity-70">
-                      Synchronized across global edge nodes. 12 active assessments completed. All systems reporting optimal performance and security metrics.
-                    </p>
-                    <div className="flex flex-wrap gap-4 pt-4">
-                      <button 
-                        onClick={() => setActiveTab('projects')}
-                        className="px-8 py-4 bg-ai-blue text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-ai-blue/20"
-                      >
-                        Enter Project Matrix
-                      </button>
-                      <button className="px-8 py-4 bg-white/5 border border-white/10 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-white/10 transition-all">
-                        View Network Status
-                      </button>
-                    </div>
-                  </div>
+            {activeTab === 'business' && (
+              <div className="space-y-8 animate-fade-in">
+                <div className="max-w-3xl space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-ai-blue/70">Business tools</p>
+                  <h1 className="text-3xl font-black tracking-tight text-white lg:text-5xl">Commerce and service operations.</h1>
+                  <p className="text-sm leading-7 text-white/56">Products, orders, bookings, and add-ons stay grouped here so the sidebar stays calm.</p>
                 </div>
-
-                {/* Main Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {[
-                    { label: 'Active Projects', value: stats?.activeNodes || 0, icon: <Rocket className="w-6 h-6" />, color: 'text-ai-blue', trend: '+1 new' },
-                    { label: 'System Uptime', value: `${stats?.uptime || 99.9}%`, icon: <Zap className="w-6 h-6" />, color: 'text-expert-green', trend: 'Global' },
-                    { label: 'Security Level', value: stats?.securityLevel || 'AAA+', icon: <Shield className="w-6 h-6" />, color: 'text-tech-purple', trend: 'Encrypted' },
-                    { label: 'Network Latency', value: `${stats?.latency || 12}ms`, icon: <Globe className="w-6 h-6" />, color: 'text-orange-500', trend: 'Optimized' },
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem] flex flex-col justify-between hover:border-white/10 transition-all group">
-                      <div className="flex justify-between items-start mb-6">
-                        <div className={`p-4 rounded-2xl bg-white/5 ${stat.color} group-hover:scale-110 transition-transform shadow-lg shadow-black/20`}>
-                          {stat.icon}
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-medium-gray group-hover:text-white transition-colors">
-                          {stat.trend}
-                        </span>
+                    { title: 'Commerce', count: 'Products and orders', icon: <ShoppingBag className="w-5 h-5" />, tab: 'ecommerce' },
+                    { title: 'Bookings', count: `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`, icon: <Clock className="w-5 h-5" />, tab: 'booking' },
+                    { title: 'Add-ons', count: 'Workspace upgrades', icon: <Plus className="w-5 h-5" />, tab: 'addons' },
+                    { title: 'Billing', count: `${billing.length} billing item${billing.length === 1 ? '' : 's'}`, icon: <CreditCard className="w-5 h-5" />, tab: 'billing' },
+                  ].map((item) => (
+                    <button key={item.title} type="button" onClick={() => setActiveTab(item.tab)} className="group border border-white/8 bg-white/[0.025] p-6 text-left transition hover:border-white/18 hover:bg-white/[0.045]">
+                      <div className="mb-10 flex items-center justify-between text-ai-blue">
+                        {item.icon}
+                        <ChevronRight className="w-4 h-4 text-white/22 transition group-hover:translate-x-1 group-hover:text-white" />
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black text-medium-gray uppercase tracking-widest mb-2 opacity-60">{stat.label}</p>
-                        <h4 className="text-3xl font-black uppercase tracking-tighter">{stat.value}</h4>
-                      </div>
-                    </div>
+                      <h2 className="text-lg font-black tracking-tight text-white">{item.title}</h2>
+                      <p className="mt-2 text-xs text-white/44">{item.count}</p>
+                    </button>
                   ))}
-                </div>
-
-                {/* Bottom Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-8">
-                  {/* Recent Activity */}
-                  <div className="lg:col-span-2 bg-white/[0.01] border border-white/5 p-10 rounded-[3rem] space-y-10">
-                    <div className="flex justify-between items-center px-2">
-                      <h3 className="text-sm font-black uppercase tracking-[0.4em] text-white/30 flex items-center gap-4">
-                        <Terminal className="w-5 h-5" /> Activity Logs
-                      </h3>
-                      <button className="text-[10px] font-black uppercase tracking-widest text-ai-blue hover:underline">View Full Logs</button>
-                    </div>
-                    <div className="space-y-6">
-                      {activities.length > 0 ? activities.map((act, i) => (
-                        <div key={i} className="flex items-center gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-[2rem] hover:bg-white/5 transition-all group">
-                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            {act.type === 'payment' ? <CreditCard className="w-5 h-5 text-expert-green" /> : <FileText className="w-5 h-5 text-ai-blue" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold uppercase truncate">{act.title}</h4>
-                            <p className="text-[10px] text-medium-gray uppercase mt-1 opacity-60 truncate">{act.desc}</p>
-                          </div>
-                          <span className="text-[9px] font-mono text-medium-gray uppercase tracking-widest flex-shrink-0">{act.time}</span>
-                        </div>
-                      )) : (
-                        <div className="py-20 text-center text-medium-gray opacity-20 uppercase tracking-widest font-mono text-xs italic">
-                          No recent telemetry data available
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Resource Center */}
-                  <div className="bg-ai-blue/5 border border-ai-blue/10 p-10 rounded-[3rem] flex flex-col justify-between">
-                    <div className="space-y-6">
-                      <h3 className="text-sm font-black uppercase tracking-[0.4em] text-ai-blue/40 flex items-center gap-4">
-                        <BookOpen className="w-5 h-5" /> Quick Resources
-                      </h3>
-                      <div className="space-y-3">
-                        {[
-                          'Deployment Guide v2.4',
-                          'Neural API Integration',
-                          'Security Protocols',
-                          'Custom Styling Engine',
-                        ].map((doc, i) => (
-                          <button key={i} className="w-full text-left p-4 hover:bg-ai-blue/10 rounded-2xl transition-all group flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-tight text-white/80 group-hover:text-white transition-colors">{doc}</span>
-                            <ChevronRight className="w-4 h-4 text-white/20 group-hover:translate-x-1 group-hover:text-ai-blue transition-all" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="pt-8">
-                      <button 
-                        onClick={() => setActiveTab('resources')}
-                        className="w-full py-4 bg-ai-blue/20 border border-ai-blue/20 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-ai-blue hover:bg-ai-blue hover:text-white transition-all"
-                      >
-                        Enter Neural Library
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
 
-            {activeTab === 'projects' && (
-              <div className="space-y-6 lg:space-y-10 animate-fade-in">
-                {/* Modern Project Switcher Tab Bar */}
-                {projects.length > 0 && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-4 no-scrollbar border-b border-white/5">
-                    <button 
-                      onClick={() => setSelectedProjectId(null)}
-                      className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${
-                        !selectedProjectId 
-                          ? 'bg-ai-blue text-black border-ai-blue shadow-[0_0_20px_rgba(0,102,255,0.2)]' 
-                          : 'bg-white/5 border-white/5 text-white/40 hover:text-white'
-                      }`}
-                    >
-                      All Systems
-                    </button>
-                    {projects.map(p => (
-                      <button 
-                        key={p.id}
-                        onClick={() => setSelectedProjectId(p.id)}
-                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center gap-3 ${
-                          selectedProjectId === p.id 
-                            ? 'bg-ai-blue/10 text-white border-ai-blue shadow-[0_0_20px_rgba(0,102,255,0.1)]' 
-                            : 'bg-white/5 border-white/5 text-white/40 hover:text-white'
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'active' ? 'bg-expert-green' : 'bg-ai-blue'}`}></span>
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {!selectedProjectId ? (
-                  projects.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center py-40 px-10 rounded-[4rem] border border-dashed border-ai-blue/20 bg-ai-blue/[0.02] backdrop-blur-xl relative overflow-hidden group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-ai-blue/5 to-transparent opacity-50"></div>
-                      <div className="relative z-10 flex flex-col items-center">
-                        <div className="w-24 h-24 rounded-[32px] bg-ai-blue/10 flex items-center justify-center mb-10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 border border-ai-blue/20 shadow-[0_0_50px_rgba(0,102,255,0.1)]">
-                          <Terminal className="w-12 h-12 text-ai-blue" />
-                        </div>
-                        <h3 className="text-3xl lg:text-4xl font-black mb-6 tracking-tighter uppercase text-white">INITIALIZE_NODE_FAILURE</h3>
-                        <p className="text-medium-gray text-center max-w-lg font-mono text-[11px] uppercase tracking-[0.2em] leading-relaxed opacity-60 mb-12">
-                          Primary data index returned null. Your workspace is currently empty. Launch the Neural Assessment Terminal to define your first node architecture.
-                        </p>
-                        <button 
-                          onClick={() => {
-                            // Find assessment trigger or redirect
-                            window.location.href = '/assessment';
-                          }}
-                          className="group relative px-12 py-6 bg-ai-blue text-white font-black text-xs uppercase tracking-[0.4em] rounded-[24px] overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-ai-blue/30"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-ai-blue to-tech-purple opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                          <span className="relative z-10 flex items-center gap-4">
-                            Launch Assessment Terminal <Zap className="w-5 h-5 animate-pulse" />
+            {activeTab === 'dashboard' && (
+              <div className="animate-fade-in">
+                <section className="border-y border-white/10">
+                  <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] xl:grid-cols-[minmax(300px,0.72fr)_minmax(420px,1fr)_minmax(280px,0.48fr)]">
+                    <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
+                      <button type="button" onClick={() => setActiveTab('projects')} className="group flex min-h-[160px] w-full items-end justify-between gap-6 px-5 py-6 text-left transition hover:bg-white/[0.025] sm:px-7 xl:min-h-[210px]">
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue">
+                            <Rocket className="h-4 w-4" />
+                            Build
                           </span>
-                        </button>
+                          <span className="mt-4 block truncate text-2xl font-black tracking-tight text-white sm:text-3xl">
+                            {selectedProject?.name || 'No active project'}
+                          </span>
+                          <span className="mt-3 block truncate text-sm font-semibold text-white/42">
+                            {selectedProject?.planType?.replace(/_/g, ' ') || 'Start from a private workspace'}
+                          </span>
+                        </span>
+                        <ChevronRight className="mb-1 h-5 w-5 shrink-0 text-white/22 transition group-hover:translate-x-1 group-hover:text-white/70" />
+                      </button>
+
+                      <div className="border-t border-white/10 px-5 py-5 sm:px-7">
+                        <div className="mb-3 flex items-center justify-between text-xs font-semibold text-white/48">
+                          <span>Progress</span>
+                          <span>{averageProgress}%</span>
+                        </div>
+                        <div className="h-1 bg-white/10">
+                          <div className="h-1 bg-expert-green" style={{ width: `${averageProgress}%` }} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 border-t border-white/10 divide-x divide-white/10">
+                        {[
+                          { label: 'Build', icon: <Rocket className="h-5 w-5 text-ai-blue" />, tab: 'projects' },
+                          { label: 'Repair', icon: <Shield className="h-5 w-5 text-expert-green" />, tab: 'audit' },
+                          { label: 'Grow', icon: <ShoppingBag className="h-5 w-5 text-amber-300" />, tab: 'business' },
+                        ].map((path) => (
+                          <button key={path.label} type="button" onClick={() => setActiveTab(path.tab)} className="group grid min-h-24 place-items-center gap-3 py-5 text-center transition hover:bg-white/[0.025]">
+                            {path.icon}
+                            <span className="text-xs font-black text-white/54 group-hover:text-white">{path.label}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-                      {projects.map((project) => (
-                        <div key={project.id} className="bg-white/[0.02] border border-white/5 p-8 lg:p-10 rounded-[2.5rem] group relative overflow-hidden flex flex-col hover:border-ai-blue/30 transition-all duration-500 shadow-2xl">
-                          {/* HUD Corner Decor */}
-                          <div className="absolute top-6 right-6 w-8 h-8 border-t border-r border-white/10 group-hover:border-ai-blue/40 transition-colors"></div>
-                          
-                          <div className="flex justify-between items-start mb-8">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <span className={`w-2 h-2 rounded-full ${project.status === 'active' ? 'bg-expert-green animate-pulse' : 'bg-ai-blue'}`}></span>
-                                <span className="text-[9px] font-black text-ai-blue uppercase tracking-[0.4em]">
-                                  {project.status === 'active' ? 'OPERATIONAL_NODE' : 'NEURAL_ANALYSIS_ACTIVE'}
-                                </span>
-                              </div>
-                              <h3 className="text-xl lg:text-2xl font-black uppercase tracking-tighter mb-1 truncate text-white group-hover:text-ai-blue transition-colors">{project.name}</h3>
-                              <div className="flex items-center gap-4 text-[8px] font-mono text-medium-gray uppercase tracking-widest opacity-60">
-                                <span>{project.planType?.replace(/_/g, ' ') || 'Assessment Only'}</span>
-                                <span className="w-1 h-1 bg-white/20 rounded-full"></span>
-                                <span className="flex items-center gap-1"><Globe className="w-2.5 h-2.5" /> Edge Node: Global</span>
-                              </div>
-                            </div>
-                            
-                            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                              {project.status === 'active' ? <Rocket className="w-6 h-6 text-expert-green" /> : <Sparkles className="w-6 h-6 text-ai-blue" />}
-                            </div>
-                          </div>
 
-                          <div className="space-y-6 mb-10">
-                            <div>
-                              <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.2em] text-medium-gray mb-3">
-                                <span>Deployment Progress</span>
-                                <span className="text-white">{project.progress}%</span>
-                              </div>
-                              <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden p-[2px] border border-white/5">
-                                <div 
-                                  className={`h-full rounded-full transition-all duration-1000 ${project.status === 'active' ? 'bg-gradient-to-r from-expert-green to-ai-blue' : 'bg-ai-blue'}`} 
-                                  style={{ width: `${project.progress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            {/* Process Roadmap */}
-                            <div className="pt-6 border-t border-white/5">
-                              <div className="flex justify-between items-center mb-6 px-1">
-                                <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Workflow Status</span>
-                                <span className="text-[7px] font-mono text-ai-blue uppercase tracking-widest bg-ai-blue/5 px-2 py-0.5 rounded border border-ai-blue/10">
-                                  {project.status === 'active' ? 'Operational' : 'Syncing'}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between px-1">
-                                {[
-                                  { label: 'Analysis', step: 1, active: true },
-                                  { label: 'Architect', step: 2, active: project.progress > 20 || project.status === 'active' },
-                                  { label: 'Deploy', step: 3, active: project.progress > 60 || project.status === 'active' },
-                                  { label: 'Go-Live', step: 4, active: project.status === 'active' }
-                                ].map((s, idx, arr) => (
-                                  <React.Fragment key={s.label}>
-                                    <div className="flex flex-col items-center gap-2 group/step relative">
-                                      <div className={`w-6 h-6 lg:w-7 lg:h-7 rounded-[10px] flex items-center justify-center border transition-all duration-500 ${
-                                        s.active 
-                                          ? 'bg-ai-blue text-black border-ai-blue shadow-[0_0_15px_rgba(0,102,255,0.4)]' 
-                                          : 'bg-transparent border-white/10 text-white/20'
-                                      }`}>
-                                        <span className="text-[8px] lg:text-[9px] font-black">{s.step}</span>
-                                      </div>
-                                      <span className={`text-[6px] lg:text-[7px] font-black uppercase tracking-widest ${s.active ? 'text-white' : 'text-white/20'}`}>{s.label}</span>
-                                    </div>
-                                    {idx < arr.length - 1 && (
-                                      <div className="flex-1 px-1 lg:px-2">
-                                        <div className={`h-[1px] ${arr[idx+1].active ? 'bg-ai-blue' : 'bg-white/10'}`}></div>
-                                      </div>
-                                    )}
-                                  </React.Fragment>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-auto flex flex-col gap-3">
-                            <div className="flex flex-col sm:flex-row gap-3">
-                              <button 
-                                onClick={() => setSelectedProjectId(project.id)}
-                                className="flex-1 px-6 py-4 bg-white/5 border border-white/10 text-white font-black text-[9px] lg:text-[10px] uppercase tracking-widest rounded-2xl hover:bg-ai-blue hover:text-black transition-all flex items-center justify-center gap-3 group/btn shadow-xl shadow-black/20"
-                              >
-                                Manage Console <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                              </button>
-                              
-                              {project.status === 'pending' ? (
-                                <button 
-                                  onClick={() => handleViewAssessment(project.id)}
-                                  className="flex-1 px-6 py-4 bg-ai-blue/10 border border-ai-blue/20 text-ai-blue font-black text-[9px] lg:text-[10px] uppercase tracking-widest rounded-2xl hover:bg-ai-blue hover:text-white transition-all flex items-center justify-center gap-3"
-                                >
-                                  <Sparkles className="w-4 h-4" /> View Analysis
-                                </button>
-                              ) : (
-                                <button 
-                                  onClick={() => handleAnalyzeSite(project.id, project.siteUrl || '')}
-                                  disabled={isAnalyzing}
-                                  className="flex-1 px-6 py-4 bg-tech-purple/10 border border-tech-purple/20 text-tech-purple font-black text-[9px] lg:text-[10px] uppercase tracking-widest rounded-2xl hover:bg-tech-purple hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                                >
-                                  <Zap className="w-4 h-4" /> Pulse Audit
-                                </button>
-                              )}
-                            </div>
-
-                            {(project.status !== 'active' || project.planType === 'self_hosted' || project.planType === 'enterprise') && (
-                              <div className="flex flex-col sm:flex-row gap-3">
-                                {project.status !== 'active' && (
-                                  <button 
-                                    onClick={() => handleRegenerate(project.id)}
-                                    disabled={regeneratingId === project.id}
-                                    className="flex-1 px-6 py-3 bg-white/5 border border-white/5 text-medium-gray font-black text-[8px] lg:text-[9px] uppercase tracking-widest rounded-xl hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                                  >
-                                    {regeneratingId === project.id ? (
-                                      <><Loader2 className="w-3 h-3 animate-spin" /> Syncing</>
-                                    ) : (
-                                      <><Zap className="w-3 h-3 text-ai-blue" /> Re-Neuralize</>
-                                    )}
-                                  </button>
-                                )}
-
-                                {(project.planType === 'self_hosted' || project.planType === 'enterprise') && (
-                                  <button 
-                                    onClick={() => handleExportCodebase(project.id)}
-                                    disabled={exportingId === project.id}
-                                    className="flex-1 px-6 py-3 bg-white/5 border border-white/5 text-medium-gray font-black text-[8px] lg:text-[9px] uppercase tracking-widest rounded-xl hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                                  >
-                                    {exportingId === project.id ? (
-                                      <><Loader2 className="w-3 h-3 animate-spin" /> Packaging</>
-                                    ) : (
-                                      <><Download className="w-3 h-3 text-expert-green" /> Export Node</>
-                                    )}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                    <div className="border-b border-white/10 lg:border-b-0 xl:border-r xl:border-white/10">
+                      <div className="grid grid-cols-[1fr_4.5rem_5.5rem_1.5rem] items-center gap-3 border-b border-white/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/28 sm:grid-cols-[1fr_5rem_6.5rem_2rem] sm:px-6">
+                        <span>Queue</span>
+                        <span className="text-right">Count</span>
+                        <span className="text-right">State</span>
+                        <span></span>
+                      </div>
+                      {[
+                        { label: 'Projects', value: projects.length, status: projects.length ? 'Active' : 'Ready', tab: 'projects', icon: <Rocket className="h-4 w-4 text-ai-blue" /> },
+                        { label: 'Performance', value: stats ? 1 : 0, status: stats?.securityLevel || 'Ready', tab: 'audit', icon: <Zap className="h-4 w-4 text-expert-green" /> },
+                        { label: 'Domains', value: domains.length, status: domains.length ? 'Connected' : 'Setup', tab: 'domains', icon: <Globe className="h-4 w-4 text-ai-blue" /> },
+                        { label: 'Messages', value: unreadMessages, status: unreadMessages ? 'Unread' : 'Clear', tab: 'messages', icon: <MessageSquare className="h-4 w-4 text-tech-purple" /> },
+                        { label: 'Tickets', value: openTickets, status: openTickets ? 'Open' : 'Clear', tab: 'tickets', icon: <LifeBuoy className="h-4 w-4 text-expert-green" /> },
+                        { label: 'Billing', value: billing.length, status: billing.length ? 'Available' : 'Clear', tab: 'billing', icon: <CreditCard className="h-4 w-4 text-amber-300" /> },
+                      ].map((row) => (
+                        <button key={row.label} type="button" onClick={() => setActiveTab(row.tab)} className="group grid min-h-14 grid-cols-[1fr_4.5rem_5.5rem_1.5rem] items-center gap-3 border-b border-white/8 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/[0.025] sm:grid-cols-[1fr_5rem_6.5rem_2rem] sm:px-6">
+                          <span className="flex min-w-0 items-center gap-3">
+                            {row.icon}
+                            <span className="truncate text-sm font-semibold text-white/72 group-hover:text-white">{row.label}</span>
+                          </span>
+                          <span className="text-right text-sm font-black text-white/58">{row.value}</span>
+                          <span className="truncate text-right text-xs font-semibold text-white/42">{row.status}</span>
+                          <ChevronRight className="h-4 w-4 text-white/18 transition group-hover:translate-x-1 group-hover:text-white/62" />
+                        </button>
                       ))}
                     </div>
-                  )
-                ) : (
-                  <div className="space-y-10 lg:space-y-12 animate-fade-in">
-                    {/* Detailed View Header */}
-                    <div className="flex flex-col gap-8">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-                        <button 
-                          onClick={() => setSelectedProjectId(null)} 
-                          className="group flex items-center gap-3 text-medium-gray hover:text-ai-blue transition-colors uppercase text-[10px] font-black tracking-widest"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-ai-blue/10 transition-colors">
-                            <ChevronRight className="w-4 h-4 rotate-180" /> 
-                          </div>
-                          Back to Control Center
-                        </button>
-                        
-                        {projects.find(p => p.id === selectedProjectId) && (
-                          <div className="flex flex-wrap gap-4">
-                            {projects.find(p => p.id === selectedProjectId)?.status === 'pending' && (
-                              <button 
-                                onClick={() => handleViewAssessment(selectedProjectId!)}
-                                className="px-6 py-2.5 bg-ai-blue text-black font-black text-[10px] uppercase tracking-[0.2em] rounded-xl hover:bg-white transition-all shadow-lg shadow-ai-blue/20 flex items-center gap-2"
-                              >
-                                <Sparkles className="w-4 h-4" /> View Full Analysis
-                              </button>
-                            )}
 
-                            {projects.find(p => p.id === selectedProjectId)?.reviewNotes && (
-                              <div className="bg-orange-500/10 border border-orange-500/20 px-4 py-2 rounded-xl flex items-center gap-3">
-                                <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest flex items-center gap-2">
-                                  <Bell className="w-3 h-3 animate-bounce" /> Feedback Protocol Active
-                                </span>
-                              </div>
-                            )}
-                            
-                            {projects.find(p => p.id === selectedProjectId)?.status === 'active' && !projects.find(p => p.id === selectedProjectId)?.reviewRequested && (
-                              <button 
-                                onClick={async () => {
-                                  if (confirm('Request a professional design review? Our experts will manually refine your site for peak performance.')) {
-                                    try {
-                                      await apiClient.requestProjectReview(selectedProjectId!);
-                                      alert('Review request sent. We\'ll review your site soon.');
-                                      fetchData();
-                                    } catch {
-                                      alert('Failed to request review.');
-                                    }
-                                  }
-                                }}
-                                className="px-6 py-2.5 bg-expert-green/10 border border-expert-green/20 text-expert-green font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-expert-green hover:text-black transition-all flex items-center gap-2"
-                              >
-                                <User className="w-4 h-4" /> Request Human Review
-                              </button>
-                            )}
-                            
-                            {projects.find(p => p.id === selectedProjectId)?.reviewRequested && (
-                              <div className="px-6 py-2.5 bg-white/5 border border-white/10 text-medium-gray font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center gap-2">
-                                <Clock className="w-4 h-4" /> Processing Review...
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Project Identity Section */}
-                      <div className="relative p-10 lg:p-12 bg-white/[0.01] border border-white/5 rounded-[3rem] overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-br from-ai-blue/5 to-tech-purple/5 opacity-50"></div>
-                        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
-                          <div>
-                            <div className="flex items-center gap-4 mb-3">
-                              <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                projects.find(p => p.id === selectedProjectId)?.status === 'active' 
-                                  ? 'bg-expert-green/10 text-expert-green border-expert-green/20' 
-                                  : 'bg-ai-blue/10 text-ai-blue border-ai-blue/20'
-                              }`}>
-                                {projects.find(p => p.id === selectedProjectId)?.status === 'active' ? 'Operational' : 'Assessment_Phase'}
-                              </span>
-                              <span className="text-[10px] font-mono text-medium-gray uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                <Shield className="w-3 h-3" /> Secure Node {selectedProjectId?.slice(-8)}
-                              </span>
+                    <div className="grid lg:grid-cols-2 xl:block">
+                      <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10 xl:border-r-0 xl:border-b">
+                        <div className="grid grid-cols-3 divide-x divide-white/10">
+                          {[
+                            { label: 'Projects', value: projects.length },
+                            { label: 'Domains', value: domains.length },
+                            { label: 'Tickets', value: openTickets },
+                          ].map((metric) => (
+                            <div key={metric.label} className="px-4 py-5">
+                              <div className="text-2xl font-black tracking-tight text-white">{metric.value}</div>
+                              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/28">{metric.label}</div>
                             </div>
-                            <h1 className="text-4xl lg:text-5xl font-black uppercase tracking-tighter mb-4">{projects.find(p => p.id === selectedProjectId)?.name}</h1>
-                            <div className="flex flex-wrap gap-8 items-center">
-                              <div>
-                                <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Architecture</p>
-                                <p className="text-xs font-black uppercase tracking-tight text-white/80">{projects.find(p => p.id === selectedProjectId)?.planType?.replace(/_/g, ' ') || 'AI Neural Assessment'}</p>
-                              </div>
-                              <div className="w-px h-8 bg-white/5 hidden sm:block"></div>
-                              <div>
-                                <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Edge Status</p>
-                                <p className="text-xs font-black uppercase tracking-tight text-expert-green flex items-center gap-2">
-                                  <Globe className="w-3.5 h-3.5" /> 102_NODES_ACTIVE
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-                            <div className="w-full md:w-64 space-y-3">
-                              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-medium-gray px-1">
-                                <span>Sync Progress</span>
-                                <span className="text-ai-blue">{projects.find(p => p.id === selectedProjectId)?.progress || 0}%</span>
-                              </div>
-                              <div className="w-full h-3 bg-white/5 rounded-full p-1 border border-white/5">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-ai-blue to-tech-purple rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(0,102,255,0.3)]" 
-                                  style={{ width: `${projects.find(p => p.id === selectedProjectId)?.progress || 0}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                            <p className="text-[8px] font-mono text-medium-gray uppercase tracking-widest opacity-40">LAST_SYNC: {new Date().toLocaleTimeString()}</p>
-                          </div>
+                          ))}
                         </div>
-
-                        {/* Detail Roadmap Integration */}
-                        <div className="mt-12 pt-10 border-t border-white/5 relative z-10">
-                          <div className="flex justify-between items-center mb-8 px-2">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Project Roadmap Protocols</span>
-                            <span className="text-[9px] font-mono text-ai-blue uppercase tracking-widest bg-ai-blue/5 px-3 py-1 rounded border border-ai-blue/10">
-                              Current Phase: {
-                                projects.find(p => p.id === selectedProjectId)?.status === 'active' 
-                                  ? 'GO_LIVE_NOMINAL' 
-                                  : (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 60 
-                                  ? 'DEPLOYMENT_PHASE'
-                                  : (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 20
-                                  ? 'ARCHITECT_PHASE'
-                                  : 'ANALYSIS_PHASE'
-                              }
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between px-4 max-w-4xl mx-auto">
-                            {[
-                              { label: 'Analysis', step: 1, active: true, desc: 'AI Neural Mapping' },
-                              { label: 'Architect', step: 2, active: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 20 || projects.find(p => p.id === selectedProjectId)?.status === 'active', desc: 'Node Structuring' },
-                              { label: 'Deploy', step: 3, active: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 60 || projects.find(p => p.id === selectedProjectId)?.status === 'active', desc: 'Edge Propagation' },
-                              { label: 'Go-Live', step: 4, active: projects.find(p => p.id === selectedProjectId)?.status === 'active', desc: 'System Nominal' }
-                            ].map((s, idx, arr) => (
-                              <React.Fragment key={s.label}>
-                                <div className="flex flex-col items-center gap-3 group/step relative">
-                                  <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-[18px] flex items-center justify-center border transition-all duration-700 ${
-                                    s.active 
-                                      ? 'bg-ai-blue text-black border-ai-blue shadow-[0_0_25px_rgba(0,102,255,0.4)] rotate-0' 
-                                      : 'bg-transparent border-white/5 text-white/10 rotate-12'
-                                  }`}>
-                                    {s.active && s.step === 4 ? <Rocket className="w-5 h-5 lg:w-6 lg:h-6" /> : <span className="text-xs lg:text-sm font-black">{s.step}</span>}
-                                  </div>
-                                  <div className="text-center">
-                                    <p className={`text-[8px] lg:text-[10px] font-black uppercase tracking-widest ${s.active ? 'text-white' : 'text-white/20'}`}>{s.label}</p>
-                                    <p className={`text-[6px] lg:text-[7px] font-mono uppercase tracking-tighter mt-0.5 ${s.active ? 'text-ai-blue' : 'text-white/10'}`}>{s.desc}</p>
-                                  </div>
-                                  
-                                  {/* Tooltip hint for next step */}
-                                  {!s.active && arr[idx-1]?.active && (
-                                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 px-4 py-2 bg-ai-blue text-black text-[8px] font-black uppercase tracking-widest rounded-xl whitespace-nowrap opacity-0 group-hover/step:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 shadow-2xl z-50">
-                                      Next Protocol: {s.label}
-                                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-ai-blue rotate-45"></div>
-                                    </div>
-                                  )}
-                                </div>
-                                {idx < arr.length - 1 && (
-                                  <div className="flex-1 px-4 lg:px-8">
-                                    <div className={`h-[1px] relative ${arr[idx+1].active ? 'bg-ai-blue shadow-[0_0_10px_rgba(0,102,255,0.5)]' : 'bg-white/5'}`}>
-                                      {s.active && !arr[idx+1].active && (
-                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-ai-blue rounded-full animate-ping"></div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </React.Fragment>
-                            ))}
-                          </div>
+                        <div className="grid grid-cols-3 border-t border-white/10 divide-x divide-white/10">
+                          {[
+                            { label: 'Edit', icon: <MousePointer2 className="h-4 w-4" />, tab: 'editor' },
+                            { label: 'Store', icon: <ShoppingBag className="h-4 w-4" />, tab: 'ecommerce' },
+                            { label: 'Files', icon: <BookOpen className="h-4 w-4" />, tab: 'resources' },
+                          ].map((tool) => (
+                            <button key={tool.label} type="button" onClick={() => setActiveTab(tool.tab)} className="group flex min-h-20 flex-col items-start justify-between px-4 py-4 text-left text-white/48 transition hover:bg-white/[0.025] hover:text-white">
+                              {tool.icon}
+                              <span className="text-xs font-black">{tool.label}</span>
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      {/* Detail View Tabs/Grid */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                        <div className="lg:col-span-2 space-y-10">
-                          <div className="bg-white/[0.01] border border-white/5 p-10 rounded-[3rem]">
-                            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-white/30 mb-10 flex items-center gap-4">
-                              <Zap className="w-5 h-5" /> {projects.find(p => p.id === selectedProjectId)?.status === 'active' ? 'Operational Controls' : 'Deployment Protocols'}
-                            </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                              {(projects.find(p => p.id === selectedProjectId)?.status === 'active' ? [
-                                { label: 'Sync Repository', icon: <Rocket className="w-5 h-5" />, status: 'Auto' },
-                                { label: 'Security Firewall', icon: <Shield className="w-5 h-5" />, status: 'Active' },
-                                { label: 'Edge Propagation', icon: <Globe className="w-5 h-5" />, status: 'Stable' },
-                                { label: 'Live Monitoring', icon: <Terminal className="w-5 h-5" />, status: 'Operational' },
-                              ] : [
-                                { label: 'Code Generation', icon: <Terminal className="w-5 h-5" />, status: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 20 ? 'Success' : 'Ready' },
-                                { label: 'Database Sharding', icon: <Zap className="w-5 h-5" />, status: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 40 ? 'Synced' : 'Waiting' },
-                                { label: 'Edge Configuration', icon: <Globe className="w-5 h-5" />, status: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 60 ? 'Active' : 'Pending' },
-                                { label: 'SSL Certification', icon: <Shield className="w-5 h-5" />, status: (projects.find(p => p.id === selectedProjectId)?.progress || 0) > 80 ? 'Verified' : 'Pending' },
-                              ]).map((ctrl, i) => (
-                                <button key={i} className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/5 transition-all group">
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-medium-gray group-hover:text-ai-blue transition-colors">
-                                      {ctrl.icon}
-                                    </div>
-                                    <span className="text-xs font-bold uppercase tracking-tight">{ctrl.label}</span>
-                                  </div>
-                                  <span className={`text-[8px] font-mono uppercase tracking-widest ${
-                                    ctrl.status === 'Success' || ctrl.status === 'Synced' || ctrl.status === 'Active' || ctrl.status === 'Verified' || ctrl.status === 'Operational' || ctrl.status === 'Stable'
-                                      ? 'text-expert-green' 
-                                      : 'text-ai-blue animate-pulse'
-                                  }`}>{ctrl.status}</span>
-                                </button>
-                              ))}
+                      <div className="px-5 py-5 sm:px-6">
+                        <div className="mb-3 text-sm font-black text-white">Recent</div>
+                        <div className="divide-y divide-white/8">
+                          {activities.length > 0 ? activities.slice(0, 4).map((act, i) => (
+                            <div key={`${act.title}-${i}`} className="py-3">
+                              <div className="truncate text-sm font-semibold text-white/70">{act.title}</div>
+                              <div className="mt-1 flex items-center justify-between gap-3 text-xs text-white/34">
+                                <span className="truncate">{act.desc}</span>
+                                <span className="shrink-0">{act.time}</span>
+                              </div>
                             </div>
-                          </div>
-                          
-                          <div className="bg-white/[0.01] border border-white/5 p-10 rounded-[3rem]">
-                            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-white/30 mb-10 flex items-center gap-4">
-                              <Clock className="w-5 h-5" /> Development Timeline
-                            </h3>
-                            <MilestoneViewer subscriptionId={selectedProjectId!} />
-                          </div>
-                        </div>
-
-                        <div className="lg:col-span-1">
-                          <TemplateViewer subscriptionId={selectedProjectId!} />
+                          )) : (
+                            <div className="py-3 text-sm text-white/34">No recent activity yet.</div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
+                </section>
+              </div>
+            )}
+
+            {activeTab === 'projects' && (
+              <div className="animate-fade-in">
+                {!selectedProjectId && (
+                <div className="border-y border-white/10">
+                  <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_24rem] lg:divide-x lg:divide-white/10">
+                    <div className="px-5 py-7 sm:px-8 lg:px-10">
+                      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-ai-blue/70">Build workspace</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowProjectRequestModal(true)}
+                          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-3 rounded-md bg-white px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-[#05070a] transition hover:bg-ai-blue hover:text-white"
+                        >
+                          <Plus className="h-4 w-4" />
+                          New build request
+                        </button>
+                      </div>
+
+                      <div className="mt-7 grid gap-px bg-white/10 sm:grid-cols-3">
+                        {[
+                          { label: 'Records', value: projects.length, detail: `${averageProgress}% avg progress` },
+                          { label: 'Active', value: projects.filter(project => ['active', 'in_development', 'staging_review'].includes(normalizeBuildStatus(project.status))).length, detail: 'In production' },
+                          { label: 'Waiting', value: projects.filter(project => ['quote_ready', 'payment_agreement', 'handoff'].includes(normalizeBuildStatus(project.status))).length, detail: 'Needs action' },
+                        ].map((metric) => (
+                          <div key={metric.label} className="bg-[#05070a] px-4 py-4">
+                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{metric.label}</p>
+                            <div className="mt-2 flex items-end justify-between gap-4">
+                              <p className="text-2xl font-black tracking-tight text-white">{metric.value}</p>
+                              <p className="truncate text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">{metric.detail}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/10 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/28">Next build</p>
+                      {projects.length > 0 ? (() => {
+                        const nextProject = projects.find(project => !['completed', 'launched'].includes(normalizeBuildStatus(project.status))) || projects[0];
+                        const nextStatus = normalizeBuildStatus(nextProject.status);
+                        const nextChapter = buildJourneyChapters.find(chapter => chapter.statuses.includes(nextStatus)) || buildJourneyChapters[0];
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectId(nextProject.id);
+                              setActiveBuildChapter(null);
+                            }}
+                            className="group mt-4 w-full text-left"
+                          >
+                            <p className="truncate text-lg font-black tracking-tight text-white">{nextProject.name}</p>
+                            <div className="mt-4 h-1.5 bg-white/10">
+                              <div className="h-full bg-ai-blue" style={{ width: `${Math.round(((buildJourneyChapters.findIndex(chapter => chapter.id === nextChapter.id) + 1) / buildJourneyChapters.length) * 100)}%` }} />
+                            </div>
+                            <div className="mt-4 flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.14em]">
+                              <span className="text-ai-blue">Continue {nextChapter.label}</span>
+                              <ChevronRight className="h-4 w-4 text-white/28 transition group-hover:translate-x-1 group-hover:text-white" />
+                            </div>
+                          </button>
+                        );
+                      })() : (
+                        <p className="mt-4 text-sm leading-6 text-white/42">Start the first request to open a build workspace.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                )}
+
+                {projects.length === 0 ? (
+                  <section className="mt-6 border-y border-white/10 bg-white/[0.012] px-5 py-16 sm:px-8 lg:px-10">
+                    <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+                      <Terminal className="mb-6 h-12 w-12 text-ai-blue" />
+                      <h3 className="text-2xl font-black tracking-tight text-white">No build project yet</h3>
+                      <p className="mt-4 max-w-xl text-sm leading-7 text-white/52">
+                        Projects are only for custom development work: websites, platforms, dashboards, portals, and other build requests.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowProjectRequestModal(true)}
+                        className="mt-8 inline-flex min-h-11 items-center justify-center gap-3 rounded-md bg-ai-blue px-6 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-white hover:text-[#05070a]"
+                      >
+                        <Zap className="h-4 w-4" />
+                        Start build request
+                      </button>
+                    </div>
+                  </section>
+                ) : !selectedProjectId ? (
+                  <section className="mt-6 border-y border-white/10">
+                    <div className="grid grid-cols-[1fr_6rem_2rem] gap-3 border-b border-white/10 px-4 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28 sm:grid-cols-[1fr_8rem_7rem_2rem] sm:px-6">
+                      <span>Project</span>
+                      <span className="hidden text-right sm:block">Progress</span>
+                      <span className="text-right">Resume</span>
+                      <span></span>
+                    </div>
+                    <div className="divide-y divide-white/10">
+                      {projects.map((project) => {
+                        const rowStatus = normalizeBuildStatus(project.status);
+                        const rowChapter = buildJourneyChapters.find(chapter => chapter.statuses.includes(rowStatus)) || buildJourneyChapters[0];
+                        const rowChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === rowChapter.id));
+                        const rowProgress = Math.round(((rowChapterIndex + 1) / buildJourneyChapters.length) * 100);
+
+                        return (
+                          <button
+                            key={project.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectId(project.id);
+                              setActiveBuildChapter(null);
+                            }}
+                            className="grid min-h-24 w-full grid-cols-[1fr_6rem_2rem] items-center gap-3 px-4 py-4 text-left transition hover:bg-white/[0.025] sm:grid-cols-[1fr_8rem_7rem_2rem] sm:px-6"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-black text-white">{project.name}</span>
+                              <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+                                {project.businessName || project.planType?.replace(/_/g, ' ') || 'Custom build'}
+                              </span>
+                              <span className="mt-3 block h-1 bg-white/10 sm:hidden">
+                                <span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} />
+                              </span>
+                            </span>
+                            <span className="hidden sm:block">
+                              <span className="block h-1 bg-white/10">
+                                <span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} />
+                              </span>
+                              <span className="mt-2 block text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/34">{rowProgress}%</span>
+                            </span>
+                            <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-ai-blue">
+                              {rowChapter.label}
+                            </span>
+                            <ChevronRight className="h-4 w-4 justify-self-end text-white/24" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : (
+                  <section className="mt-6 border-y border-white/10">
+                    <div className="min-h-[620px]">
+                      <aside className="hidden">
+                        <div className="grid grid-cols-[1fr_5.5rem_2rem] gap-3 border-b border-white/10 px-4 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28 sm:px-6">
+                          <span>Build queue</span>
+                          <span className="text-right">Page</span>
+                          <span></span>
+                        </div>
+                        <div className="divide-y divide-white/10">
+                          {projects.map((project) => {
+                            const rowIndex = getLifecycleIndex(project);
+                            const rowStage = buildLifecycle[rowIndex] || buildLifecycle[0];
+                            const rowStatus = normalizeBuildStatus(project.status);
+                            const rowChapter = buildJourneyChapters.find(chapter => chapter.statuses.includes(rowStatus)) || buildJourneyChapters[0];
+                            const rowChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === rowChapter.id));
+                            const rowProgress = Math.round(((rowChapterIndex + 1) / buildJourneyChapters.length) * 100);
+                            const isSelected = currentBuildRecord?.id === project.id;
+
+                            return (
+                              <button
+                                key={project.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProjectId(project.id);
+                                  setActiveBuildChapter(null);
+                                }}
+                                className={`grid min-h-24 w-full grid-cols-[1fr_5.5rem_2rem] items-center gap-3 px-4 py-4 text-left transition sm:px-6 ${
+                                  isSelected ? 'bg-ai-blue/[0.07]' : 'hover:bg-white/[0.025]'
+                                }`}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-black text-white">{project.name}</span>
+                                  <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+                                    {project.planType?.replace(/_/g, ' ') || 'Custom build'}
+                                  </span>
+                                  <span className="mt-3 block h-1 bg-white/10">
+                                    <span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} />
+                                  </span>
+                                  <span className="mt-2 block truncate text-[10px] font-semibold text-white/34">
+                                    Continue: {rowChapter.label}
+                                  </span>
+                                </span>
+                                <span className={`text-right text-[10px] font-black uppercase tracking-[0.12em] ${isSelected ? 'text-ai-blue' : 'text-white/42'}`}>
+                                  {rowStage.label}
+                                </span>
+                                <ChevronRight className={`h-4 w-4 justify-self-end transition ${isSelected ? 'text-ai-blue' : 'text-white/18'}`} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </aside>
+
+                      <main className="min-w-0">
+                        {currentBuildRecord && (
+                          <div className="flex h-full flex-col">
+                            <div className="border-b border-white/10 px-5 py-6 sm:px-8 lg:px-10">
+                              <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+                                <div className="min-w-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedProjectId(null);
+                                      setActiveBuildChapter(null);
+                                    }}
+                                    className="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36 transition hover:text-white"
+                                  >
+                                    <ArrowLeft className="h-3.5 w-3.5" />
+                                    Build overview
+                                  </button>
+                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
+                                    {isProjectRequest(currentBuildRecord) ? 'Build request' : 'Build project'}
+                                  </p>
+                                  <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-white">{currentBuildRecord.name}</h3>
+                                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/42">
+                                    <span>{currentBuildRecord.businessName || 'Business pending'}</span>
+                                    <span>{currentBuildRecord.planType?.replace(/_/g, ' ') || 'Custom build'}</span>
+                                    <span>{currentBuildRecord.createdAt ? new Date(currentBuildRecord.createdAt).toLocaleDateString() : 'Recently'}</span>
+                                  </div>
+                                </div>
+                                <div className="min-w-40 border-l border-white/10 pl-5">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Progress</p>
+                                  <p className="mt-1 text-2xl font-black text-white">{buildMilestoneProgress}%</p>
+                                  <div className="mt-3 h-1.5 w-full bg-white/10">
+                                    <div className="h-full bg-ai-blue transition-all" style={{ width: `${buildMilestoneProgress}%` }} />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="border-b border-white/10 px-5 py-5 sm:px-8 lg:px-10">
+                              <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue/70">
+                                    Step {selectedBuildChapterIndex + 1} of {buildJourneyChapters.length}
+                                  </p>
+                                  <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedBuildChapter.label}</h4>
+                                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedBuildChapter.detail}</p>
+                                </div>
+                                <div className="w-full md:max-w-sm">
+                                  <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                                    <span>{buildLifecycle[currentLifecycleIndex]?.label || 'Submitted'}</span>
+                                    <span>{buildPageProgress}%</span>
+                                  </div>
+                                  <div className="mt-2 h-1.5 bg-white/10">
+                                    <div className="h-full bg-ai-blue" style={{ width: `${buildPageProgress}%` }} />
+                                  </div>
+                                  <div className="mt-4 flex flex-wrap gap-2">
+                                    {selectedBuildChapterIndex > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveBuildChapter(buildJourneyChapters[selectedBuildChapterIndex - 1].id)}
+                                        className="inline-flex min-h-10 items-center justify-center gap-2 border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/50 transition hover:bg-white/[0.04] hover:text-white"
+                                      >
+                                        <ArrowLeft className="h-3.5 w-3.5" />
+                                        Previous
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveBuildChapter(buildJourneyChapters[selectedBuildChapterIndex + 1].id)}
+                                      disabled={
+                                        selectedBuildChapterIndex >= buildJourneyChapters.length - 1
+                                        || (currentBuildStatus !== 'completed' && selectedBuildChapterIndex >= defaultBuildChapterIndex)
+                                      }
+                                      className="inline-flex min-h-10 items-center justify-center gap-2 border border-ai-blue/25 bg-ai-blue/[0.04] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-transparent disabled:text-white/24"
+                                    >
+                                      Next
+                                      <ChevronRight className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:divide-x lg:divide-white/10">
+                              <section className="px-5 py-6 sm:px-8 lg:px-10">
+                                {selectedBuildChapter.id === 'brief' && (
+                                  <div className="border-y border-white/10">
+                                    <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:divide-x lg:divide-white/10">
+                                      <div className="py-6 lg:pr-8">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Client brief</p>
+                                        <h5 className="mt-2 text-2xl font-black tracking-tight text-white">{briefType}</h5>
+                                        <p className="mt-4 max-w-3xl text-sm leading-7 text-white/60">
+                                          {briefInsight || 'The team is reviewing the request details before preparing the scope.'}
+                                        </p>
+                                      </div>
+                                      <div className="grid grid-cols-3 border-t border-white/10 lg:block lg:border-t-0">
+                                        {[
+                                          { label: 'Budget', value: currentBuildRecord.budget || 'Not specified' },
+                                          { label: 'Timeline', value: currentBuildRecord.timeline || 'Flexible' },
+                                          { label: 'Priority', value: currentBuildRecord.priority || 'Normal' },
+                                        ].map((item) => (
+                                          <div key={item.label} className="border-r border-white/10 px-4 py-4 last:border-r-0 lg:border-r-0 lg:border-b lg:last:border-b-0">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                            <p className="mt-2 truncate text-sm font-semibold text-white/72">{item.value}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    <div className="grid border-t border-white/10 lg:grid-cols-2 lg:divide-x lg:divide-white/10">
+                                      {[
+                                        { label: 'Goal', value: briefGoals || 'No goals recorded yet.' },
+                                        { label: 'Required features', value: briefFeatures || 'No feature list recorded yet.' },
+                                        { label: 'Audience', value: briefAudience || 'Not specified' },
+                                        { label: 'Material and style', value: `${briefMaterial || 'Not specified'} · ${briefStyle || 'Not specified'}` },
+                                      ].map((item) => (
+                                        <div key={item.label} className="border-b border-white/10 px-0 py-5 lg:px-5 lg:[&:nth-last-child(-n+2)]:border-b-0">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">{item.label}</p>
+                                          <p className="mt-2 text-sm leading-7 text-white/64">{item.value}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleViewAssessment(currentBuildRecord)}
+                                      className="group flex min-h-14 w-full items-center justify-between gap-4 border-t border-white/10 px-0 py-4 text-left transition hover:bg-white/[0.018] lg:px-5"
+                                    >
+                                      <span className="flex min-w-0 items-center gap-3">
+                                        <Sparkles className="h-4 w-4 shrink-0 text-white/42" />
+                                        <span className="min-w-0">
+                                          <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/62 group-hover:text-white">Review intake answers</span>
+                                          <span className="mt-1 block truncate text-xs text-white/34">Original questionnaire details</span>
+                                        </span>
+                                      </span>
+                                      <ChevronRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:translate-x-1 group-hover:text-white" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                {selectedBuildChapter.id === 'scope' && (
+                                  <div className="space-y-6">
+                                    <div className="grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+                                      {[
+                                        { label: 'Budget', value: currentBuildRecord.budget || 'Not specified' },
+                                        { label: 'Timeline', value: currentBuildRecord.timeline || 'Flexible' },
+                                        { label: 'Quote', value: currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Not ready' },
+                                      ].map((item) => (
+                                        <div key={item.label} className="border-b border-white/10 p-4 sm:border-b-0">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                          <p className="mt-2 truncate text-sm font-semibold text-white/72">{item.value}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {isProjectRequest(currentBuildRecord) && currentBuildStatus === 'quote_ready' ? (
+                                  <div className="border-y border-ai-blue/35 bg-ai-blue/[0.04] py-5">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Quote ready</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/68">
+                                          Review the scope note and choose how you want the Build team to move next.
+                                        </p>
+                                      </div>
+                                      <div className="border-t border-white/10 pt-4 sm:min-w-36 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Amount</p>
+                                        <p className="mt-2 text-lg font-black text-white">
+                                          {currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <textarea
+                                      value={quoteMessage}
+                                      onChange={(event) => setQuoteMessage(event.target.value)}
+                                      rows={3}
+                                      className="mt-5 w-full resize-none border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                      placeholder="Add a short note for the team"
+                                    />
+                                    <div className="mt-4 grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuoteResponse(currentBuildRecord, 'accept')}
+                                        disabled={quoteSubmitting}
+                                        className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Accept</span>
+                                        {quoteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuoteResponse(currentBuildRecord, 'discuss')}
+                                        disabled={quoteSubmitting}
+                                        className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
+                                      >
+                                        <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Discuss</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuoteResponse(currentBuildRecord, 'decline')}
+                                        disabled={quoteSubmitting}
+                                        className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/48 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
+                                      >
+                                        <span className="flex items-center gap-3"><TriangleAlert className="h-4 w-4" /> Not ready</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                    ) : (
+                                      <div className="border-y border-white/10 py-5">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Scope status</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/54">The team will prepare the scope and quote when the brief review is complete.</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {selectedBuildChapter.id === 'agreement' && (
+                                  <div className="space-y-6">
+                                    {isProjectRequest(currentBuildRecord) && ['approved', 'payment_agreement'].includes(currentBuildStatus) ? (
+                                  <div className="border-y border-expert-green/30 bg-expert-green/[0.035] py-5">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Payment agreement</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/68">
+                                          {currentBuildStatus === 'approved'
+                                            ? 'Your quote is accepted. The team will prepare the payment terms before development starts.'
+                                            : 'Payment terms are being confirmed. Development starts after the agreement is settled.'}
+                                        </p>
+                                      </div>
+                                      <div className="border-t border-white/10 pt-4 sm:min-w-36 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Status</p>
+                                        <p className="mt-2 text-lg font-black text-white">
+                                          {(currentBuildRecord.paymentAgreementStatus || 'pending').replace(/_/g, ' ')}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-5 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                                      {[
+                                        { label: 'Type', value: currentBuildRecord.paymentAgreementType?.replace(/_/g, ' ') || 'To be confirmed' },
+                                        { label: 'Total', value: currentBuildRecord.totalAgreedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.totalAgreedAmount}` : (currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending') },
+                                        { label: 'Deposit', value: currentBuildRecord.depositAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.depositAmount}` : 'Not set' },
+                                        { label: 'Due date', value: currentBuildRecord.paymentDueDate ? new Date(currentBuildRecord.paymentDueDate).toLocaleDateString() : 'Not set' },
+                                      ].map((item) => (
+                                        <div key={item.label} className="border-b border-white/10 p-4 sm:border-b-0">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                          <p className="mt-2 text-sm font-semibold capitalize text-white/72">{item.value}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {currentBuildRecord.paymentInstructions && (
+                                      <div className="mt-5 border-y border-white/10 py-4">
+                                        <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Instructions</p>
+                                        <p className="whitespace-pre-line text-sm leading-7 text-white/64">{currentBuildRecord.paymentInstructions}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                    ) : (
+                                      <div className="border-y border-white/10 py-5">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement status</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/54">Payment terms will appear here after the quote is approved.</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {selectedBuildChapter.id === 'build' && (
+                                  <div className="border-y border-white/10 py-5">
+                                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Build execution</p>
+                                        <h4 className="mt-2 text-lg font-black tracking-tight text-white">
+                                          {activeBuildMilestone?.title || 'Milestones ready'}
+                                        </h4>
+                                      </div>
+                                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                                        {buildMilestoneProgress}% overall
+                                      </span>
+                                    </div>
+                                    {isProjectRequest(currentBuildRecord) && currentBuildMilestones.length > 0 ? (
+                                      <div className="divide-y divide-white/10 border-y border-white/10">
+                                      {currentBuildMilestones.map((milestone) => (
+                                        <div key={milestone.id} className="grid gap-4 px-1 py-4 sm:grid-cols-[1fr_7rem] sm:items-center">
+                                          <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                              <span className={`h-2.5 w-2.5 ${
+                                                milestone.status === 'completed' ? 'bg-expert-green' : milestone.status === 'in_progress' ? 'bg-ai-blue' : milestone.status === 'blocked' ? 'bg-red-400' : 'bg-white/18'
+                                              }`} />
+                                              <p className="text-sm font-black text-white">{milestone.title}</p>
+                                              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{milestone.status.replace(/_/g, ' ')}</span>
+                                            </div>
+                                            {milestone.clientNote ? (
+                                              <p className="mt-2 text-xs leading-6 text-white/52">{milestone.clientNote}</p>
+                                            ) : (
+                                              <p className="mt-2 text-xs leading-6 text-white/34">{milestone.description || 'The team will update this milestone as work progresses.'}</p>
+                                            )}
+                                          </div>
+                                          <div>
+                                            <p className="text-right text-[10px] font-black uppercase tracking-[0.14em] text-white/48">{milestone.progress || 0}%</p>
+                                            <div className="mt-2 h-1.5 bg-white/10">
+                                              <div className="h-full bg-ai-blue" style={{ width: `${milestone.progress || 0}%` }} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      </div>
+                                    ) : (
+                                      <p className="border-y border-white/10 py-5 text-sm leading-7 text-white/54">Milestones will appear here when development starts.</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {selectedBuildChapter.id === 'review' && (
+                                  <div className="border-y border-ai-blue/35 bg-ai-blue/[0.04] py-5">
+                                    {isProjectRequest(currentBuildRecord) && currentBuildStatus === 'staging_review' ? (
+                                      <>
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/68">
+                                          Review the staging build and tell the team whether it is ready for launch or needs changes.
+                                        </p>
+                                      </div>
+                                      <div className="border-t border-white/10 pt-4 sm:min-w-40 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Status</p>
+                                        <p className="mt-2 text-lg font-black capitalize text-white">
+                                          {(currentBuildRecord.stagingReviewStatus || 'sent').replace(/_/g, ' ')}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-5 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                                      <div className="border-b border-white/10 p-4 sm:border-b-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Preview</p>
+                                        {currentBuildRecord.stagingUrl ? (
+                                          <a
+                                            href={currentBuildRecord.stagingUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-2 inline-flex items-center gap-2 break-all text-sm font-black text-ai-blue transition hover:text-white"
+                                          >
+                                            Open staging <ExternalLink className="h-3.5 w-3.5" />
+                                          </a>
+                                        ) : (
+                                          <p className="mt-2 text-sm font-semibold text-white/52">Preview link pending</p>
+                                        )}
+                                      </div>
+                                      <div className="p-4">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Team note</p>
+                                        <p className="mt-2 text-sm leading-6 text-white/64">
+                                          {currentBuildRecord.stagingNotes || 'The team will add review notes before launch approval.'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <textarea
+                                      value={stagingReviewMessage}
+                                      onChange={(event) => setStagingReviewMessage(event.target.value)}
+                                      rows={3}
+                                      className="mt-5 w-full resize-none border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                      placeholder="Add review notes for the team"
+                                    />
+                                    <div className="mt-4 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStagingReviewResponse(currentBuildRecord, 'approve')}
+                                        disabled={stagingReviewSubmitting}
+                                        className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve launch</span>
+                                        {stagingReviewSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStagingReviewResponse(currentBuildRecord, 'changes')}
+                                        disabled={stagingReviewSubmitting}
+                                        className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
+                                      >
+                                        <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Request changes</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/60">The preview link and review controls will appear here when staging is ready.</p>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+
+                                {selectedBuildChapter.id === 'launch' && (
+                                  <div className="border-y border-expert-green/30 bg-expert-green/[0.035] py-5">
+                                    {isProjectRequest(currentBuildRecord) && ['launched', 'handoff', 'completed'].includes(currentBuildStatus) ? (
+                                      <>
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch and handoff</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/68">
+                                          {currentBuildStatus === 'completed'
+                                            ? 'This build is completed. Launch and handoff details stay here for reference.'
+                                            : 'The staging review is approved. Review launch and handoff details before closing the build.'}
+                                        </p>
+                                      </div>
+                                      {currentBuildRecord.launchApprovedAt && (
+                                        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                                          Approved {new Date(currentBuildRecord.launchApprovedAt).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="mt-5 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                                      <div className="border-b border-white/10 p-4 sm:border-b-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Live URL</p>
+                                        {currentBuildRecord.launchUrl ? (
+                                          <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 break-all text-sm font-black text-expert-green transition hover:text-white">
+                                            Open live build <ExternalLink className="h-3.5 w-3.5" />
+                                          </a>
+                                        ) : (
+                                          <p className="mt-2 text-sm font-semibold text-white/52">Live link pending</p>
+                                        )}
+                                      </div>
+                                      <div className="p-4">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Handoff</p>
+                                        <p className="mt-2 whitespace-pre-line text-sm leading-6 text-white/64">
+                                          {currentBuildRecord.handoffNotes || currentBuildRecord.launchNotes || 'Handoff notes will appear when launch is finalized.'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {currentBuildStatus === 'handoff' && (
+                                      <>
+                                        <textarea
+                                          value={handoffMessage}
+                                          onChange={(event) => setHandoffMessage(event.target.value)}
+                                          rows={3}
+                                          className="mt-5 w-full resize-none border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
+                                          placeholder="Add a final handoff note for the team"
+                                        />
+                                        <div className="mt-4 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleHandoffResponse(currentBuildRecord, 'complete')}
+                                            disabled={handoffSubmitting}
+                                            className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Mark complete</span>
+                                            {handoffSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleHandoffResponse(currentBuildRecord, 'issue')}
+                                            disabled={handoffSubmitting}
+                                            className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
+                                          >
+                                            <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Handoff issue</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                    {currentBuildStatus === 'completed' && (
+                                      <div className="mt-5 border-y border-white/10 py-4">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Completed</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/64">
+                                          {currentBuildRecord.completionAcknowledgedAt
+                                            ? `Acknowledged ${new Date(currentBuildRecord.completionAcknowledgedAt).toLocaleDateString()}`
+                                            : 'Completion recorded.'}
+                                        </p>
+                                        {currentBuildRecord.completionNotes && (
+                                          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-white/58">{currentBuildRecord.completionNotes}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/60">Launch details will appear here after review is approved.</p>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                                {!isProjectRequest(currentBuildRecord) && (
+                                  <div className="mt-6 border-y border-white/10 py-6">
+                                    <h4 className="mb-5 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/34">
+                                      <Clock className="h-4 w-4" />
+                                      Development timeline
+                                    </h4>
+                                    <MilestoneViewer subscriptionId={currentBuildRecord.id} />
+                                  </div>
+                                )}
+                              </section>
+
+                              <aside className="border-t border-white/10 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6">
+                                <div className="divide-y divide-white/10 border-y border-white/10">
+                                  {selectedBuildChapter.id === 'scope' && (
+                                    <div className="px-1 py-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Scope state</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">{currentBuildRecord.quotedAmount ? 'Quote is ready for review.' : 'Quote pending.'}</p>
+                                    </div>
+                                  )}
+                                  {selectedBuildChapter.id === 'agreement' && (
+                                    <div className="px-1 py-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement state</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">{(currentBuildRecord.paymentAgreementStatus || 'pending').replace(/_/g, ' ')}</p>
+                                    </div>
+                                  )}
+                                  {selectedBuildChapter.id === 'build' && (
+                                    <div className="px-1 py-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Active milestone</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">{activeBuildMilestone?.title || 'Milestones pending.'}</p>
+                                    </div>
+                                  )}
+                                  {selectedBuildChapter.id === 'review' && (
+                                    <div className="px-1 py-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Review state</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">{(currentBuildRecord.stagingReviewStatus || 'not ready').replace(/_/g, ' ')}</p>
+                                    </div>
+                                  )}
+                                  {selectedBuildChapter.id === 'launch' && (
+                                    <div className="px-1 py-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch state</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">{currentBuildStatus.replace(/_/g, ' ')}</p>
+                                    </div>
+                                  )}
+                                  {!isProjectRequest(currentBuildRecord) && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAnalyzeSite(currentBuildRecord.id, currentBuildRecord.siteUrl || '')}
+                                        disabled={isAnalyzing}
+                                        className="flex w-full items-center justify-between gap-4 px-1 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:text-white disabled:opacity-50"
+                                      >
+                                        <span className="flex items-center gap-3"><Zap className="h-4 w-4" /> Pulse audit</span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                      {(currentBuildRecord.planType === 'self_hosted' || currentBuildRecord.planType === 'enterprise') && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleExportCodebase(currentBuildRecord.id)}
+                                          disabled={exportingId === currentBuildRecord.id}
+                                          className="flex w-full items-center justify-between gap-4 px-1 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:text-white disabled:opacity-50"
+                                        >
+                                          <span className="flex items-center gap-3"><Download className="h-4 w-4" /> Export files</span>
+                                          <ChevronRight className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </aside>
+                            </div>
+                          </div>
+                        )}
+                      </main>
+                    </div>
+                  </section>
                 )}
               </div>
             )}
@@ -1356,9 +2108,9 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     <Terminal className="w-4 h-4" /> DNS Configuration
                   </h3>
                   <p className="text-[10px] text-white/70 uppercase leading-relaxed">
-                    To activate your custom domain, point your A records to our global edge node: <span className="text-white font-black">{process.env.NEXT_PUBLIC_INFRA_IP || '102.0.21.24'}</span> 
+                    To activate your custom domain, point your A records to the Sitemendr hosting address: <span className="text-white font-black">{process.env.NEXT_PUBLIC_INFRA_IP || '102.0.21.24'}</span> 
                     or use a CNAME record pointing to: <span className="text-white font-black">{process.env.NEXT_PUBLIC_INFRA_CNAME || 'nodes.sitemendr.com'}</span>.
-                    Once updated, trigger verification to synchronize your certificate.
+                    Once updated, run verification to prepare your certificate.
                   </p>
                 </div>
 
@@ -1473,7 +2225,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               </div>
             )}
 
-            {activeTab === 'support' && (
+            {activeTab === 'tickets' && (
               <div className="animate-fade-in">
                 <SupportTickets subscriptionId={selectedProjectId || undefined} />
               </div>
@@ -1513,7 +2265,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               <div className="animate-fade-in">
                 <AddonMarketplace 
                   subscription={projects.length > 0 ? projects[0] : null} 
-                  onRequestCustom={() => setActiveTab('support')}
+                  onRequestCustom={() => setActiveTab('tickets')}
                 />
               </div>
             )}
@@ -1560,7 +2312,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               <div className="animate-fade-in">
                 <ResourceLibrary 
                   resources={resources} 
-                  onSupportRequest={() => setActiveTab('support')}
+                  onSupportRequest={() => setActiveTab('tickets')}
                 />
               </div>
             )}
@@ -1573,7 +2325,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                       <Settings className="w-5 h-5 text-ai-blue" />
                       Settings
                     </h2>
-                    <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Manage your node credentials and profile data</p>
+                    <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Manage your account profile and security details</p>
                   </div>
                 </div>
 
@@ -1608,7 +2360,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                           value={profileData.name}
                           onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
-                          placeholder="Node_Identifier"
+                          placeholder="Your name"
                         />
                       </div>
                       <div className="space-y-3">
@@ -1646,11 +2398,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
                       <div className="space-y-6">
                         <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
-                          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest opacity-60">Current Access Node</p>
+                          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest opacity-60">Current account email</p>
                           <p className="text-sm font-mono text-white/80">{user?.email}</p>
                         </div>
                         <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
-                          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest opacity-60">Security Protocol</p>
+                          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest opacity-60">Security status</p>
                           <p className="text-sm font-mono text-expert-green">TWO_FACTOR_ENABLED</p>
                         </div>
                       </div>
@@ -1709,7 +2461,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                       domain: newDomain.domain, 
                       setup: newDomain.setup 
                     });
-                    alert('Domain linked to neural network. Please update DNS records.');
+                    alert('Domain added. Please update DNS records.');
                     fetchData();
                     setIsDomainModalOpen(false);
                   } catch (err) {
@@ -1721,7 +2473,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                 disabled={isSubmittingDomain}
                 className="w-full py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-lg shadow-ai-blue/20 disabled:opacity-50"
               >
-                {isSubmittingDomain ? 'TRANSMITTING...' : 'LINK_DOMAIN_PROTOCOL'}
+                {isSubmittingDomain ? 'Adding domain...' : 'Add domain'}
               </button>
             </div>
           </div>
@@ -1739,7 +2491,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             </div>
             <div className="p-8 space-y-6">
               <p className="text-xs text-white/60 leading-relaxed uppercase font-mono tracking-tighter">
-                Our team will handle all DNS propagation, SSL certificates, and edge caching for your node.
+                Our team will handle DNS guidance, SSL certificates, and hosting setup for your project.
               </p>
               <div className="space-y-3">
                 <label className="text-[9px] font-black uppercase text-white/40 tracking-[0.2em]">Desired Domain</label>
@@ -1768,7 +2520,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                 disabled={isSubmittingDomain}
                 className="w-full py-4 bg-tech-purple text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-lg shadow-tech-purple/20 disabled:opacity-50"
               >
-                {isSubmittingDomain ? 'QUEUING...' : 'AUTHORIZE_MANAGED_LINK'}
+                {isSubmittingDomain ? 'Sending request...' : 'Request managed setup'}
               </button>
             </div>
           </div>
@@ -1776,6 +2528,19 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       )}
 
       {/* Assessment Details Modal */}
+      {showProjectRequestModal && (
+        <AssessmentQuestionnaire
+          isOpen={showProjectRequestModal}
+          onClose={() => setShowProjectRequestModal(false)}
+          onComplete={() => {
+            setShowProjectRequestModal(false);
+            setActiveTab('projects');
+            setSelectedProjectId(null);
+            fetchData();
+          }}
+        />
+      )}
+
       {showAssessmentModal && selectedAssessment && (
         <AssessmentModal 
           isOpen={showAssessmentModal}
@@ -1796,19 +2561,19 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             </div>
             
             <div className="space-y-4">
-              <h2 className="text-[10px] font-black text-ai-blue uppercase tracking-[0.5em] animate-fade-in">Operational Upgrade Detected</h2>
+              <h2 className="text-[10px] font-black text-ai-blue uppercase tracking-[0.5em] animate-fade-in">Community access updated</h2>
               <h1 className="text-4xl lg:text-6xl font-black uppercase tracking-tighter leading-none animate-reveal-text">
                 {revealTier.name}
               </h1>
               <p className="text-medium-gray text-xs font-mono uppercase tracking-widest opacity-60 max-w-sm mx-auto animate-fade-in delay-300">
-                Authorized access to Founders Circle level assets and synchronization Discount of {revealTier.discountPercent}%
+                Your Sitemendr account now carries this community level and its connected benefits.
               </p>
             </div>
 
             <div className="pt-8 space-y-6 animate-fade-in delay-500">
               <div className="p-6 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-sm">
                 <div className="flex justify-between items-center mb-6">
-                  <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Node Perks</span>
+                  <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Member benefits</span>
                   <Sparkles className="w-4 h-4 text-ai-blue animate-spin-slow" />
                 </div>
                 <ul className="space-y-2">
@@ -1829,7 +2594,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                 }}
                 className="w-full py-5 bg-ai-blue text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-2xl shadow-ai-blue/40 active:scale-95 duration-300"
               >
-                Access Decrypted Data
+                Open community access
               </button>
             </div>
           </div>

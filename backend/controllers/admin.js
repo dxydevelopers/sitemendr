@@ -578,6 +578,457 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+const buildRequestStatuses = [
+  'submitted',
+  'in_review',
+  'quote_ready',
+  'approved',
+  'payment_agreement',
+  'in_development',
+  'staging_review',
+  'launched',
+  'handoff',
+  'completed',
+  'cancelled',
+  'archived'
+];
+
+const buildMilestoneStatuses = ['pending', 'in_progress', 'completed', 'blocked'];
+const stagingReviewStatuses = ['not_sent', 'sent', 'changes_requested', 'approved'];
+
+const defaultBuildMilestones = [
+  {
+    title: 'Scope lock',
+    description: 'Confirm requirements, deliverables, access, and the working plan.',
+    status: 'completed',
+    progress: 100,
+    order: 1
+  },
+  {
+    title: 'Experience design',
+    description: 'Shape the screens, flows, and interface direction before build-out.',
+    status: 'pending',
+    progress: 0,
+    order: 2
+  },
+  {
+    title: 'Development',
+    description: 'Build the approved product features and connect required integrations.',
+    status: 'pending',
+    progress: 0,
+    order: 3
+  },
+  {
+    title: 'Staging review',
+    description: 'Prepare a staging version for client checks and final adjustments.',
+    status: 'pending',
+    progress: 0,
+    order: 4
+  },
+  {
+    title: 'Launch',
+    description: 'Move the approved build live and verify the production setup.',
+    status: 'pending',
+    progress: 0,
+    order: 5
+  },
+  {
+    title: 'Handoff',
+    description: 'Share access, notes, and any final operating guidance.',
+    status: 'pending',
+    progress: 0,
+    order: 6
+  }
+];
+
+const projectRequestInclude = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true
+    }
+  },
+  assessment: {
+    select: {
+      id: true,
+      responses: true,
+      results: true,
+      status: true,
+      createdAt: true
+    }
+  },
+  buildMilestones: {
+    orderBy: { order: 'asc' }
+  }
+};
+
+const ensureDefaultBuildMilestones = async (projectRequestId) => {
+  const existingCount = await prisma.buildMilestone.count({
+    where: { projectRequestId }
+  });
+
+  if (existingCount > 0) return;
+
+  await prisma.buildMilestone.createMany({
+    data: defaultBuildMilestones.map((milestone) => ({
+      projectRequestId,
+      ...milestone
+    }))
+  });
+};
+
+// Build request management
+exports.getProjectRequests = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const where = { serviceType: 'build' };
+    if (status && status !== 'all') where.status = status;
+
+    const requests = await prisma.projectRequest.findMany({
+      where,
+      include: projectRequestInclude,
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: requests
+    });
+  } catch (error) {
+    logger.error('GET_PROJECT_REQUESTS_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve build requests'
+    });
+  }
+};
+
+exports.updateProjectRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      status,
+      priority,
+      quotedAmount,
+      quoteCurrency,
+      paymentAgreementType,
+      paymentAgreementStatus,
+      depositAmount,
+      totalAgreedAmount,
+      paymentDueDate,
+      paymentInstructions,
+      stagingUrl,
+      stagingNotes,
+      stagingReviewStatus,
+      launchUrl,
+      launchNotes,
+      handoffNotes,
+      completionNotes,
+      adminNotes,
+      clientNotes,
+      packageIntent,
+      timeline,
+      budget
+    } = req.body;
+
+    const data = {};
+    if (status !== undefined) {
+      if (!buildRequestStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid build request status'
+        });
+      }
+      if (status === 'in_development') {
+        const currentRequest = await prisma.projectRequest.findUnique({
+          where: { id },
+          select: { status: true, paymentAgreementStatus: true }
+        });
+
+        if (currentRequest?.status === 'approved') {
+          return res.status(400).json({
+            success: false,
+            message: 'Confirm the payment agreement before moving this build into development'
+          });
+        }
+        if (currentRequest?.status === 'payment_agreement' && currentRequest.paymentAgreementStatus !== 'confirmed' && paymentAgreementStatus !== 'confirmed') {
+          return res.status(400).json({
+            success: false,
+            message: 'Mark the payment agreement as confirmed before moving this build into development'
+          });
+        }
+      }
+      data.status = status;
+      data.reviewedAt = new Date();
+    }
+    if (priority !== undefined) data.priority = priority;
+    if (quotedAmount !== undefined && quotedAmount !== '') data.quotedAmount = Number(quotedAmount);
+    if (quoteCurrency !== undefined) data.quoteCurrency = quoteCurrency || 'USD';
+    if (paymentAgreementType !== undefined) data.paymentAgreementType = paymentAgreementType || null;
+    if (paymentAgreementStatus !== undefined) {
+      data.paymentAgreementStatus = paymentAgreementStatus || 'pending';
+      data.paymentConfirmedAt = paymentAgreementStatus === 'confirmed' ? new Date() : null;
+    }
+    if (depositAmount !== undefined) data.depositAmount = depositAmount === '' || depositAmount === null ? null : Number(depositAmount);
+    if (totalAgreedAmount !== undefined) data.totalAgreedAmount = totalAgreedAmount === '' || totalAgreedAmount === null ? null : Number(totalAgreedAmount);
+    if (paymentDueDate !== undefined) data.paymentDueDate = paymentDueDate ? new Date(paymentDueDate) : null;
+    if (paymentInstructions !== undefined) data.paymentInstructions = paymentInstructions;
+    if (stagingUrl !== undefined) data.stagingUrl = stagingUrl || null;
+    if (stagingNotes !== undefined) data.stagingNotes = stagingNotes;
+    if (stagingReviewStatus !== undefined) {
+      if (!stagingReviewStatuses.includes(stagingReviewStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid staging review status'
+        });
+      }
+      data.stagingReviewStatus = stagingReviewStatus;
+      if (stagingReviewStatus === 'approved' || stagingReviewStatus === 'changes_requested') {
+        data.stagingReviewedAt = new Date();
+      }
+      if (stagingReviewStatus === 'approved') {
+        data.launchApprovedAt = new Date();
+      } else if (stagingReviewStatus === 'sent' || stagingReviewStatus === 'changes_requested' || stagingReviewStatus === 'not_sent') {
+        data.launchApprovedAt = null;
+      }
+    }
+    if (launchUrl !== undefined) data.launchUrl = launchUrl || null;
+    if (launchNotes !== undefined) data.launchNotes = launchNotes;
+    if (handoffNotes !== undefined) data.handoffNotes = handoffNotes;
+    if (completionNotes !== undefined) data.completionNotes = completionNotes;
+    if (adminNotes !== undefined) data.adminNotes = adminNotes;
+    if (clientNotes !== undefined) data.clientNotes = clientNotes;
+    if (packageIntent !== undefined) data.packageIntent = packageIntent;
+    if (timeline !== undefined) data.timeline = timeline;
+    if (budget !== undefined) data.budget = budget;
+
+    let request = await prisma.projectRequest.update({
+      where: { id },
+      data,
+      include: projectRequestInclude
+    });
+
+    if (status === 'in_development') {
+      await ensureDefaultBuildMilestones(id);
+      request = await prisma.projectRequest.findUnique({
+        where: { id },
+        include: projectRequestInclude
+      });
+    }
+
+    if (status === 'staging_review') {
+      const stagingMilestone = request?.buildMilestones?.find((milestone) => milestone.title === 'Staging review');
+      const launchMilestone = request?.buildMilestones?.find((milestone) => milestone.title === 'Launch');
+      if (stagingMilestone) {
+        await prisma.buildMilestone.update({
+          where: { id: stagingMilestone.id },
+          data: {
+            status: 'in_progress',
+            progress: data.stagingReviewStatus === 'sent' ? 80 : Math.max(stagingMilestone.progress || 0, 50)
+          }
+        });
+      }
+      if (launchMilestone && data.stagingReviewStatus === 'sent') {
+        await prisma.buildMilestone.update({
+          where: { id: launchMilestone.id },
+          data: {
+            status: 'pending',
+            progress: 0
+          }
+        });
+      }
+      if (!data.stagingReviewStatus) {
+        await prisma.projectRequest.update({
+          where: { id },
+          data: { stagingReviewStatus: 'sent' }
+        });
+      }
+      request = await prisma.projectRequest.findUnique({
+        where: { id },
+        include: projectRequestInclude
+      });
+    }
+
+    if (status === 'launched') {
+      const launchMilestone = request?.buildMilestones?.find((milestone) => milestone.title === 'Launch');
+      if (launchMilestone) {
+        await prisma.buildMilestone.update({
+          where: { id: launchMilestone.id },
+          data: {
+            status: 'in_progress',
+            progress: launchMilestone.status === 'completed' ? 60 : Math.max(launchMilestone.progress || 0, 60)
+          }
+        });
+      }
+      request = await prisma.projectRequest.findUnique({
+        where: { id },
+        include: projectRequestInclude
+      });
+    }
+
+    if (status === 'handoff') {
+      const launchMilestone = request?.buildMilestones?.find((milestone) => milestone.title === 'Launch');
+      const handoffMilestone = request?.buildMilestones?.find((milestone) => milestone.title === 'Handoff');
+      const milestoneUpdates = [];
+      if (launchMilestone) {
+        milestoneUpdates.push(prisma.buildMilestone.update({
+          where: { id: launchMilestone.id },
+          data: { status: 'completed', progress: 100 }
+        }));
+      }
+      if (handoffMilestone) {
+        milestoneUpdates.push(prisma.buildMilestone.update({
+          where: { id: handoffMilestone.id },
+          data: {
+            status: 'in_progress',
+            progress: 70
+          }
+        }));
+      }
+      if (milestoneUpdates.length) await Promise.all(milestoneUpdates);
+      request = await prisma.projectRequest.findUnique({
+        where: { id },
+        include: projectRequestInclude
+      });
+    }
+
+    if (status === 'completed') {
+      await prisma.buildMilestone.updateMany({
+        where: { projectRequestId: id },
+        data: { status: 'completed', progress: 100 }
+      });
+      await prisma.projectRequest.update({
+        where: { id },
+        data: { completedAt: new Date() }
+      });
+      request = await prisma.projectRequest.findUnique({
+        where: { id },
+        include: projectRequestInclude
+      });
+    }
+
+    res.json({
+      success: true,
+      data: request,
+      message: 'Build request updated'
+    });
+  } catch (error) {
+    logger.error('UPDATE_PROJECT_REQUEST_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update build request'
+    });
+  }
+};
+
+exports.createDefaultBuildMilestones = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const projectRequest = await prisma.projectRequest.findUnique({
+      where: { id },
+      select: { id: true, serviceType: true }
+    });
+
+    if (!projectRequest || projectRequest.serviceType !== 'build') {
+      return res.status(404).json({
+        success: false,
+        message: 'Build request not found'
+      });
+    }
+
+    await ensureDefaultBuildMilestones(id);
+
+    const request = await prisma.projectRequest.findUnique({
+      where: { id },
+      include: projectRequestInclude
+    });
+
+    res.json({
+      success: true,
+      data: request,
+      message: 'Build milestones are ready'
+    });
+  } catch (error) {
+    logger.error('CREATE_BUILD_MILESTONES_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to prepare build milestones'
+    });
+  }
+};
+
+exports.updateBuildMilestone = async (req, res) => {
+  try {
+    const { id, milestoneId } = req.params;
+    const {
+      title,
+      description,
+      status,
+      progress,
+      order,
+      dueDate,
+      clientNote
+    } = req.body;
+
+    const existing = await prisma.buildMilestone.findFirst({
+      where: {
+        id: milestoneId,
+        projectRequestId: id
+      }
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Build milestone not found'
+      });
+    }
+
+    const data = {};
+    if (title !== undefined) data.title = title;
+    if (description !== undefined) data.description = description;
+    if (status !== undefined) {
+      if (!buildMilestoneStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid build milestone status'
+        });
+      }
+      data.status = status;
+    }
+    if (progress !== undefined) {
+      const numericProgress = Number(progress);
+      data.progress = Number.isFinite(numericProgress) ? Math.max(0, Math.min(100, numericProgress)) : existing.progress;
+    }
+    if (order !== undefined) data.order = Number(order) || existing.order;
+    if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
+    if (clientNote !== undefined) data.clientNote = clientNote;
+
+    await prisma.buildMilestone.update({
+      where: { id: milestoneId },
+      data
+    });
+
+    const request = await prisma.projectRequest.findUnique({
+      where: { id },
+      include: projectRequestInclude
+    });
+
+    res.json({
+      success: true,
+      data: request,
+      message: 'Build milestone updated'
+    });
+  } catch (error) {
+    logger.error('UPDATE_BUILD_MILESTONE_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update build milestone'
+    });
+  }
+};
+
 // Support ticket management
 exports.getAllSupportTickets = async (req, res) => {
   try {
@@ -1382,6 +1833,3 @@ exports.deleteAssessment = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to delete assessment' });
   }
 };
-
-
-

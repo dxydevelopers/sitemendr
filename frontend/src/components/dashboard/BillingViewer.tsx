@@ -46,7 +46,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
       <div className="flex justify-between items-center px-2">
         <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
           <CreditCard className="w-5 h-5 text-ai-blue" />
-          Financial Ledger
+          Billing
         </h2>
       </div>
 
@@ -60,7 +60,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
               </div>
               <div className="flex justify-between items-start mb-8">
                 <div>
-                  <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Active Protocol</span>
+                  <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Active plan</span>
                   <h3 className="text-xl font-black uppercase tracking-tight text-white">{sub.siteName || sub.customName || 'Untitled Project'}</h3>
                 </div>
                 <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
@@ -85,7 +85,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
               
               <div className="mt-10 pt-8 border-t border-white/5 flex justify-between items-center">
                 <div className="text-[10px] font-black uppercase tracking-widest text-ai-blue">
-                  {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Deployment Active'}
+                  {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Plan active'}
                 </div>
                 <button onClick={() => onManageSubscription?.(sub.id)} className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
               </div>
@@ -220,7 +220,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
             </div>
           )}
           <button onClick={onUpdatePaymentMethod} className="mt-8 text-[9px] font-black text-medium-gray hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2">
-            {paymentMethod ? 'Update Security Credentials' : 'Add Payment Method'} <ExternalLink className="w-3 h-3" />
+            {paymentMethod ? 'Update payment method' : 'Add payment method'} <ExternalLink className="w-3 h-3" />
           </button>
         </div>
 

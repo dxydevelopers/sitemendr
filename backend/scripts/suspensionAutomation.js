@@ -82,7 +82,7 @@ const runSuspensionAutomation = async () => {
 
     for (const subscription of expiredSubscriptions) {
       const daysOverdue = Math.floor((now - subscription.expiresAt) / (1000 * 60 * 60 * 24));
-      const enforcementConfig = getEnforcementConfig(subscription.tier);
+      const enforcementConfig = await getEnforcementConfig(subscription.tier);
 
       if (daysOverdue > enforcementConfig.maxGracePeriod) {
         // Suspend the subscription

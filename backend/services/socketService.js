@@ -1,6 +1,7 @@
 const { Server } = require("socket.io");
 const logger = require("../config/logger");
-const { prisma } = require("../config/db");
+const { prisma, isDbConnected } = require("../config/db");
+const { withTimeout } = require("../utils/promise");
 
 const normalizeOrigin = (value) => {
   if (typeof value !== 'string') return value;
@@ -50,18 +51,31 @@ const initSocket = (server) => {
       logger.info(`User ${socket.id} joined chat: ${chatId}${userId ? ` (User: ${userId})` : ''}`);
       
       // Send message history to the user/agent joining
+      if (!isDbConnected()) {
+        logger.warn("Skipping chat history fetch - DB not connected", { chatId });
+        return;
+      }
+
       try {
-        let session = await prisma.chatSession.findUnique({
-          where: { externalId: chatId },
-          include: { messages: { orderBy: { timestamp: 'asc' } } }
-        });
+        let session = await withTimeout(
+          prisma.chatSession.findUnique({
+            where: { externalId: chatId },
+            include: { messages: { orderBy: { timestamp: 'asc' } } }
+          }),
+          5000,
+          'Timeout fetching chat history'
+        );
 
         // Link userId to session if it's missing
         if (session && userId && !session.userId) {
-          await prisma.chatSession.update({
-            where: { id: session.id },
-            data: { userId }
-          });
+          await withTimeout(
+            prisma.chatSession.update({
+              where: { id: session.id },
+              data: { userId }
+            }),
+            3000,
+            'Timeout linking user to chat session'
+          );
         }
         
         if (session) {
@@ -85,28 +99,45 @@ const initSocket = (server) => {
       logger.info(`Message in ${chatId}: ${text}`);
 
       // Persist message to database
+      if (!isDbConnected()) {
+        logger.warn("Skipping message persistence - DB not connected", { chatId });
+        return;
+      }
+
       try {
-        let session = await prisma.chatSession.findUnique({
-          where: { externalId: chatId }
-        });
+        let session = await withTimeout(
+          prisma.chatSession.findUnique({
+            where: { externalId: chatId }
+          }),
+          3000,
+          'Timeout finding chat session'
+        );
 
         if (!session) {
-          session = await prisma.chatSession.create({
-            data: {
-              externalId: chatId,
-              status: 'active'
-            }
-          });
+          session = await withTimeout(
+            prisma.chatSession.create({
+              data: {
+                externalId: chatId,
+                status: 'active'
+              }
+            }),
+            3000,
+            'Timeout creating chat session'
+          );
         }
 
-        await prisma.chatMessage.create({
-          data: {
-            sessionId: session.id,
-            text,
-            sender,
-            timestamp: new Date()
-          }
-        });
+        await withTimeout(
+          prisma.chatMessage.create({
+            data: {
+              sessionId: session.id,
+              text,
+              sender,
+              timestamp: new Date()
+            }
+          }),
+          3000,
+          'Timeout persisting chat message'
+        );
       } catch (err) {
         logger.error("Error persisting message", {
           errorCode: 'SOCKET_MESSAGE_PERSIST_ERROR',
@@ -122,18 +153,26 @@ const initSocket = (server) => {
       const { chatId, type } = data;
       logger.info(`Agent requested for ${chatId}: ${type}`);
       
-      try {
-        await prisma.chatSession.upsert({
-          where: { externalId: chatId },
-          update: { status: 'waiting', type },
-          create: { externalId: chatId, status: 'waiting', type }
-        });
-      } catch (err) {
-        logger.error("Error updating chat session status", {
-          errorCode: 'SOCKET_AGENT_REQUEST_ERROR',
-          error: err.message,
-          chatId
-        });
+      if (!isDbConnected()) {
+        logger.warn("Skipping agent request persistence - DB not connected", { chatId });
+      } else {
+        try {
+          await withTimeout(
+            prisma.chatSession.upsert({
+              where: { externalId: chatId },
+              update: { status: 'waiting', type },
+              create: { externalId: chatId, status: 'waiting', type }
+            }),
+            3000,
+            'Timeout updating chat session status'
+          );
+        } catch (err) {
+          logger.error("Error updating chat session status", {
+            errorCode: 'SOCKET_AGENT_REQUEST_ERROR',
+            error: err.message,
+            chatId
+          });
+        }
       }
 
       // Notify admins (in a 'admin_room')
@@ -149,12 +188,21 @@ const initSocket = (server) => {
       logger.info(`Admin joined: ${socket.id}`);
       
       // Send list of active/waiting sessions to admin
+      if (!isDbConnected()) {
+        logger.warn("Skipping active sessions fetch - DB not connected");
+        return;
+      }
+
       try {
-        const waitingSessions = await prisma.chatSession.findMany({
-          where: { status: { in: ['waiting', 'active'] } },
-          orderBy: { updatedAt: 'desc' },
-          include: { messages: { take: 1, orderBy: { timestamp: 'desc' } } }
-        });
+        const waitingSessions = await withTimeout(
+          prisma.chatSession.findMany({
+            where: { status: { in: ['waiting', 'active'] } },
+            orderBy: { updatedAt: 'desc' },
+            include: { messages: { take: 1, orderBy: { timestamp: 'desc' } } }
+          }),
+          5000,
+          'Timeout fetching active sessions'
+        );
         
         socket.emit("active_sessions", waitingSessions.map(s => ({
           chatId: s.externalId,

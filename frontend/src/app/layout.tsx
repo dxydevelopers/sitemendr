@@ -13,43 +13,42 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sitemendr - Digital Infrastructure Solutions",
+    default: "Sitemendr - Build, Repair, and Grow Online",
     template: "%s | Sitemendr",
   },
-  description: "High-performance web development and digital infrastructure solutions. We build resilient digital ecosystems for modern businesses.",
+  description: "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
   keywords: [
-    "web development", 
-    "website builder", 
-    "digital solutions", 
+    "custom website development", 
+    "technical website repair", 
+    "website maintenance", 
     "Sitemendr", 
-    "web development company", 
-    "digital infrastructure", 
-    "AI web development", 
-    "e-commerce development", 
-    "SaaS platforms", 
-    "web design Nairobi"
+    "dropshipping program", 
+    "affiliate marketing", 
+    "commerce storefronts", 
+    "client workspace", 
+    "managed website support"
   ],
   authors: [{ name: "Sitemendr Technologies" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://sitemendr.com",
-    title: "Sitemendr - Digital Infrastructure Solutions",
-    description: "High-performance web development and digital infrastructure solutions. We build resilient digital ecosystems for modern businesses.",
+    title: "Sitemendr - Build, Repair, and Grow Online",
+    description: "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
     siteName: "Sitemendr",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Sitemendr - Digital Infrastructure Solutions",
+        alt: "Sitemendr - Build, Repair, and Grow Online",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sitemendr - Digital Infrastructure Solutions",
-    description: "High-performance web development and digital infrastructure solutions. We build resilient digital ecosystems for modern businesses.",
+    title: "Sitemendr - Build, Repair, and Grow Online",
+    description: "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
     creator: "@sitemendr",
     images: ["/og-image.jpg"],
   },
@@ -139,7 +138,7 @@ export default function RootLayout({
             "@type": "Organization",
             "name": "Sitemendr",
             "url": "https://sitemendr.com",
-            "description": "Sitemendr builds and sells high-performance custom eCommerce and service websites. Launch your online store or business site fast—fully designed, animated, and ready to grow your brand. Get a dedicated account manager and unmatched support.",
+            "description": "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
             "contactPoint": [{
               "@type": "ContactPoint",
               "telephone": "+254-790-057-596",

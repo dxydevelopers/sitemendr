@@ -39,7 +39,7 @@ export default function GlobalNetwork() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-ai-blue/10 border border-ai-blue/20 mb-8">
               <Activity className="w-3 h-3 text-ai-blue" />
-              <span className="text-[10px] font-bold text-ai-blue uppercase tracking-widest">Global Status: Online</span>
+              <span className="text-[10px] font-bold text-ai-blue uppercase tracking-widest">Authority Network: Online</span>
             </div>
             
             <h2 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tighter uppercase leading-none italic">
@@ -47,17 +47,17 @@ export default function GlobalNetwork() {
             </h2>
             
             <p className="text-xl text-white/50 mb-12 max-w-xl font-light leading-relaxed">
-              Our network spans across 6 continents and 50+ data centers, ensuring your applications remain responsive no matter where your users are.
+              Your visitors should get a fast, dependable experience whether they find you locally or from across the world.
             </p>
 
             <div className="grid grid-cols-2 gap-6">
               <div className="p-6 rounded-3xl border border-white/10 group hover:border-ai-blue/40 transition-all">
                 <div className="text-4xl font-black text-white mb-2">18ms</div>
-                <div className="font-mono text-[10px] text-white/40 uppercase tracking-widest">Avg Latency</div>
+                <div className="font-mono text-[10px] text-white/40 uppercase tracking-widest">Fast Response</div>
               </div>
               <div className="p-6 rounded-3xl border border-white/10 group hover:border-expert-green/40 transition-all">
                 <div className="text-4xl font-black text-white mb-2">99.99%</div>
-                <div className="font-mono text-[10px] text-white/40 uppercase tracking-widest">Uptime Record</div>
+                <div className="font-mono text-[10px] text-white/40 uppercase tracking-widest">Reliability</div>
               </div>
             </div>
           </div>

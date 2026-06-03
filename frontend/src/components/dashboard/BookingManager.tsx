@@ -386,7 +386,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
               </div>
               {!isAdmin && (
                 <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[9px] font-black text-ai-blue opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.2em]">Initialize_Session</span>
+                  <span className="text-[9px] font-black text-ai-blue opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.2em]">Book session</span>
                   <ChevronRight className="w-6 h-6 text-white/10 group-hover:text-ai-blue group-hover:translate-x-1 transition-all" />
                 </div>
               )}
@@ -395,7 +395,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
           {services.length === 0 && (
             <div className="col-span-full py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
               <Briefcase className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No service modules available for deployment</p>
+              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No services available yet</p>
             </div>
           )}
         </div>
@@ -407,13 +407,13 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
           <div className="absolute inset-0" onClick={() => setShowAddService(false)}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl p-8 lg:p-12 relative z-10 animate-in zoom-in-95 duration-300 shadow-2xl">
             <h2 className="text-2xl lg:text-3xl font-black mb-8 lg:mb-10 tracking-tighter uppercase">
-              {editingService ? 'Update' : 'Define'} <span className="text-ai-blue italic">Service Module</span>
+              {editingService ? 'Update' : 'Add'} <span className="text-ai-blue italic">Service</span>
             </h2>
             <form onSubmit={handleAddService} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Module Name</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Service name</label>
                     <input
                       type="text"
                       required
@@ -425,7 +425,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Runtime (Min)</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Duration (min)</label>
                       <input
                         type="number"
                         required
@@ -450,13 +450,13 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 </div>
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Module Definition</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Description</label>
                     <textarea
                       required
                       value={newService.description}
                       onChange={(e) => setNewService({ ...newService, description: e.target.value })}
                       className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl focus:border-ai-blue focus:outline-none transition-all h-32 lg:h-[148px] resize-none text-sm font-medium leading-relaxed"
-                      placeholder="Detail the parameters of this service module..."
+                      placeholder="Describe what this service includes..."
                     />
                   </div>
                 </div>
@@ -467,14 +467,14 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                   onClick={() => setShowAddService(false)}
                   className="order-2 sm:order-1 flex-1 px-8 py-5 border border-white/10 rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
                 >
-                  Terminate
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="order-1 sm:order-2 flex-[2] px-8 py-5 bg-ai-blue text-white rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Transmitting...' : editingService ? 'Commit Changes' : 'Authorize Module'}
+                  {isSubmitting ? 'Saving...' : editingService ? 'Save changes' : 'Add service'}
                 </button>
               </div>
             </form>
@@ -496,7 +496,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
             
             <form onSubmit={handleCreateBooking} className="space-y-8">
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Temporal Alignment (Start Time)</label>
+                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Start time</label>
                 <input
                   type="datetime-local"
                   required
@@ -506,12 +506,12 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Contextual Brief (Notes)</label>
+                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Notes</label>
                 <textarea
                   value={bookingForm.notes}
                   onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
                   className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl focus:border-ai-blue focus:outline-none transition-all h-32 resize-none text-sm font-medium leading-relaxed"
-                  placeholder="Provide any relevant data points for this session..."
+                  placeholder="Share anything we should know before the session..."
                 />
               </div>
               
@@ -521,7 +521,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                   disabled={isSubmitting}
                   className="w-full py-5 bg-ai-blue text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Transmitting...' : 'Confirm Reservation'}
+                  {isSubmitting ? 'Booking...' : 'Confirm booking'}
                 </button>
                 <p className="text-center text-[8px] font-black text-white/20 uppercase tracking-widest">
                   Secure end-to-end encrypted session

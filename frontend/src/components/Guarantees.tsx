@@ -5,33 +5,33 @@ import { Check, Clock, Shield, RefreshCw, Headphones, Zap } from 'lucide-react';
 const guarantees = [
   {
     icon: <Clock className="w-8 h-8" />,
-    title: 'On-Time Delivery',
-    description: 'We deliver your website when promised. No delays, no excuses.'
+    title: 'Timeline Discipline',
+    description: 'Milestones are scoped, tracked, and moved through a controlled delivery cadence.'
   },
   {
     icon: <Shield className="w-8 h-8" />,
-    title: 'Secure & Safe',
-    description: 'Your website is protected with enterprise-grade security.'
+    title: 'Security Hardening',
+    description: 'Infrastructure is reviewed against practical attack surfaces and operational risk.'
   },
   {
     icon: <RefreshCw className="w-8 h-8" />,
-    title: '30-Day Revisions',
-    description: 'Request changes until you\'re completely satisfied.'
+    title: 'Refinement Window',
+    description: 'Post-build adjustments keep the final system aligned with the approved brief.'
   },
   {
     icon: <Headphones className="w-8 h-8" />,
-    title: 'Dedicated Support',
-    description: 'Reach us anytime. We\'re here to help.'
+    title: 'Operational Continuity',
+    description: 'Support remains available after launch for stability, clarity, and incident response.'
   },
   {
     icon: <Zap className="w-8 h-8" />,
-    title: 'Fast Loading',
-    description: 'Websites optimized for speed and performance.'
+    title: 'High-Velocity Performance',
+    description: 'Websites are tuned to feel fast, responsive, and easy for visitors to use.'
   },
   {
     icon: <Check className="w-8 h-8" />,
-    title: 'Mobile Responsive',
-    description: 'Looks great on phones, tablets, and desktops.'
+    title: 'Interface Integrity',
+    description: 'Layouts are validated across key device classes for a consistent operational surface.'
   }
 ];
 
@@ -41,13 +41,13 @@ export default function Guarantees() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <p className="text-sm font-medium text-white/50 uppercase tracking-widest mb-4">
-            Our Promise
+            Integrity Commitments
           </p>
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            What You Get
+            Operational Assurances
           </h2>
           <p className="text-white/60 max-w-2xl mx-auto">
-            We&apos;re committed to delivering exceptional results. Here&apos;s what sets us apart.
+            Every engagement is framed around delivery discipline, resilience, and long-term system confidence.
           </p>
         </div>
 

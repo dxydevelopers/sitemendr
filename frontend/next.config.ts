@@ -1,15 +1,10 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
 // Bundle analyzer for performance monitoring
-let withBundleAnalyzer = (config: NextConfig) => config;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  withBundleAnalyzer = require('@next/bundle-analyzer')({
-    enabled: process.env.ANALYZE === 'true',
-  });
-} catch (err) {
-  // Optional dependency; skip if not installed
-}
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const nextConfig: NextConfig = {
   // Enable React strict mode for better development experience
@@ -30,6 +25,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'cdn.simpleicons.org',
+      },
+      {
+        protocol: 'https',
         hostname: 'source.unsplash.com',
       },
       {
@@ -43,6 +42,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'i.imgur.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
       },
       {
         protocol: 'https',
@@ -80,13 +83,10 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['date-fns'],
   },
 
-  // NOTE: Turbopack config commented out due to HMR issues with lucide-react
-  // turbopack: {
-  //   root: __dirname,
-  // },
-
-  // Required empty turbopack config to silence warning since we have webpack config
-  turbopack: {},
+  // Turbopack config to set root directory correctly
+  turbopack: {
+    root: './',
+  },
 
   // Webpack configuration
   webpack: (config, { isServer, dev }) => {
@@ -140,7 +140,9 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: process.env.NODE_ENV === 'development'
+              ? 'no-store, must-revalidate'
+              : 'public, max-age=31536000, immutable',
           },
         ],
       },
@@ -149,7 +151,9 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: process.env.NODE_ENV === 'development'
+              ? 'no-store, must-revalidate'
+              : 'public, max-age=31536000, immutable',
           },
         ],
       },
@@ -158,6 +162,3 @@ const nextConfig: NextConfig = {
 };
 
 export default withBundleAnalyzer(nextConfig);
-
-
-

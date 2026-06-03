@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api';
-import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Menu, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles } from 'lucide-react';
+import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Menu, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 const BlogEditor = dynamic(() => import('./BlogEditor'), { ssr: false });
 const AssessmentModal = dynamic(() => import('./AssessmentModal'), { ssr: false });
@@ -183,9 +183,73 @@ interface Assessment {
   responses: Record<string, unknown>;
 }
 
+interface ProjectRequest {
+  id: string;
+  assessmentId?: string;
+  title: string;
+  businessName?: string;
+  serviceType: string;
+  packageIntent?: string;
+  budget?: string;
+  timeline?: string;
+  summary?: string;
+  status: string;
+  priority?: string;
+  quotedAmount?: number;
+  quoteCurrency?: string;
+  paymentAgreementType?: string;
+  paymentAgreementStatus?: string;
+  depositAmount?: number;
+  totalAgreedAmount?: number;
+  paymentDueDate?: string;
+  paymentInstructions?: string;
+  paymentConfirmedAt?: string;
+  stagingUrl?: string;
+  stagingNotes?: string;
+  stagingReviewStatus?: string;
+  stagingReviewedAt?: string;
+  launchUrl?: string;
+  launchNotes?: string;
+  launchApprovedAt?: string;
+  handoffNotes?: string;
+  completionNotes?: string;
+  completionAcknowledgedAt?: string;
+  completedAt?: string;
+  buildMilestones?: BuildMilestone[];
+  adminNotes?: string;
+  clientNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  assessment?: {
+    id: string;
+    responses?: Record<string, unknown>;
+    results?: Record<string, unknown>;
+    status?: string;
+    createdAt?: string;
+  };
+}
+
+interface BuildMilestone {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  progress: number;
+  order: number;
+  dueDate?: string;
+  clientNote?: string;
+}
+
 export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState(initialTab || 'dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>('work');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -193,6 +257,9 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [users, setUsers] = useState<User[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [projectRequests, setProjectRequests] = useState<ProjectRequest[]>([]);
+  const [selectedProjectRequestId, setSelectedProjectRequestId] = useState<string | null>(null);
+  const [activeAdminBuildChapter, setActiveAdminBuildChapter] = useState<string | null>(null);
   const [reviewProjects, setReviewProjects] = useState<Subscription[]>([]);
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData>({
@@ -204,7 +271,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     traffic: {},
     predictions: { recommendations: [] }
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [selectedSubscriptionForEditor, setSelectedSubscriptionForEditor] = useState<string | null>(null);
@@ -219,7 +286,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const router = useRouter();
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
     try {
       if (activeTab === 'dashboard') {
         const res = await apiClient.getAdminStats() as unknown as { success: boolean; data: DashboardStats };
@@ -233,6 +299,11 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
       } else if (activeTab === 'subscriptions') {
         const res = await apiClient.getAdminSubscriptions() as { success: boolean; data: Subscription[] };
         if (res.success) setSubscriptions(res.data);
+      } else if (activeTab === 'project-requests') {
+        const res = await apiClient.getAdminProjectRequests() as { success: boolean; data: ProjectRequest[] };
+        if (res.success) {
+          setProjectRequests(res.data);
+        }
       } else if (activeTab === 'assessments') {
         const res = await apiClient.getAdminAssessments() as { success: boolean; data: Assessment[] };
         if (res.success) setAssessments(res.data);
@@ -477,32 +548,191 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     }
   };
 
+  const buildRequestStatuses = [
+    'submitted',
+    'in_review',
+    'quote_ready',
+    'approved',
+    'payment_agreement',
+    'in_development',
+    'staging_review',
+    'launched',
+    'handoff',
+    'completed',
+    'cancelled',
+    'archived'
+  ];
+  const buildRequestPhases = [
+    { label: 'Brief', statuses: ['submitted', 'in_review'] },
+    { label: 'Quote', statuses: ['quote_ready', 'approved'] },
+    { label: 'Agreement', statuses: ['payment_agreement'] },
+    { label: 'Build', statuses: ['in_development'] },
+    { label: 'Review', statuses: ['staging_review'] },
+    { label: 'Launch', statuses: ['launched', 'handoff', 'completed'] },
+  ];
+  const adminBuildChapters = [
+    { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Read the request and confirm project basics', statuses: ['submitted', 'in_review'] },
+    { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Prepare pricing and scope decisions', statuses: ['quote_ready', 'approved'] },
+    { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Send terms and confirm payment agreement', statuses: ['payment_agreement'] },
+    { id: 'build', label: 'Build', eyebrow: 'Execution', detail: 'Manage milestones and delivery notes', statuses: ['in_development'] },
+    { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Send preview and handle feedback', statuses: ['staging_review'] },
+    { id: 'launch', label: 'Launch', eyebrow: 'Handoff', detail: 'Launch, handoff, and close the build', statuses: ['launched', 'handoff', 'completed'] },
+  ];
+
+  const selectedProjectRequest = selectedProjectRequestId ? projectRequests.find(request => request.id === selectedProjectRequestId) || null : null;
+  const selectedBuildPhaseIndex = Math.max(0, buildRequestPhases.findIndex(phase => phase.statuses.includes(selectedProjectRequest?.status || 'submitted')));
+  const defaultAdminBuildChapter = adminBuildChapters.find(chapter => chapter.statuses.includes(selectedProjectRequest?.status || 'submitted')) || adminBuildChapters[0];
+  const defaultAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === defaultAdminBuildChapter.id));
+  const requestedAdminBuildChapter = adminBuildChapters.find(chapter => chapter.id === activeAdminBuildChapter);
+  const requestedAdminBuildChapterIndex = requestedAdminBuildChapter ? adminBuildChapters.findIndex(chapter => chapter.id === requestedAdminBuildChapter.id) : -1;
+  const selectedAdminBuildChapter = requestedAdminBuildChapter && (requestedAdminBuildChapterIndex <= defaultAdminBuildChapterIndex || selectedProjectRequest?.status === 'completed')
+    ? requestedAdminBuildChapter
+    : defaultAdminBuildChapter;
+  const selectedAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === selectedAdminBuildChapter.id));
+  const adminBuildPageProgress = Math.round(((defaultAdminBuildChapterIndex + 1) / adminBuildChapters.length) * 100);
+  const selectedBuildMilestones = selectedProjectRequest?.buildMilestones || [];
+  const selectedBuildMilestoneProgress = selectedBuildMilestones.length
+    ? Math.round(selectedBuildMilestones.reduce((sum, milestone) => sum + (milestone.progress || (milestone.status === 'completed' ? 100 : 0)), 0) / selectedBuildMilestones.length)
+    : 0;
+  const selectedActiveBuildMilestone = selectedBuildMilestones.find(milestone => milestone.status === 'in_progress')
+    || selectedBuildMilestones.find(milestone => milestone.status === 'pending')
+    || selectedBuildMilestones[selectedBuildMilestones.length - 1];
+
+  const handleUpdateProjectRequest = async (id: string, data: Record<string, unknown>) => {
+    setSubmitting(true);
+    try {
+      const res = await apiClient.updateAdminProjectRequest(id, data) as { success: boolean; data: ProjectRequest };
+      if (res.success) {
+        setProjectRequests(prev => prev.map(request => request.id === id ? res.data : request));
+        setSelectedProjectRequestId(id);
+      }
+    } catch (error) {
+      console.error('Failed to update build request:', error);
+      alert('Failed to update build request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateDefaultBuildMilestones = async (id: string) => {
+    setSubmitting(true);
+    try {
+      const res = await apiClient.createDefaultBuildMilestones(id) as { success: boolean; data: ProjectRequest };
+      if (res.success) {
+        setProjectRequests(prev => prev.map(request => request.id === id ? res.data : request));
+        setSelectedProjectRequestId(id);
+      }
+    } catch (error) {
+      console.error('Failed to prepare build milestones:', error);
+      alert('Failed to prepare build milestones');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateBuildMilestone = async (requestId: string, milestoneId: string, data: Record<string, unknown>) => {
+    setSubmitting(true);
+    try {
+      const res = await apiClient.updateBuildMilestone(requestId, milestoneId, data) as { success: boolean; data: ProjectRequest };
+      if (res.success) {
+        setProjectRequests(prev => prev.map(request => request.id === requestId ? res.data : request));
+        setSelectedProjectRequestId(requestId);
+      }
+    } catch (error) {
+      console.error('Failed to update build milestone:', error);
+      alert('Failed to update build milestone');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleLogout = () => {
     onLogout();
     router.push('/');
   };
 
   const tabs = [
-    { id: 'dashboard', name: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'dashboard', name: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'project-requests', name: 'Build Pipeline', shortName: 'Build', icon: <FileText className="w-4 h-4" /> },
+    { id: 'review', name: 'Reviews & Approvals', shortName: 'Approvals', icon: <Eye className="w-4 h-4" /> },
+    { id: 'milestones', name: 'Milestones', icon: <Activity className="w-4 h-4" /> },
+    { id: 'health', name: 'Repair & Care', shortName: 'Care', icon: <Activity className="w-4 h-4" /> },
+    { id: 'bookings', name: 'Grow / Bookings', shortName: 'Bookings', icon: <Clock className="w-4 h-4" /> },
+    { id: 'users', name: 'Client Records', shortName: 'Clients', icon: <Users className="w-4 h-4" /> },
     { id: 'leads', name: 'Leads', icon: <Folder className="w-4 h-4" /> },
-    { id: 'users', name: 'Users', icon: <Users className="w-4 h-4" /> },
-    { id: 'subscriptions', name: 'Subscriptions', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'assessments', name: 'Assessments', icon: <Sparkles className="w-4 h-4" /> },
-    { id: 'review', name: 'Human Review', icon: <Eye className="w-4 h-4" /> },
-    { id: 'media', name: 'Media Library', icon: <Folder className="w-4 h-4" /> },
-    { id: 'blog', name: 'Blog', icon: <PenLine className="w-4 h-4" /> },
-    { id: 'analytics', name: 'Analytics', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'bookings', name: 'Bookings', icon: <Clock className="w-4 h-4" /> },
+    { id: 'subscriptions', name: 'Billing & Agreements', shortName: 'Billing', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'tickets', name: 'Tickets', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'live-support', name: 'Live Chat', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'milestones', name: 'Milestones', icon: <Activity className="w-4 h-4" /> },
     { id: 'comments', name: 'Comments', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'health', name: 'Vitals', icon: <Activity className="w-4 h-4" /> },
-    { id: 'system', name: 'System', icon: <Settings className="w-4 h-4" /> },
+    { id: 'media', name: 'Media Library', shortName: 'Media', icon: <Folder className="w-4 h-4" /> },
+    { id: 'blog', name: 'Blog', icon: <PenLine className="w-4 h-4" /> },
+    { id: 'analytics', name: 'Analytics', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'system', name: 'System Controls', shortName: 'System', icon: <Settings className="w-4 h-4" /> },
   ];
+  const tabGroups = [
+    {
+      id: 'overview',
+      label: 'Overview',
+      accent: 'text-ai-blue',
+      icon: <BarChart3 className="w-4 h-4" />,
+      tabs: ['dashboard'],
+    },
+    {
+      id: 'work',
+      label: 'Work',
+      accent: 'text-ai-blue',
+      icon: <Layout className="w-4 h-4" />,
+      tabs: ['project-requests', 'review', 'milestones', 'health', 'bookings'],
+    },
+    {
+      id: 'clients',
+      label: 'Clients',
+      accent: 'text-expert-green',
+      icon: <Users className="w-4 h-4" />,
+      tabs: ['users', 'leads', 'assessments'],
+    },
+    {
+      id: 'communication',
+      label: 'Communication',
+      accent: 'text-tech-purple',
+      icon: <MessageSquare className="w-4 h-4" />,
+      tabs: ['tickets', 'live-support', 'comments'],
+    },
+    {
+      id: 'business',
+      label: 'Business',
+      accent: 'text-amber-300',
+      icon: <CreditCard className="w-4 h-4" />,
+      tabs: ['subscriptions', 'analytics'],
+    },
+    {
+      id: 'content',
+      label: 'Content',
+      accent: 'text-ai-blue',
+      icon: <PenLine className="w-4 h-4" />,
+      tabs: ['media', 'blog'],
+    },
+    {
+      id: 'system',
+      label: 'System',
+      accent: 'text-white/70',
+      icon: <Settings className="w-4 h-4" />,
+      tabs: ['system'],
+    },
+  ];
+  const currentTab = tabs.find(t => t.id === activeTab);
+  const currentGroup = tabGroups.find(group => group.tabs.includes(activeTab)) || tabGroups[0];
+  const openAdminTab = (tabId: string) => {
+    setActiveTab(tabId);
+    setIsSidebarOpen(false);
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', `/admin/${tabId}`);
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-darker-bg text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
+    <div className="flex h-screen bg-[#05070a] text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -511,306 +741,268 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         ></div>
       )}
 
-      {/* Infrastructure Grid Background */}
-      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-      </div>
-
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 w-72 bg-black/80 lg:bg-white/[0.01] border-r border-white/5 backdrop-blur-3xl flex flex-col z-[110] lg:z-20 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-8 relative">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-ai-blue to-tech-purple rounded-lg flex items-center justify-center font-black text-xs shadow-lg animate-pulse">
-              SYS
+      <aside className={`fixed inset-y-0 left-0 w-80 bg-[#05070a]/96 backdrop-blur-2xl lg:bg-[#05070a] border-r border-white/10 flex flex-col z-[110] lg:z-20 transform transition-[width,transform] duration-300 lg:relative lg:translate-x-0 ${isSidebarExpanded ? 'lg:w-80' : 'lg:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className={`border-b border-white/10 px-3 py-4 ${isSidebarExpanded ? '' : 'lg:px-3'}`}>
+          <div className={`flex items-center gap-3 ${isSidebarExpanded ? 'justify-between' : 'lg:justify-center'}`}>
+          <button
+            type="button"
+            onClick={() => openAdminTab('dashboard')}
+            className={`group flex min-w-0 items-center gap-3 px-2 py-2 text-left transition hover:bg-white/[0.04] ${isSidebarExpanded ? 'flex-1' : 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}
+          >
+            <div className="grid h-10 w-10 shrink-0 place-items-center bg-white text-[#05070a]">
+              <Layout className="h-4 w-4" />
             </div>
-            <h2 className="text-lg font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent tracking-tight uppercase">
-              Admin <span className="italic text-ai-blue">Terminal</span>
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[8px] text-ai-blue font-black uppercase tracking-[0.3em]">ADMIN_AUTH: VERIFIED</span>
-            <span className="w-1 h-1 rounded-full bg-expert-green animate-ping"></span>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-black tracking-tight text-white">Sitemendr</h2>
+              <p className="mt-1 truncate text-[10px] font-semibold text-white/42">Admin operations</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSidebarExpanded(value => !value)}
+            className="hidden h-10 w-10 shrink-0 place-items-center text-white/52 transition hover:bg-white/[0.06] hover:text-white lg:grid"
+            aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {isSidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+          </button>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-4 overflow-y-auto custom-scrollbar">
-          <ul className="space-y-1">
-            {tabs.map((tab) => (
-              <li key={tab.id}>
-                <button
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setIsSidebarOpen(false);
-                    router.push(`/admin/${tab.id}`);
-                  }}
-                  className={`w-full text-left px-6 py-3.5 rounded-xl transition-all duration-300 flex items-center gap-4 group relative overflow-hidden ${
-                    activeTab === tab.id
-                      ? 'bg-ai-blue/10 text-white border border-ai-blue/20'
-                      : 'text-medium-gray hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {activeTab === tab.id && (
-                    <div className="absolute left-0 top-0 w-[2px] h-full bg-ai-blue"></div>
+        <nav className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar">
+          <div className="space-y-2">
+            {tabGroups.map((group) => {
+              const isGroupActive = group.tabs.includes(activeTab);
+              const isOpen = openSidebarGroup === group.id || isGroupActive;
+
+              return (
+                <div key={group.id} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (group.tabs.length === 1) {
+                        openAdminTab(group.tabs[0]);
+                        setOpenSidebarGroup(group.id);
+                      } else {
+                        setOpenSidebarGroup(isOpen && !isGroupActive ? null : group.id);
+                      }
+                    }}
+                    className={`group/nav flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left transition ${isSidebarExpanded ? '' : 'lg:justify-center'} ${
+                      isGroupActive
+                        ? 'bg-white/[0.065] text-white'
+                        : 'text-white/52 hover:bg-white/[0.045] hover:text-white'
+                    }`}
+                  >
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center ${isGroupActive ? group.accent : 'text-white/38 group-hover/nav:text-white/72'}`}>
+                      {group.icon}
+                    </span>
+                    <span className={`min-w-0 flex-1 ${isSidebarExpanded ? '' : 'lg:hidden'}`}>
+                      <span className="block truncate text-[13px] font-black tracking-tight">{group.label}</span>
+                    </span>
+                    {group.tabs.length > 1 && isSidebarExpanded && (
+                      <ChevronRight className={`h-4 w-4 shrink-0 text-white/30 transition ${isOpen ? 'rotate-90 text-white/58' : ''}`} />
+                    )}
+                  </button>
+
+                  {group.tabs.length > 1 && isOpen && isSidebarExpanded && (
+                    <div className="ml-7 space-y-1 border-l border-white/[0.08] pl-3">
+                      {group.tabs.map((tabId) => {
+                        const tab = tabs.find(item => item.id === tabId);
+                        if (!tab) return null;
+
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => openAdminTab(tab.id)}
+                            className={`flex min-h-9 w-full items-center gap-3 px-3 py-2 text-left transition ${
+                              activeTab === tab.id
+                                ? 'bg-ai-blue/12 text-white'
+                                : 'text-white/44 hover:bg-white/[0.04] hover:text-white'
+                            }`}
+                          >
+                            <span className={activeTab === tab.id ? 'text-ai-blue' : 'text-white/30'}>
+                              {tab.icon}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[12px] font-semibold tracking-tight">{tab.shortName || tab.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                  <span className={`transition-transform duration-300 group-hover:scale-110 ${activeTab === tab.id ? 'opacity-100' : 'opacity-40 grayscale'}`}>
-                    {tab.icon}
-                  </span>
-                  <span className="font-semibold text-[13px] tracking-tight uppercase">{tab.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                </div>
+              );
+            })}
+          </div>
         </nav>
 
-        <div className="p-6 border-t border-white/5">
+        <div className="border-t border-white/10 p-4">
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-6 py-3 bg-red-500/10 border border-red-500/20 text-red-500 font-semibold text-xs rounded-xl hover:bg-red-500 hover:text-white transition-all duration-300"
+            className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-[12px] font-semibold text-white/46 transition hover:bg-red-500/10 hover:text-red-300"
           >
-            <span>???</span>
-            <span>Terminate Session</span>
+            <span>Sign out</span>
+            <span className="text-red-300">Exit</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
-        <header className="px-6 lg:px-10 py-4 lg:py-6 flex justify-between items-center border-b border-white/5 bg-white/[0.01] backdrop-blur-sm">
-          <div className="flex items-center gap-4 lg:gap-8">
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+        <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#05070a]/95 px-4 py-3 lg:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             {/* Mobile Menu Toggle */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 bg-white/5 rounded-lg border border-white/10"
+              className="grid h-10 w-10 place-items-center border border-white/10 text-white/64 transition hover:bg-white/[0.05] hover:text-white lg:hidden"
+              aria-label="Open admin navigation"
             >
-              <Menu className="w-5 h-5 text-ai-blue" />
+              <Menu className="h-5 w-5" />
             </button>
 
-            <h1 className="text-lg lg:text-xl font-bold text-white tracking-tight uppercase">
-              {tabs.find(t => t.id === activeTab)?.name}
-            </h1>
-          </div>
-          
-          <div className="hidden sm:flex items-center gap-6">
-            <div className="flex flex-col items-end">
-              <span className="text-[7px] text-medium-gray font-black uppercase tracking-widest">Global Node Status</span>
-              <span className="text-[10px] text-expert-green font-black uppercase tracking-widest flex items-center gap-2">
-                <span className="w-1 h-1 rounded-full bg-expert-green animate-pulse"></span>
-                CORE OPERATIONAL
-              </span>
-            </div>
+            {activeTab !== 'dashboard' && (
+              <div className="min-w-0">
+                <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${currentGroup.accent}`}>{currentGroup.label}</p>
+                <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">
+                  {currentTab?.name || 'Admin'}
+                </h1>
+              </div>
+            )}
           </div>
         </header>
 
-        <main className="flex-1 p-6 lg:p-10 overflow-y-auto custom-scrollbar relative">
-          {/* System Path Indicator */}
-          <div className="mb-8 flex items-center gap-2 opacity-30 text-[8px] font-black uppercase tracking-[0.4em]">
-            <span className="text-ai-blue">SYSTEM_ROOT</span>
-            <span>/</span>
-            <span>ADMIN_TERMINAL</span>
-            <span>/</span>
-            <span className="text-white">{activeTab}</span>
-          </div>
+        <main className="relative flex-1 overflow-y-auto p-4 custom-scrollbar sm:p-6 lg:p-7">
 
         {/* Dashboard Content */}
         {activeTab === 'dashboard' && (
           <div className="animate-fade-in">
             {loading ? (
-              <div className="flex flex-col justify-center items-center h-96 gap-6">
-                <div className="w-16 h-16 border-2 border-white/5 border-t-ai-blue rounded-lg animate-spin"></div>
-                <div className="flex flex-col items-center">
-                  <p className="text-[10px] font-black text-ai-blue uppercase tracking-[0.4em] animate-pulse">SYNCHRONIZING DATA STRUCTURES</p>
-                  <span className="text-[8px] text-medium-gray mt-2 font-mono">LOADING_BUFFERS...</span>
-                </div>
+              <div className="flex h-80 items-center justify-center border-y border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-white/34">
+                Loading admin overview...
               </div>
             ) : stats ? (
-              <div className="space-y-10">
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="space-y-5">
+                <section className="grid gap-px overflow-hidden bg-white/10 md:grid-cols-2 xl:grid-cols-4">
                   {[
-                    { label: 'Total Users', value: stats.totalUsers, color: 'from-ai-blue/20 to-ai-blue/5', icon: '????', unit: 'USR' },
-                    { label: 'Total Leads', value: stats.totalLeads, color: 'from-expert-green/20 to-expert-green/5', icon: '????', unit: 'LEAD' },
-                    { label: 'Assessments', value: stats.totalAssessments, color: 'from-tech-purple/20 to-tech-purple/5', icon: '????', unit: 'LOG' },
-                    { label: 'Conversion', value: stats.conversionRate, color: 'from-orange-500/20 to-orange-500/5', icon: '????', unit: '%' },
-                    { label: 'Total Revenue', value: stats.revenue?.total ? `$${stats.revenue.total.toLocaleString()}` : '$0', color: 'from-green-500/20 to-green-500/5', icon: '????', unit: 'USD' },
-                    { label: 'Sites', value: stats.subscriptions?.active || 0, color: 'from-ai-blue/20 to-ai-blue/5', icon: '????', unit: 'NODE' },
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-white/[0.02] border border-white/5 p-4 lg:p-8 rounded-3xl hover:bg-white/[0.04] transition-all duration-300 group relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-[0.05] pointer-events-none group-hover:scale-110 transition-transform duration-500">
-                        <span className="text-xl lg:text-2xl font-bold">{stat.icon}</span>
+                    { label: 'Build', value: stats.totalAssessments, detail: 'intake records', tab: 'project-requests', icon: <FileText className="h-5 w-5" />, accent: 'text-ai-blue' },
+                    { label: 'Clients', value: stats.totalUsers, detail: `${stats.totalLeads} leads`, tab: 'users', icon: <Users className="h-5 w-5" />, accent: 'text-expert-green' },
+                    { label: 'Billing', value: stats.revenue?.total ? `$${stats.revenue.total.toLocaleString()}` : '$0', detail: `${stats.subscriptions?.active || 0} active sites`, tab: 'subscriptions', icon: <CreditCard className="h-5 w-5" />, accent: 'text-amber-300' },
+                    { label: 'Support', value: stats.subscriptions?.suspended || 0, detail: 'suspended sites', tab: 'tickets', icon: <MessageSquare className="h-5 w-5" />, accent: 'text-tech-purple' },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => openAdminTab(item.tab)}
+                      className="group min-h-[168px] bg-[#05070a] p-5 text-left transition hover:bg-white/[0.035]"
+                    >
+                      <div className="flex items-start justify-between gap-5">
+                        <span className={item.accent}>{item.icon}</span>
+                        <ChevronRight className="h-4 w-4 text-white/24 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
                       </div>
-                      <div className="flex flex-col relative z-10">
-                        <span className="text-[7px] lg:text-[8px] font-bold text-medium-gray uppercase tracking-[0.3em] mb-1">{stat.label}</span>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-lg lg:text-xl font-bold tracking-tight">{stat.value}</span>
-                          <span className="text-[8px] lg:text-[10px] font-black text-ai-blue/50">{stat.unit}</span>
-                        </div>
+                      <p className="mt-8 text-[11px] font-black uppercase tracking-[0.16em] text-white/34">{item.label}</p>
+                      <p className="mt-2 text-3xl font-black tracking-tight text-white">{item.value}</p>
+                      <p className="mt-2 text-sm font-semibold text-white/42">{item.detail}</p>
+                    </button>
+                  ))}
+                </section>
+
+                <section className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                  <div className="grid gap-px overflow-hidden bg-white/10 sm:grid-cols-2">
+                    {[
+                      { label: 'Conversion', value: stats.conversionRate },
+                      { label: 'Assessments', value: stats.totalAssessments },
+                      { label: 'Leads', value: stats.totalLeads },
+                      { label: 'Clients', value: stats.totalUsers },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-[#05070a] px-5 py-5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">{stat.label}</p>
+                        <p className="mt-3 text-2xl font-black tracking-tight text-white">{stat.value}</p>
                       </div>
-                      <div className="mt-4 lg:mt-6 h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                    ))}
+                  </div>
+
+                  <div className="border-y border-white/10 py-5">
+                    <div className="mb-5 flex items-center justify-between gap-4 px-1">
+                      <h3 className="text-sm font-black text-white">30 day activity</h3>
+                      <div className="flex gap-4 text-[10px] font-semibold text-white/42">
+                        <span className="flex items-center gap-2"><span className="h-2 w-2 bg-ai-blue"></span>Clients</span>
+                        <span className="flex items-center gap-2"><span className="h-2 w-2 bg-expert-green"></span>Leads</span>
+                      </div>
+                    </div>
+                    {(stats.userGrowth?.length > 0 || stats.leadGrowth?.length > 0) ? (
+                      <div className="flex h-40 items-end gap-1">
+                        {(stats.userGrowth || []).slice(-30).map((day, i) => {
+                          const leadDay = stats.leadGrowth?.[i] || { count: 0 };
+                          const maxCount = Math.max(
+                            ...stats.userGrowth.map(d => d.count),
+                            ...stats.leadGrowth.map(d => d.count),
+                            1
+                          );
+
+                          return (
+                            <div key={`${day.date}-${i}`} className="flex h-full flex-1 flex-col justify-end gap-[2px]">
+                              <div className="w-full bg-expert-green/55" style={{ height: `${(leadDay.count / maxCount) * 100}%` }} />
+                              <div className="w-full bg-ai-blue/60" style={{ height: `${(day.count / maxCount) * 100}%` }} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex h-40 items-center justify-center text-sm text-white/34">No growth data yet.</div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="grid gap-5 lg:grid-cols-2">
+                  {[
+                    {
+                      title: 'Leads',
+                      tab: 'leads',
+                      empty: 'No recent leads.',
+                      rows: stats.recentLeads?.slice(0, 5).map((lead, index) => ({
+                        key: lead.id || String(index),
+                        title: lead.name,
+                        meta: lead.email,
+                        side: lead.status,
+                      })) || [],
+                    },
+                    {
+                      title: 'Assessments',
+                      tab: 'assessments',
+                      empty: 'No recent assessments.',
+                      rows: stats.recentAssessments?.slice(0, 5).map((assessment, index) => ({
+                        key: assessment.id || String(index),
+                        title: 'Assessment',
+                        meta: (assessment.id || '').slice(-8).toUpperCase(),
+                        side: new Date(assessment.createdAt).toLocaleDateString(),
+                      })) || [],
+                    },
+                  ].map((table) => (
+                    <div key={table.title} className="border-y border-white/10">
+                      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                        <h3 className="text-sm font-black text-white">{table.title}</h3>
+                        <button type="button" onClick={() => openAdminTab(table.tab)} className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">Open</button>
+                      </div>
+                      <div className="divide-y divide-white/10">
+                        {table.rows.length ? table.rows.map((row) => (
+                          <div key={row.key} className="grid min-h-14 grid-cols-[1fr_7rem] items-center gap-4 px-4 py-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white">{row.title}</p>
+                              <p className="mt-1 truncate text-xs text-white/36">{row.meta}</p>
+                            </div>
+                            <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/42">{row.side}</span>
+                          </div>
+                        )) : (
+                          <div className="px-4 py-8 text-sm text-white/34">{table.empty}</div>
+                        )}
+                      </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Growth Visualization (Miniature) */}
-                {(stats.userGrowth?.length > 0 || stats.leadGrowth?.length > 0) && (
-                  <div className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl relative overflow-hidden group">
-                    <div className="flex justify-between items-center mb-8">
-                      <div className="flex flex-col">
-                        <h3 className="font-black text-xs tracking-widest uppercase text-ai-blue">Growth Analysis</h3>
-                        <span className="text-[7px] text-medium-gray uppercase tracking-widest mt-1">30-Day Growth</span>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-ai-blue"></div>
-                          <span className="text-[7px] font-black uppercase text-medium-gray tracking-widest">Users</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-expert-green"></div>
-                          <span className="text-[7px] font-black uppercase text-medium-gray tracking-widest">Leads</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="h-32 w-full flex items-end gap-1 px-2">
-                      {/* Simple CSS-based bar chart for growth */}
-                      {(stats.userGrowth || []).slice(-30).map((day, i) => {
-                        const leadDay = stats.leadGrowth?.[i] || { count: 0 };
-                        const maxCount = Math.max(
-                          ...stats.userGrowth.map(d => d.count),
-                          ...stats.leadGrowth.map(d => d.count),
-                          1
-                        );
-                        return (
-                          <div key={i} className="flex-1 flex flex-col justify-end items-center gap-[2px] h-full group/bar">
-                            <div 
-                              className="w-full bg-expert-green/40 group-hover/bar:bg-expert-green transition-colors rounded-t-[1px]" 
-                              style={{ height: `${(leadDay.count / maxCount) * 100}%` }}
-                            ></div>
-                            <div 
-                              className="w-full bg-ai-blue/40 group-hover/bar:bg-ai-blue transition-colors rounded-t-[1px]" 
-                              style={{ height: `${(day.count / maxCount) * 100}%` }}
-                            ></div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex justify-between mt-4 text-[6px] font-black text-medium-gray uppercase tracking-widest">
-                      <span>T-30D</span>
-                      <span>CURRENT_STATE</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Recent Activity Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Recent Leads */}
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                      <h2 className="text-xl font-bold tracking-tighter uppercase flex items-center gap-3">
-                        <span className="w-1.5 h-6 bg-ai-blue rounded-full"></span>
-                        Lead Ingestion
-                      </h2>
-                      <span className="text-[8px] font-black text-medium-gray uppercase tracking-[0.2em]">LIVE_STREAM_01</span>
-                    </div>
-                    
-                    <div className="bg-white/[0.01] border border-white/5 rounded-3xl overflow-hidden relative">
-                      <div className="absolute inset-0 opacity-[0.02] pointer-events-none text-[6px] p-4 break-all leading-none">
-                        {Array(5).fill('DATA-INGRESS-AUTH-SUCCESS-BUFFER-SYNC-').join('')}
-                      </div>
-                      {stats?.recentLeads?.length ? (
-                        <div className="divide-y divide-white/5 relative z-10">
-                          {stats.recentLeads.slice(0, 5).map((lead, index) => (
-                            <div key={lead.id || index} className="flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors group">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center font-black text-[9px] uppercase group-hover:bg-ai-blue/20 group-hover:text-ai-blue transition-colors border border-white/5">
-                                  {lead.name.split(' ').map((n) => n[0]).join('')}
-                                </div>
-                                <div>
-                                  <p className="text-[11px] font-black tracking-tight uppercase">{lead.name}</p>
-                                  <p className="text-[9px] text-medium-gray font-medium tracking-tighter uppercase">{lead.email}</p>
-                                </div>
-                              </div>
-                              <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded border ${
-                                lead.status === 'new' ? 'bg-expert-green/10 border-expert-green/20 text-expert-green' :
-                                lead.status === 'contacted' ? 'bg-ai-blue/10 border-ai-blue/20 text-ai-blue' :
-                                'bg-white/5 border-white/10 text-medium-gray'
-                              }`}>
-                                {lead.status}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-12 text-center relative z-10">
-                          <p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">ZERO_DATA_INGRESS</p>
-                        </div>
-                      )}
-      <button 
-        onClick={() => setActiveTab('leads')}
-        className="w-full py-4 bg-white/[0.02] text-[9px] font-black uppercase tracking-[0.3em] text-medium-gray hover:text-ai-blue hover:bg-white/[0.04] transition-all border-t border-white/5 relative z-10 flex items-center justify-center gap-2"
-      >
-        <span className="w-1 h-1 bg-medium-gray rounded-full"></span>
-        Access Lead Matrix
-      </button>
-                    </div>
-                  </div>
-
-                  {/* Recent Assessments */}
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                      <h2 className="text-xl font-bold tracking-tighter uppercase flex items-center gap-3">
-                        <span className="w-1.5 h-6 bg-tech-purple rounded-full"></span>
-                        Assessment Stream
-                      </h2>
-                      <span className="text-[8px] font-black text-medium-gray uppercase tracking-[0.2em]">AUDIT_LOGS</span>
-                    </div>
-                    
-                    <div className="bg-white/[0.01] border border-white/5 rounded-3xl overflow-hidden relative">
-                      <div className="absolute inset-0 opacity-[0.02] pointer-events-none text-[6px] p-4 break-all leading-none">
-                        {Array(5).fill('AUDIT-COMPLETE-SYNC-VERIFIED-NODE-ACCESS-').join('')}
-                      </div>
-                      {stats?.recentAssessments?.length ? (
-                        <div className="divide-y divide-white/5 relative z-10">
-                          {stats.recentAssessments.slice(0, 5).map((assessment, index) => (
-                            <div key={assessment.id || index} className="p-5 hover:bg-white/[0.02] transition-colors flex items-center justify-between group">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-lg grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all border border-white/5">
-                                  ????
-                                </div>
-                                <div>
-                                  <p className="text-[11px] font-black tracking-tight uppercase">Technical Audit</p>
-                                  <p className="text-[8px] text-ai-blue font-black font-mono">
-                                    NODE_{(assessment.id || '').slice(-6).toUpperCase()}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[9px] font-black text-white font-mono">{new Date(assessment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</p>
-                                <p className="text-[7px] font-black text-expert-green uppercase tracking-widest">VALIDATED</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-12 text-center relative z-10">
-                          <p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">IDLE_STREAM</p>
-                        </div>
-                      )}
-                      <button 
-                        onClick={() => setActiveTab('assessments')}
-                        className="w-full py-4 bg-white/[0.02] text-[9px] font-black uppercase tracking-[0.3em] text-medium-gray hover:text-ai-blue hover:bg-white/[0.04] transition-all border-t border-white/5 relative z-10 flex items-center justify-center gap-2"
-                      >
-                        <span className="w-1 h-1 bg-medium-gray rounded-full"></span>
-                        Audit System Logs
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                </section>
               </div>
             ) : (
-              <div className="flex flex-col justify-center items-center h-96 gap-4">
-                <div className="text-2xl">??????</div>
-                <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.4em]">No Data Available</p>
-                <span className="text-[8px] text-medium-gray font-mono">CODE: ERR_SYNC_0x11</span>
+              <div className="flex h-80 items-center justify-center border-y border-white/10 text-sm text-white/34">
+                No overview data available.
               </div>
             )}
           </div>
@@ -1250,7 +1442,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                     <div key={sub.id || index} className="bg-white/[0.02] border border-white/5 p-8 rounded-3xl flex flex-wrap justify-between items-center gap-10 group hover:border-white/10 transition-all">
                       <div className="flex-1 min-w-[280px]">
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em]">NODE_{(sub.id || '').slice(0, 8)}</span>
+                          <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em]">ID {(sub.id || '').slice(0, 8)}</span>
                           <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
                             sub.status === 'ACTIVE' ? 'bg-expert-green/20 text-expert-green' : 'bg-red-500/20 text-red-500'
                           }`}>{sub.status}</span>
@@ -1259,7 +1451,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                             {sub.customName || sub.siteName}
                             {!sub.isCurrent && (
                               <span className="ml-3 px-2 py-0.5 bg-white/5 border border-white/10 text-white/30 text-[7px] font-black rounded uppercase tracking-widest">
-                                HISTORICAL_ATTEMPT
+                                Previous
                               </span>
                             )}
                           </h3>
@@ -1336,6 +1528,674 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
           </div>
         )}
 
+        {/* Build Requests Tab */}
+        {activeTab === 'project-requests' && (
+          <div className="animate-fade-in">
+            {!selectedProjectRequestId && (
+            <div className="mb-6 border-y border-white/10">
+              <div className="grid xl:grid-cols-[minmax(0,1fr)_28rem] xl:divide-x xl:divide-white/10">
+                <div className="px-5 py-6 lg:px-8">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-ai-blue/70">Build command</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight text-white lg:text-5xl">
+                    Build operations
+                  </h2>
+                  <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+                    <span>{projectRequests.length} request{projectRequests.length === 1 ? '' : 's'}</span>
+                    <span>No request selected</span>
+                    <span>{selectedBuildMilestoneProgress}% delivery progress</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 border-t border-white/10 xl:border-t-0">
+                  {[
+                    { label: 'Briefs', value: projectRequests.filter(request => ['submitted', 'in_review'].includes(request.status)).length },
+                    { label: 'Gates', value: projectRequests.filter(request => ['quote_ready', 'approved', 'payment_agreement'].includes(request.status)).length },
+                    { label: 'Studio', value: projectRequests.filter(request => ['in_development', 'staging_review', 'handoff'].includes(request.status)).length },
+                  ].map((metric) => (
+                    <div key={metric.label} className="border-r border-white/10 px-4 py-5 last:border-r-0">
+                      <p className="text-2xl font-black tracking-tight text-white">{metric.value}</p>
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{metric.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-3 border-t border-white/10 px-5 py-4 md:grid-cols-[minmax(0,1fr)_16rem] lg:px-8">
+                <input
+                  type="text"
+                  placeholder="Search build command..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
+                />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
+                >
+                  <option value="ALL">All statuses</option>
+                  {buildRequestStatuses.map(status => (
+                    <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            )}
+
+            {loading ? (
+              <div className="flex h-80 items-center justify-center border-y border-white/10 text-[10px] font-black uppercase tracking-[0.24em] text-white/32">
+                Loading build requests...
+              </div>
+            ) : projectRequests.length === 0 ? (
+              <div className="flex h-80 flex-col items-center justify-center border-y border-white/10 text-center">
+                <FileText className="mb-5 h-10 w-10 text-white/18" />
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/38">No build requests yet</p>
+              </div>
+            ) : !selectedProjectRequestId ? (
+              <div className="border-y border-white/10">
+                <div className="grid grid-cols-[1fr_7rem_7rem_2rem] gap-3 border-b border-white/10 px-5 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
+                  <span>Request</span>
+                  <span className="text-right">Progress</span>
+                  <span className="text-right">Resume</span>
+                  <span></span>
+                </div>
+                <div className="divide-y divide-white/10">
+                  {projectRequests
+                    .filter(request => {
+                      const haystack = `${request.title} ${request.businessName || ''} ${request.user?.email || ''} ${request.status}`.toLowerCase();
+                      const matchesSearch = haystack.includes(searchTerm.toLowerCase());
+                      const matchesStatus = filterStatus === 'ALL' || request.status === filterStatus;
+                      return matchesSearch && matchesStatus;
+                    })
+                    .map((request) => {
+                      const rowChapter = adminBuildChapters.find(chapter => chapter.statuses.includes(request.status)) || adminBuildChapters[0];
+                      const rowChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === rowChapter.id));
+                      const rowProgress = Math.round(((rowChapterIndex + 1) / adminBuildChapters.length) * 100);
+
+                      return (
+                        <button
+                          key={request.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProjectRequestId(request.id);
+                            setActiveAdminBuildChapter(null);
+                          }}
+                          className="grid min-h-24 w-full grid-cols-[1fr_7rem_7rem_2rem] items-center gap-3 px-5 py-4 text-left transition hover:bg-white/[0.025]"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black text-white">{request.title || request.businessName || 'Untitled build'}</span>
+                            <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+                              {request.user?.email || 'No client email'}
+                            </span>
+                          </span>
+                          <span>
+                            <span className="block h-1 bg-white/10">
+                              <span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} />
+                            </span>
+                            <span className="mt-2 block text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/34">{rowProgress}%</span>
+                          </span>
+                          <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-ai-blue">{rowChapter.label}</span>
+                          <ChevronRight className="h-4 w-4 justify-self-end text-white/24" />
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            ) : (
+              <div className="min-h-[680px] border-y border-white/10">
+                <aside className="hidden">
+                  <div className="grid grid-cols-[1fr_7rem_2rem] gap-3 border-b border-white/10 px-5 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
+                    <span>Build queue</span>
+                    <span className="text-right">Page</span>
+                    <span></span>
+                  </div>
+                  <div className="divide-y divide-white/10">
+                    {projectRequests
+                      .filter(request => {
+                        const haystack = `${request.title} ${request.businessName || ''} ${request.user?.email || ''} ${request.status}`.toLowerCase();
+                        const matchesSearch = haystack.includes(searchTerm.toLowerCase());
+                        const matchesStatus = filterStatus === 'ALL' || request.status === filterStatus;
+                        return matchesSearch && matchesStatus;
+                      })
+                      .map((request) => {
+                        const isSelected = selectedProjectRequest?.id === request.id;
+                        const rowChapter = adminBuildChapters.find(chapter => chapter.statuses.includes(request.status)) || adminBuildChapters[0];
+                        const rowChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === rowChapter.id));
+                        const rowProgress = Math.round(((rowChapterIndex + 1) / adminBuildChapters.length) * 100);
+
+                        return (
+                          <button
+                            key={request.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectRequestId(request.id);
+                              setActiveAdminBuildChapter(null);
+                            }}
+                            className={`grid min-h-24 w-full grid-cols-[1fr_7rem_2rem] items-center gap-3 px-5 py-4 text-left transition ${
+                              isSelected ? 'bg-ai-blue/[0.07]' : 'hover:bg-white/[0.025]'
+                            }`}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-black text-white">{request.title || request.businessName || 'Untitled build'}</span>
+                              <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
+                                {request.user?.email || 'No client email'}
+                              </span>
+                              <span className="mt-3 block h-1 bg-white/10">
+                                <span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} />
+                              </span>
+                              <span className="mt-2 block truncate text-[10px] font-semibold text-white/34">
+                                Resume: {rowChapter.label}
+                              </span>
+                            </span>
+                            <span className={`text-right text-[10px] font-black uppercase tracking-[0.12em] ${isSelected ? 'text-ai-blue' : 'text-white/42'}`}>
+                              {rowChapter.label}
+                            </span>
+                            <ChevronRight className={`h-4 w-4 justify-self-end transition ${isSelected ? 'text-ai-blue' : 'text-white/18'}`} />
+                          </button>
+                        );
+                      })}
+                  </div>
+                </aside>
+
+                <main className="min-w-0">
+                  {selectedProjectRequest && (
+                    <div className="flex h-full flex-col">
+                      <div className="border-b border-white/10 px-5 py-5 lg:px-8">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProjectRequestId(null);
+                                setActiveAdminBuildChapter(null);
+                              }}
+                              className="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36 transition hover:text-white"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                              Build queue
+                            </button>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
+                              {selectedProjectRequest.id.slice(-8).toUpperCase()}
+                            </p>
+                            <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-white">
+                              {selectedProjectRequest.title || selectedProjectRequest.businessName || 'Untitled build'}
+                            </h3>
+                            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/42">
+                              <span>{selectedProjectRequest.user?.name || 'Unknown client'}</span>
+                              <span>{selectedProjectRequest.user?.email || 'No email'}</span>
+                              <span>{new Date(selectedProjectRequest.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 xl:w-[27rem]">
+                            <select
+                              value={selectedProjectRequest.status}
+                              onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { status: e.target.value })}
+                              disabled={submitting}
+                              className="border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50 disabled:opacity-50"
+                            >
+                              {buildRequestStatuses.map(status => (
+                                <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={selectedProjectRequest.priority || 'normal'}
+                              onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { priority: e.target.value })}
+                              disabled={submitting}
+                              className="border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50 disabled:opacity-50"
+                            >
+                              <option value="low">Low priority</option>
+                              <option value="normal">Normal priority</option>
+                              <option value="high">High priority</option>
+                              <option value="urgent">Urgent priority</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-b border-white/10 px-5 py-5 lg:px-8">
+                        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue/70">
+                              Step {selectedAdminBuildChapterIndex + 1} of {adminBuildChapters.length}
+                            </p>
+                            <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedAdminBuildChapter.label}</h4>
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
+                          </div>
+                          <div className="w-full md:max-w-sm">
+                            <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                              <span>{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
+                              <span>{adminBuildPageProgress}%</span>
+                            </div>
+                            <div className="mt-2 h-1.5 bg-white/10">
+                              <div className="h-full bg-ai-blue" style={{ width: `${adminBuildPageProgress}%` }} />
+                            </div>
+                            {selectedAdminBuildChapterIndex > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setActiveAdminBuildChapter(adminBuildChapters[selectedAdminBuildChapterIndex - 1].id)}
+                                className="mt-4 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/40 transition hover:text-white"
+                              >
+                                <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                                Previous step
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_22rem] lg:divide-x lg:divide-white/10">
+                        <section className="px-5 py-6 lg:px-8">
+                          <div className="mb-5 flex items-center justify-between gap-4">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{selectedAdminBuildChapter.label}</h4>
+                            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
+                          </div>
+                          {selectedAdminBuildChapter.id === 'brief' && (
+                          <>
+                          <div className="grid border-y border-white/10 md:grid-cols-3 md:divide-x md:divide-white/10">
+                            {[
+                              ['Build type', selectedProjectRequest.assessment?.responses?.projectType],
+                              ['Budget', selectedProjectRequest.budget],
+                              ['Timeline', selectedProjectRequest.timeline],
+                              ['Existing material', selectedProjectRequest.assessment?.responses?.hasWebsite],
+                              ['Style', selectedProjectRequest.assessment?.responses?.preferredStyle],
+                              ['Link', selectedProjectRequest.assessment?.responses?.website],
+                            ].map(([label, value]) => (
+                              <div key={String(label)} className="border-b border-white/10 p-4 md:last:border-b-0 md:[&:nth-last-child(2)]:border-b-0">
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">{String(label)}</p>
+                                <p className="mt-2 break-words text-sm font-semibold text-white/72">{String(value || 'Not specified')}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                            <div className="border-y border-white/10 py-5">
+                              <p className="mb-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Goals</p>
+                              <div className="flex flex-wrap gap-2">
+                                {((selectedProjectRequest.assessment?.responses?.goals as string[]) || []).map(goal => (
+                                  <span key={goal} className="border border-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/58">{goal}</span>
+                                ))}
+                                {!((selectedProjectRequest.assessment?.responses?.goals as string[]) || []).length && (
+                                  <span className="text-sm text-white/34">No goals recorded.</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="border-y border-white/10 py-5">
+                              <p className="mb-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Required features</p>
+                              <div className="flex flex-wrap gap-2">
+                                {((selectedProjectRequest.assessment?.responses?.requiredFeatures as string[]) || []).map(feature => (
+                                  <span key={feature} className="border border-ai-blue/20 bg-ai-blue/[0.04] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ai-blue">{feature}</span>
+                                ))}
+                                {!((selectedProjectRequest.assessment?.responses?.requiredFeatures as string[]) || []).length && (
+                                  <span className="text-sm text-white/34">No feature list recorded.</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 border-y border-white/10 py-5">
+                            <p className="mb-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Generated summary</p>
+                            <p className="whitespace-pre-line text-sm leading-7 text-white/58">
+                              {selectedProjectRequest.summary || 'No summary recorded yet.'}
+                            </p>
+                          </div>
+                          </>
+                          )}
+
+                          {selectedAdminBuildChapter.id === 'build' && (
+                          <div className="mt-6 border-y border-white/10 py-5">
+                            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Build execution</p>
+                                <h4 className="mt-2 text-lg font-black tracking-tight text-white">
+                                  {selectedActiveBuildMilestone?.title || 'Milestones'}
+                                </h4>
+                                <p className="mt-2 max-w-2xl text-xs leading-6 text-white/42">
+                                  These milestones appear in the client Build view after development starts. Keep notes short and client-facing.
+                                </p>
+                              </div>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                                  {selectedBuildMilestoneProgress}% overall
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCreateDefaultBuildMilestones(selectedProjectRequest.id)}
+                                  disabled={submitting}
+                                  className="min-h-10 border border-ai-blue/30 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50"
+                                >
+                                  Prepare milestones
+                                </button>
+                              </div>
+                            </div>
+
+                            {selectedBuildMilestones.length === 0 ? (
+                              <div className="border-y border-white/10 py-8 text-sm leading-7 text-white/42">
+                                No execution milestones yet. They are created automatically when payment is confirmed and the build moves to Development.
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-white/10 border-y border-white/10">
+                                {selectedBuildMilestones.map((milestone) => (
+                                  <div key={milestone.id} className="grid gap-4 py-5 xl:grid-cols-[minmax(0,1fr)_12rem_7rem] xl:items-start">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-3">
+                                        <span className={`h-2.5 w-2.5 ${
+                                          milestone.status === 'completed' ? 'bg-expert-green' : milestone.status === 'in_progress' ? 'bg-ai-blue' : milestone.status === 'blocked' ? 'bg-red-400' : 'bg-white/18'
+                                        }`} />
+                                        <p className="text-sm font-black text-white">{milestone.title}</p>
+                                        <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{milestone.status.replace(/_/g, ' ')}</span>
+                                      </div>
+                                      <p className="mt-2 text-xs leading-6 text-white/42">{milestone.description || 'No internal description.'}</p>
+                                      <textarea
+                                        defaultValue={milestone.clientNote || ''}
+                                        onBlur={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { clientNote: e.target.value })}
+                                        className="mt-4 h-20 w-full resize-none border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                        placeholder="Client-facing update..."
+                                      />
+                                    </div>
+                                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                                      <select
+                                        value={milestone.status}
+                                        onChange={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { status: e.target.value })}
+                                        disabled={submitting}
+                                        className="border border-white/10 bg-[#080b10] px-3 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50 disabled:opacity-50"
+                                      >
+                                        <option value="pending">Pending</option>
+                                        <option value="in_progress">In progress</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="blocked">Blocked</option>
+                                      </select>
+                                      <input
+                                        type="date"
+                                        defaultValue={milestone.dueDate ? milestone.dueDate.slice(0, 10) : ''}
+                                        onBlur={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { dueDate: e.target.value })}
+                                        className="border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Progress</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        defaultValue={milestone.progress || 0}
+                                        onBlur={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { progress: e.target.value })}
+                                        className="w-full border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-black text-white outline-none transition focus:border-ai-blue/50"
+                                      />
+                                      <div className="mt-3 h-1.5 bg-white/10">
+                                        <div className="h-full bg-ai-blue" style={{ width: `${milestone.progress || 0}%` }} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          )}
+                        </section>
+
+                        <aside className="border-t border-white/10 px-5 py-6 lg:border-t-0 lg:px-6">
+                          <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">Decision panel</h4>
+                          {selectedAdminBuildChapter.id === 'agreement' && (
+                          <div className="mb-5 border-y border-expert-green/25 bg-expert-green/[0.035] py-4">
+                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Payment gate</p>
+                            <p className="mt-2 text-xs leading-6 text-white/52">
+                              After quote acceptance, set the request to Payment agreement and add the deposit, milestone, or payment terms in the client note. Move to Development only after those terms are confirmed.
+                            </p>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                  status: 'payment_agreement',
+                                  paymentAgreementStatus: selectedProjectRequest.paymentAgreementStatus === 'confirmed' ? 'confirmed' : 'sent'
+                                })}
+                                disabled={submitting}
+                                className="min-h-10 border border-expert-green/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 disabled:opacity-50"
+                              >
+                                Send terms
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                  paymentAgreementStatus: 'confirmed',
+                                  status: 'in_development'
+                                })}
+                                disabled={submitting}
+                                className="min-h-10 border border-ai-blue/30 bg-ai-blue/[0.05] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50"
+                              >
+                                Confirm and start
+                              </button>
+                            </div>
+                          </div>
+                          )}
+                          {['review', 'launch'].includes(selectedAdminBuildChapter.id) && (
+                          <div className="mb-5 border-y border-ai-blue/25 bg-ai-blue/[0.035] py-4">
+                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
+                            <p className="mt-2 text-xs leading-6 text-white/52">
+                              Send the staging preview to the client, then wait for approval or changes before launch.
+                            </p>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                  status: 'staging_review',
+                                  stagingReviewStatus: 'sent'
+                                })}
+                                disabled={submitting}
+                                className="min-h-10 border border-ai-blue/30 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50"
+                              >
+                                Send staging
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                  status: 'handoff'
+                                })}
+                                disabled={submitting || selectedProjectRequest.stagingReviewStatus !== 'approved'}
+                                className="min-h-10 border border-expert-green/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 disabled:opacity-40"
+                              >
+                                Move to handoff
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                  status: 'completed',
+                                  completionNotes: selectedProjectRequest.completionNotes || 'Build handoff completed.'
+                                })}
+                                disabled={submitting || !['handoff', 'launched'].includes(selectedProjectRequest.status)}
+                                className="min-h-10 border border-white/15 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/68 transition hover:bg-white/10 hover:text-white disabled:opacity-40 sm:col-span-2"
+                              >
+                                Mark complete
+                              </button>
+                            </div>
+                          </div>
+                          )}
+                          <div className="space-y-5">
+                            <div className={selectedAdminBuildChapter.id === 'scope' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Quote amount</label>
+                              <input
+                                type="number"
+                                defaultValue={selectedProjectRequest.quotedAmount || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quotedAmount: e.target.value, status: selectedProjectRequest.status === 'submitted' || selectedProjectRequest.status === 'in_review' ? 'quote_ready' : selectedProjectRequest.status })}
+                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'scope' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Currency</label>
+                              <input
+                                type="text"
+                                defaultValue={selectedProjectRequest.quoteCurrency || 'USD'}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quoteCurrency: e.target.value || 'USD' })}
+                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold uppercase text-white outline-none transition focus:border-ai-blue/50"
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement type</label>
+                              <select
+                                defaultValue={selectedProjectRequest.paymentAgreementType || ''}
+                                onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentAgreementType: e.target.value || null, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
+                                className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
+                              >
+                                <option value="">Select terms</option>
+                                <option value="deposit">Deposit</option>
+                                <option value="full_payment">Full payment</option>
+                                <option value="milestone_payments">Milestone payments</option>
+                                <option value="manual_agreement">Manual agreement</option>
+                              </select>
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement status</label>
+                              <select
+                                value={selectedProjectRequest.paymentAgreementStatus || 'pending'}
+                                onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentAgreementStatus: e.target.value, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
+                                className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="sent">Sent</option>
+                                <option value="confirmed">Confirmed</option>
+                              </select>
+                            </div>
+                            <div className={`grid gap-4 sm:grid-cols-2 ${selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}`}>
+                              <div>
+                                <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Total agreed</label>
+                                <input
+                                  type="number"
+                                  defaultValue={selectedProjectRequest.totalAgreedAmount || ''}
+                                  onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { totalAgreedAmount: e.target.value })}
+                                  className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Deposit</label>
+                                <input
+                                  type="number"
+                                  defaultValue={selectedProjectRequest.depositAmount || ''}
+                                  onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { depositAmount: e.target.value })}
+                                  className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Due date</label>
+                              <input
+                                type="date"
+                                defaultValue={selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentDueDate: e.target.value })}
+                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Payment instructions</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.paymentInstructions || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentInstructions: e.target.value, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
+                                className="h-28 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="Deposit, milestone, or transfer instructions..."
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging URL</label>
+                              <input
+                                type="url"
+                                defaultValue={selectedProjectRequest.stagingUrl || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingUrl: e.target.value })}
+                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="https://preview..."
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging notes</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.stagingNotes || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingNotes: e.target.value })}
+                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="What should the client review?"
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging response</label>
+                              <select
+                                value={selectedProjectRequest.stagingReviewStatus || 'not_sent'}
+                                onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingReviewStatus: e.target.value })}
+                                className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
+                              >
+                                <option value="not_sent">Not sent</option>
+                                <option value="sent">Sent</option>
+                                <option value="changes_requested">Changes requested</option>
+                                <option value="approved">Approved</option>
+                              </select>
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch URL</label>
+                              <input
+                                type="url"
+                                defaultValue={selectedProjectRequest.launchUrl || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchUrl: e.target.value })}
+                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="https://live..."
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch notes</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.launchNotes || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchNotes: e.target.value })}
+                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="Launch details visible to client..."
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Handoff notes</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.handoffNotes || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { handoffNotes: e.target.value })}
+                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="Access, next steps, and final handoff notes..."
+                              />
+                            </div>
+                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Completion notes</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.completionNotes || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { completionNotes: e.target.value })}
+                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="Final completion summary..."
+                              />
+                              {selectedProjectRequest.completionAcknowledgedAt && (
+                                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green">
+                                  Client acknowledged {new Date(selectedProjectRequest.completionAcknowledgedAt).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client note</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.clientNotes || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { clientNotes: e.target.value })}
+                                className="h-28 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="Visible to client..."
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
+                              <textarea
+                                defaultValue={selectedProjectRequest.adminNotes || ''}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { adminNotes: e.target.value })}
+                                className="h-28 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                placeholder="Private admin note..."
+                              />
+                            </div>
+                          </div>
+                        </aside>
+                      </div>
+                    </div>
+                  )}
+                </main>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Assessments Tab */}
         {activeTab === 'assessments' && (
           <div className="space-y-6 animate-fade-in">
@@ -1380,7 +2240,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                       <tr key={assessment.id || index} className="hover:bg-white/[0.02] transition-colors group">
                         <td className="p-5">
                           <p className="text-[9px] font-black font-mono text-ai-blue uppercase tracking-widest">
-                            NODE_{(assessment.id || '').slice(-8).toUpperCase()}
+                            {(assessment.id || '').slice(-8).toUpperCase()}
                           </p>
                         </td>
                         <td className="p-5">
@@ -1806,12 +2666,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                       disabled={submitting}
                       className="w-full py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                     >
-                      {submitting ? 'SYNCHRONIZING...' : 'UPDATE CONFIGURATION'}
+                      {submitting ? 'Saving...' : 'Save configuration'}
                     </button>
                   </form>
                 ) : (
                   <div className="py-12 text-center">
-                    <p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">LOADING_SETTINGS...</p>
+                    <p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">Loading settings...</p>
                   </div>
                 )}
               </div>
@@ -1944,4 +2804,3 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     </div>
   );
 }
-

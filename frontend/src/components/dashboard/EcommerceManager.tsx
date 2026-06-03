@@ -102,14 +102,14 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
       fetchData();
     } catch (error) {
       console.error('Failed to save product:', error);
-      alert('Operation failed. Please verify neural link.');
+      alert('Operation failed. Please check the store details and try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('Permanently decommission this asset?')) return;
+    if (!confirm('Remove this product from the store record?')) return;
     try {
       await apiClient.deleteProduct(id);
       fetchData();
@@ -149,7 +149,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
               activeTab === 'products' ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
             }`}
           >
-            ASSETS
+            Products
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -157,7 +157,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
               activeTab === 'orders' ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
             }`}
           >
-            TRANSACTIONS
+            Orders
           </button>
         </div>
         {activeTab === 'products' && (
@@ -170,7 +170,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-expert-green text-dark-bg rounded-xl hover:scale-105 transition-all text-[10px] font-black uppercase tracking-widest"
           >
             <Plus className="w-4 h-4" />
-            Provision Asset
+            Add product
           </button>
         )}
       </div>
@@ -221,7 +221,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
           {products.length === 0 && (
             <div className="col-span-full py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
               <ShoppingBag className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No products yet</p>
+              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No products connected yet</p>
             </div>
           )}
         </div>
@@ -235,7 +235,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     <Truck className="w-7 h-7 text-ai-blue" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">TX-{order.id.slice(0, 12)}</div>
+                    <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Order {order.id.slice(0, 12)}</div>
                     <div className="text-xl font-black text-white">${order.totalAmount}</div>
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     <div className="text-white text-[10px] font-black uppercase">{new Date(order.createdAt).toLocaleDateString()}</div>
                   </div>
                   <button className="w-full lg:w-auto px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                    Detail_Log
+                    View order
                   </button>
                 </div>
               </div>
@@ -263,7 +263,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
           {orders.length === 0 && (
             <div className="py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
               <Truck className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No transactions recorded in neural ledger</p>
+              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No orders recorded yet</p>
             </div>
           )}
         </div>
@@ -275,13 +275,13 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
           <div className="absolute inset-0" onClick={() => setShowAddProduct(false)}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl p-8 lg:p-12 relative z-10 animate-in zoom-in-95 duration-300 shadow-2xl">
             <h2 className="text-2xl lg:text-3xl font-black mb-8 lg:mb-10 tracking-tighter uppercase">
-              {editingProduct ? 'Update' : 'Provision'} <span className="text-ai-blue italic">Product</span>
+              {editingProduct ? 'Update' : 'Add'} <span className="text-ai-blue italic">Product</span>
             </h2>
             <form onSubmit={handleAddProduct} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Asset Nomenclature</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Product name</label>
                     <input
                       type="text"
                       required
@@ -293,7 +293,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Unit Value ($)</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Selling price ($)</label>
                       <input
                         type="number"
                         required
@@ -304,7 +304,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Ledger Qty</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Stock</label>
                       <input
                         type="number"
                         required
@@ -316,7 +316,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Operational Tier</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Category</label>
                     <input
                       type="text"
                       required
@@ -335,11 +335,11 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                       value={newProduct.description}
                       onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
                       className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-2xl focus:border-ai-blue focus:outline-none transition-all h-32 lg:h-[188px] resize-none text-sm font-medium leading-relaxed"
-                      placeholder="Detail the technical capabilities of this asset..."
+                    placeholder="Describe what the buyer needs to understand..."
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Visual Manifest URL (Optional)</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Product image URL (optional)</label>
                     <input
                       type="text"
                       value={newProduct.image}
@@ -356,14 +356,14 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                   onClick={() => setShowAddProduct(false)}
                   className="order-2 sm:order-1 flex-1 px-8 py-5 border border-white/10 rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
                 >
-                  Terminate
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="order-1 sm:order-2 flex-[2] px-8 py-5 bg-ai-blue text-white rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Transmitting...' : editingProduct ? 'Commit Updates' : 'Authorize Provisioning'}
+                  {isSubmitting ? 'Saving...' : editingProduct ? 'Save updates' : 'Add product'}
                 </button>
               </div>
             </form>

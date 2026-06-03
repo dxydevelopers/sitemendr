@@ -196,9 +196,9 @@ const LiveSupportManager: React.FC = () => {
               <div>
                 <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
                   <span className="w-1.5 h-1.5 rounded-full bg-expert-green animate-pulse"></span>
-                  Active Transmission: {activeChat.chatId}
+                  Active chat: {activeChat.chatId}
                 </h3>
-                <p className="text-[9px] font-mono text-medium-gray uppercase">PROTOCOL: {activeChat.type.toUpperCase()}_SUPPORT</p>
+                <p className="text-[9px] font-mono text-medium-gray uppercase">Queue: {activeChat.type.toUpperCase()} support</p>
               </div>
             </div>
 

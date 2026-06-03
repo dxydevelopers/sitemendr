@@ -79,7 +79,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
           </div>
           <h2 className="text-3xl font-black mb-4 uppercase tracking-tighter italic">Mystery Airdrops</h2>
           <p className="text-medium-gray max-w-md mb-12 opacity-60 mx-auto italic font-medium">
-            You have pending airdrop packages. Unveil your mystery supporter rewards below to claim your perks.
+            Community access will appear here when a membership is active on your Sitemendr account.
           </p>
         </div>
         
@@ -92,7 +92,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <Trophy className="w-4 h-4" /> },
-    { id: 'perks', label: 'My Perks', icon: <Gift className="w-4 h-4" /> },
+    { id: 'perks', label: 'Benefits', icon: <Gift className="w-4 h-4" /> },
     { id: 'events', label: 'Events', icon: <Calendar className="w-4 h-4" /> },
     { id: 'billing', label: 'Billing', icon: <CreditCard className="w-4 h-4" /> },
   ];
@@ -132,9 +132,9 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
                 {getTierIcon(supporter.tier?.slug)}
               </div>
               <div className="text-center md:text-left">
-                <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em] mb-4 block">Current Status: Active</span>
+                <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em] mb-4 block">Community status: Active</span>
                 <h3 className="text-3xl md:text-4xl font-black mb-2 uppercase tracking-tighter">{supporter.tier?.name}</h3>
-                <p className="text-medium-gray text-xs md:text-sm opacity-60 mb-6 max-w-md">Thank you for being part of the Sitemendr journey. Your support fuels our innovation.</p>
+                <p className="text-medium-gray text-xs md:text-sm opacity-60 mb-6 max-w-md">Your membership connects learning access, updates, opportunities, and account benefits to your Sitemendr dashboard.</p>
                 <div className="flex flex-wrap gap-4 justify-center md:justify-start">
                   <div className="px-4 py-2 bg-white/5 rounded-lg border border-white/5 flex items-center gap-3">
                     <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">Next Billing:</span>
@@ -192,7 +192,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
                       <Users className="w-6 h-6 text-tech-purple" />
                     </div>
                     <div className="overflow-hidden">
-                      <p className="text-xs md:text-sm font-black uppercase tracking-tight truncate">Supporter Roundtable #12</p>
+                    <p className="text-xs md:text-sm font-black uppercase tracking-tight truncate">Community Roundtable #12</p>
                       <p className="text-[9px] font-mono text-medium-gray uppercase tracking-widest truncate">March 25, 2026 @ 15:00 UTC</p>
                     </div>
                   </div>
@@ -206,7 +206,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
 
       {activeTab === 'perks' && (
         <div className="space-y-8 animate-fade-in">
-          <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter mb-8">Exclusive Perks</h3>
+          <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter mb-8">Community Benefits</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {supporter.tier?.perks.map((perk, i) => (
               <div key={i} className="bg-black border border-white/5 p-6 md:p-8 hover:border-ai-blue/30 transition-all group">
@@ -304,7 +304,7 @@ const SupporterDashboard: React.FC<{ onLogout?: () => void, isNested?: boolean }
       {!isNested && (
         <header className="h-24 border-b border-white/5 flex items-center justify-between px-6 md:px-12 bg-black/50 backdrop-blur-xl fixed top-0 left-0 right-0 z-40">
           <div className="flex items-center gap-4 md:gap-6">
-            <h2 className="text-lg md:text-xl font-black uppercase tracking-tighter">Supporter Dashboard</h2>
+            <h2 className="text-lg md:text-xl font-black uppercase tracking-tighter">Community Dashboard</h2>
             <div className="h-4 w-px bg-white/10 hidden sm:block"></div>
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-[9px] font-mono text-medium-gray uppercase tracking-widest">Auth_Token:</span>

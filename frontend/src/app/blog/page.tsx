@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search, X, ChevronLeft, ChevronRight, ArrowRight, FileQuestion, Calendar, Clock, User, TrendingUp, Sparkles } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { editorialImages, editorialPosts } from '@/lib/editorial-posts';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const BACKEND_BASE_URL = API_BASE_URL.replace('/api', '');
@@ -24,6 +25,7 @@ interface BlogPost {
   publishedAt: string;
   readingTime: number;
   views: number;
+  likes?: number;
 }
 
 interface BlogMeta {
@@ -65,10 +67,11 @@ export default function BlogPage() {
     };
 
     const fetchPosts = async () => {
+      setLoading(true);
       try {
         const params: Record<string, string> = {
           page: currentPage.toString(),
-          limit: '9'
+          limit: '9',
         };
 
         if (selectedCategory) params.category = selectedCategory;
@@ -102,11 +105,9 @@ export default function BlogPage() {
 
   const getImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
-    // If it's already a full URL, return it as-is
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
     }
-    // If it's a relative path, prepend the backend URL
     return `${BACKEND_BASE_URL}${imagePath}`;
   };
 
@@ -119,79 +120,93 @@ export default function BlogPage() {
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
+  const hasFilters = selectedCategory || selectedTag || searchQuery;
+  const apiSlugs = new Set(posts.map(post => post.slug));
+  const curatedPosts = editorialPosts.filter(post => !apiSlugs.has(post.slug));
+  const categoryList = Array.from(new Set([
+    ...editorialPosts.map(post => post.category),
+    ...(meta?.categories || []),
+  ])).sort();
+  const visibleCuratedPosts = curatedPosts.filter(post => {
+    const matchesCategory = !selectedCategory || post.category === selectedCategory;
+    const matchesTag = !selectedTag || post.tags.includes(selectedTag);
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query || [post.title, post.excerpt, post.category, ...post.tags].join(' ').toLowerCase().includes(query);
+    return matchesCategory && matchesTag && matchesSearch;
+  });
+  const displayPosts = currentPage === 1 ? [...visibleCuratedPosts, ...posts] : posts;
+
+  const getFallbackImage = (index: number) => editorialImages[index % editorialImages.length];
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white relative overflow-hidden">
-      {/* Animated Background Elements */}
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#08111f] to-slate-950 text-white">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-500/10 rounded-full blur-[150px] animate-pulse"></div>
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-cyan-500/5 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute right-[-12rem] top-[-16rem] h-[42rem] w-[42rem] rounded-full bg-blue-500/10 blur-[150px]" />
+        <div className="absolute bottom-[-18rem] left-[-14rem] h-[38rem] w-[38rem] rounded-full bg-emerald-500/10 blur-[140px]" />
+        <div className="absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/5 blur-[120px]" />
       </div>
 
-      {/* Hero Section */}
       <section className="relative z-10 pt-24 pb-16 md:pt-32 md:pb-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 backdrop-blur-sm">
-              <Sparkles className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-semibold text-blue-300 tracking-wide uppercase">Insights & Perspectives</span>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 backdrop-blur-sm">
+              <Sparkles className="h-4 w-4 text-blue-300" />
+              <span className="text-sm font-semibold uppercase tracking-wide text-blue-200">Insights & Perspectives</span>
             </div>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight">
-              <span className="bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
-                The Digital Pulse
+            <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+              <span className="bg-gradient-to-r from-white via-blue-100 to-emerald-100 bg-clip-text text-transparent">
+                Sitemendr Insights
               </span>
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-              Expert insights, technical deep-dives, and industry strategies to help you navigate the AI-first world.
+            <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-400 sm:text-xl md:text-2xl">
+              Practical writing on websites, repairs, maintenance, commerce, workspaces, and the decisions that keep digital work useful after launch.
             </p>
           </div>
         </div>
       </section>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Mobile Search & Categories */}
-        <div className="lg:hidden space-y-4 mb-8">
-          {/* Mobile Search */}
-          <div className="p-4 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-xl">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-8 space-y-4 lg:hidden">
+          <div className="border-y border-white/10 py-4">
             <form onSubmit={handleSearch} className="relative">
+              <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
               <input
                 type="text"
-                placeholder="Search keywords..."
+                placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all"
+                className="h-12 w-full border-0 bg-transparent pl-7 pr-10 text-sm text-white outline-none placeholder:text-white/30"
               />
-              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-400 transition-colors">
-                <Search className="w-5 h-5" />
+              <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/44 transition-colors hover:text-blue-300" aria-label="Search articles">
+                <ArrowRight className="h-4 w-4" />
               </button>
             </form>
           </div>
 
-          {/* Mobile Categories */}
-          <div className="p-4 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-xl">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-              <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-              Categories
+          <div className="border-b border-white/10 pb-2">
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white/42">
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
+              Browse
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pb-3">
               <button
                 onClick={() => { setSelectedCategory(''); setCurrentPage(1); }}
-                className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  selectedCategory === '' 
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25' 
-                    : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                className={`border px-3 py-2 text-xs font-semibold transition-all ${
+                  selectedCategory === ''
+                    ? 'border-white bg-white text-slate-950'
+                    : 'border-white/10 text-slate-300 hover:border-white/30 hover:text-white'
                 }`}
               >
-                All
+                All writing
               </button>
-              {meta?.categories.map((category) => (
+              {categoryList.map((category) => (
                 <button
                   key={category}
                   onClick={() => { setSelectedCategory(category); setCurrentPage(1); }}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                    selectedCategory === category 
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25' 
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                  className={`border px-3 py-2 text-xs font-semibold transition-all ${
+                    selectedCategory === category
+                      ? 'border-white bg-white text-slate-950'
+                      : 'border-white/10 text-slate-300 hover:border-white/30 hover:text-white'
                   }`}
                 >
                   {category}
@@ -200,66 +215,60 @@ export default function BlogPage() {
             </div>
           </div>
 
-          {/* Mobile Clear Filters */}
-          {(selectedCategory || selectedTag || searchQuery) && (
+          {hasFilters && (
             <button
               onClick={clearFilters}
-              className="w-full py-3 px-4 bg-slate-900/50 backdrop-blur-xl border border-slate-800 text-white rounded-xl font-semibold hover:bg-slate-800/50 transition-all flex items-center justify-center gap-2 text-sm"
+              className="flex w-full items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/70 transition-all hover:border-white/30 hover:text-white"
             >
               <span>Clear All Filters</span>
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
-          {/* Desktop Sidebar */}
-          <aside className="hidden lg:block lg:col-span-1 space-y-8">
-            {/* Search Box */}
-            <div className="p-6 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-xl">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Search className="w-4 h-4 text-blue-400" />
-                Search Articles
-              </h3>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4 lg:gap-12">
+          <aside className="hidden space-y-5 lg:col-span-1 lg:block">
+            <div className="border-y border-white/10 py-6">
+              <p className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-white/38">Find a note</p>
               <form onSubmit={handleSearch} className="relative">
+                <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
                 <input
                   type="text"
-                  placeholder="Search keywords..."
+                  placeholder="Search articles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all"
+                  className="h-12 w-full border-0 border-b border-white/10 bg-transparent pl-7 pr-10 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-blue-400"
                 />
-                <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-400 transition-colors">
-                  <Search className="w-5 h-5" />
+                <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/44 transition-colors hover:text-blue-300" aria-label="Search articles">
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               </form>
             </div>
 
-            {/* Categories */}
-            <div className="p-6 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-xl">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-purple-400" />
-                Categories
+            <div className="border-b border-white/10 pb-2">
+              <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-white/38">
+                <TrendingUp className="h-4 w-4 text-emerald-300" />
+                Browse by subject
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-2 pb-3">
                 <button
                   onClick={() => { setSelectedCategory(''); setCurrentPage(1); }}
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                    selectedCategory === '' 
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25' 
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                  className={`w-full border px-4 py-3 text-left text-sm font-semibold transition-all ${
+                    selectedCategory === ''
+                      ? 'border-white bg-white text-slate-950'
+                      : 'border-white/10 text-slate-300 hover:border-white/30 hover:text-white'
                   }`}
                 >
-                  All Posts
+                  All writing
                 </button>
-                {meta?.categories.map((category) => (
+                {categoryList.map((category) => (
                   <button
                     key={category}
                     onClick={() => { setSelectedCategory(category); setCurrentPage(1); }}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                      selectedCategory === category 
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25' 
-                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                    className={`w-full border px-4 py-3 text-left text-sm font-semibold transition-all ${
+                      selectedCategory === category
+                        ? 'border-white bg-white text-slate-950'
+                        : 'border-white/10 text-slate-300 hover:border-white/30 hover:text-white'
                     }`}
                   >
                     {category}
@@ -268,126 +277,113 @@ export default function BlogPage() {
               </div>
             </div>
 
-            {/* Clear Filters */}
-            {(selectedCategory || selectedTag || searchQuery) && (
+            {hasFilters && (
               <button
                 onClick={clearFilters}
-                className="w-full py-3 px-4 bg-slate-900/50 backdrop-blur-xl border border-slate-800 text-white rounded-xl font-semibold hover:bg-slate-800/50 transition-all flex items-center justify-center gap-2 text-sm"
+                className="flex w-full items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/70 transition-all hover:border-white/30 hover:text-white"
               >
                 <span>Clear All Filters</span>
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             )}
           </aside>
 
-          {/* Main Content */}
           <div className="lg:col-span-3">
             {loading ? (
-              <div className="flex justify-center items-center h-96">
+              <div className="flex h-96 items-center justify-center">
                 <div className="relative">
-                  <div className="w-16 h-16 border-4 border-slate-800 border-t-blue-500 rounded-full animate-spin"></div>
-                  <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-500 rounded-full animate-spin" style={{ animationDirection: 'reverse' }}></div>
+                  <div className="h-16 w-16 animate-spin rounded-full border-4 border-slate-800 border-t-blue-500" />
+                  <div className="absolute inset-0 h-16 w-16 animate-spin rounded-full border-4 border-transparent border-r-emerald-400" style={{ animationDirection: 'reverse' }} />
                 </div>
               </div>
-            ) : posts.length > 0 ? (
+            ) : displayPosts.length > 0 ? (
               <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                  {posts.map((post, index) => (
+                <div className="space-y-10">
+                  {displayPosts.map((post, index) => {
+                    const imageUrl = !imageErrors.has(post.id) ? getImageUrl(post.featuredImage) : null;
+
+                    return (
                     <article
                       key={post.id}
-                      className="group bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:border-blue-500/30 hover:shadow-2xl hover:shadow-blue-500/10 flex flex-col"
-                      style={{ animationDelay: `${index * 100}ms` }}
+                      className="group grid gap-5 border-b border-white/10 pb-10 transition-all duration-500 md:grid-cols-[0.92fr_1.08fr] md:items-stretch"
                     >
-                      {/* Image Container */}
-                      <div className="relative h-56 overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900">
-                        {post.featuredImage && !imageErrors.has(post.id) ? (
-                          <Image 
-                            src={getImageUrl(post.featuredImage)!} 
+                      <div className="relative min-h-[260px] overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 md:min-h-[320px]">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
                             alt={post.title}
                             fill
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            className="object-cover transition-transform duration-700 group-hover:scale-105"
                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             onError={() => handleImageError(post.id)}
                             unoptimized={true}
                           />
                         ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-cyan-500/20 flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-slate-700/50 flex items-center justify-center">
-                                <FileQuestion className="w-8 h-8 text-slate-500" />
-                              </div>
-                              <p className="text-xs text-slate-500">No image available</p>
-                            </div>
-                          </div>
+                          <Image
+                            src={getFallbackImage(index)}
+                            alt=""
+                            fill
+                            className="object-cover transition-transform duration-700 group-hover:scale-105"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
-                        
-                        {/* Category Badge */}
-                        <div className="absolute top-4 left-4">
-                          <span className="inline-block px-3 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-slate-700 text-xs font-bold text-blue-300 uppercase tracking-wider">
-                            {post.category}
-                          </span>
-                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-70" />
                       </div>
 
-                      {/* Content */}
-                      <div className="p-6 flex-grow flex flex-col">
-                        {/* Meta Info */}
-                        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+                      <div className="flex flex-grow flex-col py-1 md:py-4">
+                        <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                          <span className="border-b border-blue-300 pb-1 text-blue-200">{post.category}</span>
                           <div className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                            <Calendar className="h-3.5 w-3.5 text-blue-300" />
                             <span>{formatDate(post.publishedAt)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-purple-400" />
+                            <Clock className="h-3.5 w-3.5 text-emerald-300" />
                             <span>{post.readingTime} min read</span>
                           </div>
                         </div>
 
-                        {/* Title */}
-                        <h2 className="text-xl font-bold text-white mb-3 group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight">
-                          <Link href={`/blog/${post.slug}`} className="hover:underline">
+                        <h2 className="mb-4 text-2xl font-bold leading-tight text-white transition-colors group-hover:text-blue-300 lg:text-3xl">
+                          <Link href={`/blog/${post.slug}`}>
                             {post.title}
                           </Link>
                         </h2>
 
-                        {/* Excerpt */}
-                        <p className="text-slate-400 text-sm leading-relaxed mb-6 line-clamp-3">
+                        <p className="mb-8 text-sm leading-7 text-slate-400 lg:text-base lg:leading-8">
                           {post.excerpt}
                         </p>
 
-                        {/* Footer */}
-                        <div className="mt-auto pt-4 border-t border-slate-800 flex items-center justify-between">
+                        <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                              <User className="w-4 h-4 text-white" />
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-emerald-400">
+                              <User className="h-4 w-4 text-white" />
                             </div>
                             <span className="text-xs font-semibold text-slate-300">{post.author.name}</span>
                           </div>
-                          <Link 
-                            href={`/blog/${post.slug}`} 
-                            className="inline-flex items-center gap-2 text-blue-400 text-sm font-semibold group/link hover:text-blue-300 transition-colors"
+                          <Link
+                            href={`/blog/${post.slug}`}
+                            className="group/link inline-flex items-center gap-2 text-sm font-semibold text-blue-300 transition-colors hover:text-white"
                           >
                             Read More
-                            <ArrowRight className="w-4 h-4 transform group-hover/link:translate-x-1 transition-transform" />
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover/link:translate-x-1" />
                           </Link>
                         </div>
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-4 pt-8">
+                  <div className="flex items-center justify-center gap-4 pt-8">
                     <button
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
-                      className="p-3 rounded-xl bg-slate-900/50 backdrop-blur-xl border border-slate-800 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800/50 hover:border-blue-500/30 transition-all"
+                      className="border border-white/10 bg-slate-900/55 p-3 text-white backdrop-blur-xl transition-all hover:border-blue-400/35 hover:bg-slate-800/70 disabled:cursor-not-allowed disabled:opacity-30"
                     >
-                      <ChevronLeft className="w-5 h-5" />
+                      <ChevronLeft className="h-5 w-5" />
                     </button>
-                    <div className="flex items-center gap-2 px-6 py-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl">
+                    <div className="flex items-center gap-2 border border-white/10 bg-slate-900/55 px-6 py-3 backdrop-blur-xl">
                       <span className="text-sm font-semibold text-slate-400">Page</span>
                       <span className="text-sm font-bold text-white">{currentPage}</span>
                       <span className="text-sm font-semibold text-slate-400">of</span>
@@ -396,23 +392,23 @@ export default function BlogPage() {
                     <button
                       onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-3 rounded-xl bg-slate-900/50 backdrop-blur-xl border border-slate-800 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800/50 hover:border-blue-500/30 transition-all"
+                      className="border border-white/10 bg-slate-900/55 p-3 text-white backdrop-blur-xl transition-all hover:border-blue-400/35 hover:bg-slate-800/70 disabled:cursor-not-allowed disabled:opacity-30"
                     >
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="h-5 w-5" />
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="py-24 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl text-center flex flex-col items-center">
-                <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6">
-                  <FileQuestion className="w-10 h-10 text-slate-600" />
+              <div className="flex flex-col items-center border border-white/10 bg-slate-900/55 py-24 text-center backdrop-blur-xl">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-800/60">
+                  <FileQuestion className="h-10 w-10 text-slate-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">No articles found</h3>
-                <p className="text-slate-400 mb-6">Try adjusting your filters or search terms.</p>
+                <h3 className="mb-2 text-2xl font-bold text-white">No articles found</h3>
+                <p className="mb-6 text-slate-400">Try adjusting your filters or search terms.</p>
                 <button
                   onClick={clearFilters}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+                  className="bg-white px-6 py-3 font-semibold text-slate-950 transition-all hover:bg-blue-300"
                 >
                   Clear Filters
                 </button>

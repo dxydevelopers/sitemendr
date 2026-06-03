@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { apiClient, Subscription } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import PaymentReminder from './PaymentReminder';
 import PaymentWall from './PaymentWall';
 
@@ -25,6 +25,7 @@ const PUBLIC_ROUTES = [
   '/services',
   '/about',
   '/portfolio',
+  '/community',
   '/support',
   '/supporter/dashboard',
   '/',

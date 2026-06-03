@@ -1,33 +1,40 @@
 'use client';
 
-import { Search, BrainCircuit, PenTool, Globe } from 'lucide-react';
+import { Search, BrainCircuit, PenTool, Globe, ClipboardCheck } from 'lucide-react';
 
 const steps = [
   {
-    id: 'PROTO-01',
-    title: 'Discovery',
-    description: 'We learn about your business and goals to plan the perfect website.',
+    id: 'STEP-01',
+    title: 'Strategic Discovery',
+    description: 'We learn your goals, customers, competitors, and what the website needs to do for the business.',
     icon: <Search className="w-10 h-10 text-ai-blue" />,
     accent: 'from-ai-blue to-tech-purple'
   },
   {
-    id: 'PROTO-02',
-    title: 'Design',
-    description: 'We create beautiful designs and plans tailored to your brand.',
+    id: 'STEP-02',
+    title: 'Plan & Design Direction',
+    description: 'We turn the brief into a clear structure, visual direction, page plan, and feature roadmap.',
     icon: <BrainCircuit className="w-10 h-10 text-tech-purple" />,
     accent: 'from-tech-purple to-pink-500'
   },
   {
-    id: 'PROTO-03',
-    title: 'Development',
-    description: 'Our expert developers build your site with clean, reliable code.',
-    icon: <PenTool className="w-10 h-10 text-pink-500" />,
+    id: 'STEP-03',
+    title: 'Consultation & Briefing',
+    description: 'We confirm the content, features, integrations, and launch goals with your team before the build.',
+    icon: <ClipboardCheck className="w-10 h-10 text-pink-500" />,
     accent: 'from-pink-500 to-expert-green'
   },
   {
-    id: 'PROTO-04',
-    title: 'Launch',
-    description: 'We deploy your website and monitor it to ensure it runs smoothly.',
+    id: 'STEP-04',
+    title: 'Precision Build',
+    description: 'We build the pages, connect the tools, test the experience, and tune the site for speed.',
+    icon: <PenTool className="w-10 h-10 text-expert-green" />,
+    accent: 'from-expert-green to-ai-blue'
+  },
+  {
+    id: 'STEP-05',
+    title: 'Deployment & Handover',
+    description: 'We launch the site, check everything works, and show you how to manage the important parts.',
     icon: <Globe className="w-10 h-10 text-expert-green" />,
     accent: 'from-expert-green to-ai-blue'
   }
@@ -60,13 +67,13 @@ export default function ProcessSection() {
               </div>
             </div>
             <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-none uppercase">
-              Operational <br />
-              <span className="bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent italic">How We Work</span>
+              How Your <br />
+              <span className="bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent italic">Project Works</span>
             </h2>
           </div>
           <div className="max-w-sm">
             <p className="text-lg text-medium-gray leading-relaxed font-mono uppercase tracking-tight opacity-70 mb-4">
-              Removing system problems using fast engineering processes.
+              A clear path from first conversation to launch, with support after the site goes live.
             </p>
             <div className="flex gap-4">
               <div className="h-1 w-12 bg-ai-blue rounded-full shadow-[0_0_10px_#0066FF]"></div>
@@ -76,7 +83,7 @@ export default function ProcessSection() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-4 relative">
+        <div className="grid md:grid-cols-5 gap-4 relative">
           {/* Data Stream Connecting Line (Desktop) */}
           <div className="hidden md:block absolute top-[5.5rem] left-0 w-full h-[1px] bg-white/5 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-ai-blue via-tech-purple to-expert-green animate-[shimmer_3s_infinite] opacity-50"></div>

@@ -40,6 +40,8 @@ model User {
   orders                  Order[]
   bookings                Booking[]
   supporters              Supporter[]
+  assessments             Assessment[]
+  projectRequests         ProjectRequest[]
 }
 
 enum Role {
@@ -51,6 +53,8 @@ enum Role {
 
 model Assessment {
   id                   String           @id @default(uuid())
+  userId               String?
+  user                 User?            @relation(fields: [userId], references: [id])
   sessionId            String           @unique
   status               AssessmentStatus @default(in_progress)
   source               Source           @default(direct)
@@ -66,6 +70,7 @@ model Assessment {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
   expiresAt            DateTime
+  projectRequest       ProjectRequest?
 }
 
 enum AssessmentStatus {
@@ -236,6 +241,71 @@ model Subscription {
   supportTickets  SupportTicket[]
   pages          Page[]
   themeSettings  ThemeSettings?
+  projectRequests ProjectRequest[]
+}
+
+model ProjectRequest {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  assessmentId    String?       @unique
+  assessment      Assessment?   @relation(fields: [assessmentId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  title           String
+  businessName    String?
+  serviceType     String        @default("build")
+  packageIntent   String?
+  budget          String?
+  timeline        String?
+  summary         String?
+  status          String        @default("submitted") // submitted, in_review, quote_ready, approved, payment_agreement, in_development, staging_review, launched, handoff, completed, cancelled, archived
+  priority        String        @default("normal")
+  quotedAmount    Float?
+  quoteCurrency   String        @default("USD")
+  paymentAgreementType   String?
+  paymentAgreementStatus String  @default("pending")
+  depositAmount          Float?
+  totalAgreedAmount      Float?
+  paymentDueDate         DateTime?
+  paymentInstructions    String?
+  paymentConfirmedAt     DateTime?
+  stagingUrl             String?
+  stagingNotes           String?
+  stagingReviewStatus    String  @default("not_sent")
+  stagingReviewedAt      DateTime?
+  launchUrl              String?
+  launchNotes            String?
+  launchApprovedAt       DateTime?
+  handoffNotes           String?
+  completionNotes        String?
+  completionAcknowledgedAt DateTime?
+  adminNotes      String?
+  clientNotes     String?
+  buildMilestones BuildMilestone[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  reviewedAt      DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  completedAt     DateTime?
+}
+
+model BuildMilestone {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  status           String         @default("pending") // pending, in_progress, completed, blocked
+  progress         Int            @default(0)
+  order            Int            @default(0)
+  dueDate          DateTime?
+  clientNote       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([projectRequestId])
 }
 
 model Milestone {
@@ -782,4 +852,3 @@ model VoteChoice {
   
   @@unique([voteId, supporterId])
 }
-

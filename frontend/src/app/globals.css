@@ -388,20 +388,20 @@ body {
   will-change: opacity;
 }
 
-/* Modern scrollbar */
+/* Quiet scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--dark-bg);
+  background: #05070a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--primary-color);
-  border-radius: var(--border-radius-md);
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--secondary-color);
+  background: rgba(255, 255, 255, 0.24);
 }

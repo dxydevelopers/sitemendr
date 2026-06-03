@@ -1,213 +1,311 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { X, Linkedin, Github, Lock, ArrowUp, Mail, Phone, MapPin } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import Image from 'next/image';
+import {
+  ArrowUp,
+  ArrowUpRight,
+  BookOpen,
+  FolderKanban,
+  Globe,
+  Mail,
+  MapPin,
+  Phone,
+  Scale,
+} from 'lucide-react';
+
+const footerLinks = {
+  Services: [
+    { name: 'All Services', href: '/services' },
+    { name: 'Development Path', href: '/services/development' },
+    { name: 'Business Websites', href: '/services/development#business-websites' },
+    { name: 'Commerce & Dropshipping', href: '/services/ecommerce' },
+  ],
+  Workspace: [
+    { name: 'Create Workspace', href: '/register' },
+    { name: 'Workspace Preview', href: '/workspace' },
+    { name: 'Operating Flow', href: '/process' },
+    { name: 'Client Login', href: '/login' },
+  ],
+  Company: [
+    { name: 'About', href: '/about' },
+    { name: 'Portfolio', href: '/portfolio' },
+    { name: 'Case Studies', href: '/case-studies' },
+    { name: 'Contact', href: '/contact' },
+  ],
+  Library: [
+    { name: 'Pricing', href: '/pricing' },
+    { name: 'Resources', href: '/resources' },
+    { name: 'Blog', href: '/blog' },
+    { name: 'Community', href: '/community' },
+  ],
+};
+
+const legalLinks = [
+  { name: 'Legal', href: '/legal' },
+  { name: 'Privacy', href: '/privacy' },
+  { name: 'Terms', href: '/terms' },
+  { name: 'Refunds', href: '/refund' },
+  { name: 'Cookies', href: '/cookie-policy' },
+];
+
+const contactLinks = [
+  { name: 'support@sitemendr.com', href: 'mailto:support@sitemendr.com', icon: Mail },
+  { name: '+254 790 057 596', href: 'tel:+254790057596', icon: Phone },
+  { name: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya', icon: MapPin },
+];
+
+const XIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <path fill="currentColor" d="M17.2 3h3.1l-6.8 7.8L21.5 21h-6.3l-4.9-6.4L4.7 21H1.6l7.3-8.4L1.3 3h6.5l4.4 5.8L17.2 3Zm-1.1 16.2h1.7L6.9 4.7H5.1l11 14.5Z" />
+  </svg>
+);
+
+const LinkedInIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <path fill="currentColor" d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5ZM.35 8h4.3v13H.35V8Zm7.25 0h4.12v1.78h.06c.57-1.08 1.98-2.22 4.08-2.22 4.36 0 5.17 2.87 5.17 6.6V21h-4.3v-6.07c0-1.45-.03-3.31-2.02-3.31-2.02 0-2.33 1.58-2.33 3.2V21H7.6V8Z" />
+  </svg>
+);
+
+const InstagramIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <defs>
+      <linearGradient id="ig-gradient" x1="2" x2="22" y1="22" y2="2">
+        <stop stopColor="#FCAF45" />
+        <stop offset="0.45" stopColor="#FD1D1D" />
+        <stop offset="1" stopColor="#833AB4" />
+      </linearGradient>
+    </defs>
+    <rect width="18" height="18" x="3" y="3" rx="5" fill="none" stroke="url(#ig-gradient)" strokeWidth="2" />
+    <circle cx="12" cy="12" r="4" fill="none" stroke="url(#ig-gradient)" strokeWidth="2" />
+    <circle cx="17.5" cy="6.5" r="1.3" fill="#FD1D1D" />
+  </svg>
+);
+
+const FacebookIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.23.2 2.23.2v2.46h-1.25c-1.24 0-1.62.77-1.62 1.56v1.87h2.76l-.44 2.91h-2.32V22C18.34 21.24 22 17.08 22 12.06Z" />
+  </svg>
+);
+
+const YouTubeIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <path fill="currentColor" d="M21.6 7.2a2.7 2.7 0 0 0-1.9-1.9C18 4.8 12 4.8 12 4.8s-6 0-7.7.5a2.7 2.7 0 0 0-1.9 1.9C2 8.9 2 12 2 12s0 3.1.4 4.8a2.7 2.7 0 0 0 1.9 1.9c1.7.5 7.7.5 7.7.5s6 0 7.7-.5a2.7 2.7 0 0 0 1.9-1.9c.4-1.7.4-4.8.4-4.8s0-3.1-.4-4.8ZM10 15.2V8.8l5.3 3.2L10 15.2Z" />
+  </svg>
+);
+
+const TikTokIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <path fill="currentColor" d="M16.6 5.2c.8.9 1.8 1.5 3.1 1.6v3.1a7.5 7.5 0 0 1-3.2-.8v6.1c0 3.2-2.6 5.8-5.9 5.8a5.7 5.7 0 0 1-5.8-5.7c0-3.2 2.6-5.8 5.8-5.8.4 0 .7 0 1.1.1v3.3a2.3 2.3 0 0 0-1.1-.2 2.4 2.4 0 1 0 2.4 2.4V3h3.1c.1.8.2 1.5.5 2.2Z" />
+  </svg>
+);
+
+const WhatsAppIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+    <path fill="currentColor" d="M12 2a9.8 9.8 0 0 0-8.4 14.8L2.4 22l5.3-1.4A9.8 9.8 0 1 0 12 2Zm0 17.9c-1.5 0-2.9-.4-4.2-1.1l-.3-.2-3.1.8.8-3-.2-.3A8 8 0 1 1 12 19.9Zm4.4-5.9c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1-.2.3-.7.8-.8 1-.2.2-.3.2-.6.1a6.5 6.5 0 0 1-3.2-2.8c-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.3s1 2.6 1.1 2.8c.1.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1-.1-.2-.3-.2-.6-.4Z" />
+  </svg>
+);
+
+const GoogleGIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" role="img" aria-label="Google Pay">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09Z" />
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" />
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62Z" />
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" />
+  </svg>
+);
+
+const socials = [
+  { name: 'X', href: 'https://twitter.com/sitemendr', className: 'text-white', icon: <XIcon /> },
+  { name: 'LinkedIn', href: 'https://linkedin.com/company/sitemendr', className: 'text-[#0A66C2]', icon: <LinkedInIcon /> },
+  { name: 'Instagram', href: 'https://instagram.com/sitemendr', className: 'text-white', icon: <InstagramIcon /> },
+  { name: 'Facebook', href: 'https://facebook.com/sitemendr', className: 'text-[#1877F2]', icon: <FacebookIcon /> },
+  { name: 'YouTube', href: 'https://youtube.com/@sitemendr', className: 'text-[#FF0000]', icon: <YouTubeIcon /> },
+  { name: 'TikTok', href: 'https://tiktok.com/@sitemendr', className: 'text-white', icon: <TikTokIcon /> },
+  { name: 'WhatsApp', href: 'https://wa.me/254790057596', className: 'text-[#25D366]', icon: <WhatsAppIcon /> },
+];
+
+const paymentProcessors = [
+  { name: 'Visa', src: 'https://cdn.simpleicons.org/visa/1434CB?viewbox=auto', className: 'h-5 max-w-[58px]' },
+  { name: 'Mastercard', src: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg', className: 'h-8 max-w-[42px]' },
+  { name: 'Stripe', wordmark: 'stripe', accent: 'text-[#635BFF]', className: 'text-[21px] font-black tracking-[-0.04em]' },
+  { name: 'PayPal', src: 'https://cdn.simpleicons.org/paypal/009CDE?viewbox=auto', className: 'h-5 max-w-[72px]' },
+  { name: 'Apple Pay', src: 'https://cdn.simpleicons.org/apple/FFFFFF?viewbox=auto', className: 'h-5 max-w-[22px]' },
+  { name: 'Google Pay', icon: <GoogleGIcon /> },
+  { name: 'M-Pesa', wordmark: 'M-PESA', accent: 'text-[#00A651]' },
+  { name: 'Paystack', wordmark: 'Paystack', accent: 'text-[#09A5DB]' },
+];
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
-
-  const handleNewsletterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email && !isSubmitting) {
-      setIsSubmitting(true);
-      try {
-        await apiClient.post('/contact/newsletter', { email });
-        setStatusMessage('Thank you for subscribing!');
-        setEmail('');
-      } catch (_error) {
-        setStatusMessage('Failed to subscribe. Please try again.');
-      } finally {
-        setIsSubmitting(false);
-        setTimeout(() => {
-          setStatusMessage('');
-        }, 5000);
-      }
-    }
-  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const footerLinks = {
-    Solutions: [
-      { name: 'eCommerce Solutions', href: '/services#ecommerce' },
-      { name: 'Business Websites', href: '/services#business' },
-      { name: 'AI Solutions', href: '/services#ai' },
-      { name: 'Maintenance', href: '/services#maintenance' },
-    ],
-    Ecosystem: [
-      { name: 'Our Process', href: '/about#process' },
-      { name: 'Pricing', href: '/payment' },
-      { name: 'Portfolio', href: '/portfolio' },
-      { name: 'Blog', href: '/blog' },
-    ],
-    Legal: [
-      { name: 'Privacy Policy', href: '/privacy' },
-      { name: 'Terms of Service', href: '/terms' },
-      { name: 'Refund Policy', href: '/refund' },
-      { name: 'Cookie Policy', href: '/cookie-policy' },
-    ],
-    Contact_Uplink: [
-      { name: 'support@sitemendr.com', href: 'mailto:support@sitemendr.com', icon: <Mail className="w-3 h-3" /> },
-      { name: '+254 790 057 596', href: 'tel:+254790057596', icon: <Phone className="w-3 h-3" /> },
-      { name: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya', icon: <MapPin className="w-3 h-3" /> },
-    ],
-  };
-
   return (
-    <footer className="relative bg-[#050505] pt-48 pb-12 overflow-hidden border-t border-white/5">
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,102,255,0.05),transparent_70%)]"></div>
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-12 gap-y-16 mb-24">
-          {/* Brand Identity */}
-          <div className="sm:col-span-2 md:col-span-3 lg:col-span-2 space-y-10">
-            <Link href="/" className="inline-block group relative">
-              <div className="absolute -inset-4 bg-ai-blue/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
-              <div className="flex items-center gap-2 relative z-10">
-                <span className="text-3xl font-black text-white tracking-tighter uppercase">
-                  Sitemendr<span className="text-ai-blue italic">.sys</span>
-                </span>
-                <div className="w-2 h-2 rounded-full bg-ai-blue animate-pulse shadow-[0_0_10px_#0066FF]"></div>
-              </div>
+    <footer className="relative overflow-hidden border-t border-white/10 bg-[#05070a] text-white">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-ai-blue/70 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(0,102,255,0.1),transparent_28%),radial-gradient(circle_at_85%_8%,rgba(245,158,11,0.07),transparent_26%)]" />
+
+      <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-6 md:py-14 lg:px-8">
+        <div className="grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[1fr_1.55fr_0.82fr]">
+          <div className="max-w-xl">
+            <Link href="/" className="inline-flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center border border-white/10 bg-white/[0.04]">
+                <Globe className="h-5 w-5 text-ai-blue" />
+              </span>
+              <span className="text-2xl font-semibold tracking-tight">Sitemendr</span>
             </Link>
-            
-            <p className="text-white/40 text-[11px] leading-relaxed max-w-sm font-mono uppercase tracking-tight">
-              Architecting high-performance digital infrastructure with neural optimization and mission-critical stability.
+
+            <p className="mt-6 max-w-lg text-[15px] leading-7 text-white/66">
+              Digital work should leave a record: what was requested, what was approved, what was paid for, what was delivered, and what continues after launch.
             </p>
-            
-            <div className="space-y-6">
-              <div className="text-[10px] font-mono text-white/20 uppercase tracking-[0.3em]">
-                Newsletter
-              </div>
-              <form onSubmit={handleNewsletterSubmit} className="relative max-w-md group">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full px-6 py-5 bg-white/[0.02] border border-white/10 rounded-2xl text-white placeholder:text-white/10 text-[10px] font-mono focus:outline-none focus:border-ai-blue/40 transition-all duration-500 group-hover:bg-white/[0.04]"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="absolute right-2 top-2 bottom-2 px-8 bg-white text-black font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-ai-blue hover:text-white transition-all duration-300 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Syncing...' : 'Sync'}
-                </button>
-              </form>
-              {statusMessage && (
-                <div className={`text-[8px] font-mono uppercase tracking-widest animate-pulse ${statusMessage.includes('Failed') ? 'text-red-500' : 'text-expert-green'}`}>
-                  {statusMessage}
-                </div>
-              )}
+
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link
+                href="/register"
+                className="group inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm font-semibold text-white transition hover:border-ai-blue hover:text-ai-blue"
+              >
+                Create workspace
+                <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="/contact"
+                className="group inline-flex items-center gap-2 border-b border-white/18 pb-1 text-sm font-semibold text-white/62 transition hover:border-white hover:text-white"
+              >
+                Speak with the team
+                <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
             </div>
 
-            <div className="flex gap-4">
-              {[
-                { name: 'twitter', icon: <X className="w-4 h-4" />, href: 'https://twitter.com/sitemendr' },
-                { name: 'linkedin', icon: <Linkedin className="w-4 h-4" />, href: 'https://linkedin.com/company/sitemendr' },
-                { name: 'github', icon: <Github className="w-4 h-4" />, href: 'https://github.com/sitemendr' }
-              ].map((social) => (
+            <div className="mt-8 flex flex-wrap gap-3">
+              {socials.map((social) => (
                 <a
                   key={social.name}
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-ai-blue/40 hover:bg-ai-blue/5 transition-all duration-300 group"
+                  aria-label={social.name}
+                  className={`grid h-9 w-9 place-items-center border border-white/10 bg-white/[0.03] transition hover:border-white/24 hover:bg-white/[0.06] ${social.className}`}
                 >
-                  <span className="group-hover:scale-110 transition-transform">{social.icon}</span>
+                  {social.icon}
                 </a>
               ))}
             </div>
-
-            <div className="pt-6 border-t border-white/5">
-              <div className="text-[8px] font-mono text-white/40 uppercase tracking-[0.4em] mb-4">Secure Payment Processing</div>
-              <div className="flex items-center gap-6 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
-                {/* Visa */}
-                <svg className="h-4 w-auto" viewBox="0 0 100 32" fill="currentColor">
-                  <path d="M37.5 4.3l-6.2 19.1h-4.8l2.9-19.1h8.1zm22.4 0c-1.1-.4-2.8-.8-4.9-.8-5.4 0-9.2 2.9-9.2 7 0 3 2.7 4.7 4.7 5.7 2.1 1 2.8 1.6 2.8 2.5 0 1.3-1.6 1.9-3.1 1.9-2.1 0-3.2-.3-4.9-.8l-.7-.3-.7 4.4c1.2.5 3.4 1 5.7 1 5.7 0 9.4-2.8 9.4-7.2 0-2.4-1.4-4.2-4.6-5.7-1.9-.9-3.1-1.6-3.1-2.5 0-1 .9-1.8 3-1.8 1.8 0 3.1.4 4.1.8l.5.2.7-4.4zm16.5 0l-3.8 19.1h-4.6l3.8-19.1h4.6zm13.6 0l-1.9 4.3c-.5-.1-1.1-.2-1.7-.2-2.1 0-4 1.2-5 3.1l-6.1 11.9h-4.9l8.8-19.1h4.8l1.4 4.3c1.5-2.9 3.4-4.3 5.3-4.3.5 0 1 .1 1.4.2v4.1c-.2-.1-.5-.1-.8-.1-.4-.1-1-.1-1.3-.1zm-80.1 0l6.2 14.5 2.5-14.5h5.1L18.8 23.4h-5.4L6.9 8.2l-1.9-3.9H0l.1.2c4.4 1.1 7.6 3.8 9.9 7.6z"/>
-                </svg>
-                {/* Mastercard */}
-                <svg className="h-6 w-auto" viewBox="0 0 100 62" fill="currentColor">
-                  <path d="M35.4 31c0-5.7 2.4-11 6.3-14.8-3.9-3.2-8.9-5.2-14.3-5.2-12.3 0-22.3 10-22.3 22.3s10 22.3 22.3 22.3c5.4 0 10.4-1.9 14.3-5.2-3.9-3.8-6.3-9.1-6.3-14.8z" fillOpacity="0.8"/>
-                  <path d="M94.9 33.3c0-12.3-10-22.3-22.3-22.3-5.4 0-10.4 1.9-14.3 5.2 3.9 3.8 6.3 9.1 6.3 14.8s-2.4 11-6.3 14.8c3.9 3.2 8.9 5.2 14.3 5.2 12.3 0 22.3-10 22.3-22.3 0-.8 0-1.6-.1-2.4z" fillOpacity="0.8"/>
-                  <path d="M41.7 45.8c3.9-3.8 6.3-9.1 6.3-14.8s-2.4-11-6.3-14.8c-3.9 3.8-6.3 9.1-6.3 14.8s2.4 11 6.3 14.8z"/>
-                </svg>
-                {/* Paystack Logo Style */}
-                <div className="flex items-center gap-1.5 group/ps">
-                  <div className="flex -space-x-1">
-                    <div className="w-2.5 h-2.5 rounded-full bg-ai-blue shadow-[0_0_8px_#0066FF]"></div>
-                    <div className="w-2.5 h-2.5 rounded-full bg-ai-blue/40 border border-ai-blue/20"></div>
-                  </div>
-                  <span className="text-[10px] font-black text-white uppercase tracking-tighter italic">Paystack</span>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Optimized Links Grid */}
-          {Object.entries(footerLinks).map(([title, links]) => (
-            <div key={title} className="sm:col-span-1 space-y-10">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-3 bg-ai-blue/40 rounded-full"></div>
-                <h3 className="text-white font-black text-[10px] uppercase tracking-[0.3em] font-mono opacity-80">
-                  {title.replace('_', ' ')}
+          <div className="grid gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">
+            {Object.entries(footerLinks).map(([title, links]) => (
+              <div key={title}>
+                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-white/40">
+                  <span className="h-px w-5 bg-white/18" />
+                  {title}
                 </h3>
+                <ul className="mt-5 space-y-3.5">
+                  {links.map((link) => (
+                    <li key={link.name}>
+                      <Link href={link.href} className="text-sm text-white/64 transition hover:text-white">
+                        {link.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-5">
-                {links.map((link) => (
+            ))}
+
+          </div>
+
+          <div className="lg:border-l lg:border-white/10 lg:pl-7">
+            <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-white/40">
+              <span className="h-px w-5 bg-ai-blue/70" />
+              Contact
+            </h3>
+            <ul className="mt-5 space-y-4">
+              {contactLinks.map((link, index) => {
+                const Icon = link.icon;
+                return (
                   <li key={link.name}>
                     <Link
                       href={link.href}
-                      className="group flex items-center gap-2 text-white/40 hover:text-ai-blue transition-all duration-300 text-[10px] font-mono uppercase tracking-widest"
+                      className="group grid grid-cols-[34px_1fr] items-start gap-3 text-sm leading-5 text-white/68 transition hover:text-white"
                     >
-                      {('icon' in link) && <span className="opacity-50 group-hover:opacity-100 group-hover:translate-x-[-2px] transition-transform">{link.icon}</span>}
-                      <span className="group-hover:translate-x-1 transition-transform">{link.name}</span>
+                      <span className={`grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] transition group-hover:border-ai-blue/55 group-hover:bg-ai-blue/10 ${index === 0 ? 'text-ai-blue' : 'text-white/42'}`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="pt-1">{link.name}</span>
                     </Link>
                   </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                );
+              })}
+            </ul>
+          </div>
         </div>
 
-        {/* Technical Status Footer */}
-        <div className="pt-12 border-t border-white/5 flex flex-col lg:flex-row justify-between items-center gap-8">
-          <div className="flex flex-wrap justify-center lg:justify-start items-center gap-8 text-[9px] font-mono uppercase tracking-[0.2em] text-white/30">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-expert-green animate-pulse"></div>
-              <span>Status: Operational</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Lock className="w-3 h-3 text-ai-blue" />
-              <span>Encryption: 256-bit SSL</span>
-            </div>
-            <span>© {currentYear} Sitemendr</span>
+        <div className="grid gap-8 border-b border-white/10 py-8 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Link href="/legal" className="group flex items-center gap-2.5 text-xs text-white/50 transition hover:text-white">
+              <Scale className="h-3.5 w-3.5 text-amber-300/70 transition group-hover:text-amber-300" />
+              Policy center
+            </Link>
+            <Link href="/resources" className="group flex items-center gap-2.5 text-xs text-white/50 transition hover:text-white">
+              <BookOpen className="h-3.5 w-3.5 text-ai-blue/75 transition group-hover:text-ai-blue" />
+              Public resources
+            </Link>
+            <Link href="/portfolio" className="group flex items-center gap-2.5 text-xs text-white/50 transition hover:text-white">
+              <FolderKanban className="h-3.5 w-3.5 text-expert-green/75 transition group-hover:text-expert-green" />
+              Work record
+            </Link>
           </div>
 
-          <div className="flex items-center gap-8">
-            <div className="text-center lg:text-right space-y-1">
-              <div className="text-[8px] font-mono text-white/20 uppercase tracking-[0.3em]">Server Uptime</div>
-              <div className="text-xs font-mono text-white/60 tracking-tighter italic">99.99%</div>
+          <div className="lg:text-right">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-4 lg:justify-end" aria-label="Accepted payment methods">
+              {paymentProcessors.map((processor) => (
+                <span
+                  key={processor.name}
+                  className="inline-flex h-7 items-center text-white/46 transition hover:text-white"
+                  title={processor.name}
+                >
+                  {processor.icon ? (
+                    processor.icon
+                  ) : processor.src ? (
+                    <Image
+                      src={processor.src}
+                      alt={processor.name}
+                      width={96}
+                      height={32}
+                      unoptimized
+                      className={`w-auto object-contain opacity-90 transition hover:opacity-100 ${processor.className}`}
+                    />
+                  ) : (
+                    <span className={`${processor.className || 'text-[12px] font-black tracking-[0.16em]'} ${processor.accent}`}>
+                      {processor.wordmark}
+                    </span>
+                  )}
+                </span>
+              ))}
             </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-5 pt-6 text-xs text-white/42 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span>© {currentYear} Sitemendr Technologies. All rights reserved.</span>
+            {legalLinks.map((link) => (
+              <Link key={link.name} href={link.href} className="transition hover:text-white">
+                {link.name}
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span>Build, repair, operate, and grow with a record.</span>
             <button
               onClick={scrollToTop}
-              className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/20 hover:text-white hover:border-ai-blue/40 hover:bg-ai-blue/5 transition-all duration-300 group"
+              className="grid h-9 w-9 place-items-center border border-white/10 bg-white/[0.04] text-white transition hover:border-ai-blue hover:bg-ai-blue"
               aria-label="Scroll to top"
             >
-              <ArrowUp className="w-4 h-4 group-hover:-translate-y-1 transition-transform" />
+              <ArrowUp className="h-4 w-4" />
             </button>
           </div>
         </div>

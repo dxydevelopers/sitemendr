@@ -41,6 +41,12 @@ router.put('/users/:id/ban', adminController.toggleUserBan);
 router.get('/assessments', adminController.getAssessments);
 router.delete('/assessments/:id', adminController.deleteAssessment);
 
+// Build request management
+router.get('/project-requests', adminController.getProjectRequests);
+router.put('/project-requests/:id', adminController.updateProjectRequest);
+router.post('/project-requests/:id/build-milestones/defaults', adminController.createDefaultBuildMilestones);
+router.put('/project-requests/:id/build-milestones/:milestoneId', adminController.updateBuildMilestone);
+
 // Support tickets
 router.get('/support', adminController.getAllSupportTickets);
 router.get('/support/:id', adminController.getSupportTicket);
@@ -104,5 +110,3 @@ router.put('/bookings/:id/status', adminController.updateBookingStatus);
 router.delete('/bookings/:id', adminController.deleteBooking);
 
 module.exports = router;
-
-

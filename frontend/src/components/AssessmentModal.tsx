@@ -37,7 +37,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({ assessment, isOpen, o
               <Clipboard className="w-6 h-6 text-ai-blue" />
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tighter uppercase text-white">Assessment Payload</h2>
+              <h2 className="text-2xl font-black tracking-tighter uppercase text-white">Intake Answers</h2>
               <div className="flex items-center gap-2">
                 <span className="text-[8px] text-ai-blue font-black uppercase tracking-[0.3em]">ID: {assessment.id}</span>
                 <span className="w-1 h-1 rounded-full bg-expert-green animate-pulse"></span>
@@ -76,7 +76,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({ assessment, isOpen, o
             <div>
               <h3 className="text-sm font-black text-ai-blue uppercase tracking-widest mb-6 flex items-center gap-2">
                 <span className="w-1.5 h-4 bg-ai-blue rounded-full"></span>
-                Response Data
+                 Submitted Answers
               </h3>
               
               <div className="grid gap-4">
@@ -124,10 +124,10 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({ assessment, isOpen, o
             onClick={onClose}
             className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
           >
-            Close Terminal
+            Close
           </button>
           <button className="px-8 py-3 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-xl shadow-ai-blue/20">
-            Export Data
+            Export Answers
           </button>
         </div>
       </div>

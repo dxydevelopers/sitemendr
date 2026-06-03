@@ -259,7 +259,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
             Unlock <span className="text-tech-purple font-black italic">PRO_DEPLOYMENT</span> for sub-100ms response times and global edge replication.
           </p>
           <button className="w-full py-5 bg-tech-purple text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white hover:text-tech-purple transition-all shadow-xl shadow-tech-purple/20 active:scale-95">
-            Initialize Upgrade
+            Upgrade performance
           </button>
         </div>
       </div>

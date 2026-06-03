@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CheckCircle, Star, Users, Globe, Award, Zap, Shield, Briefcase, Megaphone, Palette, Code, Smartphone, Search, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle, Star, Users, Globe, Award, Zap, Shield, Briefcase, Settings, Palette, Code, TrendingUp } from 'lucide-react';
 
 export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment: () => void }) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -28,12 +28,10 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
   ];
 
   const services = [
-    { name: 'Web Development', icon: Code, description: 'Custom websites & web applications' },
-    { name: 'Mobile Apps', icon: Smartphone, description: 'iOS & Android development' },
-    { name: 'UI/UX Design', icon: Palette, description: 'User-centered design solutions' },
-    { name: 'Digital Marketing', icon: Megaphone, description: 'Grow your online presence' },
-    { name: 'SEO Services', icon: Search, description: 'Rank higher in search results' },
-    { name: 'E-commerce', icon: TrendingUp, description: 'Online stores that sell' },
+    { name: 'Online Stores That Sell', icon: TrendingUp, description: 'Clear shopping flows and easier checkout' },
+    { name: 'Custom Business Websites', icon: Code, description: 'Built around the way your team works' },
+    { name: 'Website Care & Security', icon: Settings, description: 'Fixes, updates, monitoring, and support' },
+    { name: 'Modern Brand Experience', icon: Palette, description: 'Design that feels polished and trustworthy' },
   ];
 
   return (
@@ -77,16 +75,16 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
           <div className="flex items-center gap-6 text-gray-400">
             <span className="flex items-center gap-2">
               <Globe className="w-4 h-4" />
-              Serving clients worldwide
+              Building trusted websites worldwide
             </span>
             <span className="flex items-center gap-2">
               <Shield className="w-4 h-4" />
-              Secure & reliable
+              Operational continuity built in
             </span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
-              Contact Sales
+              Talk to Us
             </Link>
             <Link href="/login" className="text-gray-400 hover:text-white transition-colors">
               Client Portal
@@ -104,7 +102,7 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
             <div className="flex items-center gap-2 mb-6">
               <div className="flex items-center gap-1 px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">
                 <Award className="w-4 h-4" />
-                Award-Winning Agency
+                Websites, Stores & Support
               </div>
               <div className="flex items-center gap-1 px-3 py-1 bg-green-600/20 text-green-400 rounded-full text-sm font-medium border border-green-500/30">
                 <Star className="w-4 h-4 fill-current" />
@@ -115,24 +113,24 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
             {/* Headline */}
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
               We Build{' '}
-              <span className="text-blue-500">Professional Websites</span>
-              <br />That Grow Your Business
+              <span className="text-blue-500">Websites That Win Trust</span>
+              <br />and Bring Customers In
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
-              Transform your online presence with stunning, high-performance websites designed and developed by our expert team. From concept to launch, we deliver results that matter.
+              Sitemendr creates polished websites, online stores, and custom tools that help your business look credible, sell clearly, and keep running smoothly.
             </p>
 
             {/* Features List */}
             <div className="grid sm:grid-cols-2 gap-4 mb-10">
               {[
-                'Custom Design & Development',
-                'SEO Optimized',
-                'Mobile Responsive',
+                'Business Website Design',
+                'Online Store Setup',
+                'Mobile-Friendly Pages',
                 'Fast Loading Speed',
-                'Secure & Reliable',
-                '24/7 Support'
+                'Security Protection',
+                'Support After Launch'
               ].map((feature, index) => (
                 <div key={index} className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -147,7 +145,7 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
                 onClick={() => onStartAssessment()}
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white text-base font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
               >
-                Start Your Project
+                Start My Project
                 <ArrowRight className="w-5 h-5" />
               </button>
               
@@ -155,13 +153,13 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
                 href="/about"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-gray-600 text-gray-300 text-base font-semibold rounded-xl hover:border-gray-400 hover:bg-gray-800/50 transition-all"
               >
-                View Our Work
+                See Our Work
               </Link>
             </div>
 
             {/* Trust Indicators */}
             <div className="mt-10 pt-8 border-t border-gray-800">
-              <p className="text-sm text-gray-500 mb-4">Trusted by businesses worldwide</p>
+              <p className="text-sm text-gray-500 mb-4">Trusted by businesses that need a sharper online presence</p>
               <div className="flex items-center gap-8">
                 {['Google', 'Microsoft', 'Amazon', 'Stripe'].map((brand, i) => (
                   <span key={i} className="text-xl font-bold text-gray-500 hover:text-gray-400 transition-colors">
@@ -180,7 +178,7 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
                 <div className="aspect-video bg-gradient-to-br from-blue-900/50 to-purple-900/50 flex items-center justify-center">
                   <div className="text-center p-8">
                     <Globe className="w-20 h-20 text-white/20 mx-auto mb-4" />
-                    <p className="text-white/60 text-lg font-medium">Professional Web Solutions</p>
+                    <p className="text-white/60 text-lg font-medium">Websites That Look Professional</p>
                   </div>
                 </div>
                 {/* Floating Card 1 */}
@@ -190,8 +188,8 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
                       <TrendingUp className="w-5 h-5 text-green-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">Conversion Rate</p>
-                      <p className="text-xs text-gray-400">+127% average increase</p>
+                      <p className="text-sm font-semibold text-white">Commercial Growth</p>
+                      <p className="text-xs text-gray-400">Clear paths from visitor to customer</p>
                     </div>
                   </div>
                 </div>
@@ -202,7 +200,7 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
                 <div className="aspect-square bg-gradient-to-br from-purple-900/50 to-pink-900/50 flex items-center justify-center p-6">
                   <div className="text-center">
                     <Users className="w-12 h-12 text-white/30 mx-auto mb-2" />
-                    <p className="text-white/60 text-sm font-medium">Team of Experts</p>
+                    <p className="text-white/60 text-sm font-medium">Expert Design</p>
                   </div>
                 </div>
               </div>
@@ -212,7 +210,7 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
                 <div className="aspect-square bg-gradient-to-br from-orange-900/50 to-red-900/50 flex items-center justify-center p-6">
                   <div className="text-center">
                     <Zap className="w-12 h-12 text-white/30 mx-auto mb-2" />
-                    <p className="text-white/60 text-sm font-medium">Fast Delivery</p>
+                    <p className="text-white/60 text-sm font-medium">Fast Build</p>
                   </div>
                 </div>
               </div>
@@ -226,10 +224,10 @@ export default function ImmersiveHero({ onStartAssessment }: { onStartAssessment
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Our Services
+              Services for Growing Online
             </h2>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-              Comprehensive digital solutions tailored to your business needs
+              Choose the help you need: sell online, build something custom, or keep your current site healthy.
             </p>
           </div>
 

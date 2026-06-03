@@ -9,38 +9,38 @@ interface PricingPreviewProps {
 const PricingPreview: React.FC<PricingPreviewProps> = ({ onStartAssessment }) => {
   const pricingTiers = [
     {
-      title: 'Starter Website',
+      title: 'Foundational',
       id: 'ai_foundation',
       price: '$299',
       period: 'one_time',
       popular: false,
       features: [
-        'AI Basic Template',
-        'Standard Setup',
-        '30-Day Support',
-        'Mobile-Friendly Design',
-        'Basic SEO Tracking',
-        '1-Year Hosting',
+        'Professional Website Setup',
+        'Clear Page Structure',
+        '30-Day Launch Support',
+        'Responsive Interface',
+        'Search Visibility Layer',
+        '1-Year Managed Hosting',
       ],
-      ctaText: 'Choose Plan',
+      ctaText: 'Start',
       gradient: 'from-ai-blue to-tech-purple',
       action: () => onStartAssessment?.('ai_foundation'),
     },
     {
-      title: 'Custom Development',
+      title: 'Growth',
       id: 'pro_enhancement',
       price: '$1,299',
       period: 'one_time',
       popular: true,
       features: [
-        'Expert Engineer Help',
+        'Senior Developer Access',
         'Custom Development',
-        'API Integrations',
-        '90-Day Support',
+        'Tool Integrations',
+        '90-Day Launch Support',
         'Speed Improvements',
         'CMS Access',
       ],
-      ctaText: 'Choose Plan',
+      ctaText: 'Start',
       gradient: 'from-tech-purple to-expert-green',
       action: () => onStartAssessment?.('pro_enhancement'),
     },
@@ -51,32 +51,32 @@ const PricingPreview: React.FC<PricingPreviewProps> = ({ onStartAssessment }) =>
       period: 'one_time',
       popular: false,
       features: [
-        'Complete System Backup',
-        'Business System Group',
+        'Advanced Reliability Setup',
+        'Business Tool Setup',
         'Dedicated Manager',
-        '180-Day Support',
-        'Worldwide Growth Ops',
-        'Priority Care',
+        '180-Day Launch Support',
+        'Global Growth Operations',
+        'Priority Fixes',
       ],
-      ctaText: 'Start Now',
+      ctaText: 'Brief Team',
       gradient: 'from-expert-green to-ai-blue',
       action: () => onStartAssessment?.('enterprise'),
     },
     {
-      title: 'Systems Care',
+      title: 'Integrity',
       id: 'maintenance',
       price: '$99',
       period: 'monthly',
       popular: false,
       features: [
-        'Live System Check',
-        'Security Updates',
-        'Availability Backup Check',
-        '2hr Manual Care',
-        '24/7 Problem Response',
-        'Priority Task List',
+        'Live Website Monitoring',
+        'Security Improvements',
+        'Availability Checks',
+        '2hr Manual Fixes',
+        '24/7 Incident Response',
+        'Priority Support Queue',
       ],
-      ctaText: 'Get Care',
+      ctaText: 'Protect Site',
       gradient: 'from-pink-500 to-ai-blue',
       action: () => onStartAssessment?.('maintenance'),
     },
@@ -88,13 +88,13 @@ const PricingPreview: React.FC<PricingPreviewProps> = ({ onStartAssessment }) =>
       popular: false,
       features: [
         'Full Source Code',
-        'Docker Configuration',
+        'Server Setup Files',
         'Deployment Guide',
-        'Lifetime Updates',
-        'Technical Handover',
-        'Self-Managed Ops',
+        'Lifetime Update Path',
+        'Clear Handover',
+        'Self-Managed Hosting',
       ],
-      ctaText: 'Go Private',
+      ctaText: 'Self Host',
       gradient: 'from-orange-500 to-pink-500',
       action: () => onStartAssessment?.('self_hosted'),
     },
@@ -115,13 +115,13 @@ const PricingPreview: React.FC<PricingPreviewProps> = ({ onStartAssessment }) =>
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-ai-blue/5 border border-ai-blue/20 mb-8">
             <div className="w-2 h-2 rounded-full bg-ai-blue animate-pulse"></div>
-            <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em]">RESOURCE_ALLOCATION: PENDING</span>
+            <span className="text-[10px] font-mono font-black text-ai-blue uppercase tracking-[0.4em]">Plans Ready</span>
           </div>
           <h2 className="text-4xl md:text-6xl font-black mb-8 text-white tracking-tighter">
-            Select Your <span className="italic text-ai-blue">Plan</span>
+            Select Your <span className="italic text-ai-blue">Investment</span>
           </h2>
           <p className="text-lg md:text-xl text-medium-gray max-w-2xl mx-auto font-medium opacity-60 italic">
-            High-quality plans made for growing businesses worldwide.
+            Choose the level of website, store, or support your business needs right now.
           </p>
         </div>
 
@@ -179,7 +179,7 @@ const PricingPreview: React.FC<PricingPreviewProps> = ({ onStartAssessment }) =>
 
         <div className="mt-32 pt-16 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-12 text-[9px] font-mono font-black text-medium-gray uppercase tracking-[0.4em] opacity-30">
-            <span><span>Trusted by 500+ businesses</span></span>
+            <span><span>Trusted by 500+ operators</span></span>
             <span><span>Secure payments</span></span>
             <span>{/* Auth_Method: E2EE */}</span>
           </div>

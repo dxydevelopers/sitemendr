@@ -31,10 +31,10 @@ export default function ClientLogos() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <p className="text-sm font-medium text-white/50 uppercase tracking-widest mb-4">
-            Trusted by businesses worldwide
+            Trusted by businesses building a stronger online presence
           </p>
           <h2 className="text-3xl md:text-4xl font-bold text-white">
-            Companies That Trust Us
+            Client Results
           </h2>
         </div>
         
@@ -56,7 +56,7 @@ export default function ClientLogos() {
 
         <div className="mt-12 text-center">
           <p className="text-white/40 text-sm">
-            Join 500+ businesses that have grown with us
+            Join 500+ teams moving from a basic website to a clearer, more useful digital presence
           </p>
         </div>
       </div>

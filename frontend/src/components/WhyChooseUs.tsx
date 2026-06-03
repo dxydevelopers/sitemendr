@@ -5,30 +5,30 @@ import Link from 'next/link';
 
 const benefits = [
   {
-    id: 'PARAM-01',
-    title: 'Fast Turnaround',
-    description: 'Get your website built in weeks, not months. Our streamlined process delivers fast results.',
+    id: 'ITEM-01',
+    title: 'Fast, Organized Delivery',
+    description: 'Move from idea to launch through a clear build process with fewer delays and cleaner decisions.',
     icon: <Zap className="w-6 h-6" />,
     metric: '4 weeks'
   },
   {
-    id: 'PARAM-02',
-    title: 'Quality Guaranteed',
-    description: 'Every website undergoes rigorous testing to ensure it works perfectly on all devices and browsers.',
+    id: 'ITEM-02',
+    title: 'Tested Before Launch',
+    description: 'Every site is checked for speed, mobile layout, forms, links, and key customer actions before it goes live.',
     icon: <ShieldCheck className="w-6 h-6" />,
     metric: '99.9% Uptime'
   },
   {
-    id: 'PARAM-03',
-    title: 'Clear Pricing',
-    description: 'No hidden fees or surprise costs. The price we quote is the price you pay.',
+    id: 'ITEM-03',
+    title: 'Value Transparency',
+    description: 'Plans are scoped around what you need built, how complex it is, and what support you want after launch.',
     icon: <CreditCard className="w-6 h-6" />,
-    metric: 'No Hidden Fees'
+    metric: 'Clear Scope'
   },
   {
-    id: 'PARAM-04',
-    title: 'Ongoing Support',
-    description: 'We are here to help even after your website goes live. Get support whenever you need it.',
+    id: 'ITEM-04',
+    title: 'Support After Launch',
+    description: 'Ongoing help keeps your website updated, available, and working well after handover.',
     icon: <Activity className="w-6 h-6" />,
     metric: '24/7 Available'
   }
@@ -54,15 +54,15 @@ export default function WhyChooseUs() {
             <div className="inline-flex items-center gap-4 px-3 py-1 rounded bg-expert-green/5 border border-expert-green/20 mb-8">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-expert-green shadow-[0_0_8px_#10B981] animate-pulse"></div>
-                <span className="font-mono text-[9px] font-bold text-expert-green uppercase tracking-[0.3em]">Why Choose Us</span>
+                <span className="font-mono text-[9px] font-bold text-expert-green uppercase tracking-[0.3em]">Why Sitemendr</span>
               </div>
             </div>
             <h2 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tighter leading-none uppercase">
               Built for <br />
-              <span className="bg-gradient-to-r from-ai-blue via-tech-purple to-expert-green bg-clip-text text-transparent italic">Operational_Growth</span>
+              <span className="bg-gradient-to-r from-ai-blue via-tech-purple to-expert-green bg-clip-text text-transparent italic">Real Business</span>
             </h2>
             <p className="text-xl text-medium-gray mb-12 leading-relaxed font-mono uppercase tracking-tight opacity-70 max-w-xl">
-              We connect automatic efficiency with human creativity, providing digital items that bring important results.
+              We combine sharp design, practical development, and human judgment to create websites customers can trust and teams can use.
             </p>
             
             <div className="grid sm:grid-cols-2 gap-6">
@@ -111,23 +111,23 @@ export default function WhyChooseUs() {
                 </div>
                 
                 <h3 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tighter leading-none uppercase">
-                  Core_ <br />
-                  <span className="bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent italic">Infra_Engine</span>
+                  Launch_ <br />
+                  <span className="bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent italic">Ready</span>
                 </h3>
                 
                 <div className="font-mono text-[9px] font-bold text-ai-blue mb-10 bg-ai-blue/5 px-4 py-2 rounded border border-ai-blue/20 tracking-[0.3em] uppercase">
-                  SYSTEM_CORE_V2.0_STABLE
+                  Website checked and ready
                 </div>
 
                 <Link href="/contact" className="group/btn relative px-10 py-5 bg-ai-blue text-white font-mono font-black rounded-xl overflow-hidden transition-all duration-500 hover:scale-110 active:scale-95 shadow-[0_0_30px_rgba(0,102,255,0.4)] cursor-pointer">
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] skew-x-[-20deg]"></div>
-                  <span className="relative z-10 uppercase tracking-widest text-[10px]">Get Started</span>
+                  <span className="relative z-10 uppercase tracking-widest text-[10px]">Talk to Us</span>
                 </Link>
               </div>
               
               {/* Floating Technical Tags */}
               <div className="absolute top-16 right-16 px-4 py-2 bg-dark-bg/90 backdrop-blur-md border border-white/10 rounded-lg font-mono text-[9px] font-bold text-ai-blue -rotate-6 group-hover:rotate-0 transition-all duration-700 shadow-2xl tracking-widest">
-                ENGINE_ACTIVE
+                Project Ready
               </div>
               <div className="absolute bottom-20 left-16 px-4 py-2 bg-dark-bg/90 backdrop-blur-md border border-white/10 rounded-lg font-mono text-[9px] font-bold text-expert-green rotate-6 group-hover:rotate-0 transition-all duration-700 shadow-2xl tracking-widest uppercase">
                 Uptime: 99.9%

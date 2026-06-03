@@ -2,6 +2,11 @@ const { prisma } = require('../config/db');
 const logger = require('../config/logger');
 const { withTimeout } = require('../utils/promise');
 
+// Cache for enforcement configuration
+let enforcementConfigCache = null;
+let lastCacheUpdate = 0;
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
 // Payment enforcement middleware
 const checkPaymentStatus = async (req, res, next) => {
   try {
@@ -96,15 +101,22 @@ const checkPaymentStatus = async (req, res, next) => {
 // Get enforcement configuration based on tier
 const getEnforcementConfig = async (tier) => {
   try {
+    const now = Date.now();
+    
+    // Return cached config if available and not expired
+    if (enforcementConfigCache && (now - lastCacheUpdate < CACHE_TTL)) {
+      return enforcementConfigCache[tier] || enforcementConfigCache.ai_foundation;
+    }
+
     const setting = await withTimeout(
       prisma.setting.findUnique({
         where: { key: 'payment_enforcement' }
       }),
-      2000,
+      5000,
       'Timeout getting enforcement config'
     );
 
-    const configs = setting ? setting.value : {
+    const configs = setting ? (typeof setting.value === 'string' ? JSON.parse(setting.value) : setting.value) : {
       ai_foundation: {
         overlayThreshold: 7,
         maxGracePeriod: 14,
@@ -132,12 +144,22 @@ const getEnforcementConfig = async (tier) => {
       }
     };
 
+    // Update cache
+    enforcementConfigCache = configs;
+    lastCacheUpdate = now;
+
     return configs[tier] || configs.ai_foundation;
   } catch (error) {
     logger.error('Error in getEnforcementConfig', {
       errorCode: 'GET_ENFORCEMENT_CONFIG_ERROR',
       error: error.message
     });
+    
+    // If we have a cached version even if expired, return it on error
+    if (enforcementConfigCache) {
+      return enforcementConfigCache[tier] || enforcementConfigCache.ai_foundation;
+    }
+
     return {
       overlayThreshold: 7,
       maxGracePeriod: 14,

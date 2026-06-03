@@ -11,6 +11,9 @@ router.use(checkPaymentStatus);
 // Discovery routes - allowed even if payment is pending
 router.get('/stats', clientController.getDashboardStats);
 router.get('/projects', clientController.getProjects);
+router.post('/project-requests/:requestId/quote-response', clientController.respondToProjectQuote);
+router.post('/project-requests/:requestId/staging-review', clientController.respondToStagingReview);
+router.post('/project-requests/:requestId/handoff-response', clientController.respondToHandoff);
 router.get('/assessments', clientController.getAssessments);
 router.get('/activities', clientController.getActivities);
 

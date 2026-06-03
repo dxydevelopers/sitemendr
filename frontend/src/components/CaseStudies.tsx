@@ -380,12 +380,13 @@ const categories = [
 ];
 
 export default function CaseStudies() {
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [expandedStudy, setExpandedStudy] = useState<string | null>(null);
+
   const showCaseStudies = process.env.NEXT_PUBLIC_SHOW_CASE_STUDIES === 'true';
   if (!showCaseStudies) {
     return null;
   }
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [expandedStudy, setExpandedStudy] = useState<string | null>(null);
 
   const filteredStudies = caseStudies.filter(study => 
     selectedCategory === 'all' || study.category === selectedCategory

@@ -348,10 +348,10 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
             </div>
             <div className="space-y-4">
               <h3 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white leading-tight">
-                Module <span className="text-ai-blue italic">Restricted</span>
+                Editor <span className="text-ai-blue italic">Locked</span>
               </h3>
               <p className="text-sm text-white/40 font-bold uppercase tracking-wide leading-relaxed">
-                The <span className="text-white">Standard CMS Enhancement</span> is required to access visual editing protocols for this node.
+                The <span className="text-white">Standard CMS Enhancement</span> is required to access visual editing for this project.
               </p>
             </div>
             <div className="pt-6">
@@ -363,7 +363,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
                 className="w-full flex items-center justify-center gap-4 py-6 bg-ai-blue text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-ai-blue/20"
               >
                 <ShoppingBag className="w-5 h-5" />
-                Initialize Deployment
+                Add CMS access
               </button>
             </div>
           </div>

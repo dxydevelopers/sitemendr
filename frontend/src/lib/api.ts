@@ -252,7 +252,9 @@ class ApiClient {
         // Prioritize sessionToken for assessment-related endpoints
         const isAssessmentEndpoint = endpoint.startsWith('/assessment/') || endpoint.startsWith('/api/assessment/');
         
-        if (isAssessmentEndpoint && sessionToken) {
+        const isDashboardBuildStart = endpoint.includes('/assessment/start') && typeof options.body === 'string' && options.body.includes('dashboard_build');
+
+        if (isAssessmentEndpoint && sessionToken && !endpoint.includes('/details') && !isDashboardBuildStart) {
           headers.Authorization = `Bearer ${sessionToken}`;
         } else if (authToken) {
           headers.Authorization = `Bearer ${authToken}`;
@@ -305,7 +307,8 @@ class ApiClient {
           } as T;
         }
 
-        const data = await response.json();
+        const responseText = await response.text();
+        const data = responseText ? JSON.parse(responseText) : { success: true };
         
         // Save to cache if it's a candidate for caching
         if (!options.method || options.method === 'GET') {
@@ -540,13 +543,11 @@ class ApiClient {
 
   async getClientProjects() {
     try {
-      // Try to fetch from the specific subscription endpoint first (returns object)
-      const subResponse = await this.request<{ success: boolean; data?: Subscription; subscription?: Subscription }>('/subscriptions/my-subscription');
-      const singleSub = subResponse.data || subResponse.subscription;
-      if (singleSub) return { success: true, data: [singleSub] };
-
-      // Fallback to projects endpoint (returns array)
-      return this.request<{ success: boolean; data: Subscription[] }>('/client/projects');
+      const projectsResponse = await this.request<{ success: boolean; data?: unknown[]; projects?: unknown[] }>('/client/projects');
+      return {
+        success: projectsResponse.success,
+        data: projectsResponse.data || projectsResponse.projects || []
+      };
     } catch (err) {
       console.error('Error fetching client projects:', err);
       return { success: false, data: [] };
@@ -589,6 +590,27 @@ class ApiClient {
   async requestProjectReview(subscriptionId: string) {
     return this.request<{ success: boolean; message: string }>(`/client/projects/${subscriptionId}/request-review`, {
       method: 'POST',
+    });
+  }
+
+  async respondToProjectQuote(requestId: string, action: 'accept' | 'discuss' | 'decline', message = '') {
+    return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/quote-response`, {
+      method: 'POST',
+      body: JSON.stringify({ action, message }),
+    });
+  }
+
+  async respondToStagingReview(requestId: string, action: 'approve' | 'changes', message = '') {
+    return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/staging-review`, {
+      method: 'POST',
+      body: JSON.stringify({ action, message }),
+    });
+  }
+
+  async respondToHandoff(requestId: string, action: 'complete' | 'issue', message = '') {
+    return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/handoff-response`, {
+      method: 'POST',
+      body: JSON.stringify({ action, message }),
     });
   }
 
@@ -1037,6 +1059,19 @@ class ApiClient {
     });
   }
 
+  async createDefaultBuildMilestones(requestId: string) {
+    return this.request<{ success: boolean; data: unknown; message: string }>(`/admin/project-requests/${requestId}/build-milestones/defaults`, {
+      method: 'POST',
+    });
+  }
+
+  async updateBuildMilestone(requestId: string, milestoneId: string, milestoneData: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message: string }>(`/admin/project-requests/${requestId}/build-milestones/${milestoneId}`, {
+      method: 'PUT',
+      body: JSON.stringify(milestoneData),
+    });
+  }
+
   async deleteMilestone(id: string) {
     return this.request<{ success: boolean }>(`/admin/milestones/${id}`, {
       method: 'DELETE',
@@ -1145,6 +1180,17 @@ class ApiClient {
 
   async getAdminAssessments() {
     return this.request('/admin/assessments');
+  }
+
+  async getAdminProjectRequests() {
+    return this.request('/admin/project-requests');
+  }
+
+  async updateAdminProjectRequest(id: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   async deleteAssessment(id: string) {

@@ -7,53 +7,53 @@ import Image from 'next/image';
 const testimonials = [
   {
     id: 'TR-001',
-    quote: "Working with Sitemendr transformed our online presence. Their team delivered a beautiful, fast website that our customers love. The project was completed on time and within budget.",
+    quote: "Sitemendr turned our goals into a website that feels credible, fast, and easy for customers to understand. The project moved smoothly from brief to launch.",
     author: "Sarah Mitchell",
     company: "BrightStar Media",
     role: "CEO & Founder",
     industry: "Marketing Agency",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop&crop=face",
-    metrics: ["On-time Delivery", "Budget Met", "5.0x ROI"]
+    metrics: ["On-Time Launch", "Clear Scope", "5.0x ROI"]
   },
   {
     id: 'TR-002',
-    quote: "Our new e-commerce store looks fantastic and works perfectly. Sales have increased significantly since launch, and the checkout process is smooth and reliable.",
+    quote: "The new online store gave customers a clearer path to buy. Checkout felt easier, the site looked sharper, and sales performance improved.",
     author: "Marcus Rivera",
     company: "Urban Kitchen",
     role: "Founder & CEO",
     industry: "E-commerce",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face",
-    metrics: ["Sales Growth", "Fast Checkout", "95% Mobile Score"]
+    metrics: ["Sales Growth", "Smoother Checkout", "95% Mobile Score"]
   },
   {
     id: 'TR-003',
-    quote: "The new website perfectly captures our professional medical brand. Patients love how easy it is to book appointments online. It's made a real difference to our practice.",
+    quote: "The new patient platform gave our clinic a more credible digital front door and reduced appointment friction. It feels precise, secure, and easy for patients to use.",
     author: "Dr. Emily Chen",
     company: "Nova Health Clinic",
     role: "Medical Director",
     industry: "Healthcare",
     avatar: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&h=400&fit=crop&crop=face",
-    metrics: ["Easy Booking", "Patient Satisfaction", "4.9/5 Rating"]
+    metrics: ["Booking Efficiency", "Patient Trust", "4.9/5 Rating"]
   },
   {
     id: 'TR-004',
-    quote: "We needed a professional website that reflects our commitment to quality legal services. Sitemendr delivered exactly what we needed - a modern, trustworthy online presence.",
+    quote: "We needed a website that reflected legal precision and trust. Sitemendr delivered a polished experience that supports inquiries without weakening our brand.",
     author: "James Patterson",
     company: "Pinnacle Law Group",
     role: "Managing Partner",
     industry: "Legal Services",
     avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face",
-    metrics: ["Professional Design", "Mobile Optimized", "Client Inquiries Up"]
+    metrics: ["Trust Signal", "Polished Interface", "Client Inquiries Up"]
   },
   {
     id: 'TR-005',
-    quote: "Our new website and online ordering system have been great for our restaurant. Customers love the easy reservation system and the beautiful menu showcase.",
+    quote: "The ordering and reservation workflow became easier to manage and easier for customers to complete. The website now supports the business instead of sitting beside it.",
     author: "Isabella Romano",
     company: "Bella Vista Trattoria",
     role: "Owner & Chef",
     industry: "Hospitality",
     avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=400&fit=crop&crop=face",
-    metrics: ["Easy Reservations", "Online Ordering", "Customer Praise"]
+    metrics: ["Reservation Flow", "Order Operations", "Customer Praise"]
   }
 ];
 
@@ -102,14 +102,14 @@ export default function Testimonials() {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-3 px-3 py-1 rounded bg-ai-blue/5 border border-ai-blue/20 mb-6">
               <Database className="w-3 h-3 text-ai-blue" />
-              <span className="font-mono text-[9px] font-bold text-ai-blue uppercase tracking-[0.3em]">Verified Customer Reviews</span>
+              <span className="font-mono text-[9px] font-bold text-ai-blue uppercase tracking-[0.3em]">Evidence of Impact</span>
             </div>
             <h2 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tighter leading-none uppercase">
-              Operational <br />
+              Client <br />
               <span className="bg-gradient-to-r from-ai-blue via-tech-purple to-pink-500 bg-clip-text text-transparent italic text-6xl md:text-8xl">Feedback</span>
             </h2>
             <p className="text-lg text-medium-gray leading-relaxed max-w-xl font-mono uppercase tracking-tight opacity-60">
-              Verified performance metrics and system impact assessments from our global deployment network.
+              Real project feedback from businesses that needed sharper websites, smoother workflows, and stronger customer trust.
             </p>
           </div>
           
@@ -199,7 +199,7 @@ export default function Testimonials() {
                       <p className="text-ai-blue font-mono text-[9px] font-bold mb-4 uppercase tracking-[0.2em]">{t.role}</p>
                       
                       <div className="w-full pt-6 border-t border-white/5 flex flex-col items-center gap-2">
-                         <span className="font-mono text-[8px] text-white/30 uppercase tracking-widest">ENTITY_NODE</span>
+                         <span className="font-mono text-[8px] text-white/30 uppercase tracking-widest">Client</span>
                          <span className="text-xs font-bold text-white/70 uppercase tracking-tight">{t.company}</span>
                       </div>
                     </div>
@@ -246,10 +246,10 @@ export default function Testimonials() {
         {/* Stats Grid - High Density Infrastructure Style */}
         <div className="mt-16 pt-12 border-t border-white/5 grid grid-cols-2 lg:grid-cols-4 gap-12">
           {[
-            { label: 'Network Throughput', value: '500+', sub: 'DEPLOYED_NODES' },
-            { label: 'System Retention', value: '98%', sub: 'UPTIME_STABILITY' },
-            { label: 'Average Latency', value: '24ms', sub: 'RESPONSE_SYNC' },
-            { label: 'Security Compliance', value: '100%', sub: 'ENCRYPTION_PASS' }
+            { label: 'Projects Completed', value: '500+', sub: 'PROJECTS' },
+            { label: 'Client Satisfaction', value: '98%', sub: 'SATISFACTION' },
+            { label: 'Fast Response', value: '24ms', sub: 'SPEED' },
+            { label: 'Security Checks', value: '100%', sub: 'PROTECTED' }
           ].map((stat, i) => (
             <div key={i} className="group cursor-default">
               <div className="font-mono text-[8px] font-bold text-ai-blue uppercase tracking-[0.3em] mb-4 opacity-40 group-hover:opacity-100 transition-opacity">

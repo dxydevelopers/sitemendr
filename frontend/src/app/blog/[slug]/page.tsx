@@ -7,6 +7,7 @@ import { ChevronLeft, Calendar, Clock, User, Share2, ArrowRight, Sparkles, BookO
 import { apiClient } from '@/lib/api';
 import BlogComments from '@/components/BlogComments';
 import BlogLike from '@/components/BlogLike';
+import { editorialPosts, findEditorialPost } from '@/lib/editorial-posts';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const BACKEND_BASE_URL = API_BASE_URL.replace('/api', '');
@@ -49,11 +50,17 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         ]);
         
         setPost(postData.post);
-        if (relatedData.success) {
-          setRelatedPosts(relatedData.posts);
-        }
+        const editorialRelated = editorialPosts
+          .filter(editorialPost => editorialPost.slug !== slug && editorialPost.category === postData.post.category)
+          .slice(0, 2);
+        setRelatedPosts(relatedData.success ? [...relatedData.posts, ...editorialRelated] : editorialRelated);
       } catch (error) {
         console.error('Failed to fetch post data:', error);
+        const editorialPost = findEditorialPost(slug);
+        if (editorialPost) {
+          setPost(editorialPost);
+          setRelatedPosts(editorialPosts.filter(post => post.slug !== slug).slice(0, 2));
+        }
       }
       setLoading(false);
     };
@@ -118,6 +125,8 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
       </div>
     );
   }
+
+  const isEditorialPost = post.id.startsWith('sitemendr-editorial');
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white relative overflow-hidden">
@@ -235,7 +244,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
             
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-              <BlogLike slug={post.slug} initialLikes={post.likes || 0} />
+              {!isEditorialPost && <BlogLike slug={post.slug} initialLikes={post.likes || 0} />}
               <button 
                 onClick={handleShare}
                 className="p-4 rounded-2xl bg-slate-900/50 backdrop-blur-xl border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/50 hover:border-blue-500/30 transition-all group"
@@ -254,9 +263,11 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         </div>
 
         {/* Blog Comments */}
-        <div className="mt-16">
-          <BlogComments slug={post.slug} />
-        </div>
+        {!isEditorialPost && (
+          <div className="mt-16">
+            <BlogComments slug={post.slug} />
+          </div>
+        )}
 
         {/* Newsletter CTA */}
         <div className="mt-24 p-8 sm:p-12 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-cyan-500/10 backdrop-blur-xl border border-slate-800 rounded-3xl text-center relative overflow-hidden">
@@ -268,7 +279,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
             </div>
             <h3 className="text-2xl sm:text-3xl font-bold mb-4 text-white">Want more insights?</h3>
             <p className="text-slate-400 mb-8 max-w-xl mx-auto leading-relaxed">
-              Subscribe to our newsletter to receive the latest technical deep-dives and industry strategies directly in your inbox.
+              Subscribe to receive practical notes on builds, repairs, maintenance, commerce, and workspace delivery.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
               <input 
@@ -277,7 +288,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
                 className="flex-1 px-6 py-4 bg-slate-900/50 backdrop-blur-xl border border-slate-700 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-white placeholder:text-slate-500"
               />
               <button className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center justify-center gap-2 group whitespace-nowrap">
-                Join the Pulse
+                Join the Journal
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>

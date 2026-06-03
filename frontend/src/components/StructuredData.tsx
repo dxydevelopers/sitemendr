@@ -12,7 +12,7 @@ export function OrganizationSchema() {
     name: 'Sitemendr',
     url: 'https://sitemendr.com',
     logo: 'https://sitemendr.com/logo.png',
-    description: 'High-performance web development and digital infrastructure solutions. We build resilient digital ecosystems for modern businesses.',
+    description: 'Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.',
     foundingDate: '2024',
     address: {
       '@type': 'PostalAddress',
@@ -38,10 +38,10 @@ export function OrganizationSchema() {
       name: 'Worldwide',
     },
     serviceType: [
-      'Web Development',
-      'E-commerce Solutions',
-      'AI Solutions',
-      'Digital Marketing',
+      'Strategic Digital Engineering',
+      'Merchant Automation Infrastructure',
+      'Bespoke Enterprise Architecture',
+      'Proactive Systems Integrity',
     ],
   };
 

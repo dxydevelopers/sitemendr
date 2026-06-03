@@ -1,32 +1,32 @@
 'use client';
 
 import Link from 'next/link';
-import { BrainCircuit, Code2, Settings, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Code2, Settings, ArrowRight } from 'lucide-react';
 
 export default function ServiceShowcase() {
   const services = [
     {
-      title: 'AI Website Builder',
-      description: 'Create beautiful, professional websites in minutes with our AI-powered builder. Perfect for small businesses and startups looking to establish their online presence quickly.',
-      features: ['AI Template Creation', 'Automatic Speed Improvements', 'Smart Layout Design', 'Built-in SEO Tools'],
-      icon: <BrainCircuit className="w-10 h-10" />,
+      title: 'Online Stores That Sell',
+      description: 'Clean, conversion-focused stores for businesses that need products, payments, and customer journeys set up properly.',
+      features: ['Product Setup', 'Easy Checkout', 'Niche Strategy', 'Fast Storefronts'],
+      icon: <ShoppingCart className="w-10 h-10" />,
       link: '/services',
       gradient: 'from-ai-blue to-tech-purple',
       status: 'Available'
     },
     {
-      title: 'Custom Development',
-      description: 'Need something unique? Our expert developers build custom websites and web applications tailored to your specific business requirements.',
-      features: ['Custom System Builds', 'API Integration', 'Database Design', 'Custom Functionality'],
+      title: 'Custom Business Websites',
+      description: 'Websites, portals, and custom tools shaped around your brand, your team, and the way your business actually operates.',
+      features: ['Custom Features', 'App Integrations', 'Organized Data', 'Brand-Led Design'],
       icon: <Code2 className="w-10 h-10" />,
       link: '/services',
       gradient: 'from-tech-purple to-pink-500',
       status: 'Available'
     },
     {
-      title: 'Website Maintenance',
-      description: 'Keep your website running smoothly with our ongoing maintenance and support services. We handle updates, security, and performance optimization.',
-      features: ['Regular Updates', 'Security Monitoring', 'Performance Optimization', 'Technical Support'],
+      title: 'Website Care & Support',
+      description: 'Ongoing fixes, updates, security checks, and improvements so your site stays fast, stable, and useful after launch.',
+      features: ['Security Checks', 'Speed Reviews', 'Bug Fixes', 'Ongoing Support'],
       icon: <Settings className="w-10 h-10" />,
       link: '/services',
       gradient: 'from-expert-green to-ai-blue',
@@ -58,18 +58,18 @@ export default function ServiceShowcase() {
               </div>
             </div>
             <h2 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tighter leading-none uppercase">
-              Operational <br />
-              <span className="bg-gradient-to-r from-ai-blue via-tech-purple to-pink-500 bg-clip-text text-transparent italic">System Parts</span>
+              Services Built <br />
+              <span className="bg-gradient-to-r from-ai-blue via-tech-purple to-pink-500 bg-clip-text text-transparent italic">Around You</span>
             </h2>
             <p className="text-xl text-medium-gray leading-relaxed max-w-2xl font-mono uppercase tracking-tight opacity-70">
-              Building growing digital networks that combine AI efficiency with accurate creative work.
+              Launch a sharper site, sell online, or get dependable help improving what you already have.
             </p>
           </div>
           <div className="hidden md:block text-right">
-            <div className="font-mono text-[9px] text-medium-gray mb-1 uppercase tracking-widest">SYSTEM_STATUS</div>
+            <div className="font-mono text-[9px] text-medium-gray mb-1 uppercase tracking-widest">Availability</div>
             <div className="font-mono text-sm font-black text-expert-green tracking-[0.2em] uppercase flex items-center gap-2 justify-end">
                <div className="w-2 h-2 rounded-full bg-expert-green animate-pulse"></div>
-                All Systems Working
+                Taking New Projects
              </div>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function ServiceShowcase() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="font-mono text-[8px] text-medium-gray tracking-widest uppercase opacity-40">STATUS_LOG</span>
+                    <span className="font-mono text-[8px] text-medium-gray tracking-widest uppercase opacity-40">Status</span>
                     <span className={`font-mono text-[10px] font-black uppercase tracking-widest ${service.status.includes('ACTIVE') ? 'text-expert-green' : service.status.includes('HIGH') ? 'text-ai-blue' : 'text-tech-purple'}`}>
                       {service.status}
                     </span>
@@ -124,7 +124,7 @@ export default function ServiceShowcase() {
 
                 {/* Technical Specs List */}
                 <div className="mb-12 space-y-4">
-                  <div className="font-mono text-[9px] font-bold text-ai-blue mb-2 tracking-widest uppercase opacity-40">Service Features</div>
+                  <div className="font-mono text-[9px] font-bold text-ai-blue mb-2 tracking-widest uppercase opacity-40">What Is Included</div>
                   {service.features.map((feature, fIndex) => (
                     <div key={fIndex} className="flex items-center text-[10px] font-bold text-medium-gray font-mono uppercase tracking-widest group-hover:text-white transition-all duration-300">
                       <div className={`w-1 h-1 rounded-full bg-ai-blue mr-4 shadow-[0_0_8px_#0066FF]`}></div>
@@ -138,7 +138,7 @@ export default function ServiceShowcase() {
                   href={service.link}
                   className="group/link relative w-full inline-flex items-center justify-between px-8 py-5 bg-ai-blue/5 border border-ai-blue/20 rounded-xl font-mono text-[9px] font-black uppercase tracking-[0.3em] text-white transition-all duration-500 hover:bg-ai-blue/10 hover:border-ai-blue/40 hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  <span className="relative z-10">View Details</span>
+                  <span className="relative z-10">View Service</span>
                   <ArrowRight className="w-4 h-4 transform group-hover/link:translate-x-2 transition-transform duration-500 text-ai-blue" />
                   
                   {/* Button Glow Effect */}

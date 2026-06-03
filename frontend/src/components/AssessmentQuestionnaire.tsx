@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient, saveSessionToken, clearSessionToken } from '@/lib/api';
-import { Sparkles, Palette, Briefcase, Layout, ChevronRight, ChevronLeft, Send, Check, X } from 'lucide-react';
-import AssessmentResults, { AssessmentResultsData } from './AssessmentResults';
+import { Sparkles, ChevronRight, ChevronLeft, Check, X } from 'lucide-react';
+import { AssessmentResultsData } from './AssessmentResults';
 
 interface AssessmentData {
   businessType: string;
@@ -22,7 +22,6 @@ interface AssessmentData {
   phone: string;
   company: string;
   website: string;
-  password?: string;
   assessmentId?: string;
   selectedPackage?: string;
   [key: string]: string | string[] | boolean | undefined;
@@ -32,17 +31,9 @@ interface AssessmentQuestionnaireProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: (data: AssessmentData, results?: AssessmentResultsData) => void;
-  preSelectedPlan?: string;
 }
 
-interface OptionObject {
-  value: string;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-type Option = string | OptionObject;
+type Option = string;
 
 interface Question {
   id: number;
@@ -51,7 +42,7 @@ interface Question {
   type: string;
   field: string;
   required: boolean;
-  options: Option[];
+  options: string[];
   hasOther?: boolean;
   otherField?: string;
 }
@@ -59,171 +50,157 @@ interface Question {
 const questions: Question[] = [
   {
     id: 1,
-    title: "What type of business do you have?",
+    title: "What are we building?",
+    subtitle: "Choose the closest custom development type",
     type: "select",
-    field: "businessType",
+    field: "projectType",
     required: true,
     options: [
-      "E-commerce/Online Store",
-      "Service Business (consulting, agency, etc.)",
-      "Restaurant/Food Service",
-      "Healthcare/Medical",
-      "Real Estate",
-      "Education/Training",
-      "Non-profit/Charity",
-      "Other"
-    ],
-    hasOther: true,
-    otherField: "businessTypeOther"
-  },
-  {
-    id: 2,
-    title: "How many employees does your business have?",
-    type: "select",
-    field: "employeeCount",
-    required: true,
-    options: [
-      "Just me/Sole proprietor",
-      "2-10 employees",
-      "11-50 employees",
-      "51-200 employees",
-      "200+ employees"
+      "Business website",
+      "Web app or SaaS platform",
+      "Client portal or dashboard",
+      "Marketplace or directory",
+      "Booking or workflow system",
+      "Admin tool or internal system",
+      "API or backend integration",
+      "Other custom build"
     ]
   },
   {
-    id: 3,
-    title: "What are your main goals for the website?",
-    subtitle: "Select all that apply",
+    id: 2,
+    title: "What should this build help you achieve?",
+    subtitle: "Select the outcomes that matter",
     type: "multiselect",
     field: "goals",
     required: true,
     options: [
-      "Generate leads/inquiries",
-      "Sell products online",
-      "Build brand awareness",
-      "Provide information to customers",
-      "Offer online booking/appointments",
-      "Showcase portfolio/work",
-      "Community building",
-      "Other"
-    ],
-    hasOther: true
+      "Launch a new idea",
+      "Get leads or enquiries",
+      "Sell or accept payments",
+      "Manage users or clients",
+      "Automate a business process",
+      "Showcase work or services",
+      "Replace an old system",
+      "Connect existing tools"
+    ]
+  },
+  {
+    id: 3,
+    title: "What features must be included?",
+    subtitle: "Pick the important pieces only",
+    type: "multiselect",
+    field: "requiredFeatures",
+    required: true,
+    options: [
+      "User accounts/login",
+      "Admin dashboard",
+      "Payments/checkout",
+      "Bookings/scheduling",
+      "Forms and lead capture",
+      "Content management",
+      "File uploads/downloads",
+      "Notifications/email automation",
+      "Search and filtering",
+      "Third-party integrations",
+      "Analytics/reporting",
+      "Role-based permissions"
+    ]
   },
   {
     id: 4,
-    title: "Who is your target audience?",
+    title: "Do you already have anything for this project?",
+    type: "select",
+    field: "hasWebsite",
+    required: true,
+    options: [
+      "Nothing yet",
+      "Idea and notes only",
+      "Designs or wireframes",
+      "Existing website",
+      "Existing app/system",
+      "Codebase or technical docs"
+    ]
+  },
+  {
+    id: 5,
+    title: "What is the project or business name?",
+    type: "text",
+    field: "company",
+    required: true,
+    options: []
+  },
+  {
+    id: 6,
+    title: "Who will use it?",
     subtitle: "Select all that apply",
     type: "multiselect",
     field: "targetAudience",
     required: true,
     options: [
-      "General public/consumers",
-      "Businesses (B2B)",
-      "Specific age group",
-      "Specific industry/profession",
-      "Local community",
-      "International audience"
-    ]
-  },
-  {
-    id: 5,
-    title: "Do you currently have a website?",
-    type: "select",
-    field: "hasWebsite",
-    required: true,
-    options: [
-      "No website yet",
-      "Basic website (template or simple)",
-      "Custom website (professionally built)",
-      "E-commerce platform (Shopify, WooCommerce, etc.)"
-    ]
-  },
-  {
-    id: 6,
-    title: "What design style appeals to you?",
-    type: "cards",
-    field: "preferredStyle",
-    required: true,
-    options: [
-      {
-        value: "modern",
-        label: "Modern & Clean",
-        description: "Minimalist design, lots of white space",
-        icon: <Layout className="w-6 h-6 text-ai-blue" />
-      },
-      {
-        value: "bold",
-        label: "Bold & Creative",
-        description: "Vibrant colors, unique layouts",
-        icon: <Palette className="w-6 h-6 text-tech-purple" />
-      },
-      {
-        value: "professional",
-        label: "Professional & Corporate",
-        description: "Traditional business look",
-        icon: <Briefcase className="w-6 h-6 text-expert-green" />
-      },
-      {
-        value: "trendy",
-        label: "Trendy & Modern",
-        description: "Current design trends",
-        icon: <Sparkles className="w-6 h-6 text-pink-500" />
-      }
+      "Public visitors",
+      "Customers/clients",
+      "Business staff",
+      "Admins/managers",
+      "Vendors/partners",
+      "Members/community",
+      "Other businesses"
     ]
   },
   {
     id: 7,
-    title: "Which features do you need?",
-    subtitle: "Select all that apply",
-    type: "multiselect",
-    field: "requiredFeatures",
-    required: false,
+    title: "What build style fits best?",
+    type: "select",
+    field: "preferredStyle",
+    required: true,
     options: [
-      "Contact forms",
-      "Online booking/appointments",
-      "E-commerce/shopping cart",
-      "Blog/news section",
-      "Portfolio/gallery",
-      "Social media integration",
-      "Newsletter signup",
-      "Live chat support",
-      "Multi-language support",
-      "User accounts/login",
-      "Search functionality",
-      "Analytics integration"
+      "Clean and professional",
+      "Modern SaaS/product feel",
+      "Bold brand-led experience",
+      "Operational dashboard style",
+      "Simple and conversion-focused",
+      "Not sure yet"
     ]
   },
   {
     id: 8,
-    title: "What's your budget range for this project?",
+    title: "What budget range should we plan around?",
     type: "select",
     field: "budget",
     required: true,
     options: [
-      "Under $1,000 (Basic template)",
-      "$1,000 - $3,000 (AI-Launch package)",
-      "$3,000 - $10,000 (Pro Development)",
-      "$10,000+ (Enterprise/Custom)",
+      "Under $1,000",
+      "$1,000 - $3,000",
+      "$3,000 - $10,000",
+      "$10,000+",
       "Not sure yet"
     ]
   },
   {
     id: 9,
-    title: "What's your preferred timeline?",
+    title: "When do you want to start or launch?",
     type: "select",
     field: "timeline",
     required: true,
     options: [
-      "ASAP (within 2 weeks)",
+      "ASAP",
+      "Within 1 month",
       "1-3 months",
       "3-6 months",
-      "6+ months",
       "Flexible"
     ]
+  },
+  {
+    id: 10,
+    title: "Any existing link we should know about?",
+    subtitle: "Website, app, prototype, docs, or leave blank",
+    type: "text",
+    field: "website",
+    required: false,
+    options: []
   }
 ];
 
-export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, preSelectedPlan }: AssessmentQuestionnaireProps) {
+export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete }: AssessmentQuestionnaireProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [assessmentId, setAssessmentId] = useState<string>('');
   const [data, setData] = useState<AssessmentData>({
@@ -242,59 +219,59 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
     email: '',
     phone: '',
     company: '',
-    website: '',
-    password: ''
+    website: ''
   });
-
-  const [showPasswordField, setShowPasswordField] = useState(false);
-  const [userExists, setUserExists] = useState<boolean | null>(null);
-  const [password, setPassword] = useState('');
-
-  // Handle pre-selected plan from PricingPreview
-  useEffect(() => {
-    if (preSelectedPlan && isOpen) {
-      console.log('AssessmentQuestionnaire: preSelectedPlan received:', preSelectedPlan, typeof preSelectedPlan);
-      const budgetMap: Record<string, string> = {
-        'PROTOCOL_A': 'Under $1,000 (Basic template)',
-        'PROTOCOL_B': '$1,000 - $3,000 (AI-Launch package)',
-        'PROTOCOL_C': '$3,000 - $10,000 (Pro Development)',
-        'PROTOCOL_D': 'Under $1,000 (Basic template)',
-        'PROTOCOL_E': '$1,000 - $3,000 (AI-Launch package)'
-      };
-
-      const featuresMap: Record<string, string[]> = {
-        'PROTOCOL_A': ['Contact forms', 'Mobile-friendly Design', '1-Year Hosting'],
-        'PROTOCOL_B': ['Custom development', 'Admin Panel', 'Speed Improvements'],
-        'PROTOCOL_C': ['Enterprise solutions', 'Dedicated Manager', 'Priority Care'],
-        'PROTOCOL_D': ['Security updates', 'Live system check', 'Problem response'],
-        'PROTOCOL_E': ['Full Source Code', 'Docker Configuration', 'Deployment Guide']
-      };
-
-      const packageNames: Record<string, string> = {
-        'PROTOCOL_A': 'ai_foundation',
-        'PROTOCOL_B': 'pro_enhancement',
-        'PROTOCOL_C': 'enterprise',
-        'PROTOCOL_D': 'maintenance',
-        'PROTOCOL_E': 'self_hosted'
-      };
-
-      setData(prev => ({
-        ...prev,
-        budget: budgetMap[preSelectedPlan] || prev.budget,
-        requiredFeatures: Array.from(new Set([...(prev.requiredFeatures || []), ...(featuresMap[preSelectedPlan] || [])])),
-        selectedPackage: packageNames[preSelectedPlan] || preSelectedPlan
-      }));
-    }
-  }, [preSelectedPlan, isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
-  const [assessmentResults, setAssessmentResults] = useState<AssessmentResultsData | null>(null);
-  const [showResults, setShowResults] = useState(false);
+  const hasInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      setAssessmentId('');
+      setErrors({});
+    }
+  }, [isOpen]);
+
+  // Initialize assessment when modal opens
+  useEffect(() => {
+    if (isOpen && !assessmentId && !isInitializing && !hasInitializedRef.current) {
+      const initializeAssessment = async () => {
+        hasInitializedRef.current = true;
+        setIsInitializing(true);
+        try {
+          const response = await apiClient.startAssessment('assessment', 'dashboard_build') as any;
+          
+          // Check if the API call was successful
+          if (!response.success) {
+            setErrors({ submit: response.message || 'Failed to start build brief. Please try again.' });
+            return;
+          }
+          
+          setAssessmentId(response.assessmentId);
+          saveSessionToken(response.sessionToken);
+        } catch (error) {
+          console.error('Failed to start assessment:', error);
+          hasInitializedRef.current = false;
+          const errorMessage = error instanceof Error ? error.message : 'Failed to start build brief. Please try again.';
+          if (errorMessage.toLowerCase().includes('token') || errorMessage.toLowerCase().includes('auth')) {
+            setErrors({ submit: 'Your session expired. Please sign in again before starting a build request.' });
+          } else {
+            setErrors({ submit: errorMessage });
+          }
+        } finally {
+          setIsInitializing(false);
+        }
+      };
+
+      initializeAssessment();
+    }
+  }, [isOpen, assessmentId, isInitializing]);
+
+  if (!isOpen) return null;
 
   const currentQuestion = questions[currentStep];
   const progress = ((currentStep + 1) / questions.length) * 100;
@@ -333,20 +310,7 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
       await apiClient.saveAssessmentResponses(assessmentId, currentStep + 1, data);
 
       if (currentStep < questions.length - 1) {
-        let nextStep = currentStep + 1;
-        
-        // Skip budget (id: 8) and features (id: 7) if pre-selected plan exists
-        // Since questions is 0-indexed, id: 7 is index 6, id: 8 is index 7
-        if (preSelectedPlan) {
-          while (nextStep < questions.length && (questions[nextStep].id === 7 || questions[nextStep].id === 8)) {
-            nextStep++;
-          }
-        }
-        
-        setCurrentStep(nextStep);
-      } else {
-        // Move to contact form
-        setCurrentStep(questions.length);
+        setCurrentStep(currentStep + 1);
       }
     } catch (error) {
       console.error('Error saving responses:', error);
@@ -368,16 +332,7 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
 
   const handlePrev = () => {
     if (currentStep > 0) {
-      let prevStep = currentStep - 1;
-      
-      // Skip back over budget (id: 8) and features (id: 7) if pre-selected plan exists
-      if (preSelectedPlan) {
-        while (prevStep > 0 && (questions[prevStep].id === 7 || questions[prevStep].id === 8)) {
-          prevStep--;
-        }
-      }
-      
-      setCurrentStep(prevStep);
+      setCurrentStep(currentStep - 1);
       setErrors({});
     }
   };
@@ -390,19 +345,9 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
   };
 
   const handleSubmit = async () => {
-    const contactErrors: Record<string, string> = {};
-    if (!data.email) {
-      contactErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(data.email)) {
-      contactErrors.email = 'Please enter a valid email';
-    }
-
-    if (showPasswordField && !password) {
-      contactErrors.password = 'Password is required for existing accounts';
-    }
-
-    if (Object.keys(contactErrors).length > 0) {
-      setErrors(contactErrors);
+    const stepErrors = validateStep(data, currentQuestion);
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors(stepErrors);
       return;
     }
 
@@ -411,97 +356,20 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
       return;
     }
 
-    // Phase 1: Check if user exists (if not already shown password field)
-    if (!showPasswordField) {
-      setIsCheckingEmail(true);
-      setErrors({});
-      
-      let checkResponse;
-      try {
-        checkResponse = await apiClient.checkUserExistence(data.email);
-      } catch (error: any) {
-        console.error('checkUserExistence error:', error);
-        // Show error in UI but allow user to continue as new user
-        setErrors({ submit: `Connection issue: ${error.message || 'Please continue as new user'}` });
-      }
-      
-      setIsCheckingEmail(false);
-      
-      // Handle error responses gracefully - show in UI and allow continue as new user
-      if (!checkResponse || checkResponse.success === false) {
-        const errorMsg = checkResponse?.message || 'Unable to verify account. You may continue as a new user.';
-        console.warn('checkUserExistence failed:', errorMsg);
-        setErrors({ submit: errorMsg });
-        setUserExists(false);
-        setShowPasswordField(true);
-        setWelcomeMessage('New operative detected. Create a password to establish your account.');
-        return;
-      }
-      
-      // Success - user exists
-      if (checkResponse.exists) {
-        setUserExists(true);
-        setShowPasswordField(true);
-        setWelcomeMessage(`Welcome back. Enter your password to proceed.`);
-      } else {
-        setUserExists(false);
-        setShowPasswordField(true);
-        setWelcomeMessage('New operative detected. Create a password to establish your account.');
-      }
-      return;
-    }
-
-    // Password is required for both new and existing users
-    if (!password) {
-      setErrors({ password: 'Password is required to proceed' });
-      return;
-    }
-
     setIsSubmitting(true);
+    setErrors({});
 
     try {
-      // Both new and existing users must provide password
-      // For existing: we verify it via login
-      // For new: the backend will create account with this password
-      if (userExists) {
-        // Existing user - verify password first
-        try {
-          await apiClient.login({ email: data.email, password });
-        } catch {
-          setIsSubmitting(false);
-          setErrors({ password: 'Invalid password for this account.' });
-          return;
-        }
-      }
-
-      // Process the assessment with AI and get results
-      // Pass password and userExists to tell backend how to handle the account
+      await apiClient.saveAssessmentResponses(assessmentId, currentStep + 1, data);
       const response = await apiClient.processAssessment(assessmentId, {
         ...data,
-        password: password,
-        userExists: userExists
+        dashboardRequest: true
       }) as any;
 
-      // For new users, auto-login after account creation
-      if (userExists === false && password) {
-        try {
-          await apiClient.login({ email: data.email, password });
-        } catch (loginError) {
-          console.warn('Auto-login failed for new user:', loginError);
-        }
-      } else if (userExists && password) {
-        // Existing user already logged in via the earlier login call
-        // Just save the token if returned
+      if (!response.success) {
+        throw new Error(response.message || 'Request submission failed');
       }
 
-      // Save auth token
-      const token = response?.token || localStorage.getItem('sitemendr_auth_token');
-      if (token) {
-        localStorage.setItem('sitemendr_auth_token', token);
-        saveSessionToken(token);
-      }
-
-      // Notify parent component with safe data mapping
       const safeData: AssessmentData = {
         businessType: String(data.businessType || ''),
         businessTypeOther: String(data.businessTypeOther || ''),
@@ -519,401 +387,270 @@ export default function AssessmentQuestionnaire({ isOpen, onClose, onComplete, p
         phone: String(data.phone || ''),
         company: String(data.company || ''),
         website: String(data.website || ''),
-        assessmentId: assessmentId,
+        assessmentId,
         selectedPackage: typeof data.selectedPackage === 'string' ? data.selectedPackage : undefined
       };
-      
+
       onComplete(safeData, response.results);
-
-      // Redirect to dashboard immediately - results will be shown there
-      // Pass assessmentId to dashboard so it can fetch/show results
-      const resultsParam = encodeURIComponent(JSON.stringify(response.results));
-      window.location.href = `/dashboard?tab=projects&assessment=complete&results=${resultsParam}`;
-
+      onClose();
     } catch (error) {
-      console.error('Assessment submission error:', error);
-      if (error && typeof error === 'object' && 'status' in error && error.status === 401) {
-        setAssessmentId('');
-        setErrors({ submit: 'Your session has expired. Re-initializing assessment...' });
-        return;
-      }
-      const errorMessage = error instanceof Error ? error.message : 'Database temporarily unavailable. Please try again.';
-      setErrors({ submit: `Failed to process assessment: ${errorMessage}. Please ensure the backend server is running.` });
+      console.error('Dashboard request submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Request submission failed.';
+      setErrors({ submit: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Initialize assessment when modal opens
-  useEffect(() => {
-    if (isOpen && !assessmentId && !isInitializing) {
-      const initializeAssessment = async () => {
-        setIsInitializing(true);
-        try {
-          const response = await apiClient.startAssessment('homepage') as any;
-          
-          // Check if the API call was successful
-          if (!response.success) {
-            throw new Error(response.message || 'Failed to start assessment');
-          }
-          
-          setAssessmentId(response.assessmentId);
-          saveSessionToken(response.sessionToken);
-        } catch (error) {
-          console.error('Failed to start assessment:', error);
-          setErrors({ submit: 'Failed to start assessment. Please try again.' });
-        } finally {
-          setIsInitializing(false);
-        }
-      };
-
-      initializeAssessment();
-    }
-  }, [isOpen, assessmentId, isInitializing]);
-
   const renderQuestion = () => {
-    if (currentStep > questions.length - 1) {
-      // Contact form - Simplified for new flow
-      return (
-        <div className="space-y-8 animate-fade-in-up">
-          <div className="text-center">
-            <h2 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">Identity_Verification</h2>
-            <p className="text-medium-gray text-sm font-mono uppercase tracking-widest opacity-60">
-              {welcomeMessage || (showPasswordField ? 'Existing operative detected. Provide credentials.' : 'Enter your email to link your technical profile.')}
-            </p>
-          </div>
-
-          <div className="max-w-md mx-auto space-y-5">
-            <div className="space-y-2">
-              <label className="font-mono text-[9px] text-ai-blue uppercase tracking-[0.3em] ml-1">Email Address</label>
-              <input
-                type="email"
-                value={data.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                disabled={showPasswordField || isSubmitting}
-                className={`w-full px-5 py-4 bg-ai-blue/5 border rounded-lg text-white font-mono text-sm focus:border-ai-blue focus:bg-ai-blue/10 focus:outline-none transition-all placeholder:text-white/10 ${
-                  errors.email ? 'border-red-500/50' : 'border-ai-blue/20'
-                }`}
-                placeholder="your@email.com"
-              />
-              {errors.email && <p className="text-red-500 font-mono text-[9px] mt-1 ml-1 uppercase tracking-tighter">{errors.email}</p>}
-            </div>
-
-            {showPasswordField && (
-              <div className="space-y-2 animate-fade-in">
-                <div className="flex justify-between items-center px-1">
-                  <label className="font-mono text-[9px] text-ai-blue uppercase tracking-[0.3em]">Access Password</label>
-                  <button 
-                    onClick={() => { setShowPasswordField(false); setErrors({}); }}
-                    className="font-mono text-[9px] text-white/30 hover:text-white/60 uppercase tracking-widest transition-colors"
-                  >
-                    Change Email
-                  </button>
-                </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full px-5 py-4 bg-ai-blue/5 border rounded-lg text-white font-mono text-sm focus:border-ai-blue focus:bg-ai-blue/10 focus:outline-none transition-all placeholder:text-white/10 ${
-                    errors.password ? 'border-red-500/50' : 'border-ai-blue/20'
-                  }`}
-                  placeholder="••••••••"
-                  autoFocus
-                />
-                {errors.password && <p className="text-red-500 font-mono text-[9px] mt-1 ml-1 uppercase tracking-tighter">{errors.password}</p>}
-              </div>
-            )}
-            
-            {isCheckingEmail && (
-              <div className="flex items-center justify-center gap-2 py-2">
-                <div className="w-3 h-3 border-2 border-ai-blue/30 border-t-ai-blue rounded-full animate-spin"></div>
-                <span className="font-mono text-[9px] text-ai-blue/60 uppercase tracking-widest">Verifying Identity...</span>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
+    const question = currentQuestion;
     return (
       <div className="space-y-8 animate-fade-in-up">
         <div className="text-center">
-          <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-lg bg-ai-blue/5 border border-ai-blue/20 mb-6">
-            <span className="flex h-1.5 w-1.5 rounded-full bg-ai-blue animate-pulse shadow-[0_0_8px_#0066FF]"></span>
-            <span className="font-mono text-[10px] font-bold text-ai-blue uppercase tracking-[0.3em]">Question {currentStep + 1} of {questions.length}</span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-black text-white mb-3 tracking-tighter uppercase leading-tight">{currentQuestion.title}</h2>
-          {currentQuestion.subtitle && (
-            <p className="text-medium-gray text-xs font-mono uppercase tracking-[0.2em] opacity-60">{currentQuestion.subtitle}</p>
+          <h2 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">{question.title}</h2>
+          {question.subtitle && (
+            <p className="text-medium-gray text-sm font-mono opacity-60 uppercase tracking-widest">
+              {question.subtitle}
+            </p>
           )}
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto px-2 custom-scrollbar space-y-3">
-          {currentQuestion.type === 'select' && (
+        <div className="max-w-2xl mx-auto">
+          {question.type === 'select' && (
             <div className="grid grid-cols-1 gap-3">
-              {currentQuestion.options.map((option) => {
-                const optValue = typeof option === 'string' ? option : option.value;
-                const optLabel = typeof option === 'string' ? option : option.label;
+              {question.options.map((option) => {
+                const value = option;
+                const label = option;
+                const isSelected = data[question.field] === value;
+                
                 return (
-                  <label key={optValue} className={`flex items-center space-x-4 p-5 rounded-lg border transition-all cursor-pointer group relative overflow-hidden ${
-                    data[currentQuestion.field as keyof AssessmentData] === optValue
-                      ? 'border-ai-blue bg-ai-blue/10 shadow-[0_0_20px_rgba(0,102,255,0.1)]'
-                      : 'border-white/5 bg-white/[0.02] hover:border-ai-blue/30 hover:bg-ai-blue/5'
-                  }`}>
-                    <input
-                      type="radio"
-                      name={currentQuestion.field}
-                      value={optValue}
-                      checked={data[currentQuestion.field as keyof AssessmentData] === optValue}
-                      onChange={(e) => handleInputChange(currentQuestion.field, e.target.value)}
-                      className="hidden"
-                    />
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                      data[currentQuestion.field as keyof AssessmentData] === optValue ? 'border-ai-blue scale-110 shadow-[0_0_10px_rgba(0,102,255,0.5)]' : 'border-white/20 group-hover:border-ai-blue/40'
-                    }`}>
-                      {data[currentQuestion.field as keyof AssessmentData] === optValue && (
-                        <div className="w-1.5 h-1.5 bg-ai-blue rounded-full shadow-[0_0_8px_rgba(0,102,255,0.8)]"></div>
-                      )}
-                    </div>
-                    <span className={`font-mono text-xs tracking-widest transition-colors uppercase ${
-                      data[currentQuestion.field as keyof AssessmentData] === optValue ? 'text-white' : 'text-white/40 group-hover:text-white/70'
-                    }`}>{optLabel}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-
-          {currentQuestion.type === 'multiselect' && (
-            <div className="grid grid-cols-1 gap-3">
-              {currentQuestion.options.map((option) => {
-                const optValue = typeof option === 'string' ? option : option.value;
-                const optLabel = typeof option === 'string' ? option : option.label;
-                const isChecked = (data[currentQuestion.field as keyof AssessmentData] as string[]).includes(optValue);
-                return (
-                  <label key={optValue} className={`flex items-center space-x-4 p-5 rounded-lg border transition-all cursor-pointer group relative overflow-hidden ${
-                    isChecked
-                      ? 'border-ai-blue bg-ai-blue/10 shadow-[0_0_20px_rgba(0,102,255,0.1)]'
-                      : 'border-white/5 bg-white/[0.02] hover:border-ai-blue/30 hover:bg-ai-blue/5'
-                  }`}>
-                    <input
-                      type="checkbox"
-                      value={optValue}
-                      checked={isChecked}
-                      onChange={(e) => {
-                        const current = data[currentQuestion.field as keyof AssessmentData] as string[];
-                        const updated = e.target.checked
-                          ? [...current, optValue]
-                          : current.filter(item => item !== optValue);
-                        handleInputChange(currentQuestion.field, updated);
-                      }}
-                      className="hidden"
-                    />
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                      isChecked 
-                        ? 'border-ai-blue bg-ai-blue/20 shadow-[0_0_10px_rgba(0,102,255,0.3)]' 
-                        : 'border-white/20 group-hover:border-ai-blue/40'
-                    }`}>
-                      {isChecked && (
-                        <Check className="w-3 h-3 text-ai-blue" />
-                      )}
-                    </div>
-                    <span className={`font-mono text-xs tracking-widest transition-colors uppercase ${
-                      isChecked ? 'text-white' : 'text-white/40 group-hover:text-white/70'
-                    }`}>{optLabel}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-
-          {currentQuestion.type === 'cards' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {currentQuestion.options.map((option) => {
-                if (typeof option === 'string') return null;
-                return (
-                  <div
-                    key={option.value}
-                    onClick={() => handleInputChange(currentQuestion.field, option.value)}
-                    className={`p-6 border rounded-lg cursor-pointer transition-all group relative overflow-hidden ${
-                      data[currentQuestion.field as keyof AssessmentData] === option.value
-                        ? 'border-ai-blue bg-ai-blue/10 shadow-[0_0_30px_rgba(0,102,255,0.1)]'
-                        : 'border-white/5 bg-white/[0.02] hover:border-ai-blue/30 hover:bg-ai-blue/5'
+                  <button
+                    key={value}
+                    onClick={() => handleInputChange(question.field, value)}
+                    className={`p-4 text-left font-mono text-xs border transition-all rounded-xl flex items-center gap-4 ${
+                      isSelected 
+                        ? 'bg-ai-blue/20 border-ai-blue text-white shadow-[0_0_20px_rgba(0,102,255,0.2)]' 
+                        : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20 hover:bg-white/10'
                     }`}
                   >
-                    <div className={`text-3xl mb-4 transition-transform group-hover:scale-110 duration-300 ${
-                      data[currentQuestion.field as keyof AssessmentData] === option.value ? 'filter-none' : 'grayscale opacity-30 group-hover:grayscale-0 group-hover:opacity-100'
-                    }`}>{option.icon}</div>
-                    <h3 className={`font-mono text-xs font-bold mb-2 tracking-[0.2em] uppercase transition-colors ${
-                      data[currentQuestion.field as keyof AssessmentData] === option.value ? 'text-white' : 'text-white/40 group-hover:text-white'
-                    }`}>{option.label}</h3>
-                    <p className="font-mono text-[9px] text-medium-gray leading-relaxed opacity-60 uppercase tracking-tighter">{option.description}</p>
-                    
-                    {data[currentQuestion.field as keyof AssessmentData] === option.value && (
-                      <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-ai-blue shadow-[0_0_5px_#0066FF]"></div>
-                    )}
-                  </div>
+                    <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-ai-blue animate-pulse shadow-[0_0_8px_#0066FF]' : 'bg-white/10'}`}></div>
+                    <span className="uppercase tracking-widest">{label}</span>
+                  </button>
+                );
+              })}
+              
+              {question.hasOther && data[question.field] === 'Other' && (
+                <div className="mt-4 animate-fade-in">
+                  <label className="font-mono text-[9px] text-ai-blue ml-1 uppercase tracking-widest mb-2 block">Specify Other</label>
+                  <input
+                    type="text"
+                    value={String(data[question.otherField!] || '')}
+                    onChange={(e) => handleInputChange(question.otherField!, e.target.value)}
+                    className="w-full px-5 py-4 bg-ai-blue/5 border border-ai-blue/20 rounded-lg text-white font-mono text-sm focus:border-ai-blue focus:outline-none"
+                    placeholder="ENTER_SPECIFICATIONS"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {question.type === 'multiselect' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {question.options.map((option) => {
+                const value = option;
+                const label = option;
+                const selectedOptions = (data[question.field] as string[]) || [];
+                const isSelected = selectedOptions.includes(value);
+                
+                const toggleOption = () => {
+                  const newSelection = isSelected
+                    ? selectedOptions.filter(i => i !== value)
+                    : [...selectedOptions, value];
+                  handleInputChange(question.field, newSelection);
+                };
+
+                return (
+                  <button
+                    key={value}
+                    onClick={toggleOption}
+                    className={`p-4 text-left font-mono text-[10px] border transition-all rounded-xl flex items-center justify-between group ${
+                      isSelected 
+                        ? 'bg-ai-blue/20 border-ai-blue text-white shadow-[0_0_20px_rgba(0,102,255,0.2)]' 
+                        : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20 hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="uppercase tracking-widest">{label}</span>
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                      isSelected ? 'bg-ai-blue border-ai-blue' : 'border-white/20 group-hover:border-white/40'
+                    }`}>
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
                 );
               })}
             </div>
           )}
-        </div>
 
-        {errors[currentQuestion.field] && (
-          <p className="text-red-500 font-mono text-[9px] text-center animate-pulse uppercase tracking-widest">! ERROR: {errors[currentQuestion.field]}</p>
-        )}
+          {question.type === 'text' && (
+            <div className="relative">
+              <input
+                type="text"
+                value={String(data[question.field] || '')}
+                onChange={(e) => handleInputChange(question.field, e.target.value)}
+                className={`w-full px-6 py-5 bg-ai-blue/5 border rounded-xl text-white font-mono text-sm focus:border-ai-blue focus:bg-ai-blue/10 focus:outline-none transition-all placeholder:text-white/10 ${
+                  errors[question.field] ? 'border-red-500/50' : 'border-ai-blue/20'
+                }`}
+                placeholder="INPUT_DATA_SEQUENCE..."
+                autoFocus
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20">
+                <div className="w-1.5 h-4 bg-ai-blue animate-pulse"></div>
+              </div>
+            </div>
+          )}
+
+          {errors[question.field] && (
+            <div className="mt-6 flex items-center gap-3 animate-shake">
+              <div className="w-1 h-4 bg-red-500"></div>
+              <p className="text-red-500 font-mono text-[10px] uppercase tracking-[0.2em]">
+                Error: {errors[question.field]}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
 
-  if (!isOpen) return null;
-
-  // Show results if assessment is complete
-  if (showResults && assessmentResults) {
-    return (
-      <AssessmentResults
-        results={assessmentResults}
-        email={data.email}
-        assessmentId={assessmentId}
-        onCaptureLead={(packageType) => {
-          onComplete({ ...data, assessmentId, selectedPackage: packageType }, assessmentResults);
-        }}
-        onRetake={() => {
-          setShowResults(false);
-          setAssessmentResults(null);
-          setCurrentStep(0);
-          setData({
-            businessType: '',
-            businessTypeOther: '',
-            employeeCount: '',
-            goals: [],
-            targetAudience: [],
-            hasWebsite: '',
-            currentWebsiteIssues: [],
-            preferredStyle: '',
-            requiredFeatures: [],
-            budget: '',
-            timeline: '',
-            name: '',
-            email: '',
-            phone: '',
-            company: '',
-            website: ''
-          });
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-darker-bg/90 backdrop-blur-xl" onClick={onClose}></div>
-      
-      {/* Modal Content */}
-      <div className="relative w-full max-w-2xl bg-darker-bg/90 backdrop-blur-3xl border border-ai-blue/20 rounded-2xl shadow-[0_0_50px_rgba(0,102,255,0.15)] overflow-hidden animate-slide-up">
-        {/* Technical Grid Background */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(0,102,255,0.15) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in font-mono">
+      <div className="bg-darker-bg border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col relative shadow-2xl">
+        {/* HUD Elements */}
+        <div className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]">
+          <div className="w-full h-[1px] bg-ai-blue animate-scan"></div>
+        </div>
         
-        {/* Subtle Scanline Effect */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
-          <div className="w-full h-[1px] bg-ai-blue animate-scan shadow-[0_0_8px_rgba(0,102,255,0.8)]"></div>
-        </div>
-
-        {/* HUD Corner Brackets */}
-        <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-ai-blue/30"></div>
-        <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-ai-blue/30"></div>
-        <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-ai-blue/30"></div>
-        <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-ai-blue/30"></div>
-
-        {/* Progress Bar Container */}
-        <div className="absolute top-0 left-0 w-full h-[3px] bg-white/5 overflow-hidden">
-          <div
-            className="h-full bg-ai-blue transition-all duration-700 ease-out relative shadow-[0_0_10px_rgba(0,102,255,0.8)]"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        <div className="p-8 md:p-12 relative z-10">
-          {/* Header Status Bar */}
-          <div className="flex justify-between items-center mb-10 pb-4 border-b border-ai-blue/10">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-ai-blue shadow-[0_0_8px_#0066FF] animate-pulse"></div>
-                <span className="font-mono text-[10px] text-ai-blue uppercase tracking-[0.3em]">Step: Business Analysis</span>
-              </div>
-              {data.selectedPackage && typeof data.selectedPackage === 'string' && (
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="font-mono text-[8px] text-tech-purple uppercase tracking-[0.2em]">Package:</span>
-                  <span className="font-mono text-[8px] text-white/60 uppercase tracking-[0.2em] font-black">{data.selectedPackage}</span>
-                </div>
-              )}
+        {/* Header Section */}
+        <div className="p-8 border-b border-white/5 bg-white/[0.02] flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-5">
+            <div className="w-12 h-12 bg-ai-blue/10 rounded-2xl flex items-center justify-center border border-ai-blue/20 relative group">
+              <div className="absolute inset-0 bg-ai-blue/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <Sparkles className="w-6 h-6 text-ai-blue relative z-10" />
             </div>
-            <span className="font-mono text-[10px] text-white/20 uppercase tracking-[0.2em] hidden sm:block">ID: {assessmentId?.substring(0, 8) || 'INITIALIZING'}</span>
+            <div>
+              <h2 className="text-xl font-black tracking-tighter uppercase text-white">Build Request Brief</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-[8px] text-ai-blue font-black uppercase tracking-[0.3em]">Module: {`Q_0${currentStep + 1}`}</span>
+                <span className="w-1 h-1 rounded-full bg-ai-blue animate-pulse"></span>
+                <span className="text-[8px] text-white/20 font-black uppercase tracking-[0.3em]">ID: {assessmentId?.substring(0, 8) || 'INITIALIZING'}</span>
+              </div>
+            </div>
           </div>
 
           <button 
             onClick={onClose} 
-            className="absolute top-8 right-8 w-8 h-8 rounded-lg bg-ai-blue/5 border border-ai-blue/20 flex items-center justify-center text-ai-blue/50 hover:text-white hover:bg-ai-blue/20 hover:border-ai-blue/40 transition-all z-20 group"
+            className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all group"
           >
-            <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+            <X className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+          </button>
+        </div>
+
+        {/* Content Section */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 md:p-12">
+          {isInitializing ? (
+            <div className="h-full flex flex-col items-center justify-center gap-6 animate-pulse">
+              <div className="w-16 h-16 border-4 border-ai-blue/20 border-t-ai-blue rounded-full animate-spin"></div>
+              <div className="text-center">
+                <p className="text-ai-blue font-mono text-xs uppercase tracking-[0.5em] mb-2">Initializing Neural Link</p>
+                <p className="text-white/20 font-mono text-[8px] uppercase tracking-widest">Establishing secure connection to core...</p>
+              </div>
+            </div>
+          ) : (
+            renderQuestion()
+          )}
+        </div>
+
+        {/* Footer Section */}
+        <div className="p-8 border-t border-white/5 bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-6 shrink-0">
+          <button
+            onClick={handlePrev}
+            disabled={currentStep === 0 || isProcessing || isSubmitting}
+            className={`flex items-center font-mono text-[10px] px-8 py-3.5 rounded-xl border transition-all uppercase tracking-[0.2em] ${
+              currentStep === 0 || isProcessing || isSubmitting
+                ? 'opacity-0 pointer-events-none'
+                : 'text-white/60 border-white/10 hover:text-white hover:bg-white/5 hover:border-white/20'
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4 mr-3" />
+            Previous
           </button>
 
-          {renderQuestion()}
-
-          <div className="mt-12 flex items-center justify-between">
-            <button
-              onClick={handlePrev}
-              disabled={currentStep === 0 || isProcessing || isSubmitting}
-              className={`flex items-center font-mono text-[10px] uppercase tracking-[0.2em] px-5 py-2.5 rounded-lg border transition-all ${
-                currentStep === 0 || isProcessing || isSubmitting 
-                  ? 'text-white/5 border-transparent' 
-                  : 'text-ai-blue/60 border-ai-blue/20 hover:text-ai-blue hover:bg-ai-blue/5 hover:border-ai-blue/40'
-              }`}
-            >
-              <ChevronLeft className="w-3 h-3 mr-3" />
-              Step_Back
-            </button>
-
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex flex-col items-end mr-4">
-                <span className="font-mono text-[9px] text-ai-blue/40 uppercase tracking-widest">Buffer_Level</span>
-                <div className="flex gap-0.5 mt-1">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className={`w-3 h-1 rounded-full ${i < (currentStep / questions.length) * 5 ? 'bg-ai-blue shadow-[0_0_5px_#0066FF]' : 'bg-white/5'}`}></div>
-                  ))}
-                </div>
+          <div className="flex items-center gap-8">
+            <div className="hidden md:flex flex-col items-end">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-mono text-[9px] text-ai-blue/60 uppercase tracking-widest">Processing</span>
+                <span className="font-mono text-[10px] text-white font-bold">{Math.round(progress)}%</span>
               </div>
-              
+              <div className="flex gap-1">
+                {[...Array(questions.length)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`w-4 h-1 rounded-full transition-all duration-700 ${
+                      i <= currentStep ? 'bg-ai-blue shadow-[0_0_10px_#0066FF]' : 'bg-white/5'
+                    }`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+            
             <button
-              onClick={currentStep <= questions.length - 1 ? handleNext : handleSubmit}
+              onClick={
+                currentStep === questions.length - 1
+                  ? handleSubmit
+                  : currentStep <= questions.length - 1
+                  ? handleNext
+                  : handleSubmit
+              }
               disabled={isProcessing || isSubmitting || isInitializing}
-              className="group relative px-10 py-4 bg-ai-blue/10 border border-ai-blue/30 text-white font-mono text-xs uppercase tracking-[0.2em] rounded-lg overflow-hidden transition-all duration-300 hover:bg-ai-blue/20 hover:border-ai-blue/50 active:scale-95 disabled:opacity-50"
+              className="group relative px-12 py-4 bg-ai-blue text-white font-black text-[11px] uppercase tracking-[0.25em] rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shadow-2xl shadow-ai-blue/20"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-ai-blue/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite] skew-x-[-20deg]"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
               <span className="relative z-10 flex items-center gap-3">
-                {isProcessing || isSubmitting || isInitializing ? (
+                {isProcessing || isSubmitting ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-ai-blue/30 border-t-ai-blue rounded-full animate-spin"></div>
-                    <span className="text-ai-blue">{isInitializing ? 'INITIALIZING...' : 'PROCESSING...'}</span>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Processing</span>
                   </>
                 ) : (
                   <>
-                    <span>{currentStep <= questions.length - 1 ? 'Next_Step' : 'Finalize_Scan'}</span>
-                    {currentStep <= questions.length - 1 ? (
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-ai-blue" />
-                    ) : (
-                      <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform text-ai-blue" />
-                    )}
+                    <span>
+                      {currentStep === questions.length - 1
+                        ? 'Submit_Request'
+                        : currentStep <= questions.length - 1
+                        ? 'Next_Phase'
+                        : 'Submit_Request'}
+                    </span>
+                    <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </span>
             </button>
-            </div>
           </div>
         </div>
+
+        {/* Global Error Overlay */}
+        {errors.submit && (
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50 animate-bounce-subtle">
+            <div className="bg-red-500/10 backdrop-blur-md border border-red-500/30 p-4 rounded-2xl flex items-center gap-4 shadow-2xl">
+              <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center shrink-0">
+                <X className="w-5 h-5 text-red-500" />
+              </div>
+              <p className="text-red-500 font-mono text-[10px] leading-relaxed uppercase tracking-tighter">{errors.submit}</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

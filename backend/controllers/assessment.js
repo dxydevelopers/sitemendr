@@ -26,8 +26,8 @@ const generateSessionId = () => {
 };
 
 // Generate session token
-const generateSessionToken = (sessionId) => {
-  return jwt.sign({ sessionId }, process.env.JWT_SECRET || 'assessment_secret', { expiresIn: '24h' });
+const generateSessionToken = (sessionId, userId = null) => {
+  return jwt.sign({ sessionId, userId }, process.env.JWT_SECRET || 'assessment_secret', { expiresIn: '24h' });
 };
 
 // Validate session token
@@ -732,7 +732,42 @@ const generateNextSteps = (package) => {
 };
 
 // Valid source enum values
-const validSources = ['homepage', 'email', 'social', 'referral', 'direct', 'assessment', 'contact_form', 'newsletter', 'paid_ad'];
+const validSources = ['homepage', 'email', 'social', 'referral', 'direct', 'assessment', 'dashboard_build', 'contact_form', 'newsletter', 'paid_ad'];
+const sourceToAssessmentEnum = {
+  dashboard_build: 'assessment'
+};
+
+const buildProjectRequestPayload = (userId, assessmentId, responses, results) => {
+  const businessName = responses.company || responses.businessName || responses.name || 'Untitled request';
+  const selectedPackage = responses.selectedPackage || results?.recommendedPackage || null;
+  const summaryParts = [
+    responses.projectType ? `Build type: ${responses.projectType}` : null,
+    responses.businessType ? `Business type: ${responses.businessType}` : null,
+    Array.isArray(responses.goals) && responses.goals.length ? `Goals: ${responses.goals.join(', ')}` : null,
+    Array.isArray(responses.requiredFeatures) && responses.requiredFeatures.length ? `Required features: ${responses.requiredFeatures.join(', ')}` : null,
+    Array.isArray(responses.targetAudience) && responses.targetAudience.length ? `Users: ${responses.targetAudience.join(', ')}` : null,
+    responses.hasWebsite ? `Existing material: ${responses.hasWebsite}` : null,
+    responses.preferredStyle ? `Style direction: ${responses.preferredStyle}` : null,
+    results?.aiInsights ? `Assessment insight: ${String(results.aiInsights).slice(0, 420)}` : null
+  ].filter(Boolean);
+
+  return {
+    userId,
+    assessmentId,
+    title: businessName,
+    businessName,
+    serviceType: 'build',
+    packageIntent: selectedPackage,
+    budget: responses.budget || null,
+    timeline: responses.timeline || results?.timeline || null,
+    summary: summaryParts.join('\n'),
+    status: 'submitted',
+    priority: responses.timeline && String(responses.timeline).toLowerCase().includes('asap') ? 'high' : 'normal',
+    quotedAmount: results?.pricing?.estimatedTotal ? parseFloat(results.pricing.estimatedTotal) : null,
+    quoteCurrency: results?.pricing?.currency || 'USD',
+    clientNotes: responses.website ? `Existing website: ${responses.website}` : null
+  };
+};
 
 // Assessment routes
 exports.startAssessment = async (req, res) => {
@@ -741,15 +776,25 @@ exports.startAssessment = async (req, res) => {
 
     // Validate and normalize source to a valid enum value
     const normalizedSource = (source && validSources.includes(source)) ? source : 'direct';
+    const isDashboardBuild = normalizedSource === 'dashboard_build' || referrer === 'dashboard_build';
+    const assessmentSource = isDashboardBuild ? 'assessment' : (sourceToAssessmentEnum[normalizedSource] || normalizedSource);
+
+    if (isDashboardBuild && !req.user?.userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your dashboard session expired. Please sign in again before starting a build request.'
+      });
+    }
 
     const sessionId = generateSessionId();
-    const sessionToken = generateSessionToken(sessionId);
+    const sessionToken = generateSessionToken(sessionId, req.user?.userId || null);
 
     const assessment = await prisma.assessment.create({
       data: {
+        userId: req.user?.userId || null,
         sessionId,
-        source: normalizedSource,
-        referrer,
+        source: assessmentSource,
+        referrer: isDashboardBuild ? 'dashboard_build' : referrer,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         responses: {}
       }
@@ -916,205 +961,50 @@ exports.processAssessment = async (req, res) => {
     // Process with AI (synchronous - wait for results)
     const results = await processAssessmentAI(updatedResponses);
     
-    // Create user and subscription if it's a new user or link to existing user
-    let token = null;
-    let user = null;
-    let projectCreated = false;
-    const { isNewUser, email, name, phone, company, password, userExists } = finalResponses || {};
-    
-    // Determine if this is a new user
-    // If userExists is explicitly false, it's a new user
-    // If userExists is explicitly true, it's an existing user
-    // Otherwise, check if targetUser exists in database
-    let isNew = true;
-    if (userExists === true) {
-      isNew = false; // Frontend says user exists
-    } else if (userExists === false) {
-      isNew = true; // Frontend says user is new
-    } else {
-      isNew = !targetUser; // Fallback to database check
-    }
+    const dashboardUserId = req.user?.userId || assessment.userId;
+    if (dashboardUserId) {
+      const dashboardUser = await prisma.user.findUnique({
+        where: { id: dashboardUserId },
+        select: { id: true, name: true, email: true, role: true }
+      });
 
-    try {
-      if (email) {
-        const userEmail = email.toLowerCase();
-        let targetUser = await prisma.user.findUnique({ where: { email: userEmail } });
-
-        if (isNew && !targetUser) {
-          // Use password provided by user OR generate temp one if not provided
-          let userPassword = password;
-          
-          if (!userPassword) {
-            // Generate random password if none provided (fallback)
-            userPassword = crypto.randomBytes(8).toString('hex');
-          }
-          
-          const salt = await bcrypt.genSalt(12);
-          const hashedPassword = await bcrypt.hash(userPassword, salt);
-
-          // Create user
-          targetUser = await prisma.user.create({
-            data: {
-              name: name || 'Valued Client',
-              email: userEmail,
-              password: hashedPassword,
-              phone: phone || null,
-              role: 'user',
-              isEmailVerified: false,
-            }
-          });
-
-          // Send welcome email (with their chosen password or notice they set it)
-          await sendEmail({
-            to: userEmail,
-            subject: 'Welcome to Sitemendr - Your Account Details',
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 15px;">
-                <h2 style="color: #0066FF; text-transform: uppercase; letter-spacing: 2px;">Identity_Verified</h2>
-                <p>Greetings, operative. Your technical profile has been synchronized.</p>
-                <p>Your account has been created and your project is ready in your dashboard.</p>
-                <p>Login to your command center to review your project blueprint:</p>
-                <a href="${process.env.FRONTEND_URL}/login" style="display: inline-block; background: #0066FF; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">Access Dashboard</a>
-              </div>
-            `,
-          }).catch(err => logger.error('FAILED_TO_SEND_WELCOME_EMAIL', err));
-
-          // Generate token for immediate login
-          token = generateAuthToken(targetUser.id);
-          user = {
-            id: targetUser.id,
-            name: targetUser.name,
-            email: targetUser.email,
-            role: targetUser.role
-          };
-        } else if (targetUser) {
-          user = {
-            id: targetUser.id,
-            name: targetUser.name,
-            email: targetUser.email,
-            role: targetUser.role
-          };
-          // Generate token for existing users too so they stay logged in
-          token = generateAuthToken(targetUser.id);
-        }
-
-        if (targetUser) {
-          // Create a subscription (Project) for this user based on assessment
-          const tier = results.recommendedPackage || 'ai_foundation';
-          const price = results.pricing?.estimatedTotal || 299;
-          
-          const subscription = await prisma.subscription.create({
-            data: {
-              userId: targetUser.id,
-              siteName: company || `${targetUser.name}'s Project`,
-              tier: tier,
-              price: parseFloat(price),
-              status: 'active',
-              planType: 'monthly',
-              reviewRequested: false,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-          });
-
-          projectCreated = true;
-
-          // Create initial milestones based on assessment results
-          await prisma.milestone.createMany({
-            data: [
-              {
-                subscriptionId: subscription.id,
-                title: 'Project Blueprint',
-                description: 'AI assessment and architecture blueprint synchronization completed.',
-                status: 'completed',
-                progress: 100,
-                order: 1
-              },
-              {
-                subscriptionId: subscription.id,
-                title: 'Initial Build',
-                description: 'Constructing core system components and neural interface structures.',
-                status: 'in_progress',
-                progress: 25,
-                order: 2
-              },
-              {
-                subscriptionId: subscription.id,
-                title: 'Optimization Phase',
-                description: 'Polishing UI components and refining backend logic paths.',
-                status: 'pending',
-                progress: 0,
-                order: 3
-              },
-              {
-                subscriptionId: subscription.id,
-                title: 'Deployment Ready',
-                description: 'Final system integrity check and public node deployment.',
-                status: 'pending',
-                progress: 0,
-                order: 4
-              }
-            ]
-          });
-
-          // Create initial template record
-          await prisma.template.create({
-            data: {
-              subscriptionId: subscription.id,
-              html: `
-                <div style="font-family: 'Inter', sans-serif; max-width: 1200px; margin: 0 auto; padding: 100px 20px; text-align: center;">
-                  <span style="display: inline-block; padding: 5px 15px; background: rgba(0, 102, 255, 0.1); color: #0066FF; border-radius: 20px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px;">System_Initialized</span>
-                  <h1 style="font-size: 60px; font-weight: 900; color: #1a1a1a; text-transform: uppercase; letter-spacing: -2px; line-height: 1; margin-bottom: 30px;">${company || targetUser.name + ' Blueprint'}</h1>
-                  <p style="font-size: 18px; color: #666; max-width: 700px; margin: 0 auto 50px; text-transform: uppercase; letter-spacing: 1px; line-height: 1.6;">${results.aiInsights?.substring(0, 200) || 'Your AI-powered digital infrastructure is being constructed.'}</p>
-                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px;">
-                    ${(results.recommendedFeatures || ['Scalable Architecture', 'Neural SEO', 'Core Engine']).slice(0, 3).map(f => `
-                      <div style="padding: 40px; background: #fff; border: 1px solid #f0f0f0; border-radius: 30px; text-align: left;">
-                        <div style="width: 40px; height: 40px; background: #0066FF; border-radius: 10px; margin-bottom: 20px;"></div>
-                        <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">${f}</h3>
-                        <p style="font-size: 11px; color: #999; text-transform: uppercase; line-height: 1.5;">Module integration pending completion of initial build cycle.</p>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              `,
-              css: "body { background: #fafafa; margin: 0; }",
-              js: "console.log('Project neural link active.');",
-              aiModel: results.processingMethod || 'gpt-4o'
-            }
-          });
-        }
+      if (!dashboardUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Account not found for this dashboard session.'
+        });
       }
-    } catch (error) {
-      logger.error('Error creating user, subscription or milestones during assessment processing', error);
-      // We don't throw here to ensure results are still returned to the client,
-      // but the projectCreated flag will be false
-    }
 
-    try {
+      const projectRequest = await prisma.projectRequest.upsert({
+        where: { assessmentId: assessment.id },
+        update: buildProjectRequestPayload(dashboardUser.id, assessment.id, updatedResponses, results),
+        create: buildProjectRequestPayload(dashboardUser.id, assessment.id, updatedResponses, results)
+      });
+
       await prisma.assessment.update({
         where: { id: assessment.id },
         data: {
+          userId: dashboardUser.id,
           status: 'completed',
           results,
           processingCompletedAt: new Date()
         }
       });
-    } catch (dbError) {
-      logger.error('Database final update error in processAssessment', {
-        errorCode: 'PROCESS_ASSESSMENT_DB_FINAL_ERROR',
-        error: dbError.message
+
+      return res.json({
+        success: true,
+        assessmentId: assessment.id,
+        results,
+        projectCreated: true,
+        projectRequest,
+        user: dashboardUser,
+        message: 'Project request submitted for review.'
       });
-      // Still return results even if final update fails
     }
 
-    res.json({
-      success: true,
-      assessmentId: assessment.id,
-      results,
-      processedWithFallback: !results.aiGenerated, // Flag to indicate if fallback was used
-      token, // Return token for new users
-      user,   // Return user info
-      projectCreated
+    return res.status(401).json({
+      success: false,
+      message: 'Build requests must be submitted from an authenticated dashboard session.'
     });
   } catch (error) {
     logger.error('Process assessment error', {
@@ -1172,6 +1062,58 @@ exports.getResults = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve results'
+    });
+  }
+};
+
+exports.getDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { authorization } = req.headers;
+    const token = authorization?.replace('Bearer ', '');
+    const sessionId = token ? validateSessionToken(token) : null;
+
+    const assessment = await prisma.assessment.findFirst({
+      where: {
+        id,
+        OR: [
+          sessionId ? { sessionId } : undefined,
+          { userId: req.user?.userId },
+          { projectRequest: { userId: req.user?.userId } }
+        ].filter(Boolean)
+      },
+      include: {
+        projectRequest: {
+          select: {
+            id: true,
+            status: true,
+            title: true,
+            quotedAmount: true,
+            quoteCurrency: true
+          }
+        }
+      }
+    });
+
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assessment not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: assessment
+    });
+  } catch (error) {
+    logger.error('Get assessment details error', {
+      errorCode: 'GET_ASSESSMENT_DETAILS_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve assessment details'
     });
   }
 };
@@ -1573,11 +1515,6 @@ exports.getStats = async (_req, res) => {
     });
   }
 };
-
-
-
-
-
 
 
 

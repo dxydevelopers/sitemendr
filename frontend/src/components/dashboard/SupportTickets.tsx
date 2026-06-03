@@ -204,7 +204,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
               <Headphones className="w-5 h-5 text-ai-blue" />
             </div>
             <h2 className="text-xl font-black uppercase tracking-tight text-white">
-              Tactical Support Center
+              Support Center
             </h2>
           </div>
           <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">
@@ -308,7 +308,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
         {view === 'details' && selectedTicket && (
           <div className="flex-1 flex flex-col h-full relative z-10">
             {/* Ticket Header */}
-            <div className="p-8 lg:p-10 border-bottom border-white/5 bg-white/[0.02] flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="p-8 lg:p-10 border-b border-white/5 bg-white/[0.02] flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-4">
                   <h3 className="text-xl font-black uppercase tracking-tight text-white">{selectedTicket.subject}</h3>
@@ -361,7 +361,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                       className="px-8 py-4 bg-ai-blue text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shadow-xl shadow-ai-blue/20 flex items-center gap-3"
                     >
                       {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      Transmit
+                      Send
                     </button>
                   </div>
                 </div>
@@ -429,10 +429,10 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-ai-blue/10 border border-ai-blue/20 rounded-full">
                   <Zap className="w-3 h-3 text-ai-blue animate-pulse" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-ai-blue">High Priority Uplink</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-ai-blue">Priority support</span>
                 </div>
-                <h3 className="text-3xl font-black uppercase tracking-tight text-white">Initialize New Inquiry</h3>
-                <p className="text-xs text-white/40 font-bold uppercase tracking-widest leading-relaxed">Our AI will automatically classify and route your request to the relevant department for accelerated resolution.</p>
+                <h3 className="text-3xl font-black uppercase tracking-tight text-white">Create a new ticket</h3>
+                <p className="text-xs text-white/40 font-bold uppercase tracking-widest leading-relaxed">Describe what you need and we will route it to the right support queue.</p>
               </div>
 
               <form onSubmit={handleCreateTicket} className="space-y-8">
@@ -449,7 +449,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-4">Priority Protocol</label>
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-4">Priority</label>
                     <select 
                       value={newTicket.priority}
                       onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
@@ -464,7 +464,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-4">Detailed Mission Briefing</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-4">Details</label>
                   <textarea 
                     required
                     value={newTicket.message}
@@ -481,7 +481,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                     className="px-20 py-6 bg-white text-black rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shadow-2xl shadow-white/10 flex items-center gap-4"
                   >
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current" />}
-                    Deploy Inquiry
+                    Create ticket
                   </button>
                 </div>
               </form>
@@ -493,7 +493,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
       {/* Support Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
-          { icon: <Clock className="w-5 h-5" />, title: 'Response Time', detail: '< 2 Hours', sub: 'For Priority Protocol' },
+          { icon: <Clock className="w-5 h-5" />, title: 'Response Time', detail: '< 2 Hours', sub: 'For priority requests' },
           { icon: <ShieldQuestion className="w-5 h-5" />, title: 'System Status', detail: 'Nominal', sub: 'All Systems Green' },
           { icon: <MessageSquare className="w-5 h-5" />, title: '24/7 Support', detail: '24/7/365', sub: '24/7 & Human Support' }
         ].map((item, i) => (

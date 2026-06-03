@@ -167,10 +167,10 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
               <Boxes className="w-5 h-5 text-ai-blue" />
             </div>
             <h2 className="text-xl font-black uppercase tracking-tight text-white">
-              Enhancement Protocols
+              Add-on Marketplace
             </h2>
           </div>
-          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Deploy additional modules to your infrastructure</p>
+          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Add useful services to your workspace</p>
         </div>
         
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
@@ -221,7 +221,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-white/5">
-                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Included_Payload:</p>
+                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Included</p>
                   {addon.features.map((feature, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <ShieldCheck className="w-3.5 h-3.5 text-expert-green opacity-40" />
@@ -242,16 +242,16 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
                   } disabled:opacity-50`}
                 >
                   {loading === addon.id ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Transmitting...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Adding...</>
                   ) : isPurchased ? (
                     <>
                       <Check className="w-4 h-4" />
-                      <span>Module_Live</span>
+                      <span>Added</span>
                     </>
                   ) : (
                     <>
                       <Cpu className="w-4 h-4" />
-                      <span>Initialize Deployment</span>
+                      <span>Add to workspace</span>
                     </>
                   )}
                 </button>

@@ -122,46 +122,139 @@ exports.getSiteVitals = async (req, res) => {
   }
 };
 
-// Get client projects (subscriptions)
+// Get Build projects only. Care and Merchant work belong to their own dashboard areas.
 exports.getProjects = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const subscriptions = await prisma.subscription.findMany({
-      where: { userId },
-      select: {
-        id: true,
-        siteName: true,
-        customName: true,
-        planType: true,
-        domain: true,
-        status: true,
-        createdAt: true,
-        suspended: true,
-        reviewRequested: true,
-        reviewNotes: true,
-        revisionCount: true,
-        milestones: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            progress: true,
-            order: true
+    const [projectRequests, subscriptions] = await Promise.all([
+      prisma.projectRequest.findMany({
+        where: { userId, serviceType: 'build' },
+        include: {
+          assessment: {
+            select: {
+              id: true,
+              status: true,
+              createdAt: true,
+              results: true,
+              responses: true
+            }
+          },
+          buildMilestones: {
+            orderBy: { order: 'asc' }
           }
         },
-        purchasedAddons: true,
-        template: {
-          select: {
-            isPublished: true
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.subscription.findMany({
+        where: {
+          userId,
+          tier: { not: 'maintenance' }
+        },
+        select: {
+          id: true,
+          siteName: true,
+          customName: true,
+          planType: true,
+          domain: true,
+          status: true,
+          createdAt: true,
+          suspended: true,
+          reviewRequested: true,
+          reviewNotes: true,
+          revisionCount: true,
+          milestones: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              progress: true,
+              order: true
+            }
+          },
+          purchasedAddons: true,
+          template: {
+            select: {
+              isPublished: true
+            }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+
+    const requestProjects = projectRequests.map((request) => {
+      const statusProgress = {
+        submitted: 10,
+        in_review: 25,
+        quote_ready: 40,
+        quoted: 40,
+        approved: 55,
+        payment_agreement: 62,
+        in_development: 70,
+        staging_review: 85,
+        launched: 92,
+        handoff: 96,
+        completed: 100,
+        cancelled: 0,
+        archived: 0
+      };
+      const milestoneProgress = request.buildMilestones?.length
+        ? Math.round(
+            request.buildMilestones.reduce((sum, milestone) => {
+              if (milestone.status === 'completed') return sum + 100;
+              return sum + (milestone.progress || 0);
+            }, 0) / request.buildMilestones.length
+          )
+        : null;
+
+      return {
+        id: request.id,
+        recordType: 'request',
+        assessmentId: request.assessmentId,
+        serviceType: request.serviceType,
+        name: request.title || request.businessName || 'Untitled request',
+        businessName: request.businessName,
+        progress: milestoneProgress ?? statusProgress[request.status] ?? 10,
+        status: request.status,
+        planType: request.packageIntent,
+        budget: request.budget,
+        timeline: request.timeline,
+        summary: request.summary,
+        priority: request.priority,
+        quotedAmount: request.quotedAmount,
+        quoteCurrency: request.quoteCurrency,
+        paymentAgreementType: request.paymentAgreementType,
+        paymentAgreementStatus: request.paymentAgreementStatus,
+        depositAmount: request.depositAmount,
+        totalAgreedAmount: request.totalAgreedAmount,
+        paymentDueDate: request.paymentDueDate,
+        paymentInstructions: request.paymentInstructions,
+        paymentConfirmedAt: request.paymentConfirmedAt,
+        stagingUrl: request.stagingUrl,
+        stagingNotes: request.stagingNotes,
+        stagingReviewStatus: request.stagingReviewStatus,
+        stagingReviewedAt: request.stagingReviewedAt,
+        launchUrl: request.launchUrl,
+        launchNotes: request.launchNotes,
+        launchApprovedAt: request.launchApprovedAt,
+        handoffNotes: request.handoffNotes,
+        completionNotes: request.completionNotes,
+        completionAcknowledgedAt: request.completionAcknowledgedAt,
+        completedAt: request.completedAt,
+        buildMilestones: request.buildMilestones,
+        clientNotes: request.clientNotes,
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt,
+        isCurrent: ['submitted', 'in_review', 'quote_ready', 'quoted', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff'].includes(request.status),
+        reviewRequested: request.status === 'in_review',
+        reviewNotes: request.adminNotes,
+        assessment: request.assessment
+      };
     });
 
     // Map subscriptions to project-like objects for the dashboard
-    const projects = subscriptions.map((sub) => {
+    const subscriptionProjects = subscriptions.map((sub) => {
       const milestones = sub.milestones;
 
       // Calculate overall progress from milestones
@@ -193,9 +286,10 @@ exports.getProjects = async (req, res) => {
 
       return {
         id: sub.id,
+        recordType: 'project',
         name: sub.siteName || sub.customName || 'Untitled Project',
         progress: progress,
-        status: sub.suspended ? 'Suspended' : (progress === 100 ? 'Completed' : 'Operational'),
+        status: sub.suspended ? 'suspended' : (progress === 100 ? 'completed' : 'active'),
         planType: sub.planType,
         domain: sub.domain,
         isCurrent: sub.status === 'active',
@@ -208,9 +302,12 @@ exports.getProjects = async (req, res) => {
       };
     });
 
+    const projects = [...requestProjects, ...subscriptionProjects];
+
     res.json({
       success: true,
-      projects
+      projects,
+      data: projects
     });
   } catch (error) {
     logger.error('Failed to get client projects', {
@@ -220,6 +317,270 @@ exports.getProjects = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve projects'
+    });
+  }
+};
+
+exports.respondToHandoff = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { action, message } = req.body;
+
+    const validActions = ['complete', 'issue'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid handoff response'
+      });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      },
+      include: {
+        buildMilestones: true
+      }
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Build request not found'
+      });
+    }
+
+    if (!['handoff', 'launched'].includes(request.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This build is not waiting for handoff response'
+      });
+    }
+
+    const label = action === 'complete'
+      ? 'Client acknowledged handoff and completion.'
+      : 'Client reported a handoff issue.';
+    const noteParts = [
+      request.clientNotes,
+      `${label}${message ? `\nClient message: ${message}` : ''}`
+    ].filter(Boolean);
+
+    const updated = await prisma.projectRequest.update({
+      where: { id: request.id },
+      data: {
+        status: action === 'complete' ? 'completed' : 'handoff',
+        completionAcknowledgedAt: action === 'complete' ? new Date() : request.completionAcknowledgedAt,
+        completedAt: action === 'complete' ? new Date() : request.completedAt,
+        completionNotes: action === 'complete' ? (message || request.completionNotes) : request.completionNotes,
+        clientNotes: noteParts.join('\n\n')
+      }
+    });
+
+    const handoffMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Handoff');
+
+    if (action === 'complete') {
+      await prisma.buildMilestone.updateMany({
+        where: { projectRequestId: request.id },
+        data: { status: 'completed', progress: 100 }
+      });
+    } else if (handoffMilestone) {
+      await prisma.buildMilestone.update({
+        where: { id: handoffMilestone.id },
+        data: {
+          status: 'blocked',
+          progress: Math.max(handoffMilestone.progress || 0, 70),
+          clientNote: message || 'Client reported a handoff issue.'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: updated,
+      message: action === 'complete'
+        ? 'Build handoff acknowledged. This project is now complete.'
+        : 'Your handoff note has been sent to the team.'
+    });
+  } catch (error) {
+    logger.error('RESPOND_TO_HANDOFF_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to respond to handoff'
+    });
+  }
+};
+
+exports.respondToStagingReview = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { action, message } = req.body;
+
+    const validActions = ['approve', 'changes'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid staging review response'
+      });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      },
+      include: {
+        buildMilestones: true
+      }
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Build request not found'
+      });
+    }
+
+    if (request.status !== 'staging_review') {
+      return res.status(400).json({
+        success: false,
+        message: 'This build is not waiting for staging review'
+      });
+    }
+
+    const label = action === 'approve'
+      ? 'Client approved staging for launch.'
+      : 'Client requested staging changes.';
+    const noteParts = [
+      request.clientNotes,
+      `${label}${message ? `\nClient message: ${message}` : ''}`
+    ].filter(Boolean);
+
+    const updated = await prisma.projectRequest.update({
+      where: { id: request.id },
+      data: {
+        status: action === 'approve' ? 'launched' : 'in_development',
+        stagingReviewStatus: action === 'approve' ? 'approved' : 'changes_requested',
+        stagingReviewedAt: new Date(),
+        launchApprovedAt: action === 'approve' ? new Date() : request.launchApprovedAt,
+        clientNotes: noteParts.join('\n\n')
+      }
+    });
+
+    const stagingMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Staging review');
+    const launchMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Launch');
+
+    if (action === 'approve') {
+      if (stagingMilestone) {
+        await prisma.buildMilestone.update({
+          where: { id: stagingMilestone.id },
+          data: { status: 'completed', progress: 100 }
+        });
+      }
+      if (launchMilestone) {
+        await prisma.buildMilestone.update({
+          where: { id: launchMilestone.id },
+          data: { status: 'in_progress', progress: Math.max(launchMilestone.progress || 0, 30) }
+        });
+      }
+    } else if (stagingMilestone) {
+      await prisma.buildMilestone.update({
+        where: { id: stagingMilestone.id },
+        data: {
+          status: 'blocked',
+          progress: Math.max(stagingMilestone.progress || 0, 50),
+          clientNote: message || 'Client requested changes during staging review.'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: updated,
+      message: action === 'approve'
+        ? 'Staging approved. The team can prepare launch.'
+        : 'Your change request has been sent to the team.'
+    });
+  } catch (error) {
+    logger.error('RESPOND_TO_STAGING_REVIEW_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to respond to staging review'
+    });
+  }
+};
+
+exports.respondToProjectQuote = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { action, message } = req.body;
+
+    const validActions = ['accept', 'discuss', 'decline'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid quote response'
+      });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      }
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Build request not found'
+      });
+    }
+
+    if (request.status !== 'quote_ready') {
+      return res.status(400).json({
+        success: false,
+        message: 'This build request is not waiting for quote response'
+      });
+    }
+
+    const responseLabels = {
+      accept: 'Client accepted the quote.',
+      discuss: 'Client wants to discuss the quote.',
+      decline: 'Client declined the quote.'
+    };
+    const noteParts = [
+      request.clientNotes,
+      `${responseLabels[action]}${message ? `\nClient message: ${message}` : ''}`
+    ].filter(Boolean);
+
+    const updated = await prisma.projectRequest.update({
+      where: { id: request.id },
+      data: {
+        status: action === 'accept' ? 'approved' : 'in_review',
+        approvedAt: action === 'accept' ? new Date() : request.approvedAt,
+        clientNotes: noteParts.join('\n\n')
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updated,
+      message: action === 'accept'
+        ? 'Quote accepted. The build is ready for the next step.'
+        : 'Your response has been sent to the team.'
+    });
+  } catch (error) {
+    logger.error('RESPOND_TO_PROJECT_QUOTE_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to respond to quote'
     });
   }
 };
@@ -1098,9 +1459,11 @@ exports.getAssessments = async (req, res) => {
 
     const assessments = await prisma.assessment.findMany({
       where: { 
-        lead: {
-          ownerId: userId
-        }
+        OR: [
+          { userId },
+          { projectRequest: { userId } },
+          { lead: { ownerId: userId } }
+        ]
       },
       orderBy: { createdAt: 'desc' }
     });
