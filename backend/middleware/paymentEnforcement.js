@@ -6,6 +6,54 @@ const { withTimeout } = require('../utils/promise');
 let enforcementConfigCache = null;
 let lastCacheUpdate = 0;
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const SUBSCRIPTION_CACHE_TTL = 30 * 1000; // 30 seconds
+const subscriptionCache = new Map();
+const subscriptionInflight = new Map();
+
+const getCachedSubscription = async (clientId) => {
+  const now = Date.now();
+  const cached = subscriptionCache.get(clientId);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  if (subscriptionInflight.has(clientId)) {
+    return subscriptionInflight.get(clientId);
+  }
+
+  const lookup = withTimeout(
+    prisma.subscription.findFirst({
+      where: {
+        userId: clientId,
+        status: { not: 'cancelled' }
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        tier: true,
+        price: true,
+        expiresAt: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    5000,
+    'Database connection timed out during payment enforcement check'
+  ).then((subscription) => {
+    subscriptionCache.set(clientId, {
+      value: subscription,
+      expiresAt: Date.now() + SUBSCRIPTION_CACHE_TTL
+    });
+    return subscription;
+  }).finally(() => {
+    subscriptionInflight.delete(clientId);
+  });
+
+  subscriptionInflight.set(clientId, lookup);
+  return lookup;
+};
 
 // Payment enforcement middleware
 const checkPaymentStatus = async (req, res, next) => {
@@ -20,27 +68,7 @@ const checkPaymentStatus = async (req, res, next) => {
       });
     }
 
-    // Get subscription status - explicitly select columns to avoid missing column errors
-    const subscription = await withTimeout(
-      prisma.subscription.findFirst({
-        where: {
-          userId: clientId,
-          status: { not: 'cancelled' }
-        },
-        select: {
-          id: true,
-          userId: true,
-          status: true,
-          tier: true,
-          price: true,
-          expiresAt: true,
-          createdAt: true
-        },
-        orderBy: { createdAt: 'desc' }
-      }),
-      5000,
-      'Database connection timed out during payment enforcement check'
-    );
+    const subscription = await getCachedSubscription(clientId);
 
     if (!subscription) {
       // No subscription found - allow access for new clients or redirect to signup

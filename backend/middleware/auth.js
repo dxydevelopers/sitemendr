@@ -56,7 +56,13 @@ const requireAdmin = async (req, res, next) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
     });
 
     if (!user) {
@@ -97,7 +103,13 @@ const requireManager = async (req, res, next) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
     });
 
     if (!user) {

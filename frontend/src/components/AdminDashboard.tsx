@@ -175,6 +175,16 @@ interface EnforcementSettings {
   enforceOverlays?: boolean;
 }
 
+interface SiteVitals {
+  performance?: number;
+  coreWebVitals?: {
+    fcp?: string;
+    tti?: string;
+    cls?: string;
+    lcp?: string;
+  };
+}
+
 interface Assessment {
   id: string;
   name?: string;
@@ -252,6 +262,10 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>('work');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [buildOperatorView, setBuildOperatorView] = useState('overview');
+  const [briefMissingItems, setBriefMissingItems] = useState<string[]>([]);
+  const [briefClarificationMessage, setBriefClarificationMessage] = useState('');
+  const [briefDecisionMessage, setBriefDecisionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -276,7 +290,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [selectedSubscriptionForEditor, setSelectedSubscriptionForEditor] = useState<string | null>(null);
   const [selectedSiteForVitals, setSelectedSiteForVitals] = useState<string | null>(null);
-  const [siteVitals, setSiteVitals] = useState<Record<string, unknown> | null>(null);
+  const [siteVitals, setSiteVitals] = useState<SiteVitals | null>(null);
   const [loadingVitals, setLoadingVitals] = useState(false);
   const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState(false);
   const [enforcementSettings, setEnforcementSettings] = useState<EnforcementSettings | null>(null);
@@ -332,6 +346,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    setBriefMissingItems([]);
+    setBriefClarificationMessage('');
+    setBriefDecisionMessage(null);
+  }, [selectedProjectRequestId]);
 
   useEffect(() => {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -414,7 +434,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     if (!enforcementSettings) return;
     setSubmitting(true);
     try {
-      await apiClient.updateEnforcementSettings(enforcementSettings as any);
+      await apiClient.updateEnforcementSettings(enforcementSettings);
       alert('Settings updated successfully');
     } catch (error) {
       console.error('Failed to update settings:', error);
@@ -548,28 +568,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     }
   };
 
-  const buildRequestStatuses = [
-    'submitted',
-    'in_review',
-    'quote_ready',
-    'approved',
-    'payment_agreement',
-    'in_development',
-    'staging_review',
-    'launched',
-    'handoff',
-    'completed',
-    'cancelled',
-    'archived'
-  ];
-  const buildRequestPhases = [
-    { label: 'Brief', statuses: ['submitted', 'in_review'] },
-    { label: 'Quote', statuses: ['quote_ready', 'approved'] },
-    { label: 'Agreement', statuses: ['payment_agreement'] },
-    { label: 'Build', statuses: ['in_development'] },
-    { label: 'Review', statuses: ['staging_review'] },
-    { label: 'Launch', statuses: ['launched', 'handoff', 'completed'] },
-  ];
   const adminBuildChapters = [
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Read the request and confirm project basics', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Prepare pricing and scope decisions', statuses: ['quote_ready', 'approved'] },
@@ -580,7 +578,64 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   ];
 
   const selectedProjectRequest = selectedProjectRequestId ? projectRequests.find(request => request.id === selectedProjectRequestId) || null : null;
-  const selectedBuildPhaseIndex = Math.max(0, buildRequestPhases.findIndex(phase => phase.statuses.includes(selectedProjectRequest?.status || 'submitted')));
+  const getAdminBuildChapter = (status?: string) => adminBuildChapters.find(chapter => chapter.statuses.includes(status || 'submitted')) || adminBuildChapters[0];
+  const getAdminBuildProgress = (status?: string) => {
+    const chapter = getAdminBuildChapter(status);
+    const chapterIndex = Math.max(0, adminBuildChapters.findIndex(item => item.id === chapter.id));
+    return Math.round(((chapterIndex + 1) / adminBuildChapters.length) * 100);
+  };
+  const getAdminNextAction = (request: ProjectRequest) => {
+    if (['submitted', 'in_review'].includes(request.status)) return 'Review brief';
+    if (request.status === 'quote_ready') return 'Await client';
+    if (request.status === 'approved') return 'Send terms';
+    if (request.status === 'payment_agreement') return 'Confirm payment';
+    if (request.status === 'in_development') return 'Update build';
+    if (request.status === 'staging_review') return 'Handle review';
+    if (['launched', 'handoff'].includes(request.status)) return 'Close handoff';
+    if (request.status === 'completed') return 'Closed';
+    return request.status.replace(/_/g, ' ');
+  };
+  const getAdminBuildState = (request: ProjectRequest) => {
+    if (request.status === 'completed') return 'Completed';
+    if (request.status === 'cancelled') return 'Cancelled';
+    if (request.status === 'archived') return 'Archived';
+    if (request.status === 'launched') return 'Launched';
+    if (['quote_ready', 'staging_review'].includes(request.status)) return 'Waiting client';
+    if (['approved', 'payment_agreement'].includes(request.status)) return 'Gate';
+    if (request.status === 'in_development') return 'In studio';
+    if (['submitted', 'in_review', 'handoff'].includes(request.status)) return 'Needs action';
+    return 'Active';
+  };
+  const closedBuildStatuses = ['completed', 'cancelled', 'archived'];
+  const buildOperatorViews = [
+    { id: 'briefs', label: 'Briefs', detail: 'New requests and intake review', statuses: ['submitted', 'in_review'] },
+    { id: 'scope', label: 'Scope', detail: 'Quote preparation and client decision', statuses: ['quote_ready', 'approved'] },
+    { id: 'agreement', label: 'Agreement', detail: 'Payment terms before production', statuses: ['payment_agreement'] },
+    { id: 'studio', label: 'Studio', detail: 'Build work currently moving', statuses: ['in_development'] },
+    { id: 'review', label: 'Review', detail: 'Staging preview and client feedback', statuses: ['staging_review'] },
+    { id: 'launch', label: 'Launch / Handoff', detail: 'Live release, access, and ownership transfer', statuses: ['launched', 'handoff'] },
+    { id: 'completed', label: 'Completed', detail: 'Launched, handed off, and closed', statuses: ['completed'] },
+    { id: 'archived', label: 'Archived', detail: 'Cancelled or stored work', statuses: ['cancelled', 'archived'] },
+  ];
+  const selectedBuildOperatorView = buildOperatorViews.find(view => view.id === buildOperatorView) || null;
+  const selectedBuildOperatorViewIndex = selectedBuildOperatorView
+    ? buildOperatorViews.findIndex(view => view.id === selectedBuildOperatorView.id)
+    : -1;
+  const previousBuildOperatorView = selectedBuildOperatorViewIndex > 0 ? buildOperatorViews[selectedBuildOperatorViewIndex - 1] : null;
+  const nextBuildOperatorView = selectedBuildOperatorViewIndex >= 0 && selectedBuildOperatorViewIndex < buildOperatorViews.length - 1
+    ? buildOperatorViews[selectedBuildOperatorViewIndex + 1]
+    : null;
+  const filteredProjectRequestsBySearch = projectRequests.filter(request => {
+    const haystack = `${request.title} ${request.businessName || ''} ${request.user?.email || ''} ${request.status}`.toLowerCase();
+    return haystack.includes(searchTerm.toLowerCase());
+  });
+  const filteredProjectRequests = selectedBuildOperatorView
+    ? filteredProjectRequestsBySearch.filter(request => selectedBuildOperatorView.statuses.includes(request.status))
+    : [];
+  const buildOperatorCards = buildOperatorViews.map(view => ({
+    ...view,
+    requests: projectRequests.filter(request => view.statuses.includes(request.status)),
+  }));
   const defaultAdminBuildChapter = adminBuildChapters.find(chapter => chapter.statuses.includes(selectedProjectRequest?.status || 'submitted')) || adminBuildChapters[0];
   const defaultAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === defaultAdminBuildChapter.id));
   const requestedAdminBuildChapter = adminBuildChapters.find(chapter => chapter.id === activeAdminBuildChapter);
@@ -597,18 +652,89 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const selectedActiveBuildMilestone = selectedBuildMilestones.find(milestone => milestone.status === 'in_progress')
     || selectedBuildMilestones.find(milestone => milestone.status === 'pending')
     || selectedBuildMilestones[selectedBuildMilestones.length - 1];
+  const briefReviewStatus = selectedProjectRequest?.status === 'submitted'
+    ? 'New brief'
+    : selectedProjectRequest?.status === 'in_review'
+      ? 'Under review'
+      : selectedProjectRequest && ['quote_ready', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(selectedProjectRequest.status)
+        ? 'Ready for scope'
+        : 'Review needed';
+  const briefMissingOptions = [
+    'Content/assets',
+    'Budget clarity',
+    'Timeline clarity',
+    'Feature scope',
+    'Audience/details',
+    'Pages/sections',
+    'Services/products',
+    'Lead form fields',
+    'Lead destination',
+    'Brand assets',
+    'Design references',
+    'Domain/hosting',
+    'Admin access',
+    'Integrations',
+    'Legal/policies',
+    'Launch success',
+  ];
+  const selectedBriefLines = (selectedProjectRequest?.summary || '').split('\n').filter(Boolean);
+  const getSelectedBriefValue = (label: string) => {
+    const match = selectedBriefLines.find(line => line.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+    return match ? match.slice(label.length + 1).trim() : '';
+  };
+  const readResponseValue = (value: unknown) => Array.isArray(value) ? value.join(', ') : typeof value === 'string' ? value : '';
+  const selectedBriefType = readResponseValue(selectedProjectRequest?.assessment?.responses?.projectType)
+    || getSelectedBriefValue('Build type')
+    || selectedProjectRequest?.serviceType
+    || 'Custom build';
+  const selectedBriefGoals = readResponseValue(selectedProjectRequest?.assessment?.responses?.goals) || getSelectedBriefValue('Goals');
+  const selectedBriefFeatures = readResponseValue(selectedProjectRequest?.assessment?.responses?.requiredFeatures) || getSelectedBriefValue('Required features');
+  const selectedBriefAudience = readResponseValue(selectedProjectRequest?.assessment?.responses?.targetAudience) || getSelectedBriefValue('Users');
+  const selectedBriefMaterial = readResponseValue(selectedProjectRequest?.assessment?.responses?.hasWebsite) || getSelectedBriefValue('Existing material');
+  const selectedBriefStyle = readResponseValue(selectedProjectRequest?.assessment?.responses?.preferredStyle) || getSelectedBriefValue('Style direction');
+  const selectedBriefLink = readResponseValue(selectedProjectRequest?.assessment?.responses?.website) || getSelectedBriefValue('Link');
+  const selectedBriefAnswerRows = [
+    { question: 'What are we building?', answer: selectedBriefType || 'Not answered' },
+    { question: 'What should this build help achieve?', answer: selectedBriefGoals || 'Not answered' },
+    { question: 'Which features must be included?', answer: selectedBriefFeatures || 'Not answered' },
+    { question: 'Who will use it?', answer: selectedBriefAudience || 'Not answered' },
+    { question: 'What does the client already have?', answer: selectedBriefMaterial || 'Not answered' },
+    { question: 'What style direction did the client choose?', answer: selectedBriefStyle || 'Not answered' },
+    { question: 'What budget should we plan around?', answer: selectedProjectRequest?.budget || 'Not specified' },
+    { question: 'What timeline did the client give?', answer: selectedProjectRequest?.timeline || 'Not specified' },
+    { question: 'Any existing link?', answer: selectedBriefLink || 'Not specified' },
+    { question: 'Priority level', answer: selectedProjectRequest?.priority || 'normal' },
+  ];
+  const buildBriefClarificationMessage = () => {
+    const missingText = briefMissingItems.length
+      ? `Please clarify: ${briefMissingItems.join(', ')}.`
+      : 'Please clarify the brief details before scope is prepared.';
+    const noteText = briefClarificationMessage.trim();
+
+    return noteText ? `${missingText}\n${noteText}` : missingText;
+  };
 
   const handleUpdateProjectRequest = async (id: string, data: Record<string, unknown>) => {
     setSubmitting(true);
+    setBriefDecisionMessage(null);
     try {
-      const res = await apiClient.updateAdminProjectRequest(id, data) as { success: boolean; data: ProjectRequest };
+      const res = await apiClient.updateAdminProjectRequest(id, data) as { success: boolean; data?: ProjectRequest; message?: string };
       if (res.success) {
-        setProjectRequests(prev => prev.map(request => request.id === id ? res.data : request));
+        if (!res.data) {
+          throw new Error('Build request updated, but the server did not return the updated request.');
+        }
+        setProjectRequests(prev => prev.map(request => request.id === id ? res.data as ProjectRequest : request));
         setSelectedProjectRequestId(id);
+        setBriefDecisionMessage({
+          type: 'success',
+          text: data.status === 'quote_ready' ? 'Brief approved. Scope is now open for the client.' : 'Clarification request sent to the client.'
+        });
+      } else {
+        setBriefDecisionMessage({ type: 'error', text: res.message || 'The build request could not be updated.' });
       }
     } catch (error) {
       console.error('Failed to update build request:', error);
-      alert('Failed to update build request');
+      setBriefDecisionMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update build request.' });
     } finally {
       setSubmitting(false);
     }
@@ -1531,51 +1657,60 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         {/* Build Requests Tab */}
         {activeTab === 'project-requests' && (
           <div className="animate-fade-in">
-            {!selectedProjectRequestId && (
+            {!selectedProjectRequestId && selectedBuildOperatorView && (
             <div className="mb-6 border-y border-white/10">
-              <div className="grid xl:grid-cols-[minmax(0,1fr)_28rem] xl:divide-x xl:divide-white/10">
-                <div className="px-5 py-6 lg:px-8">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-ai-blue/70">Build command</p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight text-white lg:text-5xl">
-                    Build operations
-                  </h2>
-                  <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                    <span>{projectRequests.length} request{projectRequests.length === 1 ? '' : 's'}</span>
-                    <span>No request selected</span>
-                    <span>{selectedBuildMilestoneProgress}% delivery progress</span>
+              <div className="px-5 py-6 lg:px-8">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setBuildOperatorView('overview')}
+                    className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36 transition hover:text-white"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                    Operator queue
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => previousBuildOperatorView && setBuildOperatorView(previousBuildOperatorView.id)}
+                      disabled={!previousBuildOperatorView}
+                      className="flex min-h-10 items-center gap-2 border border-white/10 px-3 py-2 text-white/46 transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                      aria-label="Previous build room"
+                    >
+                      <ChevronRight className="h-4 w-4 rotate-180" />
+                      <span className="hidden text-[10px] font-black uppercase tracking-[0.14em] sm:block">
+                        {previousBuildOperatorView?.label || 'Previous'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => nextBuildOperatorView && setBuildOperatorView(nextBuildOperatorView.id)}
+                      disabled={!nextBuildOperatorView}
+                      className="flex min-h-10 items-center gap-2 border border-white/10 px-3 py-2 text-white/46 transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                      aria-label="Next build room"
+                    >
+                      <span className="hidden text-[10px] font-black uppercase tracking-[0.14em] sm:block">
+                        {nextBuildOperatorView?.label || 'Next'}
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 border-t border-white/10 xl:border-t-0">
-                  {[
-                    { label: 'Briefs', value: projectRequests.filter(request => ['submitted', 'in_review'].includes(request.status)).length },
-                    { label: 'Gates', value: projectRequests.filter(request => ['quote_ready', 'approved', 'payment_agreement'].includes(request.status)).length },
-                    { label: 'Studio', value: projectRequests.filter(request => ['in_development', 'staging_review', 'handoff'].includes(request.status)).length },
-                  ].map((metric) => (
-                    <div key={metric.label} className="border-r border-white/10 px-4 py-5 last:border-r-0">
-                      <p className="text-2xl font-black tracking-tight text-white">{metric.value}</p>
-                      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{metric.label}</p>
-                    </div>
-                  ))}
-                </div>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-white lg:text-5xl">
+                  {selectedBuildOperatorView.label}
+                </h2>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-white/54">
+                  {selectedBuildOperatorView.detail}
+                </p>
               </div>
-              <div className="grid gap-3 border-t border-white/10 px-5 py-4 md:grid-cols-[minmax(0,1fr)_16rem] lg:px-8">
+              <div className="border-t border-white/10 px-5 py-4 lg:px-8">
                 <input
                   type="text"
-                  placeholder="Search build command..."
+                  placeholder="Search this room..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
                 />
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
-                >
-                  <option value="ALL">All statuses</option>
-                  {buildRequestStatuses.map(status => (
-                    <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
-                  ))}
-                </select>
               </div>
             </div>
             )}
@@ -1589,26 +1724,61 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                 <FileText className="mb-5 h-10 w-10 text-white/18" />
                 <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/38">No build requests yet</p>
               </div>
-            ) : !selectedProjectRequestId ? (
+            ) : !selectedProjectRequestId && !selectedBuildOperatorView ? (
+              <div className="space-y-5">
+                <div className="grid gap-px overflow-hidden bg-white/10 md:grid-cols-2 xl:grid-cols-4">
+                  {buildOperatorCards.map((lane) => (
+                    <button
+                      key={lane.label}
+                      type="button"
+                      onClick={() => setBuildOperatorView(lane.id)}
+                      className="min-h-40 bg-[#05070a] px-5 py-5 text-left transition hover:bg-white/[0.035]"
+                    >
+                      <div className="flex items-start justify-between gap-5">
+                        <span className="text-3xl font-black tracking-tight text-white">{lane.requests.length}</span>
+                        <ChevronRight className="h-4 w-4 text-white/24" />
+                      </div>
+                      <p className="mt-8 text-[10px] font-black uppercase tracking-[0.16em] text-white/52">{lane.label}</p>
+                      <p className="mt-2 text-xs leading-6 text-white/38">{lane.detail}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : !selectedProjectRequestId && selectedBuildOperatorView ? (
               <div className="border-y border-white/10">
-                <div className="grid grid-cols-[1fr_7rem_7rem_2rem] gap-3 border-b border-white/10 px-5 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
-                  <span>Request</span>
-                  <span className="text-right">Progress</span>
-                  <span className="text-right">Resume</span>
-                  <span></span>
+                <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Build room</p>
+                    <h3 className="mt-1 text-sm font-black text-white">{selectedBuildOperatorView.label}</h3>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                    {filteredProjectRequests.length} record{filteredProjectRequests.length === 1 ? '' : 's'}
+                  </span>
                 </div>
                 <div className="divide-y divide-white/10">
-                  {projectRequests
-                    .filter(request => {
-                      const haystack = `${request.title} ${request.businessName || ''} ${request.user?.email || ''} ${request.status}`.toLowerCase();
-                      const matchesSearch = haystack.includes(searchTerm.toLowerCase());
-                      const matchesStatus = filterStatus === 'ALL' || request.status === filterStatus;
-                      return matchesSearch && matchesStatus;
-                    })
+                  {filteredProjectRequests
                     .map((request) => {
-                      const rowChapter = adminBuildChapters.find(chapter => chapter.statuses.includes(request.status)) || adminBuildChapters[0];
-                      const rowChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === rowChapter.id));
-                      const rowProgress = Math.round(((rowChapterIndex + 1) / adminBuildChapters.length) * 100);
+                      const rowChapter = getAdminBuildChapter(request.status);
+                      const rowProgress = getAdminBuildProgress(request.status);
+                      const nextAction = getAdminNextAction(request);
+                      const rowState = getAdminBuildState(request);
+                      const summaryPreview = request.summary
+                        ? request.summary.split('\n').find(line => line.trim().length > 0) || request.summary
+                        : 'No project summary has been prepared yet.';
+                      const quoteLabel = request.quotedAmount
+                        ? `${request.quoteCurrency || 'USD'} ${request.quotedAmount}`
+                        : 'Quote pending';
+                      const projectLabel = request.packageIntent || request.serviceType || 'Custom build';
+                      const createdAtLabel = request.createdAt
+                        ? new Date(request.createdAt).toLocaleString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })
+                        : 'No date';
 
                       return (
                         <button
@@ -1618,25 +1788,53 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                             setSelectedProjectRequestId(request.id);
                             setActiveAdminBuildChapter(null);
                           }}
-                          className="grid min-h-24 w-full grid-cols-[1fr_7rem_7rem_2rem] items-center gap-3 px-5 py-4 text-left transition hover:bg-white/[0.025]"
+                          className={`grid w-full gap-5 px-5 py-5 text-left transition hover:bg-white/[0.025] xl:grid-cols-[minmax(0,1fr)_24rem_2rem] xl:items-center ${
+                            closedBuildStatuses.includes(request.status) ? 'opacity-70 hover:opacity-100' : ''
+                          }`}
                         >
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-black text-white">{request.title || request.businessName || 'Untitled build'}</span>
-                            <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/34">
-                              {request.user?.email || 'No client email'}
+                            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                              <span className="block truncate text-base font-black text-white">{request.title || request.businessName || 'Untitled build'}</span>
+                              <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">{projectLabel.replace(/_/g, ' ')}</span>
+                            </span>
+                            <span className="mt-2 block text-sm leading-6 text-white/52 line-clamp-2">
+                              {summaryPreview}
+                            </span>
+                            <span className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
+                              <span>{request.user?.name || 'Unknown client'}</span>
+                              <span>{request.user?.email || 'No client email'}</span>
                             </span>
                           </span>
-                          <span>
-                            <span className="block h-1 bg-white/10">
-                              <span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} />
+                          <span className="grid gap-3 sm:grid-cols-4 xl:grid-cols-2">
+                            {[
+                              { label: 'Next', value: nextAction },
+                              { label: 'Stage', value: rowChapter.label },
+                              { label: 'State', value: rowState },
+                              { label: 'Quote', value: quoteLabel },
+                              { label: 'Submitted', value: createdAtLabel },
+                            ].map((item) => (
+                              <span key={item.label} className="min-w-0">
+                                <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-white/26">{item.label}</span>
+                                <span className="mt-1 block truncate text-[11px] font-black uppercase tracking-[0.1em] text-white/58">{item.value}</span>
+                              </span>
+                            ))}
+                            <span className="sm:col-span-4 xl:col-span-2">
+                              <span className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
+                                <span>Progress</span>
+                                <span>{rowProgress}%</span>
+                              </span>
+                              <span className="mt-2 block h-1 bg-white/10">
+                                <span className="block h-full bg-white/72" style={{ width: `${rowProgress}%` }} />
+                              </span>
                             </span>
-                            <span className="mt-2 block text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/34">{rowProgress}%</span>
                           </span>
-                          <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-ai-blue">{rowChapter.label}</span>
                           <ChevronRight className="h-4 w-4 justify-self-end text-white/24" />
                         </button>
                       );
                     })}
+                  {filteredProjectRequests.length === 0 && (
+                    <div className="px-5 py-10 text-sm text-white/34">No requests match this operator view.</div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -1724,29 +1922,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               <span>{new Date(selectedProjectRequest.createdAt).toLocaleDateString()}</span>
                             </div>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-2 xl:w-[27rem]">
-                            <select
-                              value={selectedProjectRequest.status}
-                              onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { status: e.target.value })}
-                              disabled={submitting}
-                              className="border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50 disabled:opacity-50"
-                            >
-                              {buildRequestStatuses.map(status => (
-                                <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
-                              ))}
-                            </select>
-                            <select
-                              value={selectedProjectRequest.priority || 'normal'}
-                              onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { priority: e.target.value })}
-                              disabled={submitting}
-                              className="border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50 disabled:opacity-50"
-                            >
-                              <option value="low">Low priority</option>
-                              <option value="normal">Normal priority</option>
-                              <option value="high">High priority</option>
-                              <option value="urgent">Urgent priority</option>
-                            </select>
-                          </div>
                         </div>
                       </div>
 
@@ -1757,7 +1932,9 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               Step {selectedAdminBuildChapterIndex + 1} of {adminBuildChapters.length}
                             </p>
                             <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedAdminBuildChapter.label}</h4>
-                            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
+                            {selectedAdminBuildChapter.id !== 'brief' && (
+                              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
+                            )}
                           </div>
                           <div className="w-full md:max-w-sm">
                             <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
@@ -1781,7 +1958,11 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                         </div>
                       </div>
 
-                      <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_22rem] lg:divide-x lg:divide-white/10">
+                      <div className={`flex-1 ${
+                        selectedAdminBuildChapter.id === 'brief'
+                          ? 'divide-y divide-white/10'
+                          : 'grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:divide-x lg:divide-white/10'
+                      }`}>
                         <section className="px-5 py-6 lg:px-8">
                           <div className="mb-5 flex items-center justify-between gap-4">
                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{selectedAdminBuildChapter.label}</h4>
@@ -1789,52 +1970,38 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           </div>
                           {selectedAdminBuildChapter.id === 'brief' && (
                           <>
-                          <div className="grid border-y border-white/10 md:grid-cols-3 md:divide-x md:divide-white/10">
-                            {[
-                              ['Build type', selectedProjectRequest.assessment?.responses?.projectType],
-                              ['Budget', selectedProjectRequest.budget],
-                              ['Timeline', selectedProjectRequest.timeline],
-                              ['Existing material', selectedProjectRequest.assessment?.responses?.hasWebsite],
-                              ['Style', selectedProjectRequest.assessment?.responses?.preferredStyle],
-                              ['Link', selectedProjectRequest.assessment?.responses?.website],
-                            ].map(([label, value]) => (
-                              <div key={String(label)} className="border-b border-white/10 p-4 md:last:border-b-0 md:[&:nth-last-child(2)]:border-b-0">
-                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">{String(label)}</p>
-                                <p className="mt-2 break-words text-sm font-semibold text-white/72">{String(value || 'Not specified')}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                            <div className="border-y border-white/10 py-5">
-                              <p className="mb-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Goals</p>
-                              <div className="flex flex-wrap gap-2">
-                                {((selectedProjectRequest.assessment?.responses?.goals as string[]) || []).map(goal => (
-                                  <span key={goal} className="border border-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/58">{goal}</span>
-                                ))}
-                                {!((selectedProjectRequest.assessment?.responses?.goals as string[]) || []).length && (
-                                  <span className="text-sm text-white/34">No goals recorded.</span>
-                                )}
-                              </div>
+                          <div className="border-y border-white/10">
+                            <div className="hidden grid-cols-2 gap-px bg-white/10 xl:grid xl:grid-cols-5">
+                              {selectedBriefAnswerRows.map((row) => (
+                                <div key={row.question} className="min-w-0 bg-black px-4 py-4">
+                                  <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/34" title={row.question}>
+                                    {row.question}
+                                  </p>
+                                  <p
+                                    className={`mt-2 truncate text-sm font-semibold ${
+                                      ['Not answered', 'Not specified'].includes(row.answer) ? 'text-white/30' : 'text-white/74'
+                                    }`}
+                                    title={row.answer}
+                                  >
+                                    {row.answer}
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                            <div className="border-y border-white/10 py-5">
-                              <p className="mb-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Required features</p>
-                              <div className="flex flex-wrap gap-2">
-                                {((selectedProjectRequest.assessment?.responses?.requiredFeatures as string[]) || []).map(feature => (
-                                  <span key={feature} className="border border-ai-blue/20 bg-ai-blue/[0.04] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ai-blue">{feature}</span>
-                                ))}
-                                {!((selectedProjectRequest.assessment?.responses?.requiredFeatures as string[]) || []).length && (
-                                  <span className="text-sm text-white/34">No feature list recorded.</span>
-                                )}
-                              </div>
+                            <div className="divide-y divide-white/10 xl:hidden">
+                              {selectedBriefAnswerRows.map((row) => (
+                                <div key={row.question} className="grid gap-2 py-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-6 md:items-start">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38 md:truncate" title={row.question}>
+                                    {row.question}
+                                  </p>
+                                  <p className={`min-w-0 text-sm font-semibold leading-6 ${
+                                    ['Not answered', 'Not specified'].includes(row.answer) ? 'text-white/30' : 'text-white/72'
+                                  } md:truncate`} title={row.answer}>
+                                    {row.answer}
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                          </div>
-
-                          <div className="mt-6 border-y border-white/10 py-5">
-                            <p className="mb-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Generated summary</p>
-                            <p className="whitespace-pre-line text-sm leading-7 text-white/58">
-                              {selectedProjectRequest.summary || 'No summary recorded yet.'}
-                            </p>
                           </div>
                           </>
                           )}
@@ -1931,8 +2098,117 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           )}
                         </section>
 
-                        <aside className="border-t border-white/10 px-5 py-6 lg:border-t-0 lg:px-6">
-                          <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">Decision panel</h4>
+                        <aside className={`border-t border-white/10 px-5 py-6 ${
+                          selectedAdminBuildChapter.id === 'brief' ? 'lg:px-8' : 'lg:border-t-0 lg:px-6'
+                        }`}>
+                          {selectedAdminBuildChapter.id !== 'brief' && (
+                            <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">
+                              Decision panel
+                            </h4>
+                          )}
+                          {selectedAdminBuildChapter.id === 'brief' && (
+                          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+                            <div className="border-y border-white/10 py-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/32">Missing items</p>
+                                </div>
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                                  {briefMissingItems.length}
+                                </span>
+                              </div>
+                              {briefMissingItems.length ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {briefMissingItems.map((item) => (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      onClick={() => setBriefMissingItems(prev => prev.filter(value => value !== item))}
+                                      className="min-h-9 border border-white/28 bg-white/[0.04] px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-white/[0.07]"
+                                    >
+                                      {item} needed
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="mt-3 text-sm font-semibold text-white/40">No missing items marked.</p>
+                              )}
+                              <div className="mt-4 grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
+                                {briefMissingOptions.filter(item => !briefMissingItems.includes(item)).map((item) => (
+                                  <button
+                                    key={item}
+                                    type="button"
+                                    onClick={() => setBriefMissingItems(prev => [...prev, item])}
+                                    className="min-h-8 min-w-0 truncate border border-white/10 px-3 py-2 text-left text-[9px] font-black uppercase tracking-[0.12em] text-white/40 transition hover:bg-white/[0.04] hover:text-white/80"
+                                    title={`Add ${item}`}
+                                  >
+                                    Add {item}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-1">
+                              <div>
+                                <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client note</label>
+                                <textarea
+                                  value={briefClarificationMessage}
+                                  onChange={(e) => setBriefClarificationMessage(e.target.value)}
+                                  className="h-32 w-full resize-none border border-white/10 bg-black px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-white/30"
+                                  placeholder="What should the client clarify?"
+                                />
+                              </div>
+                              <div className="border-y border-white/10 py-4">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/32">Brief decision</p>
+                                    <p className="mt-2 text-lg font-black tracking-tight text-white">{briefReviewStatus}</p>
+                                  </div>
+                                  <span className={`border px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] ${
+                                    ['quote_ready', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(selectedProjectRequest.status)
+                                      ? 'border-white/20 text-white'
+                                      : 'border-white/10 text-white/36'
+                                  }`}>
+                                    {['quote_ready', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(selectedProjectRequest.status) ? 'Scope unlocked' : 'Waiting approval'}
+                                  </span>
+                                </div>
+                                <p className="mt-3 text-xs leading-6 text-white/44">
+                                  Send the client back for missing details, or approve the brief and open Scope.
+                                </p>
+                                <div className="mt-5 grid gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                      status: 'in_review',
+                                      clientNotes: buildBriefClarificationMessage()
+                                    })}
+                                    disabled={submitting}
+                                    className="min-h-10 border border-white/10 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-white/62 transition hover:bg-white/[0.04] hover:text-white disabled:opacity-50"
+                                  >
+                                    Send clarification request
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                      status: 'quote_ready',
+                                      clientNotes: selectedProjectRequest.clientNotes || 'Your brief has been approved for scoping. The scope and quote will be prepared next.'
+                                    })}
+                                    disabled={submitting}
+                                    className="min-h-10 border border-white/20 bg-white/[0.035] px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-white/[0.08] disabled:opacity-50"
+                                  >
+                                    Approve and open Scope
+                                  </button>
+                                </div>
+                                {briefDecisionMessage && (
+                                  <p className={`mt-3 text-xs font-semibold leading-5 ${
+                                    briefDecisionMessage.type === 'success' ? 'text-expert-green' : 'text-red-300'
+                                  }`}>
+                                    {briefDecisionMessage.text}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          )}
                           {selectedAdminBuildChapter.id === 'agreement' && (
                           <div className="mb-5 border-y border-expert-green/25 bg-expert-green/[0.035] py-4">
                             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Payment gate</p>
@@ -2167,6 +2443,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 </p>
                               )}
                             </div>
+                            {selectedAdminBuildChapter.id !== 'brief' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client note</label>
                               <textarea
@@ -2176,6 +2453,8 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 placeholder="Visible to client..."
                               />
                             </div>
+                            )}
+                            {selectedAdminBuildChapter.id !== 'brief' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
                               <textarea
@@ -2185,6 +2464,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 placeholder="Private admin note..."
                               />
                             </div>
+                            )}
                           </div>
                         </aside>
                       </div>
@@ -2587,12 +2867,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
               <PerformanceAudit 
                 data={{
                   metrics: {
-                    score: (siteVitals as any).performance,
+                    score: siteVitals.performance,
                     vitals: {
-                      fcp: (siteVitals as any).coreWebVitals?.lcp, // Using LCP for FCP in simple view
-                      tti: '1.2s',
-                      cls: (siteVitals as any).coreWebVitals?.cls,
-                      lcp: (siteVitals as any).coreWebVitals?.lcp
+                      fcp: siteVitals.coreWebVitals?.fcp || siteVitals.coreWebVitals?.lcp,
+                      tti: siteVitals.coreWebVitals?.tti || '1.2s',
+                      cls: siteVitals.coreWebVitals?.cls,
+                      lcp: siteVitals.coreWebVitals?.lcp
                     }
                   }
                 }} 

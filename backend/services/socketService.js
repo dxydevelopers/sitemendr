@@ -60,7 +60,14 @@ const initSocket = (server) => {
         let session = await withTimeout(
           prisma.chatSession.findUnique({
             where: { externalId: chatId },
-            include: { messages: { orderBy: { timestamp: 'asc' } } }
+            select: {
+              id: true,
+              userId: true,
+              messages: {
+                orderBy: { timestamp: 'asc' },
+                take: 100
+              }
+            }
           }),
           5000,
           'Timeout fetching chat history'
@@ -198,7 +205,18 @@ const initSocket = (server) => {
           prisma.chatSession.findMany({
             where: { status: { in: ['waiting', 'active'] } },
             orderBy: { updatedAt: 'desc' },
-            include: { messages: { take: 1, orderBy: { timestamp: 'desc' } } }
+            take: 50,
+            select: {
+              externalId: true,
+              type: true,
+              status: true,
+              updatedAt: true,
+              messages: {
+                take: 1,
+                orderBy: { timestamp: 'desc' },
+                select: { text: true }
+              }
+            }
           }),
           5000,
           'Timeout fetching active sessions'

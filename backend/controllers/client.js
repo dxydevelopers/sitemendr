@@ -585,6 +585,66 @@ exports.respondToProjectQuote = async (req, res) => {
   }
 };
 
+exports.respondToBriefClarification = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { message } = req.body;
+    const cleanMessage = typeof message === 'string' ? message.trim() : '';
+
+    if (!cleanMessage) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please add the clarification details before sending.'
+      });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      }
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Build request not found'
+      });
+    }
+
+    if (request.status !== 'in_review') {
+      return res.status(400).json({
+        success: false,
+        message: 'This brief is not waiting for clarification.'
+      });
+    }
+
+    const existingAdminNotes = request.adminNotes ? `${request.adminNotes}\n\n` : '';
+    const updated = await prisma.projectRequest.update({
+      where: { id: request.id },
+      data: {
+        status: 'in_review',
+        clientNotes: `Client sent brief clarification.\nClient message: ${cleanMessage}`,
+        adminNotes: `${existingAdminNotes}Client brief clarification:\n${cleanMessage}`
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updated,
+      message: 'Your clarification has been sent to the team.'
+    });
+  } catch (error) {
+    logger.error('RESPOND_TO_BRIEF_CLARIFICATION_ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send brief clarification'
+    });
+  }
+};
+
 // Get client activities/logs
 exports.getActivities = async (req, res) => {
   try {

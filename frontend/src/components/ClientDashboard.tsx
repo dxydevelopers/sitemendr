@@ -38,7 +38,6 @@ import {
   Plus,
   Check,
   TriangleAlert,
-  Heart,
   Sparkles,
   Gift,
   ExternalLink
@@ -48,7 +47,6 @@ import dynamic from 'next/dynamic';
 import AssessmentModal from './AssessmentModal';
 
 const SupportTickets = dynamic(() => import('./dashboard/SupportTickets'), { ssr: false });
-const TemplateViewer = dynamic(() => import('./dashboard/TemplateViewer'), { ssr: false });
 const MilestoneViewer = dynamic(() => import('./dashboard/MilestoneViewer'), { ssr: false });
 const BillingViewer = dynamic(() => import('./dashboard/BillingViewer'), { ssr: false });
 const MessageViewer = dynamic(() => import('./dashboard/MessageViewer'), { ssr: false });
@@ -64,13 +62,11 @@ const normalizeDashboardTab = (tab?: string | null) => {
 
   return tab ? groupOnlyTabs[tab] || tab : 'dashboard';
 };
-const VisualContentEditor = dynamic(() => import('./dashboard/VisualContentEditor'), { ssr: false });
 const PageEditor = dynamic(() => import('./dashboard/PageEditor'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('./dashboard/PerformanceAudit'), { ssr: false });
 const EcommerceManager = dynamic(() => import('./dashboard/EcommerceManager'), { ssr: false });
 const BookingManager = dynamic(() => import('./dashboard/BookingManager'), { ssr: false });
 const SupporterDashboard = dynamic(() => import('./SupporterDashboard'), { ssr: false });
-const AssessmentResults = dynamic(() => import('./AssessmentResults'), { ssr: false });
 const AssessmentQuestionnaire = dynamic(() => import('./AssessmentQuestionnaire'), { ssr: false });
 
 const mockTiers: SupporterTier[] = [
@@ -250,6 +246,20 @@ interface CustomDomain {
   };
 }
 
+type ApiRecord = Record<string, unknown>;
+type ClientAssessment = ApiRecord & {
+  id?: string;
+  createdAt?: string;
+  source?: string;
+  responses?: Record<string, string>;
+};
+
+interface BookingItem {
+  id?: string;
+  status?: string;
+  createdAt?: string;
+}
+
 interface AnalysisResult {
   insights: string;
   metrics?: {
@@ -266,6 +276,18 @@ interface AnalysisResult {
   aiInsights?: Record<string, unknown>;
 }
 
+const isApiRecord = (value: unknown): value is ApiRecord => Boolean(value && typeof value === 'object');
+const readApiArray = <T,>(response: unknown, keys: string[]): T[] => {
+  if (!isApiRecord(response)) return [];
+
+  for (const key of keys) {
+    const value = response[key];
+    if (Array.isArray(value)) return value as T[];
+  }
+
+  return [];
+};
+
 const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> = ({ onLogout, initialTab }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(normalizeDashboardTab(initialTab));
@@ -276,7 +298,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [resources, setResources] = useState<ResourceItem[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [domains, setDomains] = useState<CustomDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserData | null>(null);
@@ -289,15 +311,16 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [analyzedProjectId, setAnalyzedProjectId] = useState<string | null>(null);
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
-  const [selectedAssessment, setSelectedAssessment] = useState<any | null>(null);
+  const [selectedAssessment, setSelectedAssessment] = useState<ClientAssessment | null>(null);
   const [activeBuildChapter, setActiveBuildChapter] = useState<string | null>(null);
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [showProjectRequestModal, setShowProjectRequestModal] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState('');
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [briefResponseAnswers, setBriefResponseAnswers] = useState<Record<string, string>>({});
+  const [briefResponseSubmitting, setBriefResponseSubmitting] = useState(false);
+  const [briefResponseFeedback, setBriefResponseFeedback] = useState('');
   const [stagingReviewMessage, setStagingReviewMessage] = useState('');
   const [stagingReviewSubmitting, setStagingReviewSubmitting] = useState(false);
   const [handoffMessage, setHandoffMessage] = useState('');
@@ -312,11 +335,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
-
-  // Fetch data on mount
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   useEffect(() => {
     // Check for search parameters
@@ -373,12 +391,12 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       
       // Fetch data sequentially to avoid blocking on slow requests
       // Each request has its own timeout and won't block others
-      const fetchWithTimeout = async (promise: Promise<any>, name: string, timeoutMs = 20000) => {
+      const fetchWithTimeout = async <T,>(promise: Promise<T>, name: string, timeoutMs = 20000): Promise<T | null> => {
         let timeout: ReturnType<typeof setTimeout> | undefined;
         try {
           const result = await Promise.race([
             promise,
-            new Promise((resolve) => {
+            new Promise<null>((resolve) => {
               timeout = setTimeout(() => {
                 console.warn(`[ClientDashboard] ${name} timed out after ${timeoutMs}ms`);
                 resolve(null);
@@ -421,52 +439,60 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       if (safeStatsRes.success && safeStatsRes.stats) setStats(safeStatsRes.stats);
 
       // Projects includes Build requests from ProjectRequest plus legacy active projects.
-      const projectList = (safeProjectsRes as any).data || (safeProjectsRes as any).projects || (safeProjectsRes as any).subscriptions || [];
+      const projectList = readApiArray<ApiRecord>(safeProjectsRes, ['data', 'projects', 'subscriptions']);
       
-      const mappedProjects = projectList.map((p: any) => ({
-        id: p.id,
-        recordType: p.recordType,
-        assessmentId: p.assessmentId,
-        name: p.name || p.title || p.siteName || p.customName || 'Untitled Project',
+      const mappedProjects = projectList.map((p): ClientProject => ({
+        id: String(p.id || ''),
+        recordType: p.recordType === 'request' || p.recordType === 'project' ? p.recordType : undefined,
+        assessmentId: typeof p.assessmentId === 'string' ? p.assessmentId : undefined,
+        name: String(p.name || p.title || p.siteName || p.customName || 'Untitled Project'),
         status: String(p.status || (p.suspended === false ? 'active' : 'suspended')).toLowerCase(),
-        progress: p.progress ?? 0,
-        planType: p.planType || p.packageIntent,
-        budget: p.budget,
-        timeline: p.timeline,
-        summary: p.summary,
-        priority: p.priority,
-        quotedAmount: p.quotedAmount,
-        quoteCurrency: p.quoteCurrency,
-        paymentAgreementType: p.paymentAgreementType,
-        paymentAgreementStatus: p.paymentAgreementStatus,
-        depositAmount: p.depositAmount,
-        totalAgreedAmount: p.totalAgreedAmount,
-        paymentDueDate: p.paymentDueDate,
-        paymentInstructions: p.paymentInstructions,
-        paymentConfirmedAt: p.paymentConfirmedAt,
-        stagingUrl: p.stagingUrl,
-        stagingNotes: p.stagingNotes,
-        stagingReviewStatus: p.stagingReviewStatus,
-        stagingReviewedAt: p.stagingReviewedAt,
-        launchUrl: p.launchUrl,
-        launchNotes: p.launchNotes,
-        launchApprovedAt: p.launchApprovedAt,
-        handoffNotes: p.handoffNotes,
-        completionNotes: p.completionNotes,
-        completionAcknowledgedAt: p.completionAcknowledgedAt,
-        completedAt: p.completedAt,
-        buildMilestones: p.buildMilestones || [],
-        clientNotes: p.clientNotes,
-        siteUrl: p.siteUrl,
-        domain: p.domain,
-        reviewRequested: p.reviewRequested,
-        reviewNotes: p.reviewNotes,
-        revisionCount: p.revisionCount,
-        isCurrent: p.isCurrent
+        progress: typeof p.progress === 'number' ? p.progress : 0,
+        planType: typeof p.planType === 'string' ? p.planType : typeof p.packageIntent === 'string' ? p.packageIntent : undefined,
+        budget: typeof p.budget === 'string' ? p.budget : undefined,
+        timeline: typeof p.timeline === 'string' ? p.timeline : undefined,
+        summary: typeof p.summary === 'string' ? p.summary : undefined,
+        priority: typeof p.priority === 'string' ? p.priority : undefined,
+        quotedAmount: typeof p.quotedAmount === 'number' ? p.quotedAmount : undefined,
+        quoteCurrency: typeof p.quoteCurrency === 'string' ? p.quoteCurrency : undefined,
+        paymentAgreementType: typeof p.paymentAgreementType === 'string' ? p.paymentAgreementType : undefined,
+        paymentAgreementStatus: typeof p.paymentAgreementStatus === 'string' ? p.paymentAgreementStatus : undefined,
+        depositAmount: typeof p.depositAmount === 'number' ? p.depositAmount : undefined,
+        totalAgreedAmount: typeof p.totalAgreedAmount === 'number' ? p.totalAgreedAmount : undefined,
+        paymentDueDate: typeof p.paymentDueDate === 'string' ? p.paymentDueDate : undefined,
+        paymentInstructions: typeof p.paymentInstructions === 'string' ? p.paymentInstructions : undefined,
+        paymentConfirmedAt: typeof p.paymentConfirmedAt === 'string' ? p.paymentConfirmedAt : undefined,
+        stagingUrl: typeof p.stagingUrl === 'string' ? p.stagingUrl : undefined,
+        stagingNotes: typeof p.stagingNotes === 'string' ? p.stagingNotes : undefined,
+        stagingReviewStatus: typeof p.stagingReviewStatus === 'string' ? p.stagingReviewStatus : undefined,
+        stagingReviewedAt: typeof p.stagingReviewedAt === 'string' ? p.stagingReviewedAt : undefined,
+        launchUrl: typeof p.launchUrl === 'string' ? p.launchUrl : undefined,
+        launchNotes: typeof p.launchNotes === 'string' ? p.launchNotes : undefined,
+        launchApprovedAt: typeof p.launchApprovedAt === 'string' ? p.launchApprovedAt : undefined,
+        handoffNotes: typeof p.handoffNotes === 'string' ? p.handoffNotes : undefined,
+        completionNotes: typeof p.completionNotes === 'string' ? p.completionNotes : undefined,
+        completionAcknowledgedAt: typeof p.completionAcknowledgedAt === 'string' ? p.completionAcknowledgedAt : undefined,
+        completedAt: typeof p.completedAt === 'string' ? p.completedAt : undefined,
+        buildMilestones: Array.isArray(p.buildMilestones) ? p.buildMilestones as BuildMilestone[] : [],
+        clientNotes: typeof p.clientNotes === 'string' ? p.clientNotes : undefined,
+        siteUrl: typeof p.siteUrl === 'string' ? p.siteUrl : undefined,
+        domain: typeof p.domain === 'string' ? p.domain : undefined,
+        reviewRequested: typeof p.reviewRequested === 'boolean' ? p.reviewRequested : undefined,
+        reviewNotes: typeof p.reviewNotes === 'string' ? p.reviewNotes : undefined,
+        revisionCount: typeof p.revisionCount === 'number' ? p.revisionCount : undefined,
+        purchasedAddons: Array.isArray(p.purchasedAddons) || typeof p.purchasedAddons === 'string' ? p.purchasedAddons : undefined,
+        isCurrent: typeof p.isCurrent === 'boolean' ? p.isCurrent : undefined,
+        createdAt: typeof p.createdAt === 'string' ? p.createdAt : undefined,
+        updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : undefined,
       }));
 
       if (mappedProjects.length > 0) {
         setProjects(mappedProjects);
+
+        if (selectedProjectId && !mappedProjects.some(project => project.id === selectedProjectId)) {
+          setSelectedProjectId(null);
+          setActiveBuildChapter(null);
+        }
         
         if (projectId && !selectedProjectId) {
           const requestedProject = mappedProjects.find((p: { id: string }) => p.id === projectId);
@@ -474,27 +500,31 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         }
       } else {
         setProjects([]);
+        if (selectedProjectId) {
+          setSelectedProjectId(null);
+          setActiveBuildChapter(null);
+        }
       }
 
-      const activityList = (safeActivitiesRes as any).data || (safeActivitiesRes as any).activities;
+      const activityList = readApiArray<ClientActivity>(safeActivitiesRes, ['data', 'activities']);
       if (safeActivitiesRes.success && activityList) setActivities(activityList);
 
-      const billingList = (safeBillingRes as any).data || (safeBillingRes as any).billing;
+      const billingList = readApiArray<BillingItem>(safeBillingRes, ['data', 'billing']);
       if (safeBillingRes.success && billingList) setBilling(billingList);
 
-      const messageList = (safeMessagesRes as any).messages || (safeMessagesRes as any).data;
+      const messageList = readApiArray<MessageItem>(safeMessagesRes, ['messages', 'data']);
       if (safeMessagesRes.success && messageList) setMessages(messageList);
       
-      const ticketList = (safeTicketsRes as any).data || (safeTicketsRes as any).tickets;
+      const ticketList = readApiArray<SupportTicket>(safeTicketsRes, ['data', 'tickets']);
       if (safeTicketsRes.success && ticketList) setTickets(ticketList);
 
-      const resourceList = (safeResourcesRes as any).data || (safeResourcesRes as any).resources;
+      const resourceList = readApiArray<ResourceItem>(safeResourcesRes, ['data', 'resources']);
       if (safeResourcesRes.success && resourceList) setResources(resourceList);
 
-      const domainList = (safeDomainsRes as any).domains || (safeDomainsRes as any).data;
+      const domainList = readApiArray<CustomDomain>(safeDomainsRes, ['domains', 'data']);
       if (safeDomainsRes.success && domainList) setDomains(domainList);
 
-      if (safeBookingsRes) setBookings(safeBookingsRes);
+      if (Array.isArray(safeBookingsRes)) setBookings(safeBookingsRes as BookingItem[]);
 
       // Get user from localStorage
       const userData = localStorage.getItem('user');
@@ -512,6 +542,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       setLoading(false);
     }
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -534,18 +568,20 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
           try {
             const user = JSON.parse(userData);
             socketRef.current?.emit('join_user', user.id);
-          } catch (e) {}
+          } catch {
+            // Ignore malformed local user data; the next fetch will recover the session state.
+          }
         }
       }
     });
 
-    socketRef.current.on('new_support_message', (data) => {
+    socketRef.current.on('new_support_message', () => {
       if (activeTabRef.current === 'support' || activeTabRef.current === 'dashboard') {
         fetchData();
       }
     });
 
-    socketRef.current.on('new_system_message', (data) => {
+    socketRef.current.on('new_system_message', () => {
       if (activeTabRef.current === 'messages' || activeTabRef.current === 'dashboard') {
         fetchData();
       }
@@ -571,25 +607,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (err) {
+    } catch {
       alert('Failed to export codebase.');
     } finally {
       setExportingId(null);
-    }
-  };
-
-  const handleRegenerate = async (projectId: string) => {
-    setRegeneratingId(projectId);
-    try {
-      const res = await apiClient.regenerateProjectAI(projectId);
-      if (res.success) {
-        alert('Update request started. Your project record will refresh shortly.');
-        fetchData();
-      }
-    } catch (err) {
-      alert('Failed to initiate regeneration.');
-    } finally {
-      setRegeneratingId(null);
     }
   };
 
@@ -599,11 +620,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       const res = await apiClient.updateProfile(profileData);
       if (res.success) {
         setProfileMessage({ text: 'Profile synchronization complete.', type: 'success' });
-        const updatedUser = { ...user, ...profileData };
+        const updatedUser: UserData = { ...(user || { id: '', email: '' }), ...profileData };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUser(updatedUser as any);
+        setUser(updatedUser);
       }
-    } catch (err) {
+    } catch {
       setProfileMessage({ text: 'Profile update failed.', type: 'error' });
     }
     setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
@@ -611,12 +632,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
   const handleAnalyzeSite = async (projectId: string, url: string) => {
     setIsAnalyzing(true);
-    setAnalyzedProjectId(projectId);
     try {
       const res = await apiClient.analyzePerformance(url);
       setAnalysisResult(res.data as unknown as AnalysisResult);
       setActiveTab('audit');
-    } catch (err) {
+    } catch {
       alert('Audit failed.');
     } finally {
       setIsAnalyzing(false);
@@ -655,7 +675,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         setSelectedAssessment(fallbackAssessment);
         setShowAssessmentModal(true);
       }
-    } catch (err) {
+    } catch {
       setSelectedAssessment(fallbackAssessment);
       setShowAssessmentModal(true);
     }
@@ -678,6 +698,34 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       alert(err instanceof Error ? err.message : 'Failed to respond to quote.');
     } finally {
       setQuoteSubmitting(false);
+    }
+  };
+
+  const handleBriefClarificationResponse = async (project: ClientProject) => {
+    if (!project?.id || briefResponseSubmitting) return;
+    const responseLines = briefResponseFields
+      .map(field => {
+        const answer = (briefResponseAnswers[field.label] || '').trim();
+        return answer ? `${field.label}: ${answer}` : '';
+      })
+      .filter(Boolean);
+
+    setBriefResponseSubmitting(true);
+    setBriefResponseFeedback('');
+    try {
+      const res = await apiClient.respondToBriefClarification(project.id, responseLines.join('\n'));
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to send brief clarification');
+      }
+
+      setBriefResponseAnswers({});
+      setBriefResponseFeedback(res.message || 'Your clarification has been sent to the team.');
+      await fetchData(project.id);
+      setSelectedProjectId(project.id);
+    } catch (err) {
+      setBriefResponseFeedback(err instanceof Error ? err.message : 'Failed to send brief clarification.');
+    } finally {
+      setBriefResponseSubmitting(false);
     }
   };
 
@@ -737,7 +785,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       } else {
         alert(res.message || 'Verification failed. Please check your DNS records.');
       }
-    } catch (err) {
+    } catch {
       alert('Verification failed.');
     } finally {
       setVerifyingDomainId(null);
@@ -750,7 +798,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       await apiClient.delete(`/client/domains/${domainId}`);
       alert('Domain deleted.');
       fetchData();
-    } catch (err) {
+    } catch {
       alert('Failed to delete domain.');
     }
   };
@@ -902,14 +950,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     { status: 'handoff', label: 'Handoff', detail: 'Ownership transfer' },
     { status: 'completed', label: 'Complete', detail: 'Build closed' },
   ];
-  const buildPhases = [
-    { label: 'Brief', detail: 'Request captured', statuses: ['submitted', 'in_review'] },
-    { label: 'Scope', detail: 'Quote and approval', statuses: ['quote_ready', 'approved'] },
-    { label: 'Agreement', detail: 'Payment terms', statuses: ['payment_agreement'] },
-    { label: 'Build', detail: 'Design and development', statuses: ['in_development'] },
-    { label: 'Review', detail: 'Staging and fixes', statuses: ['staging_review'] },
-    { label: 'Launch', detail: 'Release and handoff', statuses: ['launched', 'handoff', 'completed'] },
-  ];
   const buildJourneyChapters = [
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Request, goals, scope inputs', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Quote response and scope decision', statuses: ['quote_ready', 'approved'] },
@@ -930,7 +970,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const currentBuildRecord = selectedProjectRecord || projects[0] || null;
   const currentBuildStatus = normalizeBuildStatus(currentBuildRecord?.status);
   const currentLifecycleIndex = Math.max(0, buildLifecycle.findIndex(step => step.status === currentBuildStatus));
-  const currentPhaseIndex = Math.max(0, buildPhases.findIndex(phase => phase.statuses.includes(currentBuildStatus)));
   const defaultBuildChapter = buildJourneyChapters.find(chapter => chapter.statuses.includes(currentBuildStatus)) || buildJourneyChapters[0];
   const defaultBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === defaultBuildChapter.id));
   const requestedBuildChapter = buildJourneyChapters.find(chapter => chapter.id === activeBuildChapter);
@@ -940,6 +979,21 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     : defaultBuildChapter;
   const selectedBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === selectedBuildChapter.id));
   const buildPageProgress = Math.round(((defaultBuildChapterIndex + 1) / buildJourneyChapters.length) * 100);
+  const hasScopeProposal = Boolean(currentBuildRecord?.quotedAmount) || [
+    'quote_ready',
+    'approved',
+    'payment_agreement',
+    'in_development',
+    'staging_review',
+    'launched',
+    'handoff',
+    'completed',
+  ].includes(currentBuildStatus);
+  const scopeDecisionLabel = currentBuildStatus === 'quote_ready'
+    ? 'Awaiting decision'
+    : ['approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(currentBuildStatus)
+      ? 'Scope approved'
+      : 'Client review';
   const currentBuildMilestones = currentBuildRecord?.buildMilestones || [];
   const activeBuildMilestone = currentBuildMilestones.find(milestone => milestone.status === 'in_progress')
     || currentBuildMilestones.find(milestone => milestone.status === 'pending')
@@ -956,12 +1010,101 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const briefStyle = getBriefValue('Style direction');
   const briefInsight = getBriefValue('Assessment insight');
   const briefType = getBriefValue('Build type') || getBriefValue('Business type') || currentBuildRecord?.planType?.replace(/_/g, ' ') || 'Custom build';
+  const clientBriefNote = currentBuildRecord?.clientNotes?.trim() || '';
+  const clientBriefClarificationNote = clientBriefNote.toLowerCase().includes('please clarify')
+    ? clientBriefNote
+    : '';
+  const isBriefApprovedForScope = [
+    'quote_ready',
+    'approved',
+    'payment_agreement',
+    'in_development',
+    'staging_review',
+    'launched',
+    'handoff',
+    'completed',
+  ].includes(currentBuildStatus);
+  const hasBriefClarification = currentBuildStatus === 'in_review' && Boolean(clientBriefClarificationNote);
+  const clientBriefState = isBriefApprovedForScope
+    ? { label: 'Brief approved', tone: 'open', detail: 'Scope is open. Review the proposal and next decision there.' }
+    : hasBriefClarification
+      ? { label: 'Brief update requested', tone: 'action', detail: 'Complete the requested lines so the team can continue the scope.' }
+      : { label: 'Brief under review', tone: 'review', detail: 'We are reviewing your request before opening Scope.' };
+  const clientBriefClarificationLines = clientBriefClarificationNote.split('\n').map(line => line.trim()).filter(Boolean);
+  const clientBriefClarificationItems = clientBriefClarificationLines[0]?.toLowerCase().startsWith('please clarify:')
+    ? clientBriefClarificationLines[0]
+      .replace(/^Please clarify:\s*/i, '')
+      .replace(/\.$/, '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+    : [];
+  const clientBriefTeamMessage = clientBriefClarificationItems.length
+    ? clientBriefClarificationLines.slice(1).join('\n')
+    : clientBriefClarificationNote;
+  const getBriefResponseField = (item: string) => {
+    const key = item.toLowerCase();
+    if (key.includes('budget')) {
+      return {
+        label: item,
+        prompt: 'Choose the budget direction that fits this build.',
+        type: 'select',
+        options: ['Not sure yet', 'Under USD 1,000', 'USD 1,000 - 2,500', 'USD 2,500 - 5,000', 'USD 5,000+']
+      };
+    }
+    if (key.includes('timeline')) {
+      return {
+        label: item,
+        prompt: 'Choose the timing that feels realistic.',
+        type: 'select',
+        options: ['Flexible', 'As soon as possible', 'This month', '1-2 months', 'Not sure yet']
+      };
+    }
+    if (key.includes('feature')) {
+      return {
+        label: item,
+        prompt: 'List the exact features or actions this build must support.',
+        type: 'textarea'
+      };
+    }
+    if (key.includes('audience')) {
+      return {
+        label: item,
+        prompt: 'Describe who this is for and what they need to do.',
+        type: 'textarea'
+      };
+    }
+    if (key.includes('content') || key.includes('asset')) {
+      return {
+        label: item,
+        prompt: 'Tell us what content, images, copy, files, or brand material you already have.',
+        type: 'textarea'
+      };
+    }
+    return {
+      label: item,
+      prompt: 'Add the missing detail for this part of the brief.',
+      type: 'textarea'
+    };
+  };
+  const briefResponseFields = (clientBriefClarificationItems.length ? clientBriefClarificationItems : ['Brief clarification'])
+    .map(getBriefResponseField);
+  const clientBriefRows = [
+    { label: 'Build type', value: briefType || 'Not answered' },
+    { label: 'Goal', value: briefGoals || 'Not answered' },
+    { label: 'Features', value: briefFeatures || 'Not answered' },
+    { label: 'Audience', value: briefAudience || 'Not answered' },
+    { label: 'Material', value: briefMaterial || 'Not answered' },
+    { label: 'Style', value: briefStyle || 'Not answered' },
+    { label: 'Budget', value: currentBuildRecord?.budget || 'Not specified' },
+    { label: 'Timeline', value: currentBuildRecord?.timeline || 'Flexible' },
+    { label: 'Priority', value: currentBuildRecord?.priority || 'Normal' },
+  ];
   const buildMilestoneProgress = currentBuildMilestones.length
     ? Math.round(currentBuildMilestones.reduce((sum, milestone) => sum + (milestone.progress || (milestone.status === 'completed' ? 100 : 0)), 0) / currentBuildMilestones.length)
     : currentBuildRecord?.progress || 0;
   const getLifecycleIndex = (project?: ClientProject | null) => Math.max(0, buildLifecycle.findIndex(step => step.status === normalizeBuildStatus(project?.status)));
   const isProjectRequest = (project?: ClientProject | null) => Boolean(project && (project.recordType === 'request' || requestStatuses.includes(project.status)));
-  const isActiveProject = (project?: ClientProject | null) => Boolean(project && !isProjectRequest(project) && ['active', 'completed', 'operational'].includes(project.status));
   const averageProgress = projects.length
     ? Math.round(projects.reduce((sum, project) => sum + (project.progress || 0), 0) / projects.length)
     : 0;
@@ -1608,8 +1751,217 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:divide-x lg:divide-white/10">
                               <section className="px-5 py-6 sm:px-8 lg:px-10">
                                 {selectedBuildChapter.id === 'brief' && (
-                                  <div className="border-y border-white/10">
-                                    <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:divide-x lg:divide-white/10">
+                                  <>
+                                  <div className="space-y-6">
+                                    <div className="border-y border-white/10 py-6">
+                                      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                        <div className="min-w-0">
+                                          <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${
+                                            clientBriefState.tone === 'open' ? 'text-expert-green' : clientBriefState.tone === 'action' ? 'text-yellow-300' : 'text-ai-blue'
+                                          }`}>
+                                            {clientBriefState.label}
+                                          </p>
+                                          <h5 className="mt-2 max-w-3xl text-2xl font-black tracking-tight text-white">
+                                            {hasBriefClarification ? 'Complete the brief lines below' : clientBriefState.detail}
+                                          </h5>
+                                          {hasBriefClarification && clientBriefTeamMessage && (
+                                            <p className="mt-3 max-w-3xl whitespace-pre-line text-sm font-semibold leading-7 text-white/62">
+                                              {clientBriefTeamMessage}
+                                            </p>
+                                          )}
+                                        </div>
+                                        {hasBriefClarification && (
+                                          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+                                            {briefResponseFields.length} requested lines
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {hasBriefClarification ? (
+                                        <>
+                                          <div className="mt-6 grid gap-x-8 gap-y-1 border-t border-white/10 pt-2 xl:grid-cols-2">
+                                            {briefResponseFields.map((field) => (
+                                              <div key={field.label} className="border-b border-white/10 py-5">
+                                                <label className="block text-[10px] font-black uppercase tracking-[0.14em] text-white/74">
+                                                  {field.label}
+                                                </label>
+                                                <p className="mt-1 min-h-5 text-xs leading-5 text-white/36">{field.prompt}</p>
+                                                {field.type === 'select' ? (
+                                                  <select
+                                                    value={briefResponseAnswers[field.label] || ''}
+                                                    onChange={(event) => setBriefResponseAnswers(prev => ({ ...prev, [field.label]: event.target.value }))}
+                                                    className="mt-3 w-full border-0 border-b border-white/16 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-300/60"
+                                                  >
+                                                    <option value="">Choose an answer</option>
+                                                    {field.options?.map((option) => (
+                                                      <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                  </select>
+                                                ) : (
+                                                  <textarea
+                                                    value={briefResponseAnswers[field.label] || ''}
+                                                    onChange={(event) => setBriefResponseAnswers(prev => ({ ...prev, [field.label]: event.target.value }))}
+                                                    rows={3}
+                                                    className="mt-3 w-full resize-none border-0 border-b border-white/16 bg-transparent px-0 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-white/22 focus:border-yellow-300/60"
+                                                    placeholder="Write your answer here..."
+                                                  />
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                          <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleBriefClarificationResponse(currentBuildRecord)}
+                                              disabled={briefResponseSubmitting || !briefResponseFields.some(field => (briefResponseAnswers[field.label] || '').trim())}
+                                              className="inline-flex min-h-11 items-center justify-center gap-3 border border-yellow-300/25 px-5 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-yellow-300 transition hover:bg-yellow-300/10 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/24"
+                                            >
+                                              Send brief details
+                                              {briefResponseSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                            </button>
+                                            {briefResponseFeedback && (
+                                              <p className="text-xs font-semibold leading-5 text-white/54">
+                                                {briefResponseFeedback}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleViewAssessment(currentBuildRecord)}
+                                          className="mt-6 flex min-h-12 w-full items-center justify-between gap-4 border-t border-white/10 pt-5 text-left transition hover:text-white"
+                                        >
+                                          <span className="flex min-w-0 items-center gap-3">
+                                            <Sparkles className="h-4 w-4 shrink-0 text-white/42" />
+                                            <span className="min-w-0">
+                                              <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/62">Intake answers</span>
+                                              <span className="mt-1 block truncate text-xs text-white/34">Open original questionnaire</span>
+                                            </span>
+                                          </span>
+                                          <ChevronRight className="h-4 w-4 shrink-0 text-white/24" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="border-y border-white/10">
+                                      <div className="grid grid-cols-2 border-b border-white/10 md:grid-cols-3 xl:grid-cols-4">
+                                        {clientBriefRows.map((item) => (
+                                          <div key={item.label} className="min-w-0 border-b border-r border-white/10 px-4 py-4 last:border-r-0 md:[&:nth-child(3n)]:border-r-0 xl:[&:nth-child(3n)]:border-r xl:[&:nth-child(4n)]:border-r-0">
+                                            <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/28" title={item.label}>
+                                              {item.label}
+                                            </p>
+                                            <p className={`mt-2 truncate text-sm font-semibold ${
+                                              ['Not answered', 'Not specified'].includes(item.value) ? 'text-white/30' : 'text-white/68'
+                                            }`} title={item.value}>
+                                              {item.value}
+                                            </p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="hidden">
+                                    <div className="grid gap-5 py-6 md:grid-cols-[minmax(0,1fr)_18rem] md:items-stretch">
+                                      <div className="min-w-0">
+                                        <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${
+                                          clientBriefState.tone === 'open' ? 'text-expert-green' : clientBriefState.tone === 'action' ? 'text-yellow-300' : 'text-ai-blue'
+                                        }`}>
+                                          {clientBriefState.label}
+                                        </p>
+                                        <h5 className="mt-2 max-w-3xl text-2xl font-black tracking-tight text-white">
+                                          {clientBriefState.detail}
+                                        </h5>
+                                        {hasBriefClarification && (
+                                          <div className="mt-5 border-y border-yellow-300/20 py-4">
+                                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                              <div>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-yellow-300">Requested details</p>
+                                                {clientBriefTeamMessage && (
+                                                  <p className="mt-2 max-w-2xl whitespace-pre-line text-sm font-semibold leading-7 text-white/68">
+                                                    {clientBriefTeamMessage}
+                                                  </p>
+                                                )}
+                                              </div>
+                                              {clientBriefClarificationItems.length > 0 && (
+                                                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+                                                  {clientBriefClarificationItems.length} items
+                                                </span>
+                                              )}
+                                            </div>
+                                            {clientBriefClarificationItems.length > 0 && (
+                                              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                {clientBriefClarificationItems.map((item) => (
+                                                  <div key={item} className="min-w-0 border border-white/10 px-3 py-2">
+                                                    <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-white/70" title={item}>
+                                                      {item}
+                                                    </p>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (!hasBriefClarification) handleViewAssessment(currentBuildRecord);
+                                        }}
+                                        className={`group flex min-h-full w-full items-center justify-between gap-4 border-y px-0 py-4 text-left transition md:border-y-0 md:border-l md:pl-5 ${
+                                          hasBriefClarification
+                                            ? 'cursor-default border-yellow-300/20'
+                                            : 'border-white/10 hover:border-white/20'
+                                        }`}
+                                      >
+                                        <span className="flex min-w-0 items-center gap-3">
+                                          <Sparkles className={`h-4 w-4 shrink-0 ${hasBriefClarification ? 'text-yellow-300' : 'text-white/42'}`} />
+                                          <span className="min-w-0">
+                                            <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/72 group-hover:text-white">
+                                              {hasBriefClarification ? 'Answer request' : 'Intake answers'}
+                                            </span>
+                                            <span className="mt-1 block truncate text-xs text-white/34">
+                                              {hasBriefClarification ? 'Use the response panel on this page' : 'Open original questionnaire'}
+                                            </span>
+                                          </span>
+                                        </span>
+                                        {!hasBriefClarification && (
+                                          <ChevronRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:translate-x-1 group-hover:text-white" />
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    <div className="hidden grid-cols-3 border-t border-white/10 xl:grid">
+                                      {clientBriefRows.map((item) => (
+                                        <div key={item.label} className="min-w-0 border-b border-r border-white/10 px-4 py-4 [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0">
+                                          <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/30" title={item.label}>
+                                            {item.label}
+                                          </p>
+                                          <p className={`mt-2 truncate text-sm font-semibold ${
+                                            ['Not answered', 'Not specified'].includes(item.value) ? 'text-white/30' : 'text-white/72'
+                                          }`} title={item.value}>
+                                            {item.value}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    <div className="divide-y divide-white/10 border-t border-white/10 xl:hidden">
+                                      {clientBriefRows.map((item) => (
+                                        <div key={item.label} className="grid gap-2 py-4 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-5">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34 md:truncate" title={item.label}>
+                                            {item.label}
+                                          </p>
+                                          <p className={`min-w-0 text-sm font-semibold leading-6 ${
+                                            ['Not answered', 'Not specified'].includes(item.value) ? 'text-white/30' : 'text-white/72'
+                                          } md:truncate`} title={item.value}>
+                                            {item.value}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    <div className="hidden">
                                       <div className="py-6 lg:pr-8">
                                         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Client brief</p>
                                         <h5 className="mt-2 text-2xl font-black tracking-tight text-white">{briefType}</h5>
@@ -1631,7 +1983,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                       </div>
                                     </div>
 
-                                    <div className="grid border-t border-white/10 lg:grid-cols-2 lg:divide-x lg:divide-white/10">
+                                    <div className="hidden border-t border-white/10 lg:grid-cols-2 lg:divide-x lg:divide-white/10">
                                       {[
                                         { label: 'Goal', value: briefGoals || 'No goals recorded yet.' },
                                         { label: 'Required features', value: briefFeatures || 'No feature list recorded yet.' },
@@ -1647,7 +1999,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                     <button
                                       type="button"
                                       onClick={() => handleViewAssessment(currentBuildRecord)}
-                                      className="group flex min-h-14 w-full items-center justify-between gap-4 border-t border-white/10 px-0 py-4 text-left transition hover:bg-white/[0.018] lg:px-5"
+                                      className="group hidden min-h-14 w-full items-center justify-between gap-4 border-t border-white/10 px-0 py-4 text-left transition hover:bg-white/[0.018] lg:px-5"
                                     >
                                       <span className="flex min-w-0 items-center gap-3">
                                         <Sparkles className="h-4 w-4 shrink-0 text-white/42" />
@@ -1659,79 +2011,107 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                       <ChevronRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:translate-x-1 group-hover:text-white" />
                                     </button>
                                   </div>
+                                  </>
                                 )}
 
                                 {selectedBuildChapter.id === 'scope' && (
                                   <div className="space-y-6">
-                                    <div className="grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
-                                      {[
-                                        { label: 'Budget', value: currentBuildRecord.budget || 'Not specified' },
-                                        { label: 'Timeline', value: currentBuildRecord.timeline || 'Flexible' },
-                                        { label: 'Quote', value: currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Not ready' },
-                                      ].map((item) => (
-                                        <div key={item.label} className="border-b border-white/10 p-4 sm:border-b-0">
-                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
-                                          <p className="mt-2 truncate text-sm font-semibold text-white/72">{item.value}</p>
+                                    {isProjectRequest(currentBuildRecord) && hasScopeProposal ? (
+                                      <div className="border-y border-white/10">
+                                        <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:divide-x lg:divide-white/10">
+                                          <div className="py-6 lg:pr-8">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Scope proposal</p>
+                                            <h5 className="mt-2 text-2xl font-black tracking-tight text-white">{briefType}</h5>
+                                            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/60">
+                                              Lead-focused {briefType.toLowerCase()} shaped around {briefGoals || 'the approved client goals'}, with a clean responsive experience and a launch-ready handoff.
+                                            </p>
+                                          </div>
+                                          <div className="border-t border-white/10 px-4 py-5 lg:border-t-0">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Quote</p>
+                                            <p className="mt-2 text-2xl font-black tracking-tight text-white">
+                                              {currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending'}
+                                            </p>
+                                            <div className="mt-5 h-1 bg-white/10">
+                                              <div className="h-full w-2/3 bg-white/70" />
+                                            </div>
+                                            <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">{scopeDecisionLabel}</p>
+                                          </div>
                                         </div>
-                                      ))}
-                                    </div>
-                                    {isProjectRequest(currentBuildRecord) && currentBuildStatus === 'quote_ready' ? (
-                                  <div className="border-y border-ai-blue/35 bg-ai-blue/[0.04] py-5">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                      <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Quote ready</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/68">
-                                          Review the scope note and choose how you want the Build team to move next.
-                                        </p>
+
+                                        <div className="grid border-t border-white/10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:divide-x lg:divide-white/10">
+                                          <div className="grid grid-cols-2 divide-x divide-white/10 lg:block lg:divide-x-0">
+                                            {[
+                                              { label: 'Budget', value: currentBuildRecord.budget || 'Not specified' },
+                                              { label: 'Timeline', value: currentBuildRecord.timeline || '7-14 business days after agreement' },
+                                              { label: 'Decision', value: scopeDecisionLabel },
+                                              { label: 'Revisions', value: '2 review rounds before launch' },
+                                            ].map((item) => (
+                                              <div key={item.label} className="border-b border-white/10 px-4 py-4 last:border-b-0">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                                <p className="mt-2 text-sm font-semibold text-white/72">{item.value}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+
+                                          <div className="divide-y divide-white/10">
+                                            {[
+                                              { label: 'Deliverable', value: `${briefType} prepared for client enquiries, mobile use, and launch.` },
+                                              { label: 'Included', value: `${briefFeatures || 'Core website pages and requested features'}, responsive layout, contact capture, basic SEO setup, launch preparation, and handoff support.` },
+                                              { label: 'Not included', value: 'Advanced automation, custom CRM integrations, ongoing maintenance, copywriting, or extra revision rounds unless added to the agreement.' },
+                                              { label: 'Project goal', value: briefGoals || 'Goal pending from the brief.' },
+                                              { label: 'Experience direction', value: briefStyle || 'Style direction pending.' },
+                                            ].map((item) => (
+                                              <div key={item.label} className="px-4 py-4">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                                <p className="mt-2 text-sm leading-6 text-white/64">{item.value}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <textarea
+                                          value={quoteMessage}
+                                          onChange={(event) => setQuoteMessage(event.target.value)}
+                                          rows={3}
+                                          className="w-full resize-none border-0 border-t border-white/10 bg-black/20 px-4 py-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:bg-white/[0.02]"
+                                          placeholder="Add a decision note for the team"
+                                        />
+                                        <div className="grid border-t border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleQuoteResponse(currentBuildRecord, 'accept')}
+                                            disabled={quoteSubmitting}
+                                            className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/78 transition hover:bg-white/[0.035] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve scope</span>
+                                            {quoteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleQuoteResponse(currentBuildRecord, 'discuss')}
+                                            disabled={quoteSubmitting}
+                                            className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/58 transition hover:bg-white/[0.035] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
+                                          >
+                                            <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Discuss changes</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleQuoteResponse(currentBuildRecord, 'decline')}
+                                            disabled={quoteSubmitting}
+                                            className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/38 transition hover:bg-white/[0.035] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
+                                          >
+                                            <span className="flex items-center gap-3"><TriangleAlert className="h-4 w-4" /> Not ready</span>
+                                            <ChevronRight className="h-4 w-4" />
+                                          </button>
+                                        </div>
                                       </div>
-                                      <div className="border-t border-white/10 pt-4 sm:min-w-36 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Amount</p>
-                                        <p className="mt-2 text-lg font-black text-white">
-                                          {currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending'}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <textarea
-                                      value={quoteMessage}
-                                      onChange={(event) => setQuoteMessage(event.target.value)}
-                                      rows={3}
-                                      className="mt-5 w-full resize-none border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
-                                      placeholder="Add a short note for the team"
-                                    />
-                                    <div className="mt-4 grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuoteResponse(currentBuildRecord, 'accept')}
-                                        disabled={quoteSubmitting}
-                                        className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Accept</span>
-                                        {quoteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuoteResponse(currentBuildRecord, 'discuss')}
-                                        disabled={quoteSubmitting}
-                                        className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
-                                      >
-                                        <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Discuss</span>
-                                        <ChevronRight className="h-4 w-4" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuoteResponse(currentBuildRecord, 'decline')}
-                                        disabled={quoteSubmitting}
-                                        className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/48 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
-                                      >
-                                        <span className="flex items-center gap-3"><TriangleAlert className="h-4 w-4" /> Not ready</span>
-                                        <ChevronRight className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                  </div>
                                     ) : (
-                                      <div className="border-y border-white/10 py-5">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Scope status</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/54">The team will prepare the scope and quote when the brief review is complete.</p>
+                                      <div className="border-y border-white/10 py-6">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Scope in preparation</p>
+                                        <h5 className="mt-2 text-xl font-black tracking-tight text-white">Quote not ready yet</h5>
+                                        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/54">
+                                          The team is using the brief to prepare the scope, timeline, and final quote.
+                                        </p>
                                       </div>
                                     )}
                                   </div>
@@ -2013,10 +2393,23 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
                               <aside className="border-t border-white/10 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6">
                                 <div className="divide-y divide-white/10 border-y border-white/10">
-                                  {selectedBuildChapter.id === 'scope' && (
+                                  {selectedBuildChapter.id === 'brief' && (
                                     <div className="px-1 py-4">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Scope state</p>
-                                      <p className="mt-2 text-xs leading-6 text-white/50">{currentBuildRecord.quotedAmount ? 'Quote is ready for review.' : 'Quote pending.'}</p>
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Brief state</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">
+                                        {hasBriefClarification
+                                          ? 'Scope waits while these brief lines are completed.'
+                                          : isBriefApprovedForScope
+                                            ? 'Brief approved. Continue to Scope when ready.'
+                                            : 'The team is reviewing your brief. If anything is missing, it appears in the workspace.'}
+                                      </p>
+                                      {hasBriefClarification && (
+                                        <div className="mt-4 border-t border-white/10 pt-4">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-yellow-300">Requested</p>
+                                          <p className="mt-2 text-2xl font-black tracking-tight text-white">{briefResponseFields.length}</p>
+                                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">Brief lines</p>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   {selectedBuildChapter.id === 'agreement' && (
@@ -2232,11 +2625,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
               <div className="animate-fade-in">
                 <BillingViewer 
                   billing={billing} 
-                  subscriptions={projects as any}
-                  onManageSubscription={(id) => {
+                  subscriptions={projects}
+                  onManageSubscription={() => {
                     router.push('/payment');
                   }}
-                  onDownloadReceipt={(id) => {
+                  onDownloadReceipt={() => {
                     alert('Receipt download coming soon. Contact billing@sitemendr.com for invoices.');
                   }}
                   onUpdatePaymentMethod={() => {
@@ -2461,7 +2854,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     alert('Domain added. Please update DNS records.');
                     fetchData();
                     setIsDomainModalOpen(false);
-                  } catch (err) {
+                  } catch {
                     alert('Link failed.');
                   } finally {
                     setIsSubmittingDomain(false);
@@ -2508,7 +2901,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     await apiClient.requestManagedDomain(user?.email || '', managedDomain.domainInterest);
                     alert('Deployment request received. A technician will contact you.');
                     setIsManagedDomainModalOpen(false);
-                  } catch (err) {
+                  } catch {
                     alert('Request failed.');
                   } finally {
                     setIsSubmittingDomain(false);

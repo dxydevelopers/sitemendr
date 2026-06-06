@@ -600,6 +600,13 @@ class ApiClient {
     });
   }
 
+  async respondToBriefClarification(requestId: string, message: string) {
+    return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/brief-clarification`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
   async respondToStagingReview(requestId: string, action: 'approve' | 'changes', message = '') {
     return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/staging-review`, {
       method: 'POST',

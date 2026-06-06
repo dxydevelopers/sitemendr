@@ -275,7 +275,19 @@ exports.getProfile = async (req, res) => {
     }
 
     const user = await withTimeout(
-      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          isEmailVerified: true,
+          lastLogin: true,
+          createdAt: true
+        }
+      }),
       5000,
       'Database connection timed out while retrieving profile'
     );

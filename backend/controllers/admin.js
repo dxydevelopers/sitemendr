@@ -5,6 +5,17 @@ const { runSuspensionAutomation, suspendSubscription } = require('../scripts/sus
 const { verifyDomains } = require('../scripts/dnsWorker');
 const logger = require('../config/logger');
 
+const runInBatches = async (tasks, batchSize = 3) => {
+  const results = [];
+
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize);
+    results.push(...await Promise.all(batch.map((task) => task())));
+  }
+
+  return results;
+};
+
 // Get admin dashboard stats
 exports.getAdminStats = async (req, res) => {
   try {
@@ -18,26 +29,37 @@ exports.getAdminStats = async (req, res) => {
       totalRevenue,
       recentLeads,
       recentAssessments
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.lead.count(),
-      prisma.assessment.count(),
-      prisma.assessment.count({ where: { status: 'completed' } }),
-      prisma.subscription.count({ where: { status: 'active' } }),
-      prisma.subscription.count({ where: { status: 'suspended' } }),
-      prisma.payment.aggregate({
+    ] = await runInBatches([
+      () => prisma.user.count(),
+      () => prisma.lead.count(),
+      () => prisma.assessment.count(),
+      () => prisma.assessment.count({ where: { status: 'completed' } }),
+      () => prisma.subscription.count({ where: { status: 'active' } }),
+      () => prisma.subscription.count({ where: { status: 'suspended' } }),
+      () => prisma.payment.aggregate({
         where: { status: 'completed' },
         _sum: { amount: true }
       }),
-      prisma.lead.findMany({
+      () => prisma.lead.findMany({
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          status: true
+        },
         take: 10
       }),
-      prisma.assessment.findMany({
+      () => prisma.assessment.findMany({
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          createdAt: true,
+          responses: true
+        },
         take: 10
       })
-    ]);
+    ], 3);
 
     const conversionRate = totalAssessments > 0 
       ? ((completedAssessments / totalAssessments) * 100).toFixed(1) 
@@ -47,16 +69,16 @@ exports.getAdminStats = async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const [userGrowthRaw, leadGrowthRaw] = await Promise.all([
-      prisma.user.findMany({
+    const [userGrowthRaw, leadGrowthRaw] = await runInBatches([
+      () => prisma.user.findMany({
         where: { createdAt: { gte: thirtyDaysAgo } },
         select: { createdAt: true }
       }),
-      prisma.lead.findMany({
+      () => prisma.lead.findMany({
         where: { createdAt: { gte: thirtyDaysAgo } },
         select: { createdAt: true }
       })
-    ]);
+    ], 2);
 
     // Format growth data by day
     const formatDate = (date) => date.toISOString().split('T')[0];
@@ -682,13 +704,18 @@ const ensureDefaultBuildMilestones = async (projectRequestId) => {
 exports.getProjectRequests = async (req, res) => {
   try {
     const { status } = req.query;
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 200)
+      : 100;
     const where = { serviceType: 'build' };
     if (status && status !== 'all') where.status = status;
 
     const requests = await prisma.projectRequest.findMany({
       where,
       include: projectRequestInclude,
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
+      take: limit
     });
 
     res.json({
