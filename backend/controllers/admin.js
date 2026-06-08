@@ -794,8 +794,22 @@ exports.updateProjectRequest = async (req, res) => {
     if (quoteCurrency !== undefined) data.quoteCurrency = quoteCurrency || 'USD';
     if (paymentAgreementType !== undefined) data.paymentAgreementType = paymentAgreementType || null;
     if (paymentAgreementStatus !== undefined) {
+      const currentRequest = await prisma.projectRequest.findUnique({
+        where: { id },
+        select: { paymentAgreementStatus: true }
+      });
+
+      if (paymentAgreementStatus === 'confirmed' && currentRequest?.paymentAgreementStatus !== 'confirmed') {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment confirmation is handled by verified checkout'
+        });
+      }
+
       data.paymentAgreementStatus = paymentAgreementStatus || 'pending';
-      data.paymentConfirmedAt = paymentAgreementStatus === 'confirmed' ? new Date() : null;
+      if (paymentAgreementStatus !== 'confirmed') {
+        data.paymentConfirmedAt = null;
+      }
     }
     if (depositAmount !== undefined) data.depositAmount = depositAmount === '' || depositAmount === null ? null : Number(depositAmount);
     if (totalAgreedAmount !== undefined) data.totalAgreedAmount = totalAgreedAmount === '' || totalAgreedAmount === null ? null : Number(totalAgreedAmount);

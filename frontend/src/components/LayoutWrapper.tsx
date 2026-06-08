@@ -31,8 +31,6 @@ export default function LayoutWrapper({
     normalizedPath === '/admin-dashboard' ||
     normalizedPath === '/deployment' ||
     normalizedPath === '/https-config' ||
-    normalizedPath === '/login' ||
-    normalizedPath === '/register' ||
     normalizedPath?.startsWith('/forgot-password') ||
     normalizedPath?.startsWith('/reset-password') ||
     normalizedPath?.startsWith('/verify-email');

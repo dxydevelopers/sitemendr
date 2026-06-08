@@ -3,7 +3,34 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Github } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4 20.52 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 4 3.48 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </svg>
+  );
+}
+
+function AppleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
+      <path d="M16.8 12.36c-.02-2.1 1.72-3.11 1.8-3.16-1.01-1.45-2.57-1.65-3.11-1.67-1.31-.13-2.58.77-3.25.77-.68 0-1.72-.75-2.83-.73-1.45.02-2.8.84-3.54 2.13-1.53 2.63-.39 6.5 1.08 8.63.73 1.04 1.58 2.2 2.7 2.16 1.09-.04 1.5-.69 2.82-.69 1.31 0 1.68.69 2.83.67 1.18-.02 1.92-1.04 2.63-2.09.84-1.19 1.17-2.36 1.18-2.42-.03-.01-2.28-.86-2.31-3.6z" />
+      <path d="M14.63 6.17c.6-.74 1-1.75.89-2.77-.87.04-1.96.6-2.58 1.33-.56.64-1.06 1.69-.93 2.68.98.07 2-.5 2.62-1.24z" />
+    </svg>
+  );
+}
+
+const socialOptions = [
+  { label: 'Google', Icon: GoogleIcon },
+  { label: 'GitHub', Icon: Github, className: 'text-white' },
+  { label: 'Apple', Icon: AppleIcon },
+];
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -22,13 +49,14 @@ function LoginForm() {
     try {
       const response = await apiClient.login({ email, password });
 
-      if (response.success) {
-        // apiClient.login already saves the token
-        if (response.user.role === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push(redirect || '/dashboard');
-        }
+      if (!response.success) {
+        throw new Error(response.message || 'Login failed. Please check your credentials.');
+      }
+
+      if (response.user.role === 'admin') {
+        router.push('/admin');
+      } else {
+        router.push(redirect || '/dashboard');
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
@@ -39,90 +67,101 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-darker-bg py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-mono">
-      {/* Infrastructure Grid Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-darker-bg via-transparent to-darker-bg"></div>
-      </div>
-
-      <div className="max-w-md w-full space-y-8 relative z-20">
-        <div className="text-center">
-          <h2 className="text-4xl font-black text-white mb-2 tracking-tighter">
-            CLIENT <span className="italic bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent">PORTAL</span>
-          </h2>
-          <p className="text-medium-gray text-xs uppercase tracking-widest font-bold">
-            Access your AI-powered workspace
-          </p>
-        </div>
-
-        <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-3xl p-10 shadow-2xl relative overflow-hidden">
-          <form className="space-y-6 relative z-10" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest text-center">
-                AUTH_FAILURE: {error}
-              </div>
-            )}
-
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-medium-gray uppercase tracking-widest px-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue transition-all text-sm"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] font-black text-medium-gray uppercase tracking-widest">Password</label>
-                  <Link href="/forgot-password" title="Forgot Password" className="text-[8px] text-ai-blue hover:underline uppercase font-bold tracking-widest">
-                    Recovery Req?
-                  </Link>
-                </div>
-                <input
-                  type="password"
-                  required
-                  className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue transition-all text-sm"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full bg-ai-blue text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-            >
-              <span className="relative z-10 flex items-center justify-center gap-2">
-                {loading ? 'AUTHENTICATING...' : 'INITIATE SESSION'}
-              </span>
-            </button>
-          </form>
-
-          <div className="mt-8 text-center">
-            <p className="text-medium-gray text-[10px] uppercase tracking-widest">
-              New to Sitemendr?{' '}
-              <Link href="/register" className="text-ai-blue font-black hover:underline">
-                Create Account
-              </Link>
-            </p>
+    <main className="min-h-screen bg-[#05070a] pt-16 text-white">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-5 sm:px-8 lg:px-10">
+        <section className="grid flex-1 items-center gap-12 py-14 lg:grid-cols-[0.9fr_1fr] lg:gap-20">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-ai-blue">Client workspace</p>
+            <h1 className="mt-5 max-w-3xl text-5xl font-black leading-[0.98] tracking-tight sm:text-6xl">
+              Sign in and continue where the work lives.
+            </h1>
           </div>
-        </div>
+
+          <div className="w-full max-w-md lg:ml-auto">
+            <div className="border-y border-white/10 py-7">
+              <h2 className="text-2xl font-black tracking-tight">Return to workspace</h2>
+
+              <div className="mt-6 flex flex-wrap items-center gap-5">
+                {socialOptions.map((option) => {
+                  const Icon = option.Icon;
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      disabled
+                      aria-disabled="true"
+                      title={`${option.label} login is not active yet`}
+                      className="grid h-12 w-12 place-items-center transition"
+                    >
+                      <Icon className={`h-8 w-8 ${option.className || ''}`} />
+                      <span className="sr-only">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
+                {error && (
+                  <div role="alert" className="border border-red-400/40 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100">
+                    {error}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Email address</label>
+                  <input
+                    type="email"
+                    required
+                    className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Password</label>
+                    <Link href="/forgot-password" className="text-xs font-semibold text-white/44 transition hover:text-white">
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="min-h-13 w-full bg-white px-5 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-ai-blue hover:text-white disabled:opacity-50"
+                >
+                  {loading ? 'Signing in...' : 'Sign in'}
+                </button>
+
+                <p className="text-center text-sm text-white/48">
+                  Need an account?{' '}
+                  <Link href="/register" className="font-semibold text-white transition hover:text-ai-blue">
+                    Create workspace
+                  </Link>
+                </p>
+              </form>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#05070a]" />}>
       <LoginForm />
     </Suspense>
   );

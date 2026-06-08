@@ -520,7 +520,7 @@ exports.respondToProjectQuote = async (req, res) => {
     const { requestId } = req.params;
     const { action, message } = req.body;
 
-    const validActions = ['accept', 'discuss', 'decline'];
+    const validActions = ['accept', 'discuss'];
     if (!validActions.includes(action)) {
       return res.status(400).json({
         success: false,
@@ -553,7 +553,6 @@ exports.respondToProjectQuote = async (req, res) => {
     const responseLabels = {
       accept: 'Client accepted the quote.',
       discuss: 'Client wants to discuss the quote.',
-      decline: 'Client declined the quote.'
     };
     const noteParts = [
       request.clientNotes,
@@ -563,7 +562,7 @@ exports.respondToProjectQuote = async (req, res) => {
     const updated = await prisma.projectRequest.update({
       where: { id: request.id },
       data: {
-        status: action === 'accept' ? 'approved' : 'in_review',
+        status: action === 'accept' ? 'approved' : 'quote_ready',
         approvedAt: action === 'accept' ? new Date() : request.approvedAt,
         clientNotes: noteParts.join('\n\n')
       }

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api';
-import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays } from 'lucide-react';
+import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays, Send, ShieldCheck } from 'lucide-react';
 
 const BlogEditor = dynamic(() => import('./BlogEditor'), { ssr: false });
 const AssessmentModal = dynamic(() => import('./AssessmentModal'), { ssr: false });
@@ -268,6 +268,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [briefMissingItems, setBriefMissingItems] = useState<string[]>([]);
   const [briefClarificationMessage, setBriefClarificationMessage] = useState('');
   const [briefDecisionMessage, setBriefDecisionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [scopeClientNote, setScopeClientNote] = useState('');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -573,13 +574,18 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const adminBuildChapters = [
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Read the request and confirm project basics', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Set the offer, price, and delivery terms.', statuses: ['quote_ready', 'approved'] },
-    { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Send terms and confirm payment agreement', statuses: ['payment_agreement'] },
+    { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: '', statuses: ['payment_agreement'] },
     { id: 'build', label: 'Build', eyebrow: 'Execution', detail: 'Manage milestones and delivery notes', statuses: ['in_development'] },
     { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Send preview and handle feedback', statuses: ['staging_review'] },
     { id: 'launch', label: 'Launch', eyebrow: 'Handoff', detail: 'Launch, handoff, and close the build', statuses: ['launched', 'handoff', 'completed'] },
   ];
 
   const selectedProjectRequest = selectedProjectRequestId ? projectRequests.find(request => request.id === selectedProjectRequestId) || null : null;
+  useEffect(() => {
+    const note = selectedProjectRequest?.clientNotes?.trim() || '';
+    setScopeClientNote(note.toLowerCase().includes('scope sent') ? note : '');
+  }, [selectedProjectRequest?.id, selectedProjectRequest?.clientNotes]);
+
   const getAdminBuildChapter = (status?: string) => adminBuildChapters.find(chapter => chapter.statuses.includes(status || 'submitted')) || adminBuildChapters[0];
   const getAdminBuildProgress = (status?: string) => {
     const chapter = getAdminBuildChapter(status);
@@ -590,7 +596,10 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     if (['submitted', 'in_review'].includes(request.status)) return 'Review brief';
     if (request.status === 'quote_ready') return 'Await client';
     if (request.status === 'approved') return 'Send terms';
-    if (request.status === 'payment_agreement') return 'Confirm payment';
+    if (request.status === 'payment_agreement') {
+      if (request.paymentAgreementStatus === 'confirmed') return 'Start development';
+      return 'Waiting payment';
+    }
     if (request.status === 'in_development') return 'Update build';
     if (request.status === 'staging_review') return 'Handle review';
     if (['launched', 'handoff'].includes(request.status)) return 'Close handoff';
@@ -612,7 +621,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const buildOperatorViews = [
     { id: 'briefs', label: 'Briefs', detail: 'New requests and intake review', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', detail: 'Quote preparation and client decision', statuses: ['quote_ready', 'approved'] },
-    { id: 'agreement', label: 'Agreement', detail: 'Payment terms before production', statuses: ['payment_agreement'] },
+    { id: 'agreement', label: 'Agreement', detail: '', statuses: ['payment_agreement'] },
     { id: 'studio', label: 'Studio', detail: 'Build work currently moving', statuses: ['in_development'] },
     { id: 'review', label: 'Review', detail: 'Staging preview and client feedback', statuses: ['staging_review'] },
     { id: 'launch', label: 'Launch / Handoff', detail: 'Live release, access, and ownership transfer', statuses: ['launched', 'handoff'] },
@@ -658,7 +667,15 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const defaultAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === defaultAdminBuildChapter.id));
   const requestedAdminBuildChapter = adminBuildChapters.find(chapter => chapter.id === activeAdminBuildChapter);
   const requestedAdminBuildChapterIndex = requestedAdminBuildChapter ? adminBuildChapters.findIndex(chapter => chapter.id === requestedAdminBuildChapter.id) : -1;
-  const selectedAdminBuildChapter = requestedAdminBuildChapter && (requestedAdminBuildChapterIndex <= defaultAdminBuildChapterIndex || selectedProjectRequest?.status === 'completed')
+  const canOpenRequestedAdminBuildChapter = Boolean(
+    requestedAdminBuildChapter
+    && (
+      requestedAdminBuildChapterIndex <= defaultAdminBuildChapterIndex
+      || selectedProjectRequest?.status === 'completed'
+      || (selectedProjectRequest?.status === 'approved' && requestedAdminBuildChapter.id === 'agreement')
+    )
+  );
+  const selectedAdminBuildChapter = requestedAdminBuildChapter && canOpenRequestedAdminBuildChapter
     ? requestedAdminBuildChapter
     : defaultAdminBuildChapter;
   const selectedAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === selectedAdminBuildChapter.id));
@@ -719,12 +736,26 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   ];
   const selectedClientNotes = selectedProjectRequest?.clientNotes?.trim() || '';
   const selectedAdminNotes = selectedProjectRequest?.adminNotes?.trim() || '';
+  const selectedScopeDiscussionLines = selectedClientNotes
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => {
+      const value = line.toLowerCase();
+      return value.startsWith('client message:') && !value.includes('brief clarification');
+    })
+    .map(line => line.replace(/^Client message:\s*/i, ''))
+    .filter((line, index, lines) => line && lines.indexOf(line) === index);
+  const hasScopeDiscussionRequest = selectedClientNotes.toLowerCase().includes('client wants to discuss the quote');
   const selectedClientResponseSource = [selectedClientNotes, selectedAdminNotes].find(note => {
     const value = note.toLowerCase();
     return value.includes('client sent brief clarification') || value.includes('client brief clarification') || value.includes('client message:');
   }) || '';
   const selectedClientResponseReceived = Boolean(selectedClientResponseSource);
   const isBriefApprovedForScope = Boolean(selectedProjectRequest && ['quote_ready', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(selectedProjectRequest.status));
+  const isScopeSentToClient = Boolean(selectedProjectRequest?.clientNotes?.toLowerCase().includes('scope sent'));
+  const isScopeAccepted = selectedProjectRequest?.status === 'approved';
+  const isAgreementSent = selectedProjectRequest?.status === 'payment_agreement';
+  const isAgreementConfirmed = selectedProjectRequest?.paymentAgreementStatus === 'confirmed';
   const selectedClientResponseReceivedAt = selectedProjectRequest?.updatedAt
     ? new Intl.DateTimeFormat('en-US', {
       weekday: 'short',
@@ -794,6 +825,22 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
       clientNotes: message
     });
   };
+  const handleSendScopeToClient = (request: ProjectRequest) => {
+    if (!request.quotedAmount) {
+      setBriefDecisionMessage({
+        type: 'error',
+        text: 'Add a quote amount before sending Scope to the client.'
+      });
+      return;
+    }
+    const note = scopeClientNote.trim() || 'Scope sent. Please review the offer, price, and delivery terms.';
+
+    handleUpdateProjectRequest(request.id, {
+      status: 'quote_ready',
+      quoteCurrency: request.quoteCurrency || 'USD',
+      clientNotes: note
+    });
+  };
 
   const handleUpdateProjectRequest = async (id: string, data: Record<string, unknown>) => {
     setSubmitting(true);
@@ -806,9 +853,16 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         }
         setProjectRequests(prev => prev.map(request => request.id === id ? res.data as ProjectRequest : request));
         setSelectedProjectRequestId(id);
+        const successText = data.status === 'quote_ready'
+          ? 'Brief approved. Scope is now open for the client.'
+          : data.status === 'payment_agreement'
+            ? 'Payment agreement updated.'
+            : data.status === 'in_development'
+              ? 'Development started.'
+              : 'Build request updated.';
         setBriefDecisionMessage({
           type: 'success',
-          text: data.status === 'quote_ready' ? 'Brief approved. Scope is now open for the client.' : 'Clarification request sent to the client.'
+          text: successText
         });
       } else {
         setBriefDecisionMessage({ type: 'error', text: res.message || 'The build request could not be updated.' });
@@ -1913,9 +1967,9 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                       const rowChapter = getAdminBuildChapter(request.status);
                       const rowProgress = getAdminBuildProgress(request.status);
                       const rowClientResponseSource = `${request.clientNotes || ''}\n${request.adminNotes || ''}`.toLowerCase();
-                      const rowClientResponded = rowClientResponseSource.includes('client sent brief clarification')
+                      const rowClientResponded = rowChapter.id === 'brief' && (rowClientResponseSource.includes('client sent brief clarification')
                         || rowClientResponseSource.includes('client brief clarification')
-                        || rowClientResponseSource.includes('client message:');
+                        || rowClientResponseSource.includes('client message:'));
                       const nextAction = rowClientResponded ? 'Review client response' : getAdminNextAction(request);
                       const rowState = getAdminBuildState(request);
                       const summaryPreview = request.summary
@@ -1927,7 +1981,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           ? 'Brief is under review. Confirm missing items or approve the request for Scope.'
                           : request.status === 'submitted'
                             ? 'New brief submitted. Start intake review and check what Scope needs.'
-                            : summaryPreview;
+                            : rowChapter.id === 'scope'
+                              ? request.status === 'approved'
+                                ? 'Scope accepted. Prepare Agreement and payment terms.'
+                                : 'Scope is ready for client review. Confirm the quote and client note before Agreement opens.'
+                              : summaryPreview;
+                      const rowOpenLabel = rowChapter.id === 'brief' ? 'Open brief' : `Open ${rowChapter.label.toLowerCase()}`;
                       const quoteLabel = request.quotedAmount
                         ? `${request.quoteCurrency || 'USD'} ${request.quotedAmount}`
                         : 'Quote pending';
@@ -2001,10 +2060,10 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               </span>
                             </span>
                           </span>
-                          <span className={`flex min-w-0 flex-col gap-3 pt-1 text-sm font-semibold leading-6 sm:flex-row sm:items-center sm:justify-between xl:col-span-2 ${rowClientResponded ? 'text-expert-green' : 'text-white/56'}`}>
+                          <span className={`flex min-w-0 flex-col gap-3 pt-1 text-sm font-semibold leading-6 sm:flex-row sm:items-center sm:justify-between xl:col-span-2 ${rowClientResponded ? 'text-expert-green' : rowChapter.id === 'scope' ? 'text-amber-300' : 'text-white/56'}`}>
                             <span className="min-w-0">{rowAttentionReason}</span>
                             <span className="inline-flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/48 transition group-hover:text-white">
-                              Open brief
+                              {rowOpenLabel}
                               <ChevronRight className="h-3.5 w-3.5" />
                             </span>
                           </span>
@@ -2140,7 +2199,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                       <div className="border-b border-white/10 px-5 py-5 lg:px-8">
                         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                           <div className="min-w-0">
-                            {selectedAdminBuildChapter.id !== 'brief' && (
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.detail && (
                               <p className="max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
                             )}
                           </div>
@@ -2168,12 +2227,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                       )}
 
                       <div className={`flex-1 ${
-                        selectedAdminBuildChapter.id === 'brief'
+                        selectedAdminBuildChapter.id === 'brief' || selectedAdminBuildChapter.id === 'agreement'
                           ? 'divide-y divide-white/10'
-                          : 'grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:divide-x lg:divide-white/10'
+                          : 'grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:divide-x xl:divide-white/10'
                       }`}>
-                        <section className="px-5 py-6 lg:px-8">
-                          {selectedAdminBuildChapter.id !== 'brief' && (
+                        <section className={`px-5 py-6 lg:px-8 ${selectedAdminBuildChapter.id === 'agreement' ? 'hidden' : ''}`}>
+                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && (
                             <div className="mb-5 flex items-center justify-between gap-4">
                               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{selectedAdminBuildChapter.label}</h4>
                               <span className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
@@ -2305,7 +2364,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Scope offer</p>
                                   <h4 className="mt-2 text-2xl font-black tracking-tight text-white">Set the offer, price, and delivery terms.</h4>
                                   <p className="mt-3 max-w-3xl text-sm leading-7 text-white/50">
-                                    Use the approved brief to define what the client gets, what it costs, and what happens next.
+                                    Turn the approved brief into a client-ready offer.
                                   </p>
                                 </div>
                                 <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">
@@ -2313,33 +2372,45 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 </span>
                               </div>
 
-                              <div className="mt-7 grid gap-px overflow-hidden bg-white/10 md:grid-cols-2 xl:grid-cols-3">
-                                {[
-                                  { label: 'Deliverable', value: selectedBriefType || 'Custom build' },
-                                  { label: 'Goal', value: selectedBriefGoals || 'Not set' },
-                                  { label: 'Core features', value: selectedBriefFeatures || 'Not set' },
-                                  { label: 'Audience', value: selectedBriefAudience || 'Not set' },
-                                  { label: 'Budget direction', value: selectedProjectRequest.budget || 'Not specified' },
-                                  { label: 'Timeline', value: selectedProjectRequest.timeline || 'Flexible' },
-                                ].map((item) => (
-                                  <div key={item.label} className="bg-[#05070a] px-4 py-4">
-                                    <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/30">{item.label}</p>
-                                    <p className="mt-2 text-sm font-semibold leading-6 text-white/76">{item.value}</p>
+                              <div className="mt-7 divide-y divide-white/10">
+                                <div className="grid gap-4 py-4 md:grid-cols-[12rem_minmax(0,1fr)] md:items-start">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/34">Offer</p>
+                                  <div className="min-w-0">
+                                    <p className="text-lg font-black tracking-tight text-white">{selectedBriefType || 'Custom build'}</p>
+                                    <p className="mt-2 text-sm leading-7 text-white/54">{selectedBriefGoals || 'Goal not set'}</p>
                                   </div>
-                                ))}
-                              </div>
-
-                              <div className="mt-7 grid gap-5 lg:grid-cols-3">
-                                {[
-                                  { label: 'Included', value: 'Scope should cover the pages, lead capture, content needs, and selected features from the approved brief.', tone: 'text-expert-green' },
-                                  { label: 'Client decision', value: 'Client reviews the scope and quote before Agreement opens.', tone: 'text-amber-300' },
-                                  { label: 'Next gate', value: 'Agreement starts after the client accepts the scope.', tone: 'text-ai-blue' },
-                                ].map((item) => (
-                                  <div key={item.label} className="border-b border-white/10 pb-4">
-                                    <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${item.tone}`}>{item.label}</p>
-                                    <p className="mt-3 text-sm leading-7 text-white/54">{item.value}</p>
+                                </div>
+                                <div className="grid gap-4 py-4 md:grid-cols-[12rem_minmax(0,1fr)] md:items-start">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/34">Included</p>
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    {[
+                                      { label: 'Core features', value: selectedBriefFeatures || 'Not set' },
+                                      { label: 'Audience', value: selectedBriefAudience || 'Not set' },
+                                      { label: 'Content/assets', value: selectedBriefMaterial || 'Not set' },
+                                      { label: 'Style direction', value: selectedBriefStyle || 'Not set' },
+                                    ].map((item) => (
+                                      <div key={item.label} className="min-w-0 border-b border-white/10 pb-3">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/28">{item.label}</p>
+                                        <p className="mt-2 break-words text-sm font-semibold leading-6 text-white/72">{item.value}</p>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                </div>
+                                <div className="grid gap-4 py-4 md:grid-cols-[12rem_minmax(0,1fr)] md:items-start">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/34">Terms</p>
+                                  <div className="grid gap-3 md:grid-cols-3">
+                                    {[
+                                      { label: 'Price', value: selectedProjectRequest.quotedAmount ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.quotedAmount}` : 'Not set', tone: 'text-amber-300' },
+                                      { label: 'Budget direction', value: selectedProjectRequest.budget || 'Not specified', tone: 'text-white/72' },
+                                      { label: 'Timeline', value: selectedProjectRequest.timeline || 'Flexible', tone: 'text-white/72' },
+                                    ].map((item) => (
+                                      <div key={item.label} className="min-w-0 border-b border-white/10 pb-3">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.13em] text-white/28">{item.label}</p>
+                                        <p className={`mt-2 break-words text-sm font-black leading-6 ${item.tone}`}>{item.value}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -2437,9 +2508,9 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                         </section>
 
                         <aside className={`border-t border-white/10 px-5 py-6 ${
-                          selectedAdminBuildChapter.id === 'brief' ? 'lg:px-8' : 'lg:border-t-0 lg:px-6'
+                          selectedAdminBuildChapter.id === 'brief' ? 'lg:px-8' : 'xl:border-t-0 xl:px-6'
                         }`}>
-                          {selectedAdminBuildChapter.id !== 'brief' && (
+                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && (
                             <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">
                               {selectedAdminBuildChapter.id === 'scope' ? 'Scope actions' : 'Decision panel'}
                             </h4>
@@ -2618,38 +2689,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           </div>
                           )
                           )}
-                          {selectedAdminBuildChapter.id === 'agreement' && (
-                          <div className="mb-5 border-y border-expert-green/25 bg-expert-green/[0.035] py-4">
-                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Payment gate</p>
-                            <p className="mt-2 text-xs leading-6 text-white/52">
-                              After quote acceptance, set the request to Payment agreement and add the deposit, milestone, or payment terms in the client note. Move to Development only after those terms are confirmed.
-                            </p>
-                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                  status: 'payment_agreement',
-                                  paymentAgreementStatus: selectedProjectRequest.paymentAgreementStatus === 'confirmed' ? 'confirmed' : 'sent'
-                                })}
-                                disabled={submitting}
-                                className="min-h-10 border border-expert-green/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 disabled:opacity-50"
-                              >
-                                Send terms
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                  paymentAgreementStatus: 'confirmed',
-                                  status: 'in_development'
-                                })}
-                                disabled={submitting}
-                                className="min-h-10 border border-ai-blue/30 bg-ai-blue/[0.05] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50"
-                              >
-                                Confirm and start
-                              </button>
-                            </div>
-                          </div>
-                          )}
                           {['review', 'launch'].includes(selectedAdminBuildChapter.id) && (
                           <div className="mb-5 border-y border-ai-blue/25 bg-ai-blue/[0.035] py-4">
                             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
@@ -2693,99 +2732,203 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           </div>
                           )}
                           <div className="space-y-5">
-                            {selectedAdminBuildChapter.id === 'scope' && (
-                              <div className="border-y border-white/10 py-4">
-                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Quote setup</p>
-                                <p className="mt-2 text-xs leading-6 text-white/46">
-                                  Set the client-facing price and note. The client reviews this before Agreement opens.
-                                </p>
+                          {selectedAdminBuildChapter.id === 'scope' && (
+                              <div className={`border-y py-4 ${isScopeAccepted ? 'border-expert-green/25' : 'border-white/10'}`}>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${isScopeAccepted ? 'text-expert-green' : 'text-amber-300'}`}>
+                                      {isScopeAccepted ? 'Scope complete' : 'Scope offer'}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-6 text-white/46">
+                                      {isScopeAccepted
+                                        ? 'The client accepted the offer. Prepare the payment request next.'
+                                        : 'Prepare the price, boundaries, and next client decision.'}
+                                    </p>
+                                  </div>
+                                  <span className={`shrink-0 text-right text-[10px] font-black uppercase tracking-[0.14em] ${isScopeAccepted ? 'text-expert-green' : 'text-amber-300'}`}>
+                                    {selectedProjectRequest.status === 'approved' ? 'Accepted' : hasScopeDiscussionRequest ? 'Client replied' : 'Draft'}
+                                  </span>
+                                </div>
                               </div>
                             )}
-                            <div className={selectedAdminBuildChapter.id === 'scope' ? '' : 'hidden'}>
+                            <div className={`grid gap-4 sm:grid-cols-2 ${selectedAdminBuildChapter.id === 'scope' && !isScopeAccepted ? '' : 'hidden'}`}>
+                            <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Quote amount</label>
                               <input
                                 type="number"
                                 defaultValue={selectedProjectRequest.quotedAmount || ''}
                                 onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quotedAmount: e.target.value, status: selectedProjectRequest.status === 'submitted' || selectedProjectRequest.status === 'in_review' ? 'quote_ready' : selectedProjectRequest.status })}
-                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/50"
                                 placeholder="0"
                               />
                             </div>
-                            <div className={selectedAdminBuildChapter.id === 'scope' ? '' : 'hidden'}>
+                            <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Currency</label>
                               <input
                                 type="text"
                                 defaultValue={selectedProjectRequest.quoteCurrency || 'USD'}
                                 onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quoteCurrency: e.target.value || 'USD' })}
-                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold uppercase text-white outline-none transition focus:border-ai-blue/50"
+                                className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold uppercase text-white outline-none transition focus:border-amber-300/50"
                               />
                             </div>
-                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement type</label>
-                              <select
-                                defaultValue={selectedProjectRequest.paymentAgreementType || ''}
-                                onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentAgreementType: e.target.value || null, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
-                                className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
-                              >
-                                <option value="">Select terms</option>
-                                <option value="deposit">Deposit</option>
-                                <option value="full_payment">Full payment</option>
-                                <option value="milestone_payments">Milestone payments</option>
-                                <option value="manual_agreement">Manual agreement</option>
-                              </select>
                             </div>
-                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement status</label>
-                              <select
-                                value={selectedProjectRequest.paymentAgreementStatus || 'pending'}
-                                onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentAgreementStatus: e.target.value, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
-                                className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="sent">Sent</option>
-                                <option value="confirmed">Confirmed</option>
-                              </select>
-                            </div>
-                            <div className={`grid gap-4 sm:grid-cols-2 ${selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}`}>
-                              <div>
-                                <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Total agreed</label>
-                                <input
-                                  type="number"
-                                  defaultValue={selectedProjectRequest.totalAgreedAmount || ''}
-                                  onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { totalAgreedAmount: e.target.value })}
-                                  className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
-                                  placeholder="0"
-                                />
+                            {selectedAdminBuildChapter.id === 'agreement' && (
+                            <div className="border-y border-white/10">
+                              <div className="grid gap-4 py-5 md:grid-cols-3 md:divide-x md:divide-white/10">
+                                {[
+                                  {
+                                    label: 'Payment state',
+                                    value: isAgreementConfirmed ? 'Verified' : isAgreementSent ? 'Awaiting payment' : 'Draft',
+                                    icon: isAgreementConfirmed ? <ShieldCheck className="h-4 w-4" /> : isAgreementSent ? <CreditCard className="h-4 w-4" /> : <Clock className="h-4 w-4" />,
+                                    tone: isAgreementConfirmed ? 'text-expert-green' : isAgreementSent ? 'text-ai-blue' : 'text-amber-300'
+                                  },
+                                  {
+                                    label: 'Due now',
+                                    value: selectedProjectRequest.depositAmount
+                                      ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.depositAmount}`
+                                      : selectedProjectRequest.totalAgreedAmount
+                                        ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.totalAgreedAmount}`
+                                        : 'Not set',
+                                    icon: <CreditCard className="h-4 w-4" />,
+                                    tone: 'text-white'
+                                  },
+                                  {
+                                    label: 'Development',
+                                    value: isAgreementConfirmed ? 'Ready' : 'Locked',
+                                    icon: <ChevronRight className="h-4 w-4" />,
+                                    tone: isAgreementConfirmed ? 'text-expert-green' : 'text-white/42'
+                                  }
+                                ].map((item) => (
+                                  <div key={item.label} className="flex items-center gap-3 md:px-4 first:md:pl-0 last:md:pr-0">
+                                    <span className={item.tone}>{item.icon}</span>
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                      <p className={`mt-1 truncate text-sm font-black ${item.tone}`}>{item.value}</p>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <div>
-                                <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Deposit</label>
-                                <input
-                                  type="number"
-                                  defaultValue={selectedProjectRequest.depositAmount || ''}
-                                  onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { depositAmount: e.target.value })}
-                                  className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
-                                  placeholder="0"
-                                />
+
+                              <div className="grid gap-6 border-t border-white/10 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] xl:divide-x xl:divide-white/10">
+                                <div className="space-y-6 xl:pr-6">
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Payment model</label>
+                                      <select
+                                        defaultValue={selectedProjectRequest.paymentAgreementType || ''}
+                                        onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentAgreementType: e.target.value || null, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
+                                        className="w-full border border-white/10 bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-expert-green/50"
+                                      >
+                                        <option value="">Select terms</option>
+                                        <option value="deposit">Deposit payment</option>
+                                        <option value="full_payment">Full payment</option>
+                                        <option value="milestone_payments">Milestone payments</option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Due date</label>
+                                      <input
+                                        type="date"
+                                        defaultValue={selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentDueDate: e.target.value })}
+                                        className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/50"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Total agreed</label>
+                                      <input
+                                        type="number"
+                                        defaultValue={selectedProjectRequest.totalAgreedAmount || ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { totalAgreedAmount: e.target.value })}
+                                        className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/50"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Amount due now</label>
+                                      <input
+                                        type="number"
+                                        defaultValue={selectedProjectRequest.depositAmount || ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { depositAmount: e.target.value })}
+                                        className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/50"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="border-t border-white/10 pt-5">
+                                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client payment note</label>
+                                    <textarea
+                                      defaultValue={selectedProjectRequest.paymentInstructions || ''}
+                                      onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentInstructions: e.target.value, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
+                                      className="h-28 w-full resize-none border-0 bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24"
+                                      placeholder="Explain what the payment covers, what is due now, and what happens after checkout..."
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-5 xl:pl-6">
+                                  <div>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client checkout</p>
+                                    <p className="mt-2 text-3xl font-black tracking-tight text-white">
+                                      {selectedProjectRequest.depositAmount
+                                        ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.depositAmount}`
+                                        : selectedProjectRequest.totalAgreedAmount
+                                          ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.totalAgreedAmount}`
+                                          : 'Not set'}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-6 text-white/44">
+                                      {isAgreementConfirmed
+                                        ? 'Payment received through verified checkout.'
+                                        : isAgreementSent
+                                          ? 'Waiting for the client to complete checkout.'
+                                          : 'Send the request to open checkout for the client.'}
+                                    </p>
+                                  </div>
+
+                                  <div className="divide-y divide-white/10 border-y border-white/10">
+                                    {[
+                                      { label: 'Total', value: selectedProjectRequest.totalAgreedAmount ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.totalAgreedAmount}` : 'Not set' },
+                                      { label: 'Due now', value: selectedProjectRequest.depositAmount ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.depositAmount}` : 'Not set' },
+                                      { label: 'Payment state', value: isAgreementConfirmed ? 'Verified' : isAgreementSent ? 'Waiting checkout' : 'Draft' },
+                                      { label: 'Due', value: selectedProjectRequest.paymentDueDate ? new Date(selectedProjectRequest.paymentDueDate).toLocaleDateString() : 'Not set' },
+                                    ].map((item) => (
+                                      <div key={item.label} className="flex items-center justify-between gap-4 py-3">
+                                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">{item.label}</span>
+                                        <span className="text-right text-sm font-black text-white/72">{item.value}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                      status: 'payment_agreement',
+                                      paymentAgreementStatus: selectedProjectRequest.paymentAgreementStatus === 'confirmed' ? 'confirmed' : 'sent'
+                                    })}
+                                    disabled={submitting || isAgreementConfirmed}
+                                    className="flex min-h-12 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                                  >
+                                    <span className="flex items-center gap-2"><Send className="h-4 w-4" /> {isAgreementSent ? 'Update payment request' : 'Send payment request'}</span>
+                                    <ChevronRight className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                        status: 'in_development'
+                                      });
+                                    }}
+                                    disabled={submitting || !isAgreementConfirmed}
+                                    className="flex min-h-12 w-full items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <span>Start development</span>
+                                    <ChevronRight className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Due date</label>
-                              <input
-                                type="date"
-                                defaultValue={selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentDueDate: e.target.value })}
-                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
-                              />
-                            </div>
-                            <div className={selectedAdminBuildChapter.id === 'agreement' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Payment instructions</label>
-                              <textarea
-                                defaultValue={selectedProjectRequest.paymentInstructions || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentInstructions: e.target.value, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
-                                className="h-28 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="Deposit, milestone, or transfer instructions..."
-                              />
-                            </div>
+                            )}
                             <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging URL</label>
                               <input
@@ -2860,18 +3003,89 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 </p>
                               )}
                             </div>
-                            {selectedAdminBuildChapter.id !== 'brief' && (
+                            {selectedAdminBuildChapter.id === 'scope' && hasScopeDiscussionRequest && !isScopeAccepted && (
+                            <div className="border-y border-amber-300/20 py-4">
+                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Client discussion</p>
+                              <p className="mt-2 text-xs leading-6 text-white/42">Client asked to discuss the scope before Agreement.</p>
+                              <div className="mt-3 space-y-3">
+                                {selectedScopeDiscussionLines.map((line, index) => (
+                                  <p key={`${line}-${index}`} className="text-sm leading-6 text-white/64">
+                                    {line}
+                                  </p>
+                                ))}
+                                {selectedScopeDiscussionLines.length === 0 && (
+                                  <p className="text-sm leading-6 text-white/48">No extra message was added.</p>
+                                )}
+                              </div>
+                            </div>
+                            )}
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && (
                             <div>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client note</label>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
+                                Client note
+                              </label>
                               <textarea
                                 defaultValue={selectedProjectRequest.clientNotes || ''}
                                 onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { clientNotes: e.target.value })}
-                                className="h-28 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
+                                className="h-28 w-full resize-none border border-white/10 bg-black px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
                                 placeholder="Visible to client..."
                               />
                             </div>
                             )}
-                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && (
+                            {selectedAdminBuildChapter.id === 'scope' && !isScopeAccepted && (
+                            <div>
+                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
+                                Scope message to client
+                              </label>
+                              <textarea
+                                value={scopeClientNote}
+                                onChange={(e) => setScopeClientNote(e.target.value)}
+                                className="h-28 w-full resize-none border border-white/10 bg-black px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-amber-300/50"
+                                placeholder="Write what changed, what the client should review, and the next decision..."
+                              />
+                            </div>
+                            )}
+                            {selectedAdminBuildChapter.id === 'scope' && (
+                              <div className="border-t border-white/10 pt-4">
+                                <div className="mb-4">
+                                  <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${
+                                    isScopeAccepted ? 'text-expert-green' : isScopeSentToClient ? 'text-ai-blue' : 'text-amber-300'
+                                  }`}>
+                                    {isScopeAccepted ? 'Agreement ready' : isScopeSentToClient ? 'Scope sent' : hasScopeDiscussionRequest ? 'Revise scope' : 'Scope ready'}
+                                  </p>
+                                  <p className="mt-2 text-xs leading-6 text-white/46">
+                                    {isScopeAccepted
+                                      ? 'Scope is approved. Set payment terms, deposit, and instructions in the next step.'
+                                      : isScopeSentToClient
+                                        ? 'Waiting for the client to review the offer and price.'
+                                        : hasScopeDiscussionRequest
+                                          ? 'Send the revised offer back to the client.'
+                                          : 'Send the offer, price, and delivery terms to the client.'}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isScopeAccepted) {
+                                      setActiveAdminBuildChapter('agreement');
+                                      return;
+                                    }
+                                    handleSendScopeToClient(selectedProjectRequest);
+                                  }}
+                                  disabled={submitting}
+                                  className={`min-h-11 w-full border px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] transition disabled:opacity-45 ${
+                                    isScopeAccepted
+                                      ? 'border-expert-green/25 text-expert-green hover:bg-expert-green/10 hover:text-white'
+                                      : isScopeSentToClient
+                                        ? 'border-ai-blue/25 text-ai-blue hover:bg-ai-blue/10 hover:text-white'
+                                        : 'border-amber-300/25 text-amber-300 hover:bg-amber-300/10 hover:text-white'
+                                  }`}
+                                >
+                                  {isScopeAccepted ? 'Open agreement setup' : isScopeSentToClient || hasScopeDiscussionRequest ? 'Send updated scope' : 'Send scope'}
+                                </button>
+                              </div>
+                            )}
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
                               <textarea

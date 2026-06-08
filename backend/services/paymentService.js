@@ -51,6 +51,10 @@ exports.processSuccessfulPayment = async (paymentId) => {
         });
       }
     }
+    // 4. Handle Build agreement deposit/payment
+    else if (serviceType === 'build_agreement') {
+      await handleBuildAgreementPayment(payment);
+    }
 
     logger.info('Payment processing completed successfully', { paymentId, serviceType });
   } catch (error) {
@@ -203,6 +207,52 @@ async function handleSubscriptionActivation(payment) {
 
   // 4. Send Confirmation Email
   await sendPaymentSuccessEmail(payment.user, subscription);
+}
+
+async function handleBuildAgreementPayment(payment) {
+  const projectRequestId = payment.metadata?.projectRequestId;
+
+  if (!projectRequestId) {
+    logger.warn('Build agreement payment missing projectRequestId metadata', { paymentId: payment.id });
+    return;
+  }
+
+  const request = await prisma.projectRequest.findFirst({
+    where: {
+      id: projectRequestId,
+      userId: payment.userId,
+      serviceType: 'build'
+    }
+  });
+
+  if (!request) {
+    logger.warn('Build agreement payment project request not found', {
+      paymentId: payment.id,
+      projectRequestId
+    });
+    return;
+  }
+
+  const noteParts = [
+    request.clientNotes,
+    `Payment received through Paystack.\nReference: ${payment.reference}`
+  ].filter(Boolean);
+
+  await prisma.projectRequest.update({
+    where: { id: request.id },
+    data: {
+      status: 'payment_agreement',
+      paymentAgreementStatus: 'confirmed',
+      paymentConfirmedAt: new Date(),
+      clientNotes: noteParts.join('\n\n')
+    }
+  });
+
+  logger.info('Build agreement payment confirmed', {
+    paymentId: payment.id,
+    projectRequestId: request.id,
+    reference: payment.reference
+  });
 }
 
 /**

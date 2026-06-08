@@ -593,7 +593,7 @@ class ApiClient {
     });
   }
 
-  async respondToProjectQuote(requestId: string, action: 'accept' | 'discuss' | 'decline', message = '') {
+  async respondToProjectQuote(requestId: string, action: 'accept' | 'discuss', message = '') {
     return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/quote-response`, {
       method: 'POST',
       body: JSON.stringify({ action, message }),

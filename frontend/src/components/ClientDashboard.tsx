@@ -318,6 +318,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [showProjectRequestModal, setShowProjectRequestModal] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState('');
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [briefResponseAnswers, setBriefResponseAnswers] = useState<Record<string, string>>({});
   const [briefResponseSubmitting, setBriefResponseSubmitting] = useState(false);
   const [briefResponseFeedback, setBriefResponseFeedback] = useState('');
@@ -682,7 +683,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     }
   };
 
-  const handleQuoteResponse = async (project: ClientProject, action: 'accept' | 'discuss' | 'decline') => {
+  const handleQuoteResponse = async (project: ClientProject, action: 'accept' | 'discuss') => {
     if (!project?.id || quoteSubmitting) return;
 
     setQuoteSubmitting(true);
@@ -699,6 +700,41 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       alert(err instanceof Error ? err.message : 'Failed to respond to quote.');
     } finally {
       setQuoteSubmitting(false);
+    }
+  };
+
+  const handleAgreementPayment = async (project: ClientProject) => {
+    if (!project?.id || paymentSubmitting) return;
+    const amount = project.depositAmount || project.totalAgreedAmount || project.quotedAmount;
+    if (!amount) {
+      alert('Payment amount is not ready yet.');
+      return;
+    }
+
+    setPaymentSubmitting(true);
+    try {
+      const res = await apiClient.initializePayment({
+        amount,
+        serviceType: 'build_agreement',
+        description: `${project.name} agreement payment`,
+        metadata: {
+          projectRequestId: project.id,
+          paymentStage: project.depositAmount ? 'deposit' : 'agreement',
+          buildTitle: project.name,
+          currency: project.quoteCurrency || 'USD'
+        }
+      });
+
+      if (res.success && res.data?.paystack?.authorization_url) {
+        window.location.href = res.data.paystack.authorization_url;
+        return;
+      }
+
+      throw new Error(res.message || 'Payment checkout could not be started.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to start payment checkout.');
+    } finally {
+      setPaymentSubmitting(false);
     }
   };
 
@@ -961,7 +997,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const buildJourneyChapters = [
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Request, goals, scope inputs', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Quote response and scope decision', statuses: ['quote_ready', 'approved'] },
-    { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Terms before development starts', statuses: ['payment_agreement'] },
+    { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Payment gate before production', statuses: ['payment_agreement'] },
     { id: 'build', label: 'Build', eyebrow: 'Delivery', detail: 'Milestones and team updates', statuses: ['in_development'] },
     { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Preview approval or changes', statuses: ['staging_review'] },
     { id: 'launch', label: 'Launch', eyebrow: 'Handoff', detail: 'Live link, access, completion', statuses: ['launched', 'handoff', 'completed'] },
@@ -1009,11 +1045,57 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     'handoff',
     'completed',
   ].includes(currentBuildStatus);
+  const scopeClientNotesLower = currentBuildRecord?.clientNotes?.toLowerCase() || '';
+  const hasScopeDiscussion = currentBuildStatus === 'quote_ready' && scopeClientNotesLower.includes('client wants to discuss the quote');
+  const isScopeApproved = ['approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(currentBuildStatus);
   const scopeDecisionLabel = currentBuildStatus === 'quote_ready'
-    ? 'Awaiting decision'
-    : ['approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(currentBuildStatus)
+    ? hasScopeDiscussion ? 'Discussion sent' : 'Awaiting decision'
+    : isScopeApproved
       ? 'Scope approved'
       : 'Client review';
+  const paymentAgreementStatusLabel = currentBuildRecord?.paymentAgreementStatus === 'confirmed'
+    ? 'Payment confirmed'
+    : currentBuildRecord?.paymentAgreementStatus === 'sent'
+      ? 'Payment terms sent'
+      : 'Awaiting payment terms';
+  const activeBuildLifecycleLabel = currentBuildStatus === 'payment_agreement'
+    ? paymentAgreementStatusLabel
+    : buildLifecycle[currentLifecycleIndex]?.label || 'Submitted';
+  const selectedBuildChapterDetail = selectedBuildChapter.id === 'agreement'
+    ? currentBuildRecord?.paymentAgreementStatus === 'confirmed'
+      ? 'Payment is confirmed. Development can start next.'
+      : currentBuildStatus === 'approved'
+        ? 'Payment terms are being prepared.'
+        : 'Complete payment before production begins.'
+    : selectedBuildChapter.detail;
+  const canPayAgreement = currentBuildStatus === 'payment_agreement'
+    && currentBuildRecord?.paymentAgreementStatus !== 'confirmed'
+    && Boolean(currentBuildRecord?.depositAmount || currentBuildRecord?.totalAgreedAmount || currentBuildRecord?.quotedAmount);
+  const paymentAgreementTypeLabel = currentBuildRecord?.paymentAgreementType === 'deposit'
+    ? 'Deposit payment'
+    : currentBuildRecord?.paymentAgreementType === 'full_payment'
+      ? 'Full payment'
+      : currentBuildRecord?.paymentAgreementType === 'milestone_payments'
+        ? 'Milestone payments'
+        : currentBuildRecord?.paymentAgreementType === 'manual_agreement'
+          ? 'Manual agreement'
+          : 'To be confirmed';
+  const paymentDueDateLabel = currentBuildRecord?.paymentDueDate
+    ? new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(new Date(currentBuildRecord.paymentDueDate))
+    : 'Not set';
+  const agreementTotalLabel = currentBuildRecord?.totalAgreedAmount
+    ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.totalAgreedAmount}`
+    : currentBuildRecord?.quotedAmount
+      ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}`
+      : 'Pending';
+  const agreementDepositLabel = currentBuildRecord?.depositAmount
+    ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.depositAmount}`
+    : 'Not set';
   const currentBuildMilestones = currentBuildRecord?.buildMilestones || [];
   const activeBuildMilestone = currentBuildMilestones.find(milestone => milestone.status === 'in_progress')
     || currentBuildMilestones.find(milestone => milestone.status === 'pending')
@@ -1891,11 +1973,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                     Step {selectedBuildChapterIndex + 1} of {buildJourneyChapters.length}
                                   </p>
                                   <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedBuildChapter.label}</h4>
-                                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedBuildChapter.detail}</p>
+                                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedBuildChapterDetail}</p>
                                 </div>
                                 <div className="w-full md:max-w-sm">
                                   <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
-                                    <span>{buildLifecycle[currentLifecycleIndex]?.label || 'Submitted'}</span>
+                                    <span>{activeBuildLifecycleLabel}</span>
                                     <span>{buildPageProgress}%</span>
                                   </div>
                                   <div className="mt-2 h-1.5 bg-white/10">
@@ -1931,7 +2013,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             )}
 
                             <div className={`grid flex-1 ${
-                              selectedBuildChapter.id === 'brief' ? '' : 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:divide-x lg:divide-white/10'
+                              selectedBuildChapter.id === 'brief' ? '' : 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:divide-x xl:divide-white/10'
                             }`}>
                               <section className="px-5 py-6 sm:px-8 lg:px-10">
                                 {selectedBuildChapter.id === 'brief' && (
@@ -2283,92 +2365,108 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   <div className="space-y-6">
                                     {isProjectRequest(currentBuildRecord) && hasScopeProposal ? (
                                       <div className="border-y border-white/10">
-                                        <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:divide-x lg:divide-white/10">
-                                          <div className="py-6 lg:pr-8">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Scope proposal</p>
+                                        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_17rem] xl:divide-x xl:divide-white/10">
+                                          <div className="py-6 xl:pr-8">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Scope review</p>
                                             <h5 className="mt-2 text-2xl font-black tracking-tight text-white">{briefType}</h5>
-                                            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/60">
-                                              Lead-focused {briefType.toLowerCase()} shaped around {briefGoals || 'the approved client goals'}, with a clean responsive experience and a launch-ready handoff.
+                                            <p className="mt-4 max-w-3xl text-sm leading-7 text-white/62">
+                                              Review the offer, price, and delivery boundaries before Agreement opens.
                                             </p>
+                                            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-xs font-semibold text-white/54">
+                                              <span>{briefGoals || 'Approved project goal'}</span>
+                                              <span>{briefStyle || 'Approved visual direction'}</span>
+                                            </div>
                                           </div>
-                                          <div className="border-t border-white/10 px-4 py-5 lg:border-t-0">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Quote</p>
-                                            <p className="mt-2 text-2xl font-black tracking-tight text-white">
+                                          <div className="border-t border-white/10 py-5 xl:border-t-0 xl:pl-6">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Price</p>
+                                            <p className="mt-2 text-3xl font-black tracking-tight text-white">
                                               {currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending'}
                                             </p>
-                                            <div className="mt-5 h-1 bg-white/10">
-                                              <div className="h-full w-2/3 bg-white/70" />
+                                            <div className="mt-5 flex items-center gap-3">
+                                              <span className={`h-2.5 w-2.5 rounded-full ${scopeDecisionLabel === 'Scope approved' ? 'bg-expert-green' : 'bg-amber-300'}`} />
+                                              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/54">{scopeDecisionLabel}</p>
                                             </div>
-                                            <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">{scopeDecisionLabel}</p>
+                                            {hasScopeDiscussion && (
+                                              <p className="mt-4 text-xs leading-6 text-amber-100/72">
+                                                Your change request is with the team. You can update the note if anything else needs to be added.
+                                              </p>
+                                            )}
                                           </div>
                                         </div>
 
-                                        <div className="grid border-t border-white/10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:divide-x lg:divide-white/10">
-                                          <div className="grid grid-cols-2 divide-x divide-white/10 lg:block lg:divide-x-0">
+                                        <div className="grid border-t border-white/10 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:divide-x xl:divide-white/10">
+                                          <div className="grid grid-cols-2 border-b border-white/10 md:grid-cols-4 xl:block xl:border-b-0">
                                             {[
                                               { label: 'Budget', value: currentBuildRecord.budget || 'Not specified' },
-                                              { label: 'Timeline', value: currentBuildRecord.timeline || '7-14 business days after agreement' },
-                                              { label: 'Decision', value: scopeDecisionLabel },
-                                              { label: 'Revisions', value: '2 review rounds before launch' },
+                                              { label: 'Timeline', value: currentBuildRecord.timeline || 'After agreement' },
+                                              { label: 'Revisions', value: '2 rounds' },
+                                              { label: 'Next', value: 'Agreement' },
                                             ].map((item) => (
-                                              <div key={item.label} className="border-b border-white/10 px-4 py-4 last:border-b-0">
+                                              <div key={item.label} className="border-b border-white/10 px-0 py-4 pr-4 md:border-b-0 xl:border-b xl:last:border-b-0">
                                                 <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
                                                 <p className="mt-2 text-sm font-semibold text-white/72">{item.value}</p>
                                               </div>
                                             ))}
                                           </div>
 
-                                          <div className="divide-y divide-white/10">
+                                          <div className="divide-y divide-white/10 xl:pl-6">
                                             {[
-                                              { label: 'Deliverable', value: `${briefType} prepared for client enquiries, mobile use, and launch.` },
-                                              { label: 'Included', value: `${briefFeatures || 'Core website pages and requested features'}, responsive layout, contact capture, basic SEO setup, launch preparation, and handoff support.` },
-                                              { label: 'Not included', value: 'Advanced automation, custom CRM integrations, ongoing maintenance, copywriting, or extra revision rounds unless added to the agreement.' },
-                                              { label: 'Project goal', value: briefGoals || 'Goal pending from the brief.' },
-                                              { label: 'Experience direction', value: briefStyle || 'Style direction pending.' },
+                                              { label: 'Deliverable', value: `${briefType} prepared for enquiries, responsive use, and launch handoff.` },
+                                              { label: 'Included', value: `${briefFeatures || 'Core requested features'}, responsive layout, contact capture, basic SEO setup, launch preparation, and handoff support.` },
+                                              { label: 'Boundaries', value: 'Advanced automation, custom CRM integrations, ongoing maintenance, copywriting, or extra revision rounds are handled as add-ons.' },
                                             ].map((item) => (
-                                              <div key={item.label} className="px-4 py-4">
+                                              <div key={item.label} className="py-4">
                                                 <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
                                                 <p className="mt-2 text-sm leading-6 text-white/64">{item.value}</p>
                                               </div>
                                             ))}
                                           </div>
                                         </div>
-                                        <textarea
-                                          value={quoteMessage}
-                                          onChange={(event) => setQuoteMessage(event.target.value)}
-                                          rows={3}
-                                          className="w-full resize-none border-0 border-t border-white/10 bg-black/20 px-4 py-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:bg-white/[0.02]"
-                                          placeholder="Add a decision note for the team"
-                                        />
-                                        <div className="grid border-t border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
-                                          <button
-                                            type="button"
-                                            onClick={() => handleQuoteResponse(currentBuildRecord, 'accept')}
-                                            disabled={quoteSubmitting}
-                                            className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/78 transition hover:bg-white/[0.035] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve scope</span>
-                                            {quoteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleQuoteResponse(currentBuildRecord, 'discuss')}
-                                            disabled={quoteSubmitting}
-                                            className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/58 transition hover:bg-white/[0.035] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
-                                          >
-                                            <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Discuss changes</span>
-                                            <ChevronRight className="h-4 w-4" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleQuoteResponse(currentBuildRecord, 'decline')}
-                                            disabled={quoteSubmitting}
-                                            className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-white/38 transition hover:bg-white/[0.035] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
-                                          >
-                                            <span className="flex items-center gap-3"><TriangleAlert className="h-4 w-4" /> Not ready</span>
-                                            <ChevronRight className="h-4 w-4" />
-                                          </button>
-                                        </div>
+
+                                        {isScopeApproved ? (
+                                          <div className="border-t border-expert-green/25 py-5">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Accepted</p>
+                                            <p className="mt-2 max-w-2xl text-sm font-semibold leading-7 text-white/68">
+                                              Scope is approved. The team will prepare Agreement, payment terms, and the production start details next.
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <div className="border-t border-white/10 py-4">
+                                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">
+                                                {hasScopeDiscussion ? 'Update message' : 'Message to team'}
+                                              </p>
+                                              <textarea
+                                                value={quoteMessage}
+                                                onChange={(event) => setQuoteMessage(event.target.value)}
+                                                rows={3}
+                                                className="mt-3 w-full resize-none border-0 bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24"
+                                                placeholder={hasScopeDiscussion ? 'Add what should change or what the team should explain...' : 'Tell the team what you want adjusted or clarified...'}
+                                              />
+                                            </div>
+
+                                            <div className="grid border-t border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleQuoteResponse(currentBuildRecord, 'accept')}
+                                                disabled={quoteSubmitting}
+                                                className="flex min-h-14 items-center justify-between gap-3 px-0 py-4 pr-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+                                              >
+                                                <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve scope</span>
+                                                {quoteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleQuoteResponse(currentBuildRecord, 'discuss')}
+                                                disabled={quoteSubmitting}
+                                                className="flex min-h-14 items-center justify-between gap-3 border-t border-white/10 px-0 py-4 pr-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0 sm:px-4"
+                                              >
+                                                <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> {hasScopeDiscussion ? 'Update discussion' : 'Discuss changes'}</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
                                     ) : (
                                       <div className="border-y border-white/10 py-6">
@@ -2385,40 +2483,72 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                 {selectedBuildChapter.id === 'agreement' && (
                                   <div className="space-y-6">
                                     {isProjectRequest(currentBuildRecord) && ['approved', 'payment_agreement'].includes(currentBuildStatus) ? (
-                                  <div className="border-y border-expert-green/30 bg-expert-green/[0.035] py-5">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                      <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Payment agreement</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/68">
-                                          {currentBuildStatus === 'approved'
-                                            ? 'Your quote is accepted. The team will prepare the payment terms before development starts.'
-                                            : 'Payment terms are being confirmed. Development starts after the agreement is settled.'}
-                                        </p>
-                                      </div>
-                                      <div className="border-t border-white/10 pt-4 sm:min-w-36 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Status</p>
-                                        <p className="mt-2 text-lg font-black text-white">
-                                          {(currentBuildRecord.paymentAgreementStatus || 'pending').replace(/_/g, ' ')}
-                                        </p>
+                                  <div className="border-y border-white/10">
+                                    <div className="py-6">
+                                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-3">
+                                            <span className={`h-2.5 w-2.5 rounded-full ${
+                                              currentBuildRecord.paymentAgreementStatus === 'confirmed' ? 'bg-expert-green' : 'bg-amber-300'
+                                            }`} />
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">
+                                              {paymentAgreementStatusLabel}
+                                            </p>
+                                          </div>
+                                          <h5 className="mt-3 text-2xl font-black tracking-tight text-white">
+                                            {currentBuildRecord.paymentAgreementStatus === 'confirmed'
+                                              ? 'Production is ready to begin.'
+                                              : 'Complete the deposit step.'}
+                                          </h5>
+                                          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/58">
+                                            {currentBuildStatus === 'approved'
+                                              ? 'The team is preparing the payment terms after scope approval.'
+                                              : currentBuildRecord.paymentAgreementStatus === 'confirmed'
+                                                ? 'The payment gate is cleared. The team can move this build into Development.'
+                                                : 'Pay the required amount through the secure checkout so Development can begin.'}
+                                          </p>
+                                        </div>
+                                        <div className="min-w-0 lg:min-w-56 lg:text-right">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Agreement total</p>
+                                          <p className="mt-2 text-3xl font-black tracking-tight text-white">{agreementTotalLabel}</p>
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="mt-5 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+
+                                    <div className="grid border-t border-white/10 md:grid-cols-3 md:divide-x md:divide-white/10">
                                       {[
-                                        { label: 'Type', value: currentBuildRecord.paymentAgreementType?.replace(/_/g, ' ') || 'To be confirmed' },
-                                        { label: 'Total', value: currentBuildRecord.totalAgreedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.totalAgreedAmount}` : (currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending') },
-                                        { label: 'Deposit', value: currentBuildRecord.depositAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.depositAmount}` : 'Not set' },
-                                        { label: 'Due date', value: currentBuildRecord.paymentDueDate ? new Date(currentBuildRecord.paymentDueDate).toLocaleDateString() : 'Not set' },
+                                        { label: 'Payment terms', value: paymentAgreementTypeLabel },
+                                        { label: 'Deposit due', value: agreementDepositLabel },
+                                        { label: 'Due date', value: paymentDueDateLabel },
                                       ].map((item) => (
-                                        <div key={item.label} className="border-b border-white/10 p-4 sm:border-b-0">
+                                        <div key={item.label} className="border-b border-white/10 py-4 pr-4 md:border-b-0 md:px-4 first:md:pl-0 last:md:pr-0">
                                           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
-                                          <p className="mt-2 text-sm font-semibold capitalize text-white/72">{item.value}</p>
+                                          <p className="mt-2 text-sm font-semibold text-white/72">{item.value}</p>
                                         </div>
                                       ))}
                                     </div>
+
                                     {currentBuildRecord.paymentInstructions && (
-                                      <div className="mt-5 border-y border-white/10 py-4">
-                                        <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Instructions</p>
-                                        <p className="whitespace-pre-line text-sm leading-7 text-white/64">{currentBuildRecord.paymentInstructions}</p>
+                                      <div className="border-t border-white/10 py-5">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">How to pay</p>
+                                        <p className="mt-3 whitespace-pre-line text-sm leading-7 text-white/64">{currentBuildRecord.paymentInstructions}</p>
+                                      </div>
+                                    )}
+                                    {canPayAgreement && (
+                                      <div className="border-t border-white/10 py-5">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Secure checkout</p>
+                                        <p className="mt-2 max-w-2xl text-sm leading-7 text-white/54">
+                                          Pay {currentBuildRecord.depositAmount ? 'the deposit' : 'the agreement amount'} securely. Payment confirmation returns to this workspace.
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAgreementPayment(currentBuildRecord)}
+                                          disabled={paymentSubmitting}
+                                          className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-xs"
+                                        >
+                                          <span>{currentBuildRecord.depositAmount ? `Pay deposit (${agreementDepositLabel})` : `Pay now (${agreementTotalLabel})`}</span>
+                                          {paymentSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                        </button>
                                       </div>
                                     )}
                                   </div>
@@ -2656,7 +2786,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                 )}
                               </section>
 
-                              <aside className={`border-t border-white/10 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6 ${
+                              <aside className={`border-t border-white/10 px-5 py-6 sm:px-8 xl:border-t-0 xl:px-6 ${
                                 selectedBuildChapter.id === 'brief' ? 'hidden' : ''
                               }`}>
                                 <div className="divide-y divide-white/10 border-y border-white/10">
@@ -2677,12 +2807,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">Brief questions</p>
                                         </div>
                                       )}
-                                    </div>
-                                  )}
-                                  {selectedBuildChapter.id === 'agreement' && (
-                                    <div className="px-1 py-4">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement state</p>
-                                      <p className="mt-2 text-xs leading-6 text-white/50">{(currentBuildRecord.paymentAgreementStatus || 'pending').replace(/_/g, ' ')}</p>
                                     </div>
                                   )}
                                   {selectedBuildChapter.id === 'build' && (
