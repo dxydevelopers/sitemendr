@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api';
-import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Menu, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays } from 'lucide-react';
 
 const BlogEditor = dynamic(() => import('./BlogEditor'), { ssr: false });
 const AssessmentModal = dynamic(() => import('./AssessmentModal'), { ssr: false });
@@ -260,6 +261,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>('work');
+  const [mobileRailGroup, setMobileRailGroup] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [buildOperatorView, setBuildOperatorView] = useState('overview');
@@ -570,7 +572,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
   const adminBuildChapters = [
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Read the request and confirm project basics', statuses: ['submitted', 'in_review'] },
-    { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Prepare pricing and scope decisions', statuses: ['quote_ready', 'approved'] },
+    { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Set the offer, price, and delivery terms.', statuses: ['quote_ready', 'approved'] },
     { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Send terms and confirm payment agreement', statuses: ['payment_agreement'] },
     { id: 'build', label: 'Build', eyebrow: 'Execution', detail: 'Manage milestones and delivery notes', statuses: ['in_development'] },
     { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Send preview and handle feedback', statuses: ['staging_review'] },
@@ -625,9 +627,25 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const nextBuildOperatorView = selectedBuildOperatorViewIndex >= 0 && selectedBuildOperatorViewIndex < buildOperatorViews.length - 1
     ? buildOperatorViews[selectedBuildOperatorViewIndex + 1]
     : null;
+  const buildSearchTerm = searchTerm.trim().toLowerCase();
   const filteredProjectRequestsBySearch = projectRequests.filter(request => {
-    const haystack = `${request.title} ${request.businessName || ''} ${request.user?.email || ''} ${request.status}`.toLowerCase();
-    return haystack.includes(searchTerm.toLowerCase());
+    if (!buildSearchTerm) return true;
+    const rowChapter = getAdminBuildChapter(request.status);
+    const haystack = [
+      request.id,
+      request.title,
+      request.businessName,
+      request.packageIntent,
+      request.serviceType,
+      request.status,
+      request.summary,
+      request.quoteCurrency,
+      request.quotedAmount,
+      rowChapter.label,
+      request.user?.name,
+      request.user?.email,
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(buildSearchTerm);
   });
   const filteredProjectRequests = selectedBuildOperatorView
     ? filteredProjectRequestsBySearch.filter(request => selectedBuildOperatorView.statuses.includes(request.status))
@@ -644,6 +662,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     ? requestedAdminBuildChapter
     : defaultAdminBuildChapter;
   const selectedAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(chapter => chapter.id === selectedAdminBuildChapter.id));
+  const nextAdminBuildChapter = adminBuildChapters[Math.min(selectedAdminBuildChapterIndex + 1, adminBuildChapters.length - 1)];
   const adminBuildPageProgress = Math.round(((defaultAdminBuildChapterIndex + 1) / adminBuildChapters.length) * 100);
   const selectedBuildMilestones = selectedProjectRequest?.buildMilestones || [];
   const selectedBuildMilestoneProgress = selectedBuildMilestones.length
@@ -661,21 +680,14 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         : 'Review needed';
   const briefMissingOptions = [
     'Content/assets',
-    'Budget clarity',
-    'Timeline clarity',
-    'Feature scope',
-    'Audience/details',
     'Pages/sections',
     'Services/products',
     'Lead form fields',
-    'Lead destination',
-    'Brand assets',
     'Design references',
-    'Domain/hosting',
-    'Admin access',
-    'Integrations',
-    'Legal/policies',
-    'Launch success',
+    'Feature scope',
+    'Audience/details',
+    'Budget clarity',
+    'Timeline clarity',
   ];
   const selectedBriefLines = (selectedProjectRequest?.summary || '').split('\n').filter(Boolean);
   const getSelectedBriefValue = (label: string) => {
@@ -705,13 +717,82 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     { question: 'Any existing link?', answer: selectedBriefLink || 'Not specified' },
     { question: 'Priority level', answer: selectedProjectRequest?.priority || 'normal' },
   ];
+  const selectedClientNotes = selectedProjectRequest?.clientNotes?.trim() || '';
+  const selectedAdminNotes = selectedProjectRequest?.adminNotes?.trim() || '';
+  const selectedClientResponseSource = [selectedClientNotes, selectedAdminNotes].find(note => {
+    const value = note.toLowerCase();
+    return value.includes('client sent brief clarification') || value.includes('client brief clarification') || value.includes('client message:');
+  }) || '';
+  const selectedClientResponseReceived = Boolean(selectedClientResponseSource);
+  const isBriefApprovedForScope = Boolean(selectedProjectRequest && ['quote_ready', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff', 'completed'].includes(selectedProjectRequest.status));
+  const selectedClientResponseReceivedAt = selectedProjectRequest?.updatedAt
+    ? new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(selectedProjectRequest.updatedAt))
+    : 'Recently';
+  const selectedClientResponseLines = selectedClientResponseReceived
+    ? selectedClientResponseSource
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => {
+        const value = line.toLowerCase();
+        return line && !value.includes('client sent brief clarification') && !value.includes('client brief clarification');
+      })
+      .map(line => line.replace(/^Client message:\s*/i, ''))
+    : [];
+  const selectedClientResponseRows = selectedClientResponseLines.flatMap((line) => {
+    const [label, ...rest] = line.split(':');
+    const answer = rest.join(':').trim();
+    return label && answer ? [{ label: label.trim(), answer }] : [{ label: 'Client response', answer: line }];
+  }).filter((row) => briefMissingOptions.some(option => option.toLowerCase() === row.label.toLowerCase()));
+  const selectedClientResponseSections = [
+    {
+      title: 'Content',
+      tone: 'text-ai-blue',
+      icon: <Folder className="h-4 w-4" />,
+      labels: ['Content/assets', 'Pages/sections', 'Services/products']
+    },
+    {
+      title: 'Project direction',
+      tone: 'text-expert-green',
+      icon: <Activity className="h-4 w-4" />,
+      labels: ['Feature scope', 'Audience/details', 'Lead form fields', 'Design references']
+    },
+    {
+      title: 'Planning',
+      tone: 'text-amber-300',
+      icon: <Clock className="h-4 w-4" />,
+      labels: ['Budget clarity', 'Timeline clarity']
+    },
+  ].map(section => ({
+    ...section,
+    rows: selectedClientResponseRows.filter(row => section.labels.some(label => label.toLowerCase() === row.label.toLowerCase()))
+  })).filter(section => section.rows.length);
   const buildBriefClarificationMessage = () => {
-    const missingText = briefMissingItems.length
-      ? `Please clarify: ${briefMissingItems.join(', ')}.`
-      : 'Please clarify the brief details before scope is prepared.';
+    const missingText = briefMissingItems.length ? `Please clarify: ${briefMissingItems.join(', ')}.` : '';
     const noteText = briefClarificationMessage.trim();
 
-    return noteText ? `${missingText}\n${noteText}` : missingText;
+    return [missingText, noteText].filter(Boolean).join('\n');
+  };
+  const handleRequestBriefMoreDetails = (id: string) => {
+    const message = buildBriefClarificationMessage();
+    if (!message) {
+      setBriefDecisionMessage({
+        type: 'error',
+        text: 'Add a note or select missing items before requesting more detail.'
+      });
+      return;
+    }
+
+    handleUpdateProjectRequest(id, {
+      status: 'in_review',
+      clientNotes: message
+    });
   };
 
   const handleUpdateProjectRequest = async (id: string, data: Record<string, unknown>) => {
@@ -852,6 +933,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const openAdminTab = (tabId: string) => {
     setActiveTab(tabId);
     setIsSidebarOpen(false);
+    setMobileRailGroup(null);
     if (typeof window !== 'undefined') {
       window.history.pushState(null, '', `/admin/${tabId}`);
     }
@@ -866,6 +948,79 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
           onClick={() => setIsSidebarOpen(false)}
         ></div>
       )}
+
+      {mobileRailGroup && (
+        <button
+          type="button"
+          className="fixed inset-0 z-[70] bg-transparent lg:hidden"
+          aria-label="Close mobile navigation"
+          onClick={() => setMobileRailGroup(null)}
+        />
+      )}
+
+      <nav className={`fixed left-0 top-1/2 z-[80] flex -translate-y-1/2 flex-col gap-4 py-3 transition-[width,padding] duration-200 lg:hidden ${
+        mobileRailGroup ? 'w-64 px-2' : 'w-9 px-0'
+      }`}>
+        {tabGroups.map((group) => {
+          const isGroupActive = group.tabs.includes(activeTab);
+          const isRailOpen = mobileRailGroup === group.id;
+
+          return (
+            <div key={group.id} className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  if (group.tabs.length === 1) {
+                    openAdminTab(group.tabs[0]);
+                    return;
+                  }
+                  setMobileRailGroup(isRailOpen ? null : group.id);
+                }}
+                className={`grid h-11 w-9 shrink-0 place-items-center transition ${
+                  isGroupActive || isRailOpen
+                    ? group.accent
+                    : 'text-white/66 hover:text-white'
+                }`}
+                aria-label={group.label}
+              >
+                {group.icon}
+              </button>
+
+              {isRailOpen && (
+                <div className="mt-2 w-full pl-10 py-1">
+                  <p className={`text-[9px] font-black uppercase tracking-[0.22em] ${group.accent}`}>
+                    {group.label}
+                  </p>
+                  <div className="mt-5 grid gap-1">
+                    {group.tabs.map((tabId) => {
+                      const tab = tabs.find(item => item.id === tabId);
+                      if (!tab) return null;
+
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => openAdminTab(tab.id)}
+                          className={`group flex min-h-12 w-fit max-w-full items-center gap-3 py-3 text-left transition ${
+                            activeTab === tab.id
+                              ? 'text-white'
+                              : 'text-white/52 hover:text-white'
+                          }`}
+                        >
+                          <span className={activeTab === tab.id ? 'text-ai-blue' : 'text-white/34'}>{tab.icon}</span>
+                          <span className="min-w-0 border-b border-white/16 pb-1 text-sm font-black tracking-tight transition group-hover:border-white/34">
+                            {tab.shortName || tab.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 w-80 bg-[#05070a]/96 backdrop-blur-2xl lg:bg-[#05070a] border-r border-white/10 flex flex-col z-[110] lg:z-20 transform transition-[width,transform] duration-300 lg:relative lg:translate-x-0 ${isSidebarExpanded ? 'lg:w-80' : 'lg:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -974,30 +1129,27 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
       </aside>
 
       {/* Main Content Area */}
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#05070a]/95 px-4 py-3 lg:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            {/* Mobile Menu Toggle */}
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="grid h-10 w-10 place-items-center border border-white/10 text-white/64 transition hover:bg-white/[0.05] hover:text-white lg:hidden"
-              aria-label="Open admin navigation"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
+      <div className={`relative z-10 flex flex-1 flex-col overflow-hidden transition-[padding] duration-200 lg:pl-0 ${
+        mobileRailGroup ? 'pl-64' : 'pl-10'
+      }`}>
+        {activeTab !== 'project-requests' && (
+          <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#05070a]/95 px-4 py-3 lg:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              {activeTab !== 'dashboard' && (
+                <div className="min-w-0">
+                  <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${currentGroup.accent}`}>{currentGroup.label}</p>
+                  <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">
+                    {currentTab?.name || 'Admin'}
+                  </h1>
+                </div>
+              )}
+            </div>
+          </header>
+        )}
 
-            {activeTab !== 'dashboard' && (
-              <div className="min-w-0">
-                <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${currentGroup.accent}`}>{currentGroup.label}</p>
-                <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">
-                  {currentTab?.name || 'Admin'}
-                </h1>
-              </div>
-            )}
-          </div>
-        </header>
-
-        <main className="relative flex-1 overflow-y-auto p-4 custom-scrollbar sm:p-6 lg:p-7">
+        <main className={`relative flex-1 overflow-y-auto custom-scrollbar ${
+          activeTab === 'project-requests' ? 'p-0' : 'p-4 sm:p-6 lg:p-7'
+        }`}>
 
         {/* Dashboard Content */}
         {activeTab === 'dashboard' && (
@@ -1658,59 +1810,60 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         {activeTab === 'project-requests' && (
           <div className="animate-fade-in">
             {!selectedProjectRequestId && selectedBuildOperatorView && (
-            <div className="mb-6 border-y border-white/10">
-              <div className="px-5 py-6 lg:px-8">
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setBuildOperatorView('overview')}
-                    className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36 transition hover:text-white"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                    Operator queue
-                  </button>
-                  <div className="flex items-center gap-2">
+            <div className="mb-6">
+              <div className="px-5 pb-5 pt-1 lg:px-8">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-4">
                     <button
                       type="button"
-                      onClick={() => previousBuildOperatorView && setBuildOperatorView(previousBuildOperatorView.id)}
-                      disabled={!previousBuildOperatorView}
-                      className="flex min-h-10 items-center gap-2 border border-white/10 px-3 py-2 text-white/46 transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                      aria-label="Previous build room"
+                      onClick={() => setBuildOperatorView('overview')}
+                      className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center text-white/42 transition hover:text-white"
+                      aria-label="Back to operator queue"
                     >
-                      <ChevronRight className="h-4 w-4 rotate-180" />
-                      <span className="hidden text-[10px] font-black uppercase tracking-[0.14em] sm:block">
-                        {previousBuildOperatorView?.label || 'Previous'}
-                      </span>
+                      <ArrowLeft className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => nextBuildOperatorView && setBuildOperatorView(nextBuildOperatorView.id)}
-                      disabled={!nextBuildOperatorView}
-                      className="flex min-h-10 items-center gap-2 border border-white/10 px-3 py-2 text-white/46 transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                      aria-label="Next build room"
-                    >
-                      <span className="hidden text-[10px] font-black uppercase tracking-[0.14em] sm:block">
-                        {nextBuildOperatorView?.label || 'Next'}
-                      </span>
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-black tracking-tight text-white lg:text-2xl">
+                        {selectedBuildOperatorView.label}
+                      </h2>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 pl-12 lg:pl-0">
+                    {previousBuildOperatorView && (
+                      <button
+                        type="button"
+                        onClick={() => setBuildOperatorView(previousBuildOperatorView.id)}
+                        className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:text-expert-green/80"
+                        aria-label="Previous build room"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                        {previousBuildOperatorView.label}
+                      </button>
+                    )}
+                    <label className="group inline-flex h-8 min-w-[11rem] items-center gap-2 text-white/70 transition focus-within:text-white">
+                      <Search className="h-3.5 w-3.5 shrink-0" />
+                      <input
+                        type="text"
+                        placeholder={`Search ${selectedBuildOperatorView.label.toLowerCase()}...`}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        aria-label={`Search ${selectedBuildOperatorView.label}`}
+                        className="w-full bg-transparent text-[10px] font-black uppercase tracking-[0.14em] text-white/90 outline-none placeholder:text-white/45 focus:text-white"
+                      />
+                    </label>
+                    {nextBuildOperatorView && (
+                      <button
+                        type="button"
+                        onClick={() => setBuildOperatorView(nextBuildOperatorView.id)}
+                        className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:text-amber-200"
+                        aria-label="Next build room"
+                      >
+                        {nextBuildOperatorView.label}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-white lg:text-5xl">
-                  {selectedBuildOperatorView.label}
-                </h2>
-                <p className="mt-4 max-w-3xl text-sm leading-7 text-white/54">
-                  {selectedBuildOperatorView.detail}
-                </p>
-              </div>
-              <div className="border-t border-white/10 px-5 py-4 lg:px-8">
-                <input
-                  type="text"
-                  placeholder="Search this room..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
-                />
               </div>
             </div>
             )}
@@ -1745,26 +1898,36 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                 </div>
               </div>
             ) : !selectedProjectRequestId && selectedBuildOperatorView ? (
-              <div className="border-y border-white/10">
-                <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+              <div>
+                <div className="flex items-center justify-between gap-4 px-5 py-4 lg:px-8">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Build room</p>
-                    <h3 className="mt-1 text-sm font-black text-white">{selectedBuildOperatorView.label}</h3>
+                    <h3 className="text-sm font-black text-white">{selectedBuildOperatorView.label}</h3>
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
                     {filteredProjectRequests.length} record{filteredProjectRequests.length === 1 ? '' : 's'}
                   </span>
                 </div>
-                <div className="divide-y divide-white/10">
+                <div>
                   {filteredProjectRequests
                     .map((request) => {
                       const rowChapter = getAdminBuildChapter(request.status);
                       const rowProgress = getAdminBuildProgress(request.status);
-                      const nextAction = getAdminNextAction(request);
+                      const rowClientResponseSource = `${request.clientNotes || ''}\n${request.adminNotes || ''}`.toLowerCase();
+                      const rowClientResponded = rowClientResponseSource.includes('client sent brief clarification')
+                        || rowClientResponseSource.includes('client brief clarification')
+                        || rowClientResponseSource.includes('client message:');
+                      const nextAction = rowClientResponded ? 'Review client response' : getAdminNextAction(request);
                       const rowState = getAdminBuildState(request);
                       const summaryPreview = request.summary
                         ? request.summary.split('\n').find(line => line.trim().length > 0) || request.summary
                         : 'No project summary has been prepared yet.';
+                      const rowAttentionReason = rowClientResponded
+                        ? 'Client response received. Review the new brief details and decide whether Scope can open.'
+                        : request.status === 'in_review'
+                          ? 'Brief is under review. Confirm missing items or approve the request for Scope.'
+                          : request.status === 'submitted'
+                            ? 'New brief submitted. Start intake review and check what Scope needs.'
+                            : summaryPreview;
                       const quoteLabel = request.quotedAmount
                         ? `${request.quoteCurrency || 'USD'} ${request.quotedAmount}`
                         : 'Quote pending';
@@ -1788,57 +1951,75 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                             setSelectedProjectRequestId(request.id);
                             setActiveAdminBuildChapter(null);
                           }}
-                          className={`grid w-full gap-5 px-5 py-5 text-left transition hover:bg-white/[0.025] xl:grid-cols-[minmax(0,1fr)_24rem_2rem] xl:items-center ${
+                          className={`group grid w-full gap-5 border-b border-ai-blue/18 px-5 py-5 text-left transition hover:border-ai-blue/36 hover:bg-white/[0.025] xl:grid-cols-[minmax(0,1fr)_25rem] xl:items-center ${
                             closedBuildStatuses.includes(request.status) ? 'opacity-70 hover:opacity-100' : ''
                           }`}
                         >
                           <span className="min-w-0">
-                            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                              <span className="block truncate text-base font-black text-white">{request.title || request.businessName || 'Untitled build'}</span>
-                              <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">{projectLabel.replace(/_/g, ' ')}</span>
-                            </span>
-                            <span className="mt-2 block text-sm leading-6 text-white/52 line-clamp-2">
-                              {summaryPreview}
-                            </span>
-                            <span className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
-                              <span>{request.user?.name || 'Unknown client'}</span>
-                              <span>{request.user?.email || 'No client email'}</span>
+                            <span className="block truncate text-base font-black text-white">{request.title || request.businessName || 'Untitled build'}</span>
+                            <span className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                              <span className="inline-flex items-center gap-2 text-amber-300">
+                                <Package className="h-3.5 w-3.5" />
+                                <span>{projectLabel.replace(/_/g, ' ')}</span>
+                              </span>
+                              <span className="inline-flex items-center gap-2 text-expert-green">
+                                <UserRound className="h-3.5 w-3.5" />
+                                <span>{request.user?.name || 'Unknown client'}</span>
+                              </span>
+                              <span className="inline-flex min-w-0 items-start gap-2 text-ai-blue">
+                                <Mail className="h-3.5 w-3.5 shrink-0" />
+                                <span className="break-all normal-case tracking-normal">{request.user?.email || 'No client email'}</span>
+                              </span>
+                              <span className="inline-flex items-center gap-2 text-tech-purple">
+                                <CalendarDays className="h-3.5 w-3.5" />
+                                <span>{createdAtLabel}</span>
+                              </span>
                             </span>
                           </span>
-                          <span className="grid gap-3 sm:grid-cols-4 xl:grid-cols-2">
+                          <span className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
                             {[
-                              { label: 'Next', value: nextAction },
-                              { label: 'Stage', value: rowChapter.label },
-                              { label: 'State', value: rowState },
-                              { label: 'Quote', value: quoteLabel },
-                              { label: 'Submitted', value: createdAtLabel },
+                              { label: 'Next', value: nextAction, color: 'text-amber-300', icon: <ChevronRight className="h-3.5 w-3.5" /> },
+                              { label: 'Stage', value: rowChapter.label, color: 'text-ai-blue', icon: <Activity className="h-3.5 w-3.5" /> },
+                              { label: 'State', value: rowClientResponded ? 'Client responded' : rowState, color: rowClientResponded ? 'text-expert-green' : 'text-white/58', icon: rowClientResponded ? <MessageSquare className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" /> },
+                              { label: 'Quote', value: quoteLabel, color: 'text-white/72', icon: <CreditCard className="h-3.5 w-3.5" /> },
                             ].map((item) => (
                               <span key={item.label} className="min-w-0">
-                                <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-white/26">{item.label}</span>
-                                <span className="mt-1 block truncate text-[11px] font-black uppercase tracking-[0.1em] text-white/58">{item.value}</span>
+                                <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                                  {item.icon}
+                                  <span>{item.label}</span>
+                                </span>
+                                <span className={`mt-1 block truncate text-[11px] font-black uppercase tracking-[0.1em] ${item.color}`}>{item.value}</span>
                               </span>
                             ))}
                             <span className="sm:col-span-4 xl:col-span-2">
-                              <span className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.14em] text-white/30">
-                                <span>Progress</span>
-                                <span>{rowProgress}%</span>
+                              <span className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.14em]">
+                                <span className="text-white/46">Progress</span>
+                                <span className="text-expert-green">{rowProgress}%</span>
                               </span>
                               <span className="mt-2 block h-1 bg-white/10">
-                                <span className="block h-full bg-white/72" style={{ width: `${rowProgress}%` }} />
+                                <span className="block h-full bg-expert-green" style={{ width: `${rowProgress}%` }} />
                               </span>
                             </span>
                           </span>
-                          <ChevronRight className="h-4 w-4 justify-self-end text-white/24" />
+                          <span className={`flex min-w-0 flex-col gap-3 pt-1 text-sm font-semibold leading-6 sm:flex-row sm:items-center sm:justify-between xl:col-span-2 ${rowClientResponded ? 'text-expert-green' : 'text-white/56'}`}>
+                            <span className="min-w-0">{rowAttentionReason}</span>
+                            <span className="inline-flex shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/48 transition group-hover:text-white">
+                              Open brief
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </span>
+                          </span>
                         </button>
                       );
                     })}
                   {filteredProjectRequests.length === 0 && (
-                    <div className="px-5 py-10 text-sm text-white/34">No requests match this operator view.</div>
+                    <div className="px-5 py-10 text-sm text-white/34">
+                      {buildSearchTerm ? `No results for "${searchTerm.trim()}"` : `No ${selectedBuildOperatorView.label.toLowerCase()} waiting right now.`}
+                    </div>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="min-h-[680px] border-y border-white/10">
+              <div className="min-h-[680px]">
                 <aside className="hidden">
                   <div className="grid grid-cols-[1fr_7rem_2rem] gap-3 border-b border-white/10 px-5 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
                     <span>Build queue</span>
@@ -1896,8 +2077,8 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                 <main className="min-w-0">
                   {selectedProjectRequest && (
                     <div className="flex h-full flex-col">
-                      <div className="border-b border-white/10 px-5 py-5 lg:px-8">
-                        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="px-5 pb-3 pt-1 lg:px-8">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                           <div className="min-w-0">
                             <button
                               type="button"
@@ -1905,35 +2086,62 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 setSelectedProjectRequestId(null);
                                 setActiveAdminBuildChapter(null);
                               }}
-                              className="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36 transition hover:text-white"
+                              className="mb-3 grid h-9 w-9 place-items-center text-white/42 transition hover:text-white"
+                              aria-label="Back to build queue"
                             >
-                              <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                              Build queue
+                              <ArrowLeft className="h-4 w-4" />
                             </button>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
-                              {selectedProjectRequest.id.slice(-8).toUpperCase()}
-                            </p>
-                            <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-white">
+                            <h3 className="truncate text-2xl font-black tracking-tight text-white">
                               {selectedProjectRequest.title || selectedProjectRequest.businessName || 'Untitled build'}
                             </h3>
-                            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/42">
-                              <span>{selectedProjectRequest.user?.name || 'Unknown client'}</span>
-                              <span>{selectedProjectRequest.user?.email || 'No email'}</span>
-                              <span>{new Date(selectedProjectRequest.createdAt).toLocaleDateString()}</span>
+                            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                              <span className="text-white/38">{selectedProjectRequest.id.slice(-8).toUpperCase()}</span>
+                              <span className="inline-flex items-center gap-2 text-expert-green">
+                                <UserRound className="h-3.5 w-3.5" />
+                                {selectedProjectRequest.user?.name || 'Unknown client'}
+                              </span>
+                              <span className="inline-flex items-start gap-2 text-ai-blue">
+                                <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                <span className="break-all normal-case tracking-normal">{selectedProjectRequest.user?.email || 'No email'}</span>
+                              </span>
+                              <span className="inline-flex items-center gap-2 text-amber-300">
+                                <CalendarDays className="h-3.5 w-3.5" />
+                                {new Date(selectedProjectRequest.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex min-w-0 items-center gap-4 xl:justify-end">
+                            <div className="grid h-11 w-11 shrink-0 place-items-center text-ai-blue">
+                              {selectedClientResponseReceived ? <MessageSquare className="h-6 w-6 text-expert-green" /> : selectedProjectRequest.status === 'in_review' ? <Clock className="h-6 w-6" /> : <Check className="h-6 w-6 text-expert-green" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
+                                Step {selectedAdminBuildChapterIndex + 1} of {adminBuildChapters.length}
+                              </p>
+                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Current</p>
+                              <p className="mt-1 truncate text-sm font-black tracking-tight text-white">
+                                {selectedAdminBuildChapter.id === 'brief'
+                                  ? selectedClientResponseReceived ? 'Client responded' : 'Brief review'
+                                  : selectedAdminBuildChapter.label}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-white/24" />
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Next</p>
+                              <p className="mt-1 truncate text-sm font-black tracking-tight text-white/68">
+                                {nextAdminBuildChapter?.label || 'Scope'}
+                              </p>
                             </div>
                           </div>
                         </div>
                       </div>
 
+                      {selectedAdminBuildChapter.id !== 'brief' && (
                       <div className="border-b border-white/10 px-5 py-5 lg:px-8">
                         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                           <div className="min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue/70">
-                              Step {selectedAdminBuildChapterIndex + 1} of {adminBuildChapters.length}
-                            </p>
-                            <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedAdminBuildChapter.label}</h4>
                             {selectedAdminBuildChapter.id !== 'brief' && (
-                              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
+                              <p className="max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
                             )}
                           </div>
                           <div className="w-full md:max-w-sm">
@@ -1957,6 +2165,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           </div>
                         </div>
                       </div>
+                      )}
 
                       <div className={`flex-1 ${
                         selectedAdminBuildChapter.id === 'brief'
@@ -1964,16 +2173,97 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           : 'grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:divide-x lg:divide-white/10'
                       }`}>
                         <section className="px-5 py-6 lg:px-8">
-                          <div className="mb-5 flex items-center justify-between gap-4">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{selectedAdminBuildChapter.label}</h4>
-                            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
-                          </div>
+                          {selectedAdminBuildChapter.id !== 'brief' && (
+                            <div className="mb-5 flex items-center justify-between gap-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{selectedAdminBuildChapter.label}</h4>
+                              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
+                            </div>
+                          )}
                           {selectedAdminBuildChapter.id === 'brief' && (
                           <>
-                          <div className="border-y border-white/10">
-                            <div className="hidden grid-cols-2 gap-px bg-white/10 xl:grid xl:grid-cols-5">
+                          {selectedClientResponseReceived && (
+                            <div className="mb-6 py-5">
+                              <div className="flex flex-col gap-3 border-b border-expert-green/25 pb-5 md:flex-row md:items-start md:justify-between">
+                                <div className="min-w-0">
+                                  <p className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    Client response received
+                                  </p>
+                                  <h4 className="mt-2 text-xl font-black tracking-tight text-white">Submitted brief details</h4>
+                                  <p className="mt-2 text-sm font-semibold leading-6 text-white/52">
+                                    Received {selectedClientResponseReceivedAt}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green">
+                                  {selectedClientResponseRows.length} answers
+                                </span>
+                              </div>
+                              <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                                {selectedClientResponseSections.map((section) => (
+                                  <div key={section.title} className="min-w-0 border-b border-white/10 pb-5">
+                                    <div className={`flex items-center gap-2 ${section.tone}`}>
+                                      {section.icon}
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em]">{section.title}</p>
+                                    </div>
+                                    <div className="mt-4 divide-y divide-white/10">
+                                      {section.rows.map((row, index) => (
+                                        <div key={`${section.title}-${row.label}-${index}`} className="grid gap-2 py-3 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-5">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-white/34">{row.label}</p>
+                                          <p className="whitespace-pre-line break-words text-sm font-semibold leading-6 text-white/78">{row.answer}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className={`${selectedClientResponseReceived ? 'mt-2' : 'border-y border-white/10'}`}>
+                            {selectedClientResponseReceived && (
+                              <details className="border-y border-white/10 py-4">
+                                <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-[0.18em] text-white/42 transition hover:text-white">
+                                  Original brief
+                                </summary>
+                                <div className="mt-4">
+                                  <div className="hidden xl:grid xl:grid-cols-5">
+                                    {selectedBriefAnswerRows.map((row) => (
+                                      <div key={row.question} className="min-w-0 border-b border-r border-white/10 px-4 py-4 [&:nth-child(5n)]:border-r-0">
+                                        <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/34" title={row.question}>
+                                          {row.question}
+                                        </p>
+                                        <p
+                                          className={`mt-2 truncate text-sm font-semibold ${
+                                            ['Not answered', 'Not specified'].includes(row.answer) ? 'text-white/30' : 'text-white/74'
+                                          }`}
+                                          title={row.answer}
+                                        >
+                                          {row.answer}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="divide-y divide-white/10 xl:hidden">
+                                    {selectedBriefAnswerRows.map((row) => (
+                                      <div key={row.question} className="grid gap-2 py-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-6 md:items-start">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38 md:truncate" title={row.question}>
+                                          {row.question}
+                                        </p>
+                                        <p className={`min-w-0 text-sm font-semibold leading-6 ${
+                                          ['Not answered', 'Not specified'].includes(row.answer) ? 'text-white/30' : 'text-white/72'
+                                        } md:truncate`} title={row.answer}>
+                                          {row.answer}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </details>
+                            )}
+                            {!selectedClientResponseReceived && (
+                            <>
+                            <div className="hidden xl:grid xl:grid-cols-5">
                               {selectedBriefAnswerRows.map((row) => (
-                                <div key={row.question} className="min-w-0 bg-black px-4 py-4">
+                                <div key={row.question} className="min-w-0 border-b border-r border-white/10 px-4 py-4 [&:nth-child(5n)]:border-r-0">
                                   <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/34" title={row.question}>
                                     {row.question}
                                   </p>
@@ -2002,8 +2292,56 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 </div>
                               ))}
                             </div>
+                            </>
+                            )}
                           </div>
                           </>
+                          )}
+
+                          {selectedAdminBuildChapter.id === 'scope' && (
+                            <div className="border-y border-white/10 py-5">
+                              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Scope offer</p>
+                                  <h4 className="mt-2 text-2xl font-black tracking-tight text-white">Set the offer, price, and delivery terms.</h4>
+                                  <p className="mt-3 max-w-3xl text-sm leading-7 text-white/50">
+                                    Use the approved brief to define what the client gets, what it costs, and what happens next.
+                                  </p>
+                                </div>
+                                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">
+                                  {selectedProjectRequest.status.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+
+                              <div className="mt-7 grid gap-px overflow-hidden bg-white/10 md:grid-cols-2 xl:grid-cols-3">
+                                {[
+                                  { label: 'Deliverable', value: selectedBriefType || 'Custom build' },
+                                  { label: 'Goal', value: selectedBriefGoals || 'Not set' },
+                                  { label: 'Core features', value: selectedBriefFeatures || 'Not set' },
+                                  { label: 'Audience', value: selectedBriefAudience || 'Not set' },
+                                  { label: 'Budget direction', value: selectedProjectRequest.budget || 'Not specified' },
+                                  { label: 'Timeline', value: selectedProjectRequest.timeline || 'Flexible' },
+                                ].map((item) => (
+                                  <div key={item.label} className="bg-[#05070a] px-4 py-4">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/30">{item.label}</p>
+                                    <p className="mt-2 text-sm font-semibold leading-6 text-white/76">{item.value}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="mt-7 grid gap-5 lg:grid-cols-3">
+                                {[
+                                  { label: 'Included', value: 'Scope should cover the pages, lead capture, content needs, and selected features from the approved brief.', tone: 'text-expert-green' },
+                                  { label: 'Client decision', value: 'Client reviews the scope and quote before Agreement opens.', tone: 'text-amber-300' },
+                                  { label: 'Next gate', value: 'Agreement starts after the client accepts the scope.', tone: 'text-ai-blue' },
+                                ].map((item) => (
+                                  <div key={item.label} className="border-b border-white/10 pb-4">
+                                    <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${item.tone}`}>{item.label}</p>
+                                    <p className="mt-3 text-sm leading-7 text-white/54">{item.value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
 
                           {selectedAdminBuildChapter.id === 'build' && (
@@ -2103,10 +2441,83 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                         }`}>
                           {selectedAdminBuildChapter.id !== 'brief' && (
                             <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">
-                              Decision panel
+                              {selectedAdminBuildChapter.id === 'scope' ? 'Scope actions' : 'Decision panel'}
                             </h4>
                           )}
                           {selectedAdminBuildChapter.id === 'brief' && (
+                          selectedClientResponseReceived ? (
+                          <div className="border-t border-white/10 pt-5">
+                            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.75fr)] xl:items-start">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Brief decision</p>
+                                  <span className="border border-expert-green/25 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-expert-green">
+                                    {isBriefApprovedForScope ? 'Scope open' : 'Client responded'}
+                                  </span>
+                                </div>
+                                <h4 className="mt-3 text-2xl font-black tracking-tight text-white">
+                                  {isBriefApprovedForScope ? 'Brief approved' : 'Ready for Scope?'}
+                                </h4>
+                                <p className="mt-3 max-w-3xl text-sm leading-7 text-white/50">
+                                  {isBriefApprovedForScope
+                                    ? 'Scope is open. The next step is preparing the scope and quote for the client.'
+                                    : 'Approve only when the brief has enough content, pages, features, audience, budget, and timeline direction for Scope.'}
+                                </p>
+                                <div className="mt-5 grid gap-px overflow-hidden bg-white/10 sm:grid-cols-3">
+                                  {[
+                                    { label: 'Answers reviewed', value: `${selectedClientResponseRows.length} received`, color: 'text-expert-green' },
+                                    { label: 'Current gate', value: isBriefApprovedForScope ? 'Scope' : 'Brief', color: 'text-ai-blue' },
+                                    { label: 'Next move', value: isBriefApprovedForScope ? 'Prepare quote' : 'Scope', color: 'text-amber-300' },
+                                  ].map((item) => (
+                                    <div key={item.label} className="bg-[#05070a] px-4 py-3">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{item.label}</p>
+                                      <p className={`mt-2 text-sm font-black tracking-tight ${item.color}`}>{item.value}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="grid gap-4">
+                                <div>
+                                  <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/30">More detail note</label>
+                                  <textarea
+                                    value={briefClarificationMessage}
+                                    onChange={(e) => setBriefClarificationMessage(e.target.value)}
+                                    className="h-24 w-full resize-none border border-white/10 bg-black px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-amber-300/50"
+                                    placeholder="Only needed if you are requesting more detail..."
+                                  />
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRequestBriefMoreDetails(selectedProjectRequest.id)}
+                                    disabled={submitting || isBriefApprovedForScope}
+                                    className="min-h-11 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-50"
+                                  >
+                                    Request more details
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                      status: 'quote_ready',
+                                      clientNotes: 'Your brief has been approved for scoping. The scope and quote will be prepared next.'
+                                    })}
+                                    disabled={submitting || isBriefApprovedForScope}
+                                    className="min-h-11 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:opacity-50"
+                                  >
+                                    {isBriefApprovedForScope ? 'Scope is open' : 'Approve and open Scope'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            {briefDecisionMessage && (
+                              <p className={`mt-4 text-xs font-semibold leading-5 ${
+                                briefDecisionMessage.type === 'success' ? 'text-expert-green' : 'text-red-300'
+                              }`}>
+                                {briefDecisionMessage.text}
+                              </p>
+                            )}
+                          </div>
+                          ) : (
                           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
                             <div className="border-y border-white/10 py-4">
                               <div className="flex items-start justify-between gap-4">
@@ -2177,10 +2588,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 <div className="mt-5 grid gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                      status: 'in_review',
-                                      clientNotes: buildBriefClarificationMessage()
-                                    })}
+                                    onClick={() => handleRequestBriefMoreDetails(selectedProjectRequest.id)}
                                     disabled={submitting}
                                     className="min-h-10 border border-white/10 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-white/62 transition hover:bg-white/[0.04] hover:text-white disabled:opacity-50"
                                   >
@@ -2208,6 +2616,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               </div>
                             </div>
                           </div>
+                          )
                           )}
                           {selectedAdminBuildChapter.id === 'agreement' && (
                           <div className="mb-5 border-y border-expert-green/25 bg-expert-green/[0.035] py-4">
@@ -2284,6 +2693,14 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           </div>
                           )}
                           <div className="space-y-5">
+                            {selectedAdminBuildChapter.id === 'scope' && (
+                              <div className="border-y border-white/10 py-4">
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Quote setup</p>
+                                <p className="mt-2 text-xs leading-6 text-white/46">
+                                  Set the client-facing price and note. The client reviews this before Agreement opens.
+                                </p>
+                              </div>
+                            )}
                             <div className={selectedAdminBuildChapter.id === 'scope' ? '' : 'hidden'}>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Quote amount</label>
                               <input
@@ -2454,7 +2871,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               />
                             </div>
                             )}
-                            {selectedAdminBuildChapter.id !== 'brief' && (
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
                               <textarea
@@ -2744,10 +3161,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                 .map((item: MediaAsset, index: number) => (
                 <div key={item.id || index} className="bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden group relative aspect-square">
                   {item.mimetype.startsWith('image/') ? (
-                    <img 
-                      src={item.url} 
+                    <Image
+                      src={item.url}
                       alt={item.filename}
-                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                      fill
+                      sizes="(min-width: 1024px) 16vw, (min-width: 768px) 25vw, 50vw"
+                      className="object-cover opacity-60 transition-opacity group-hover:opacity-100"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center opacity-40">

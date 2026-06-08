@@ -248,10 +248,10 @@ interface CustomDomain {
 
 type ApiRecord = Record<string, unknown>;
 type ClientAssessment = ApiRecord & {
-  id?: string;
-  createdAt?: string;
+  id: string;
+  createdAt: string;
   source?: string;
-  responses?: Record<string, string>;
+  responses: Record<string, unknown>;
 };
 
 interface BookingItem {
@@ -328,6 +328,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>(null);
+  const [mobileRailGroup, setMobileRailGroup] = useState<string | null>(null);
   const [revealTier, setRevealTier] = useState<SupporterTier | null>(null);
   const [isRevealing, setIsRevealing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -426,14 +427,14 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       ]);
 
       // Extract results - handle nulls from timed out requests
-      const safeStatsRes = statsRes || { success: false, stats: null };
-      const safeProjectsRes = projectsRes || { success: false, data: [] };
-      const safeActivitiesRes = activitiesRes || { success: false, data: [] };
-      const safeBillingRes = billingRes || { success: false, data: [] };
-      const safeMessagesRes = messagesRes || { success: false, messages: [] };
-      const safeTicketsRes = ticketsRes || { success: false, data: [] };
-      const safeResourcesRes = resourcesRes || { success: false, data: [] };
-      const safeDomainsRes = domainsRes || { success: false, domains: [] };
+      const safeStatsRes = (statsRes || { success: false, stats: null }) as { success: boolean; stats: ClientStats | null };
+      const safeProjectsRes = (projectsRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
+      const safeActivitiesRes = (activitiesRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
+      const safeBillingRes = (billingRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
+      const safeMessagesRes = (messagesRes || { success: false, messages: [] }) as ApiRecord & { success: boolean };
+      const safeTicketsRes = (ticketsRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
+      const safeResourcesRes = (resourcesRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
+      const safeDomainsRes = (domainsRes || { success: false, domains: [] }) as ApiRecord & { success: boolean };
       const safeBookingsRes = bookingsRes || [];
 
       if (safeStatsRes.success && safeStatsRes.stats) setStats(safeStatsRes.stats);
@@ -936,6 +937,13 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   };
 
   const isNavActive = (id: string) => (navGroups[id] || [id]).includes(activeTab);
+  const openClientTab = (tabId: string) => {
+    setActiveTab(tabId);
+    setOpenSidebarGroup(null);
+    setMobileRailGroup(null);
+    setSelectedProjectId(null);
+    setIsSidebarOpen(false);
+  };
   const selectedProject = selectedProjectId ? projects.find(project => project.id === selectedProjectId) : projects.find(project => project.isCurrent) || projects[0];
   const selectedProjectRecord = selectedProjectId ? projects.find(project => project.id === selectedProjectId) || null : projects[0] || null;
   const buildLifecycle = [
@@ -969,6 +977,17 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const requestStatuses = [...buildLifecycle.map(step => step.status), 'quoted', 'awaiting_payment', 'rejected', 'cancelled', 'archived'];
   const currentBuildRecord = selectedProjectRecord || projects[0] || null;
   const currentBuildStatus = normalizeBuildStatus(currentBuildRecord?.status);
+  const currentBuildPlanLabel = currentBuildRecord?.planType?.replace(/_/g, ' ') || 'Custom build';
+  const currentBuildSubmittedLabel = currentBuildRecord?.createdAt
+    ? new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(currentBuildRecord.createdAt))
+    : 'Recently submitted';
   const currentLifecycleIndex = Math.max(0, buildLifecycle.findIndex(step => step.status === currentBuildStatus));
   const defaultBuildChapter = buildJourneyChapters.find(chapter => chapter.statuses.includes(currentBuildStatus)) || buildJourneyChapters[0];
   const defaultBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === defaultBuildChapter.id));
@@ -978,6 +997,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     ? requestedBuildChapter
     : defaultBuildChapter;
   const selectedBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(chapter => chapter.id === selectedBuildChapter.id));
+  const nextBuildChapter = buildJourneyChapters[Math.min(selectedBuildChapterIndex + 1, buildJourneyChapters.length - 1)];
   const buildPageProgress = Math.round(((defaultBuildChapterIndex + 1) / buildJourneyChapters.length) * 100);
   const hasScopeProposal = Boolean(currentBuildRecord?.quotedAmount) || [
     'quote_ready',
@@ -1011,9 +1031,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const briefInsight = getBriefValue('Assessment insight');
   const briefType = getBriefValue('Build type') || getBriefValue('Business type') || currentBuildRecord?.planType?.replace(/_/g, ' ') || 'Custom build';
   const clientBriefNote = currentBuildRecord?.clientNotes?.trim() || '';
-  const clientBriefClarificationNote = clientBriefNote.toLowerCase().includes('please clarify')
-    ? clientBriefNote
+  const clientBriefNoteLower = clientBriefNote.toLowerCase();
+  const clientBriefClarificationNote = currentBuildStatus === 'in_review'
+    ? clientBriefNote || 'The team is reviewing your brief and may need a few more details before Scope opens.'
     : '';
+  const hasSentBriefClarification = currentBuildStatus === 'in_review' && clientBriefNoteLower.includes('client sent brief clarification');
   const isBriefApprovedForScope = [
     'quote_ready',
     'approved',
@@ -1024,12 +1046,14 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     'handoff',
     'completed',
   ].includes(currentBuildStatus);
-  const hasBriefClarification = currentBuildStatus === 'in_review' && Boolean(clientBriefClarificationNote);
+  const hasBriefClarification = currentBuildStatus === 'in_review' && !hasSentBriefClarification;
   const clientBriefState = isBriefApprovedForScope
     ? { label: 'Brief approved', tone: 'open', detail: 'Scope is open. Review the proposal and next decision there.' }
+    : hasSentBriefClarification
+      ? { label: 'Brief details sent', tone: 'review', detail: 'Your update has been sent to the team.' }
     : hasBriefClarification
-      ? { label: 'Brief update requested', tone: 'action', detail: 'Complete the requested lines so the team can continue the scope.' }
-      : { label: 'Brief under review', tone: 'review', detail: 'We are reviewing your request before opening Scope.' };
+      ? { label: 'Brief update requested', tone: 'action', detail: 'Answer the requested questions so the team can continue Scope.' }
+      : { label: 'Brief in review', tone: 'review', detail: 'No action is needed from you right now.' };
   const clientBriefClarificationLines = clientBriefClarificationNote.split('\n').map(line => line.trim()).filter(Boolean);
   const clientBriefClarificationItems = clientBriefClarificationLines[0]?.toLowerCase().startsWith('please clarify:')
     ? clientBriefClarificationLines[0]
@@ -1042,6 +1066,32 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const clientBriefTeamMessage = clientBriefClarificationItems.length
     ? clientBriefClarificationLines.slice(1).join('\n')
     : clientBriefClarificationNote;
+  const clientBriefTeamMessages = clientBriefTeamMessage.split('\n').map(message => message.trim()).filter(Boolean);
+  const briefClarificationAllowedItems = [
+    'Content/assets',
+    'Pages/sections',
+    'Services/products',
+    'Lead form fields',
+    'Design references',
+    'Feature scope',
+    'Audience/details',
+    'Budget clarity',
+    'Timeline clarity',
+    'Brief clarification'
+  ];
+  const briefClarificationAllowedSet = new Set(briefClarificationAllowedItems.map(item => item.toLowerCase()));
+  const clientBriefSubmittedResponse = hasSentBriefClarification
+    ? clientBriefNote
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.toLowerCase().includes('client sent brief clarification'))
+      .map(line => line.replace(/^Client message:\s*/i, ''))
+      .filter(line => {
+        const [label] = line.split(':');
+        return briefClarificationAllowedSet.has(label.trim().toLowerCase());
+      })
+      .join('\n')
+    : '';
   const getBriefResponseField = (item: string) => {
     const key = item.toLowerCase();
     if (key.includes('budget')) {
@@ -1087,8 +1137,24 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       type: 'textarea'
     };
   };
-  const briefResponseFields = (clientBriefClarificationItems.length ? clientBriefClarificationItems : ['Brief clarification'])
+  const filteredBriefClarificationItems = (clientBriefClarificationItems.length ? clientBriefClarificationItems : ['Brief clarification'])
+    .filter(item => briefClarificationAllowedSet.has(item.toLowerCase()));
+  const briefResponseFields = (filteredBriefClarificationItems.length ? filteredBriefClarificationItems : ['Brief clarification'])
     .map(getBriefResponseField);
+  const getBriefResponseGroup = (label: string) => {
+    const key = label.toLowerCase();
+    if (key.includes('content') || key.includes('pages') || key.includes('services')) return 'Content';
+    if (key.includes('feature') || key.includes('audience') || key.includes('lead') || key.includes('design')) return 'Project direction';
+    if (key.includes('budget') || key.includes('timeline')) return 'Planning';
+    return 'Other details';
+  };
+  const briefResponseGroups = ['Content', 'Project direction', 'Planning', 'Other details']
+    .map((group) => ({
+      group,
+      fields: briefResponseFields.filter((field) => getBriefResponseGroup(field.label) === group)
+    }))
+    .filter((group) => group.fields.length > 0);
+  const answeredBriefResponseCount = briefResponseFields.filter(field => (briefResponseAnswers[field.label] || '').trim()).length;
   const clientBriefRows = [
     { label: 'Build type', value: briefType || 'Not answered' },
     { label: 'Goal', value: briefGoals || 'Not answered' },
@@ -1207,6 +1273,93 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       </div>
 
       <div className="flex relative z-10 min-h-screen">
+        {mobileRailGroup && (
+          <button
+            type="button"
+            className="fixed inset-0 z-[45] bg-transparent md:hidden"
+            aria-label="Close mobile navigation"
+            onClick={() => setMobileRailGroup(null)}
+          />
+        )}
+
+        <nav className={`fixed left-0 top-1/2 z-[55] flex -translate-y-1/2 flex-col gap-4 py-3 transition-[width,padding] duration-200 md:hidden ${
+          mobileRailGroup ? 'w-64 px-2' : 'w-9 px-0'
+        }`}>
+          {[...mainNav, ...manageNav, ...accountNav].map((item) => {
+            const isActive = isNavActive(item.id);
+            const isRailOpen = mobileRailGroup === item.id;
+
+            return (
+              <div key={item.id} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (item.children?.length) {
+                      setMobileRailGroup(isRailOpen ? null : item.id);
+                    } else {
+                      openClientTab(item.id);
+                    }
+                  }}
+                  className={`relative grid h-11 w-9 shrink-0 place-items-center transition ${
+                    isActive || isRailOpen
+                      ? 'text-ai-blue'
+                      : 'text-white/66 hover:text-white'
+                  }`}
+                  aria-label={item.label}
+                >
+                  {item.icon}
+                  {Boolean(item.count) && (
+                    <span className="absolute right-1 top-1 min-w-4 rounded-full bg-ai-blue px-1 text-center text-[8px] font-black text-white">
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+
+                {isRailOpen && item.children?.length && (
+                  <div className="mt-2 w-full pl-10 py-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-ai-blue">
+                      {item.label}
+                    </p>
+                    <div className="mt-5 grid gap-1">
+                      {item.children.map((child) => (
+                        <button
+                          key={child.id}
+                          type="button"
+                          onClick={() => {
+                            setMobileRailGroup(null);
+                            openClientTab(child.id);
+                          }}
+                          className={`group flex min-h-12 w-fit max-w-full items-center justify-between gap-4 py-3 text-left transition ${
+                            activeTab === child.id
+                              ? 'text-white'
+                              : 'text-white/52 hover:text-white'
+                          }`}
+                        >
+                          <span className="min-w-0 border-b border-white/16 pb-1 text-sm font-black tracking-tight transition group-hover:border-white/34">
+                            {child.label}
+                          </span>
+                          {Boolean(child.count) && (
+                            <span className="shrink-0 text-[10px] font-black text-ai-blue">{child.count}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            onClick={handleLogoutAction}
+            className="relative grid h-11 w-9 shrink-0 place-items-center text-red-300/70 transition hover:text-red-300"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </nav>
+
         {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#05070a]/94 backdrop-blur-2xl border-r border-white/[0.10] transition-[width,transform] duration-300 transform overflow-x-hidden overflow-y-auto md:translate-x-0 ${
           isSidebarExpanded ? 'md:w-64' : 'md:w-20'
@@ -1263,7 +1416,9 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 min-h-screen transition-[margin] duration-300 ${isSidebarExpanded ? 'md:ml-64' : 'md:ml-20'}`}>
+        <main className={`flex-1 min-h-screen transition-[margin,padding] duration-300 md:pl-0 ${
+          mobileRailGroup ? 'pl-64' : 'pl-0'
+        } ${isSidebarExpanded ? 'md:ml-64' : 'md:ml-20'}`}>
           {/* Header */}
           <header className="min-h-20 flex items-center justify-between gap-5 px-5 sm:px-8 lg:px-10 sticky top-0 z-40">
             <div className="flex min-w-0 items-center gap-3">
@@ -1271,21 +1426,33 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveTab('dashboard');
-                    setSelectedProjectId(null);
+                    if (activeTab === 'projects' && selectedProjectId) {
+                      setSelectedProjectId(null);
+                      setActiveBuildChapter(null);
+                    } else {
+                      setActiveTab('dashboard');
+                      setSelectedProjectId(null);
+                    }
                   }}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/74 transition hover:bg-white/[0.06] hover:text-white"
-                  aria-label="Back to categories"
+                  aria-label={activeTab === 'projects' && selectedProjectId ? 'Back to projects' : 'Back to categories'}
                 >
                   <ArrowLeft className="h-6 w-6" />
                 </button>
-              ) : (
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/[0.055] text-white/78 md:hidden">
-                  <Terminal className="h-5 w-5" />
-                </div>
-              )}
+              ) : null}
               <div className="min-w-0">
-                <h1 className="truncate text-base font-black tracking-tight md:text-lg">{activeTab === 'dashboard' ? 'Overview' : currentTab?.label || 'Workspace'}</h1>
+                <h1 className="truncate text-base font-black tracking-tight md:text-lg">
+                  {activeTab === 'dashboard'
+                    ? 'Overview'
+                    : activeTab === 'projects' && selectedProjectId
+                      ? currentBuildRecord?.name || selectedProject?.name || 'Build project'
+                      : currentTab?.label || 'Workspace'}
+                </h1>
+                {activeTab === 'projects' && selectedProjectId && currentBuildRecord && (
+                  <p className="mt-1 truncate text-[11px] font-semibold text-yellow-300">
+                    Submitted {currentBuildSubmittedLabel}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1617,7 +1784,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     </div>
                   </section>
                 ) : (
-                  <section className="mt-6 border-y border-white/10">
+                  <section className="mt-2">
                     <div className="min-h-[620px]">
                       <aside className="hidden">
                         <div className="grid grid-cols-[1fr_5.5rem_2rem] gap-3 border-b border-white/10 px-4 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28 sm:px-6">
@@ -1672,37 +1839,51 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                       <main className="min-w-0">
                         {currentBuildRecord && (
                           <div className="flex h-full flex-col">
-                            <div className="border-b border-white/10 px-5 py-6 sm:px-8 lg:px-10">
-                              <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-                                <div className="min-w-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedProjectId(null);
-                                      setActiveBuildChapter(null);
-                                    }}
-                                    className="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/36 transition hover:text-white"
-                                  >
-                                    <ArrowLeft className="h-3.5 w-3.5" />
-                                    Build overview
-                                  </button>
-                                  <h3 className="mt-2 truncate text-2xl font-black tracking-tight text-white">{currentBuildRecord.name}</h3>
-                                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/42">
-                                    <span>{currentBuildRecord.businessName || 'Business pending'}</span>
-                                    <span>{currentBuildRecord.planType?.replace(/_/g, ' ') || 'Custom build'}</span>
-                                    <span>{currentBuildRecord.createdAt ? new Date(currentBuildRecord.createdAt).toLocaleDateString() : 'Recently'}</span>
+                            <div className="px-5 pb-3 pt-1 sm:px-8 lg:px-10">
+                              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="flex min-w-0 items-center gap-4">
+                                  <div className="grid h-12 w-12 shrink-0 place-items-center text-ai-blue">
+                                    <Sparkles className="h-6 w-6" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Plan / Package</p>
+                                    <p className="mt-1 truncate text-sm font-black capitalize tracking-tight text-white">
+                                      {currentBuildPlanLabel}
+                                    </p>
                                   </div>
                                 </div>
-                                <div className="min-w-40 border-l border-white/10 pl-5">
-                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Progress</p>
-                                  <p className="mt-1 text-2xl font-black text-white">{buildMilestoneProgress}%</p>
-                                  <div className="mt-3 h-1.5 w-full bg-white/10">
-                                    <div className="h-full bg-ai-blue transition-all" style={{ width: `${buildMilestoneProgress}%` }} />
+                                {selectedBuildChapter.id === 'brief' ? (
+                                  <div className="flex min-w-0 items-center gap-4 pt-1 lg:min-w-72 lg:justify-end lg:pl-5">
+                                    <div className="grid h-11 w-11 shrink-0 place-items-center text-yellow-300">
+                                      {hasBriefClarification ? <TriangleAlert className="h-6 w-6" /> : isBriefApprovedForScope ? <Check className="h-6 w-6 text-expert-green" /> : <Clock className="h-6 w-6 text-ai-blue" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Current</p>
+                                      <p className="mt-1 truncate text-sm font-black tracking-tight text-white">
+                                        {hasSentBriefClarification ? 'Brief submitted' : hasBriefClarification ? 'Brief update' : isBriefApprovedForScope ? 'Brief approved' : 'Brief review'}
+                                      </p>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 shrink-0 text-white/24" />
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Next</p>
+                                      <p className="mt-1 truncate text-sm font-black tracking-tight text-white/68">
+                                        {nextBuildChapter?.label || 'Scope'}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="min-w-40 border-l border-white/10 pl-5">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Progress</p>
+                                    <p className="mt-1 text-2xl font-black text-white">{buildMilestoneProgress}%</p>
+                                    <div className="mt-3 h-1.5 w-full bg-white/10">
+                                      <div className="h-full bg-ai-blue transition-all" style={{ width: `${buildMilestoneProgress}%` }} />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
+                            {selectedBuildChapter.id !== 'brief' && (
                             <div className="border-b border-white/10 px-5 py-5 sm:px-8 lg:px-10">
                               <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                                 <div className="min-w-0">
@@ -1747,8 +1928,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                 </div>
                               </div>
                             </div>
+                            )}
 
-                            <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:divide-x lg:divide-white/10">
+                            <div className={`grid flex-1 ${
+                              selectedBuildChapter.id === 'brief' ? '' : 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:divide-x lg:divide-white/10'
+                            }`}>
                               <section className="px-5 py-6 sm:px-8 lg:px-10">
                                 {selectedBuildChapter.id === 'brief' && (
                                   <>
@@ -1761,51 +1945,135 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           }`}>
                                             {clientBriefState.label}
                                           </p>
-                                          <h5 className="mt-2 max-w-3xl text-2xl font-black tracking-tight text-white">
-                                            {hasBriefClarification ? 'Complete the brief lines below' : clientBriefState.detail}
-                                          </h5>
-                                          {hasBriefClarification && clientBriefTeamMessage && (
-                                            <p className="mt-3 max-w-3xl whitespace-pre-line text-sm font-semibold leading-7 text-white/62">
-                                              {clientBriefTeamMessage}
-                                            </p>
+                                          {!hasBriefClarification && (
+                                            <h5 className="mt-2 max-w-3xl text-2xl font-black tracking-tight text-white">
+                                              {clientBriefState.detail}
+                                            </h5>
+                                          )}
+                                          {hasBriefClarification && clientBriefTeamMessages.length > 0 && (
+                                            <div className="mt-3 max-w-3xl divide-y divide-white/10 border-y border-white/10">
+                                              {clientBriefTeamMessages.map((message, index) => (
+                                                <div key={`${message}-${index}`} className="py-3">
+                                                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-yellow-300">
+                                                    Client note {clientBriefTeamMessages.length > 1 ? index + 1 : ''}
+                                                  </p>
+                                                  <p className="mt-1 text-sm font-semibold leading-6 text-white/66">
+                                                    {message}
+                                                  </p>
+                                                </div>
+                                              ))}
+                                            </div>
                                           )}
                                         </div>
-                                        {hasBriefClarification && (
-                                          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
-                                            {briefResponseFields.length} requested lines
-                                          </span>
+                                        {(hasBriefClarification || hasSentBriefClarification) && (
+                                          <div className="shrink-0 text-left lg:text-right">
+                                            {hasSentBriefClarification ? (
+                                              <>
+                                                <p className="text-sm font-black tracking-tight text-white">Waiting for review</p>
+                                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+                                                  Team review
+                                                </p>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <p className="text-2xl font-black tracking-tight text-white">
+                                                  {answeredBriefResponseCount}/{briefResponseFields.length}
+                                                </p>
+                                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+                                                  Questions answered
+                                                </p>
+                                              </>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
 
-                                      {hasBriefClarification ? (
+                                      {hasSentBriefClarification ? (
+                                        <div className="mt-6 border-y border-white/10 py-5">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Your response</p>
+                                          <p className="mt-2 text-sm font-semibold leading-7 text-white/62">
+                                            Your update has been sent. The team will review it and open Scope if everything is clear.
+                                          </p>
+                                          {clientBriefSubmittedResponse && (
+                                            <div className="mt-4 border-t border-white/10 pt-4">
+                                              <p className="whitespace-pre-line text-sm leading-7 text-white/72">{clientBriefSubmittedResponse}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : hasBriefClarification ? (
                                         <>
-                                          <div className="mt-6 grid gap-x-8 gap-y-1 border-t border-white/10 pt-2 xl:grid-cols-2">
-                                            {briefResponseFields.map((field) => (
-                                              <div key={field.label} className="border-b border-white/10 py-5">
-                                                <label className="block text-[10px] font-black uppercase tracking-[0.14em] text-white/74">
-                                                  {field.label}
-                                                </label>
-                                                <p className="mt-1 min-h-5 text-xs leading-5 text-white/36">{field.prompt}</p>
-                                                {field.type === 'select' ? (
-                                                  <select
-                                                    value={briefResponseAnswers[field.label] || ''}
-                                                    onChange={(event) => setBriefResponseAnswers(prev => ({ ...prev, [field.label]: event.target.value }))}
-                                                    className="mt-3 w-full border-0 border-b border-white/16 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-300/60"
-                                                  >
-                                                    <option value="">Choose an answer</option>
-                                                    {field.options?.map((option) => (
-                                                      <option key={option} value={option}>{option}</option>
-                                                    ))}
-                                                  </select>
-                                                ) : (
-                                                  <textarea
-                                                    value={briefResponseAnswers[field.label] || ''}
-                                                    onChange={(event) => setBriefResponseAnswers(prev => ({ ...prev, [field.label]: event.target.value }))}
-                                                    rows={3}
-                                                    className="mt-3 w-full resize-none border-0 border-b border-white/16 bg-transparent px-0 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-white/22 focus:border-yellow-300/60"
-                                                    placeholder="Write your answer here..."
-                                                  />
-                                                )}
+                                          <div className="mt-6 space-y-6 border-t border-white/10 pt-6">
+                                            {briefResponseGroups.map((group) => (
+                                              <div key={group.group} className="border-y border-white/10">
+                                                <div className="border-b border-white/10 py-3">
+                                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/32">{group.group}</p>
+                                                </div>
+                                                <div className="grid gap-x-8 xl:grid-cols-2">
+                                                  {group.fields.map((field, fieldIndex) => {
+                                                    const questionNumber = briefResponseFields.findIndex(item => item.label === field.label) + 1;
+                                                    const isAnswered = Boolean((briefResponseAnswers[field.label] || '').trim());
+
+                                                    return (
+                                                    <div
+                                                      key={field.label}
+                                                      className={`border-b py-5 transition-colors xl:[&:nth-last-child(-n+2)]:border-b-0 ${
+                                                        isAnswered
+                                                          ? 'border-expert-green/35'
+                                                          : 'border-white/10'
+                                                      }`}
+                                                    >
+                                                      <div className="flex items-start gap-3">
+                                                        <span className={`mt-0.5 w-6 shrink-0 text-[10px] font-black tabular-nums ${
+                                                          isAnswered ? 'text-expert-green' : 'text-white/30'
+                                                        }`}>
+                                                          {String(questionNumber || fieldIndex + 1).padStart(2, '0')}
+                                                        </span>
+                                                        <div className="min-w-0 flex-1">
+                                                          <div className="flex items-center justify-between gap-4">
+                                                            <label className={`block min-w-0 truncate text-[10px] font-black uppercase tracking-[0.14em] transition-colors ${
+                                                              isAnswered ? 'text-expert-green' : 'text-white/74'
+                                                            }`}>
+                                                              {field.label}
+                                                            </label>
+                                                            {isAnswered && (
+                                                              <Check className="h-3.5 w-3.5 shrink-0 text-expert-green" />
+                                                            )}
+                                                          </div>
+                                                          <p className="mt-1 min-h-5 text-xs leading-5 text-white/36">{field.prompt}</p>
+                                                          {field.type === 'select' ? (
+                                                            <select
+                                                              value={briefResponseAnswers[field.label] || ''}
+                                                              onChange={(event) => setBriefResponseAnswers(prev => ({ ...prev, [field.label]: event.target.value }))}
+                                                              className={`mt-3 w-full border-0 border-b bg-[#05070a] px-0 py-3 text-sm font-semibold text-white outline-none transition ${
+                                                                isAnswered
+                                                                  ? 'border-expert-green/50 focus:border-expert-green'
+                                                                  : 'border-white/16 focus:border-yellow-300/60'
+                                                              }`}
+                                                            >
+                                                              <option className="bg-[#05070a] text-white" value="">Choose an answer</option>
+                                                              {field.options?.map((option) => (
+                                                                <option className="bg-[#05070a] text-white" key={option} value={option}>{option}</option>
+                                                              ))}
+                                                            </select>
+                                                          ) : (
+                                                            <textarea
+                                                              value={briefResponseAnswers[field.label] || ''}
+                                                              onChange={(event) => setBriefResponseAnswers(prev => ({ ...prev, [field.label]: event.target.value }))}
+                                                              rows={3}
+                                                              className={`mt-3 w-full resize-none border-0 border-b bg-transparent px-0 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-white/22 ${
+                                                                isAnswered
+                                                                  ? 'border-expert-green/50 focus:border-expert-green'
+                                                                  : 'border-white/16 focus:border-yellow-300/60'
+                                                              }`}
+                                                              placeholder="Write your answer here..."
+                                                            />
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                    );
+                                                  })}
+                                                </div>
                                               </div>
                                             ))}
                                           </div>
@@ -1827,24 +2095,20 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           </div>
                                         </>
                                       ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleViewAssessment(currentBuildRecord)}
-                                          className="mt-6 flex min-h-12 w-full items-center justify-between gap-4 border-t border-white/10 pt-5 text-left transition hover:text-white"
-                                        >
-                                          <span className="flex min-w-0 items-center gap-3">
-                                            <Sparkles className="h-4 w-4 shrink-0 text-white/42" />
-                                            <span className="min-w-0">
-                                              <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/62">Intake answers</span>
-                                              <span className="mt-1 block truncate text-xs text-white/34">Open original questionnaire</span>
-                                            </span>
-                                          </span>
-                                          <ChevronRight className="h-4 w-4 shrink-0 text-white/24" />
-                                        </button>
+                                        <div className="mt-6 border-t border-white/10 pt-5">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Current state</p>
+                                          <p className="mt-2 text-sm font-semibold leading-6 text-white/54">
+                                            The team will ask for specific details here if anything is missing.
+                                          </p>
+                                        </div>
                                       )}
                                     </div>
 
+                                    {!hasBriefClarification && (
                                     <div className="border-y border-white/10">
+                                      <div className="border-b border-white/10 py-3">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Current brief</p>
+                                      </div>
                                       <div className="grid grid-cols-2 border-b border-white/10 md:grid-cols-3 xl:grid-cols-4">
                                         {clientBriefRows.map((item) => (
                                           <div key={item.label} className="min-w-0 border-b border-r border-white/10 px-4 py-4 last:border-r-0 md:[&:nth-child(3n)]:border-r-0 xl:[&:nth-child(3n)]:border-r xl:[&:nth-child(4n)]:border-r-0">
@@ -1860,6 +2124,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                         ))}
                                       </div>
                                     </div>
+                                    )}
                                   </div>
                                   <div className="hidden">
                                     <div className="grid gap-5 py-6 md:grid-cols-[minmax(0,1fr)_18rem] md:items-stretch">
@@ -2391,14 +2656,16 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                 )}
                               </section>
 
-                              <aside className="border-t border-white/10 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6">
+                              <aside className={`border-t border-white/10 px-5 py-6 sm:px-8 lg:border-t-0 lg:px-6 ${
+                                selectedBuildChapter.id === 'brief' ? 'hidden' : ''
+                              }`}>
                                 <div className="divide-y divide-white/10 border-y border-white/10">
                                   {selectedBuildChapter.id === 'brief' && (
                                     <div className="px-1 py-4">
                                       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Brief state</p>
                                       <p className="mt-2 text-xs leading-6 text-white/50">
                                         {hasBriefClarification
-                                          ? 'Scope waits while these brief lines are completed.'
+                                          ? 'Scope waits while these brief questions are completed.'
                                           : isBriefApprovedForScope
                                             ? 'Brief approved. Continue to Scope when ready.'
                                             : 'The team is reviewing your brief. If anything is missing, it appears in the workspace.'}
@@ -2407,7 +2674,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                         <div className="mt-4 border-t border-white/10 pt-4">
                                           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-yellow-300">Requested</p>
                                           <p className="mt-2 text-2xl font-black tracking-tight text-white">{briefResponseFields.length}</p>
-                                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">Brief lines</p>
+                                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">Brief questions</p>
                                         </div>
                                       )}
                                     </div>

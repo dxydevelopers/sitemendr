@@ -16,7 +16,7 @@ interface Subscription {
   id: string;
   siteName?: string;
   customName?: string;
-  planType: string;
+  planType?: string;
   status: string;
   expiresAt?: string;
   price?: number;
@@ -75,7 +75,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
               <div className="grid grid-cols-2 gap-8">
                 <div>
                   <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Architecture</p>
-                  <p className="text-xs font-black text-white uppercase">{sub.planType.replace('_', ' ')}</p>
+                  <p className="text-xs font-black text-white uppercase">{(sub.planType || 'active_plan').replace('_', ' ')}</p>
                 </div>
                 <div>
                   <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Renewal_Date</p>

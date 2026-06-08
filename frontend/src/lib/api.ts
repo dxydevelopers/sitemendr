@@ -1251,7 +1251,7 @@ class ApiClient {
     return this.request('/admin/settings/enforcement');
   }
 
-  async updateEnforcementSettings(settings: Record<string, unknown>) {
+  async updateEnforcementSettings(settings: object) {
     return this.request('/admin/settings/enforcement', {
       method: 'PUT',
       body: JSON.stringify(settings),
