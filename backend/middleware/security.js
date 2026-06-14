@@ -28,8 +28,8 @@ const securityHeaders = (req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   
   // Permissions Policy
-  res.setHeader('Permissions-Policy', 
-    'camera=(), microphone=(), geolocation=(), payment=()'
+  res.setHeader('Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(self "https://checkout.paystack.com")'
   );
   
   // Content Security Policy
@@ -37,12 +37,12 @@ const securityHeaders = (req, res, next) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://cdnjs.cloudflare.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://cdnjs.cloudflare.com https://js.paystack.co",
       "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
       "img-src 'self' data: https: blob:",
       "font-src 'self' https://fonts.gstatic.com data:",
       "connect-src 'self' https: wss:",
-      "frame-src 'self' https://www.youtube.com https://player.vimeo.com",
+      "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://checkout.paystack.com",
       "object-src 'none'",
       "base-uri 'self'",
     ].join('; ')

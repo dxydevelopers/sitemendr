@@ -5,6 +5,7 @@ const { sendEmail } = require('../config/email');
 const bcrypt = require('bcryptjs');
 const logger = require('../config/logger');
 const { withTimeout } = require('../utils/promise');
+const { convertCurrencyAmount, replaceCurrencyAmountInText } = require('../utils/currency');
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -12,6 +13,19 @@ const generateToken = (userId) => {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 };
+
+const withAccountDefaults = (user) => ({
+  ...user,
+  country: user?.country || 'US',
+  defaultCurrency: user?.defaultCurrency || 'USD',
+  accountType: user?.accountType || 'individual',
+  billingRegion: user?.billingRegion || user?.country || 'US'
+});
+
+const isPrismaUnknownBillingFieldError = (error) => (
+  /Unknown argument `(country|defaultCurrency|accountType|billingRegion)`/.test(error?.message || '')
+  || /Unknown field `(country|defaultCurrency|accountType|billingRegion)`/.test(error?.message || '')
+);
 
 // Send email verification
 const sendVerificationEmail = async (email, token) => {
@@ -49,7 +63,7 @@ const sendPasswordResetEmail = async (email, token) => {
 // Register new user
 exports.register = async (req, res) => {
   try {
-    const { name, password, phone } = req.body;
+    const { name, password, phone, country, defaultCurrency, accountType, billingRegion } = req.body;
     const email = req.body.email?.toLowerCase();
 
     if (!email) {
@@ -76,19 +90,30 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create user in PostgreSQL
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        phone,
-        emailVerificationToken,
-        emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        isEmailVerified: false,
-        role: 'user',
-        banned: false,
-      }
-    });
+    const createData = {
+      name,
+      email,
+      password: hashedPassword,
+      phone,
+      country: country || 'US',
+      defaultCurrency: defaultCurrency || 'USD',
+      accountType: accountType || 'individual',
+      billingRegion: billingRegion || country || 'US',
+      emailVerificationToken,
+      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      isEmailVerified: false,
+      role: 'user',
+      banned: false,
+    };
+    let user;
+    try {
+      user = await prisma.user.create({ data: createData });
+    } catch (createError) {
+      if (!isPrismaUnknownBillingFieldError(createError)) throw createError;
+      const { country: _country, defaultCurrency: _defaultCurrency, accountType: _accountType, billingRegion: _billingRegion, ...fallbackCreateData } = createData;
+      user = await prisma.user.create({ data: fallbackCreateData });
+    }
+    user = withAccountDefaults(user);
 
     // Send verification email
     sendVerificationEmail(email, emailVerificationToken).catch(emailError => {
@@ -106,7 +131,12 @@ exports.register = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
+        country: user.country,
+        defaultCurrency: user.defaultCurrency,
+        accountType: user.accountType,
+        billingRegion: user.billingRegion,
         isEmailVerified: user.isEmailVerified,
       },
     });
@@ -217,7 +247,12 @@ exports.login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
+        country: user.country,
+        defaultCurrency: user.defaultCurrency,
+        accountType: user.accountType,
+        billingRegion: user.billingRegion,
         isEmailVerified: user.isEmailVerified,
         lastLogin: new Date(),
       },
@@ -274,23 +309,14 @@ exports.getProfile = async (req, res) => {
       });
     }
 
-    const user = await withTimeout(
+    const rawUser = await withTimeout(
       prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          isEmailVerified: true,
-          lastLogin: true,
-          createdAt: true
-        }
+        where: { id: userId }
       }),
       5000,
       'Database connection timed out while retrieving profile'
     );
+    const user = rawUser ? withAccountDefaults(rawUser) : null;
     
     if (!user) {
       return res.status(404).json({
@@ -307,6 +333,10 @@ exports.getProfile = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        country: user.country,
+        defaultCurrency: user.defaultCurrency,
+        accountType: user.accountType,
+        billingRegion: user.billingRegion,
         isEmailVerified: user.isEmailVerified,
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
@@ -333,15 +363,79 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    const { name, phone } = req.body;
+    const { name, phone, country, defaultCurrency, accountType, billingRegion } = req.body;
     
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: name || undefined,
-        phone: phone || undefined,
-      }
-    });
+    const updateData = {
+      name: name || undefined,
+      phone: phone || undefined,
+      country: country || undefined,
+      defaultCurrency: defaultCurrency || undefined,
+      accountType: accountType || undefined,
+      billingRegion: billingRegion || country || undefined,
+    };
+    let user;
+    try {
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: updateData
+      });
+    } catch (updateError) {
+      if (!isPrismaUnknownBillingFieldError(updateError)) throw updateError;
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: name || undefined,
+          phone: phone || undefined,
+        }
+      });
+    }
+    user = withAccountDefaults(user);
+
+    let syncedBuildRequests = 0;
+    if (defaultCurrency) {
+      const openRequests = await prisma.projectRequest.findMany({
+        where: {
+          userId,
+          serviceType: 'build',
+          paymentAgreementStatus: { not: 'confirmed' },
+          status: { notIn: ['completed', 'cancelled', 'archived'] }
+        },
+        select: {
+          id: true,
+          quoteCurrency: true,
+          quotedAmount: true,
+          depositAmount: true,
+          totalAgreedAmount: true,
+          paymentInstructions: true
+        }
+      });
+
+      await Promise.all(openRequests.map((request) => {
+        const fromCurrency = request.quoteCurrency || user.defaultCurrency || 'USD';
+        const convertedQuotedAmount = request.quotedAmount
+          ? convertCurrencyAmount(request.quotedAmount, fromCurrency, defaultCurrency)
+          : request.quotedAmount;
+        const convertedTotalAgreedAmount = request.totalAgreedAmount
+          ? convertCurrencyAmount(request.totalAgreedAmount, fromCurrency, defaultCurrency)
+          : request.totalAgreedAmount;
+        const convertedDepositAmount = request.depositAmount
+          ? convertCurrencyAmount(request.depositAmount, fromCurrency, defaultCurrency)
+          : request.depositAmount;
+        const dueNow = convertedDepositAmount || convertedTotalAgreedAmount || convertedQuotedAmount;
+        const nextInstructions = replaceCurrencyAmountInText(request.paymentInstructions, defaultCurrency, dueNow);
+        syncedBuildRequests += 1;
+        return prisma.projectRequest.update({
+          where: { id: request.id },
+          data: {
+            quoteCurrency: defaultCurrency,
+            quotedAmount: convertedQuotedAmount,
+            totalAgreedAmount: convertedTotalAgreedAmount,
+            depositAmount: convertedDepositAmount,
+            paymentInstructions: nextInstructions
+          }
+        });
+      }));
+    }
 
     res.json({
       success: true,
@@ -352,6 +446,11 @@ exports.updateProfile = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        country: user.country,
+        defaultCurrency: user.defaultCurrency,
+        accountType: user.accountType,
+        billingRegion: user.billingRegion,
+        syncedBuildRequests,
         isEmailVerified: user.isEmailVerified,
       },
     });

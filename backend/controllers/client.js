@@ -13,6 +13,99 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
+const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
+
+const sanitizeReviewChatChoices = (choices) => {
+  if (!Array.isArray(choices)) return null;
+  const cleaned = choices
+    .map(choice => typeof choice === 'string' ? choice.trim() : '')
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : null;
+};
+
+const normalizeReviewChatKind = (kind, choices) => {
+  if (kind === 'choice_response') return 'choice_response';
+  if (kind === 'file') return 'file';
+  if (kind === 'question' || (Array.isArray(choices) && choices.length)) return 'question';
+  return 'message';
+};
+
+const mapProjectRequestForClient = (request) => {
+  const statusProgress = {
+    submitted: 10,
+    in_review: 25,
+    quote_ready: 40,
+    quoted: 40,
+    approved: 55,
+    payment_agreement: 62,
+    in_development: 70,
+    staging_review: 85,
+    launched: 92,
+    handoff: 96,
+    completed: 100,
+    cancelled: 0,
+    archived: 0
+  };
+  const milestoneProgress = request.buildMilestones?.length
+    ? Math.round(
+        request.buildMilestones.reduce((sum, milestone) => {
+          if (milestone.status === 'completed') return sum + 100;
+          return sum + (milestone.progress || 0);
+        }, 0) / request.buildMilestones.length
+      )
+    : null;
+
+  return {
+    id: request.id,
+    recordType: 'request',
+    assessmentId: request.assessmentId,
+    subscriptionId: request.subscriptionId,
+    serviceType: request.serviceType,
+    name: request.title || request.businessName || 'Untitled request',
+    businessName: request.businessName,
+    progress: milestoneProgress ?? statusProgress[request.status] ?? 10,
+    status: request.status,
+    planType: request.packageIntent,
+    budget: request.budget,
+    timeline: request.timeline,
+    summary: request.summary,
+    priority: request.priority,
+    quotedAmount: request.quotedAmount,
+    quoteCurrency: request.quoteCurrency,
+    paymentAgreementType: request.paymentAgreementType,
+    paymentAgreementStatus: request.paymentAgreementStatus,
+    depositAmount: request.depositAmount,
+    totalAgreedAmount: request.totalAgreedAmount,
+    paymentDueDate: request.paymentDueDate,
+    paymentInstructions: request.paymentInstructions,
+    paymentConfirmedAt: request.paymentConfirmedAt,
+    productionMode: request.productionMode,
+    productionSourceNote: request.productionSourceNote,
+    stagingUrl: request.stagingUrl,
+    stagingNotes: request.stagingNotes,
+    stagingReviewStatus: request.stagingReviewStatus,
+    stagingReviewedAt: request.stagingReviewedAt,
+    launchUrl: request.launchUrl,
+    launchNotes: request.launchNotes,
+    launchApprovedAt: request.launchApprovedAt,
+    handoffNotes: request.handoffNotes,
+    completionNotes: request.completionNotes,
+    completionAcknowledgedAt: request.completionAcknowledgedAt,
+    completedAt: request.completedAt,
+    buildMilestones: request.buildMilestones,
+    studioLinks: request.studioLinks,
+    studioUpdates: request.studioUpdates,
+    clientNotes: request.clientNotes,
+    createdAt: request.createdAt,
+    updatedAt: request.updatedAt,
+    isCurrent: ['submitted', 'in_review', 'quote_ready', 'quoted', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff'].includes(request.status),
+    reviewRequested: request.status === 'in_review',
+    reviewNotes: request.adminNotes,
+    assessment: request.assessment
+  };
+};
+
 // Get client dashboard stats
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -142,6 +235,15 @@ exports.getProjects = async (req, res) => {
           },
           buildMilestones: {
             orderBy: { order: 'asc' }
+          },
+          studioLinks: {
+            where: { type: { in: ['preview', 'design'] } },
+            orderBy: { createdAt: 'desc' }
+          },
+          studioUpdates: {
+            where: { visibility: 'client' },
+            orderBy: { createdAt: 'desc' },
+            take: 10
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -183,75 +285,7 @@ exports.getProjects = async (req, res) => {
       })
     ]);
 
-    const requestProjects = projectRequests.map((request) => {
-      const statusProgress = {
-        submitted: 10,
-        in_review: 25,
-        quote_ready: 40,
-        quoted: 40,
-        approved: 55,
-        payment_agreement: 62,
-        in_development: 70,
-        staging_review: 85,
-        launched: 92,
-        handoff: 96,
-        completed: 100,
-        cancelled: 0,
-        archived: 0
-      };
-      const milestoneProgress = request.buildMilestones?.length
-        ? Math.round(
-            request.buildMilestones.reduce((sum, milestone) => {
-              if (milestone.status === 'completed') return sum + 100;
-              return sum + (milestone.progress || 0);
-            }, 0) / request.buildMilestones.length
-          )
-        : null;
-
-      return {
-        id: request.id,
-        recordType: 'request',
-        assessmentId: request.assessmentId,
-        serviceType: request.serviceType,
-        name: request.title || request.businessName || 'Untitled request',
-        businessName: request.businessName,
-        progress: milestoneProgress ?? statusProgress[request.status] ?? 10,
-        status: request.status,
-        planType: request.packageIntent,
-        budget: request.budget,
-        timeline: request.timeline,
-        summary: request.summary,
-        priority: request.priority,
-        quotedAmount: request.quotedAmount,
-        quoteCurrency: request.quoteCurrency,
-        paymentAgreementType: request.paymentAgreementType,
-        paymentAgreementStatus: request.paymentAgreementStatus,
-        depositAmount: request.depositAmount,
-        totalAgreedAmount: request.totalAgreedAmount,
-        paymentDueDate: request.paymentDueDate,
-        paymentInstructions: request.paymentInstructions,
-        paymentConfirmedAt: request.paymentConfirmedAt,
-        stagingUrl: request.stagingUrl,
-        stagingNotes: request.stagingNotes,
-        stagingReviewStatus: request.stagingReviewStatus,
-        stagingReviewedAt: request.stagingReviewedAt,
-        launchUrl: request.launchUrl,
-        launchNotes: request.launchNotes,
-        launchApprovedAt: request.launchApprovedAt,
-        handoffNotes: request.handoffNotes,
-        completionNotes: request.completionNotes,
-        completionAcknowledgedAt: request.completionAcknowledgedAt,
-        completedAt: request.completedAt,
-        buildMilestones: request.buildMilestones,
-        clientNotes: request.clientNotes,
-        createdAt: request.createdAt,
-        updatedAt: request.updatedAt,
-        isCurrent: ['submitted', 'in_review', 'quote_ready', 'quoted', 'approved', 'payment_agreement', 'in_development', 'staging_review', 'launched', 'handoff'].includes(request.status),
-        reviewRequested: request.status === 'in_review',
-        reviewNotes: request.adminNotes,
-        assessment: request.assessment
-      };
-    });
+    const requestProjects = projectRequests.map(mapProjectRequestForClient);
 
     // Map subscriptions to project-like objects for the dashboard
     const subscriptionProjects = subscriptions.map((sub) => {
@@ -342,7 +376,27 @@ exports.respondToHandoff = async (req, res) => {
         serviceType: 'build'
       },
       include: {
-        buildMilestones: true
+        assessment: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            results: true,
+            responses: true
+          }
+        },
+        buildMilestones: {
+          orderBy: { order: 'asc' }
+        },
+        studioLinks: {
+          where: { type: { in: ['preview', 'design'] } },
+          orderBy: { createdAt: 'desc' }
+        },
+        studioUpdates: {
+          where: { visibility: 'client' },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        }
       }
     });
 
@@ -463,7 +517,7 @@ exports.respondToStagingReview = async (req, res) => {
     const updated = await prisma.projectRequest.update({
       where: { id: request.id },
       data: {
-        status: action === 'approve' ? 'launched' : 'in_development',
+        status: action === 'approve' ? 'launched' : 'staging_review',
         stagingReviewStatus: action === 'approve' ? 'approved' : 'changes_requested',
         stagingReviewedAt: new Date(),
         launchApprovedAt: action === 'approve' ? new Date() : request.launchApprovedAt,
@@ -498,9 +552,40 @@ exports.respondToStagingReview = async (req, res) => {
       });
     }
 
+    const responseRequest = await prisma.projectRequest.findUnique({
+      where: { id: request.id },
+      include: {
+        assessment: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            results: true,
+            responses: true
+          }
+        },
+        buildMilestones: {
+          orderBy: { order: 'asc' }
+        },
+        studioLinks: {
+          where: { type: { in: ['preview', 'design'] } },
+          orderBy: { createdAt: 'desc' }
+        },
+        studioUpdates: {
+          where: { visibility: 'client' },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        }
+      }
+    });
+
+    if (responseRequest) {
+      notifyAdmins('project_request_updated', { request: responseRequest });
+    }
+
     res.json({
       success: true,
-      data: updated,
+      data: mapProjectRequestForClient(responseRequest || updated),
       message: action === 'approve'
         ? 'Staging approved. The team can prepare launch.'
         : 'Your change request has been sent to the team.'
@@ -511,6 +596,96 @@ exports.respondToStagingReview = async (req, res) => {
       success: false,
       message: 'Failed to respond to staging review'
     });
+  }
+};
+
+exports.getReviewChatMessages = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      },
+      select: { id: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const messages = await prisma.$queryRawUnsafe(
+      `SELECT ${reviewChatSelect}
+       FROM "ReviewChatMessage"
+       WHERE "projectRequestId" = $1
+       ORDER BY "createdAt" ASC`,
+      requestId
+    );
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "ReviewChatMessage"
+       SET "readByClient" = true
+       WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`,
+      requestId
+    );
+
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_CLIENT_REVIEW_CHAT_MESSAGES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load review chat' });
+  }
+};
+
+exports.createReviewChatMessage = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { message = '', kind = 'message', choices = null, selectedChoice = null, attachments = null } = req.body || {};
+    const cleanedMessage = String(message || selectedChoice || '').trim();
+    const cleanedChoices = sanitizeReviewChatChoices(choices);
+    const cleanedKind = normalizeReviewChatKind(kind, cleanedChoices);
+
+    if (!cleanedMessage && !attachments) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      },
+      select: { id: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ReviewChatMessage"
+       ("projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
+       VALUES ($1,$2,'client',$3,$4,$5::jsonb,$6,$7::jsonb,false,true)
+       RETURNING ${reviewChatSelect}`,
+      requestId,
+      userId,
+      cleanedMessage,
+      cleanedKind,
+      JSON.stringify(cleanedChoices),
+      selectedChoice ? String(selectedChoice).trim() : null,
+      JSON.stringify(attachments || null)
+    );
+
+    const chatMessage = rows[0];
+    notifyAdmins('review_chat_message', { requestId, message: chatMessage });
+
+    res.json({ success: true, data: chatMessage, message: 'Review message sent' });
+  } catch (error) {
+    logger.error('CREATE_CLIENT_REVIEW_CHAT_MESSAGE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send review message' });
   }
 };
 
@@ -716,7 +891,10 @@ exports.getBilling = async (req, res) => {
     const userId = req.user.userId;
 
     const payments = await prisma.payment.findMany({
-      where: { userId },
+      where: {
+        userId,
+        status: { notIn: ['pending', 'superseded'] }
+      },
       orderBy: { createdAt: 'desc' }
     });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ArrowRight, Shield } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 interface AdminLoginProps {
@@ -21,171 +22,92 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
     try {
       const data = await apiClient.login({ email, password });
 
-      if (data.success) {
+      if (data.success && data.user?.role === 'admin') {
         onLogin();
+      } else if (data.success) {
+        setError('This account does not have admin access.');
       } else {
         setError(data.message || 'Login failed');
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Network error. Please try again.';
       setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-darker-bg py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-mono">
-      {/* Infrastructure Grid Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-darker-bg via-transparent to-darker-bg"></div>
-      </div>
-
-      {/* Scanning Line Effect */}
-      <div className="absolute inset-0 pointer-events-none z-10 opacity-20">
-        <div className="w-full h-[2px] bg-ai-blue/50 blur-sm animate-scan"></div>
-      </div>
-
-      {/* Dynamic Background Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-ai-blue/10 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-tech-purple/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
-      </div>
-
-      <div className="max-w-md w-full space-y-8 relative z-20">
-        {/* Terminal Header */}
-        <div className="text-center relative">
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-4 opacity-50">
-            <div className="h-px w-12 bg-gradient-to-r from-transparent to-ai-blue"></div>
-            <span className="text-[10px] tracking-[0.4em] text-ai-blue uppercase">Admin Portal</span>
-            <div className="h-px w-12 bg-gradient-to-l from-transparent to-ai-blue"></div>
+    <main className="min-h-screen bg-[#05070a] text-white">
+      <section className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.9fr_1fr] lg:px-10">
+        <div className="max-w-xl">
+          <div className="flex h-12 w-12 items-center justify-center text-ai-blue">
+            <Shield className="h-8 w-8" />
           </div>
-          
-          <div className="inline-block px-4 py-1.5 rounded-full bg-ai-blue/10 border border-ai-blue/20 mb-6">
-            <span className="text-[10px] font-black text-ai-blue uppercase tracking-[0.3em] flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-ai-blue animate-ping"></span>
-              Authorized Access Only
-            </span>
-          </div>
-          
-          <h2 className="text-xl font-black text-white mb-2 tracking-widest uppercase">
-            ADMIN <span className="italic bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent">ACCESS</span>
-          </h2>
-          <div className="flex justify-center items-center gap-2 text-medium-gray text-[10px] uppercase tracking-widest font-bold">
-            <span>SVR-ID: SM-7741</span>
-            <span className="w-1 h-1 rounded-full bg-medium-gray/30"></span>
-            <span>OS: V4.2.0-CORE</span>
-          </div>
+          <p className="mt-6 text-[10px] font-black uppercase tracking-[0.22em] text-ai-blue">Admin access</p>
+          <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+            Sign in to manage Sitemendr operations.
+          </h1>
         </div>
 
-        <div className="relative group">
-          {/* HUD Corners */}
-          <div className="absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 border-ai-blue/40 rounded-tl-lg transition-all group-hover:border-ai-blue group-hover:scale-110"></div>
-          <div className="absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 border-ai-blue/40 rounded-tr-lg transition-all group-hover:border-ai-blue group-hover:scale-110"></div>
-          <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 border-ai-blue/40 rounded-bl-lg transition-all group-hover:border-ai-blue group-hover:scale-110"></div>
-          <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 border-ai-blue/40 rounded-br-lg transition-all group-hover:border-ai-blue group-hover:scale-110"></div>
+        <form className="w-full border-y border-white/10 py-7 lg:ml-auto lg:max-w-md" onSubmit={handleSubmit}>
+          <div className="mb-7 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/34">Secure workspace</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Admin sign in</h2>
+            </div>
+          </div>
 
-          <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-3xl p-10 shadow-2xl shadow-black/40 relative overflow-hidden">
-            {/* Terminal Matrix Background */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none overflow-hidden text-[8px] font-mono leading-none break-all p-4 select-none">
-              {Array(20).fill('SITEMENDR-OS-INFRASTRUCTURE-ENCRYPTED-STREAM-DATA-NODE-ACCESS-GRANTED-').join('')}
+          {error && (
+            <div role="alert" className="mb-6 border border-red-400/35 px-4 py-3 text-sm font-semibold text-red-200">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-6">
+            <div>
+              <label htmlFor="admin-email" className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">
+                Email address
+              </label>
+              <input
+                id="admin-email"
+                name="email"
+                type="email"
+                required
+                className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
+                placeholder="admin@sitemendr.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
 
-            <form className="space-y-6 relative z-10" onSubmit={handleSubmit}>
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest text-center flex items-center justify-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                  AUTH_FAILURE: {error}
-                </div>
-              )}
-
-              <div className="space-y-5">
-                <div className="space-y-2 group/input">
-                  <div className="flex justify-between items-center px-4">
-                    <label htmlFor="email" className="text-[10px] font-black text-medium-gray uppercase tracking-[0.2em]">
-                      Systems Identifier
-                    </label>
-                    <span className="text-[8px] text-ai-blue/40 font-bold">UID_REQ</span>
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue focus:bg-white/[0.05] transition-all font-mono text-sm"
-                    placeholder="admin@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2 group/input">
-                  <div className="flex justify-between items-center px-4">
-                    <label htmlFor="password" className="text-[10px] font-black text-medium-gray uppercase tracking-[0.2em]">
-                      Password
-                    </label>
-                    <span className="text-[8px] text-ai-blue/40 font-bold">KEY_REQ</span>
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue focus:bg-white/[0.05] transition-all font-mono text-sm"
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full bg-ai-blue text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-ai-blue/20"
-              >
-                <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                <span className="relative z-10 group-hover:text-dark-bg transition-colors duration-300 flex items-center justify-center gap-2">
-                  {loading ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
-                      AUTHENTICATING...
-                    </>
-                  ) : (
-                    'INITIATE ACCESS'
-                  )}
-                </span>
-              </button>
-            </form>
+            <div>
+              <label htmlFor="admin-password" className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">
+                Password
+              </label>
+              <input
+                id="admin-password"
+                name="password"
+                type="password"
+                required
+                className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
-        
-        <div className="flex flex-col items-center gap-6">
-          <button className="text-[9px] font-black text-medium-gray uppercase tracking-[0.2em] hover:text-ai-blue transition-colors flex items-center gap-2">
-            <span className="w-1 h-1 bg-medium-gray rounded-full"></span>
-            Lost Credentials? Request Resync
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-8 flex min-h-12 w-full items-center justify-between gap-4 bg-white px-5 text-left text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? 'Signing in...' : 'Continue'}
+            <ArrowRight className="h-4 w-4" />
           </button>
-
-          {/* System Status Bar */}
-          <div className="w-full flex justify-between items-center px-6 py-3 bg-white/[0.02] border border-white/5 rounded-xl">
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col">
-                <span className="text-[7px] text-medium-gray uppercase font-bold">Latency</span>
-                <span className="text-[10px] text-expert-green font-mono">14MS</span>
-              </div>
-              <div className="w-px h-6 bg-white/10"></div>
-              <div className="flex flex-col">
-                <span className="text-[7px] text-medium-gray uppercase font-bold">Uptime</span>
-                <span className="text-[10px] text-white font-mono">99.99%</span>
-              </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[7px] text-medium-gray uppercase font-bold">Region</span>
-              <span className="text-[10px] text-white font-mono">GLOBAL-01</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        </form>
+      </section>
+    </main>
   );
 }

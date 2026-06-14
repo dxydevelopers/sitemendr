@@ -6,6 +6,7 @@ import { CreditCard, Download, ExternalLink, Clock, Zap } from 'lucide-react';
 interface BillingItem {
   id: string;
   amount: number;
+  currency?: string;
   status: string;
   description: string;
   createdAt: string;
@@ -41,6 +42,18 @@ interface BillingViewerProps {
 }
 
 const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, subscriptions = [], onManageSubscription, onDownloadReceipt, onUpdatePaymentMethod, onChangeBillingEmail, onRequestAudit }) => {
+  const formatMoney = (amount: number, currency = 'USD') => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2
+      }).format((amount || 0) / 100);
+    } catch {
+      return `${currency} ${((amount || 0) / 100).toFixed(2)}`;
+    }
+  };
+
   return (
     <div className="space-y-8 lg:space-y-12 animate-fade-in pb-20">
       <div className="flex justify-between items-center px-2">
@@ -121,7 +134,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
                   <Clock className="w-3 h-3" />
                   {new Date(item.createdAt).toLocaleDateString()}
                 </div>
-                <p className="text-sm font-black text-white">${(item.amount / 100).toFixed(2)}</p>
+                <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
               </div>
             </div>
           ))
@@ -164,7 +177,7 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
                       <p className="text-xs font-black uppercase tracking-tight">{item.description}</p>
                     </td>
                     <td className="p-6">
-                      <p className="text-sm font-black text-white">${(item.amount / 100).toFixed(2)}</p>
+                      <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
                     </td>
                     <td className="p-6">
                       <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded border ${

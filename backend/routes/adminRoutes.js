@@ -44,8 +44,18 @@ router.delete('/assessments/:id', adminController.deleteAssessment);
 // Build request management
 router.get('/project-requests', adminController.getProjectRequests);
 router.put('/project-requests/:id', adminController.updateProjectRequest);
+router.get('/project-requests/:id/review-chat', adminController.getReviewChatMessages);
+router.post('/project-requests/:id/review-chat', adminController.createReviewChatMessage);
 router.post('/project-requests/:id/build-milestones/defaults', adminController.createDefaultBuildMilestones);
 router.put('/project-requests/:id/build-milestones/:milestoneId', adminController.updateBuildMilestone);
+router.post('/project-requests/:id/studio/tasks', adminController.createStudioTask);
+router.put('/project-requests/:id/studio/tasks/:taskId', adminController.updateStudioTask);
+router.delete('/project-requests/:id/studio/tasks/:taskId', adminController.deleteStudioTask);
+router.post('/project-requests/:id/studio/links', adminController.createStudioLink);
+router.put('/project-requests/:id/studio/links/:linkId', adminController.updateStudioLink);
+router.post('/project-requests/:id/studio/blockers', adminController.createStudioBlocker);
+router.put('/project-requests/:id/studio/blockers/:blockerId', adminController.updateStudioBlocker);
+router.post('/project-requests/:id/studio/updates', adminController.createStudioUpdate);
 
 // Support tickets
 router.get('/support', adminController.getAllSupportTickets);

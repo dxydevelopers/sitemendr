@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useRef
 } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { 
@@ -40,7 +41,8 @@ import {
   TriangleAlert,
   Sparkles,
   Gift,
-  ExternalLink
+  ExternalLink,
+  CircleDollarSign
 } from 'lucide-react';
 import { apiClient, SupporterTier } from '@/lib/api';
 import dynamic from 'next/dynamic';
@@ -53,6 +55,30 @@ const MessageViewer = dynamic(() => import('./dashboard/MessageViewer'), { ssr: 
 const ResourceLibrary = dynamic(() => import('./dashboard/ResourceLibrary'), { ssr: false });
 const AddonMarketplace = dynamic(() => import('./dashboard/AddonMarketplace'), { ssr: false });
 
+declare global {
+  interface Window {
+    PaystackPop?: (new () => {
+      resumeTransaction: (accessCode: string, callbacks?: {
+        onSuccess?: (transaction: { reference?: string; trxref?: string }) => void;
+        onCancel?: () => void;
+        onError?: (error: { message?: string }) => void;
+      }) => void;
+      newTransaction: (options: {
+        key: string;
+        email?: string;
+        amount?: number;
+        currency?: string;
+        ref?: string;
+        channels?: string[];
+        metadata?: Record<string, unknown>;
+        onSuccess: (transaction: { reference?: string; trxref?: string }) => void;
+        onCancel: () => void;
+        onError: (error: { message?: string }) => void;
+      }) => void;
+    });
+  }
+}
+
 const normalizeDashboardTab = (tab?: string | null) => {
   const groupOnlyTabs: Record<string, string> = {
     workspaces: 'dashboard',
@@ -62,9 +88,122 @@ const normalizeDashboardTab = (tab?: string | null) => {
 
   return tab ? groupOnlyTabs[tab] || tab : 'dashboard';
 };
+
+const accountCountryOptions = [
+  { code: 'US', name: 'United States', currency: 'USD' },
+  { code: 'KE', name: 'Kenya', currency: 'KES' },
+  { code: 'NG', name: 'Nigeria', currency: 'NGN' },
+  { code: 'GH', name: 'Ghana', currency: 'GHS' },
+  { code: 'ZA', name: 'South Africa', currency: 'ZAR' },
+  { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
+  { code: 'EU', name: 'Europe', currency: 'EUR' },
+  { code: 'CA', name: 'Canada', currency: 'CAD' },
+  { code: 'AU', name: 'Australia', currency: 'AUD' },
+];
+
+const accountTypeOptions = [
+  { value: 'individual', label: 'Individual' },
+  { value: 'business', label: 'Business' },
+  { value: 'organization', label: 'Organization' },
+  { value: 'agency', label: 'Agency' },
+];
+
+const getDefaultCurrencyForCountry = (country?: string) => (
+  accountCountryOptions.find(option => option.code === country)?.currency || 'USD'
+);
+
+const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Pending') => {
+  if (!amount) return fallback;
+  return `${currency} ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(amount)}`;
+};
+
+const getPaystackChannelsForCurrency = (currency?: string) => {
+  const normalized = (currency || 'USD').toUpperCase();
+  if (normalized === 'NGN') return ['card', 'bank_transfer', 'bank', 'ussd', 'qr'];
+  if (normalized === 'GHS' || normalized === 'KES') return ['card', 'mobile_money'];
+  if (normalized === 'ZAR') return ['card', 'eft'];
+  return ['card'];
+};
+
+const loadPaystackInline = () => new Promise<void>((resolve, reject) => {
+  if (typeof window === 'undefined') {
+    reject(new Error('Payment checkout is only available in the browser.'));
+    return;
+  }
+
+  if (window.PaystackPop) {
+    resolve();
+    return;
+  }
+
+  const existingScript = document.querySelector<HTMLScriptElement>('script[data-paystack-inline="true"]');
+  if (existingScript) {
+    existingScript.addEventListener('load', () => resolve(), { once: true });
+    existingScript.addEventListener('error', () => reject(new Error('Paystack checkout could not be loaded.')), { once: true });
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = 'https://js.paystack.co/v2/inline.js';
+  script.async = true;
+  script.dataset.paystackInline = 'true';
+  script.onload = () => resolve();
+  script.onerror = () => reject(new Error('Paystack checkout could not be loaded.'));
+  document.body.appendChild(script);
+});
 const PageEditor = dynamic(() => import('./dashboard/PageEditor'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('./dashboard/PerformanceAudit'), { ssr: false });
 const EcommerceManager = dynamic(() => import('./dashboard/EcommerceManager'), { ssr: false });
+
+const mapApiProjectToClientProject = (p: ApiRecord): ClientProject => ({
+  id: String(p.id || ''),
+  recordType: p.recordType === 'request' || p.recordType === 'project' ? p.recordType : undefined,
+  assessmentId: typeof p.assessmentId === 'string' ? p.assessmentId : undefined,
+  subscriptionId: typeof p.subscriptionId === 'string' ? p.subscriptionId : undefined,
+  name: String(p.name || p.title || p.siteName || p.customName || 'Untitled Project'),
+  status: String(p.status || (p.suspended === false ? 'active' : 'suspended')).toLowerCase(),
+  progress: typeof p.progress === 'number' ? p.progress : 0,
+  planType: typeof p.planType === 'string' ? p.planType : typeof p.packageIntent === 'string' ? p.packageIntent : undefined,
+  budget: typeof p.budget === 'string' ? p.budget : undefined,
+  timeline: typeof p.timeline === 'string' ? p.timeline : undefined,
+  summary: typeof p.summary === 'string' ? p.summary : undefined,
+  priority: typeof p.priority === 'string' ? p.priority : undefined,
+  quotedAmount: typeof p.quotedAmount === 'number' ? p.quotedAmount : undefined,
+  quoteCurrency: typeof p.quoteCurrency === 'string' ? p.quoteCurrency : undefined,
+  paymentAgreementType: typeof p.paymentAgreementType === 'string' ? p.paymentAgreementType : undefined,
+  paymentAgreementStatus: typeof p.paymentAgreementStatus === 'string' ? p.paymentAgreementStatus : undefined,
+  depositAmount: typeof p.depositAmount === 'number' ? p.depositAmount : undefined,
+  totalAgreedAmount: typeof p.totalAgreedAmount === 'number' ? p.totalAgreedAmount : undefined,
+  paymentDueDate: typeof p.paymentDueDate === 'string' ? p.paymentDueDate : undefined,
+  paymentInstructions: typeof p.paymentInstructions === 'string' ? p.paymentInstructions : undefined,
+  paymentConfirmedAt: typeof p.paymentConfirmedAt === 'string' ? p.paymentConfirmedAt : undefined,
+  productionMode: typeof p.productionMode === 'string' ? p.productionMode : undefined,
+  productionSourceNote: typeof p.productionSourceNote === 'string' ? p.productionSourceNote : undefined,
+  stagingUrl: typeof p.stagingUrl === 'string' ? p.stagingUrl : undefined,
+  stagingNotes: typeof p.stagingNotes === 'string' ? p.stagingNotes : undefined,
+  stagingReviewStatus: typeof p.stagingReviewStatus === 'string' ? p.stagingReviewStatus : undefined,
+  stagingReviewedAt: typeof p.stagingReviewedAt === 'string' ? p.stagingReviewedAt : undefined,
+  launchUrl: typeof p.launchUrl === 'string' ? p.launchUrl : undefined,
+  launchNotes: typeof p.launchNotes === 'string' ? p.launchNotes : undefined,
+  launchApprovedAt: typeof p.launchApprovedAt === 'string' ? p.launchApprovedAt : undefined,
+  handoffNotes: typeof p.handoffNotes === 'string' ? p.handoffNotes : undefined,
+  completionNotes: typeof p.completionNotes === 'string' ? p.completionNotes : undefined,
+  completionAcknowledgedAt: typeof p.completionAcknowledgedAt === 'string' ? p.completionAcknowledgedAt : undefined,
+  completedAt: typeof p.completedAt === 'string' ? p.completedAt : undefined,
+  buildMilestones: Array.isArray(p.buildMilestones) ? p.buildMilestones as BuildMilestone[] : [],
+  studioLinks: Array.isArray(p.studioLinks) ? p.studioLinks as StudioLink[] : [],
+  studioUpdates: Array.isArray(p.studioUpdates) ? p.studioUpdates as StudioUpdate[] : [],
+  clientNotes: typeof p.clientNotes === 'string' ? p.clientNotes : undefined,
+  siteUrl: typeof p.siteUrl === 'string' ? p.siteUrl : undefined,
+  domain: typeof p.domain === 'string' ? p.domain : undefined,
+  reviewRequested: typeof p.reviewRequested === 'boolean' ? p.reviewRequested : undefined,
+  reviewNotes: typeof p.reviewNotes === 'string' ? p.reviewNotes : undefined,
+  revisionCount: typeof p.revisionCount === 'number' ? p.revisionCount : undefined,
+  purchasedAddons: Array.isArray(p.purchasedAddons) || typeof p.purchasedAddons === 'string' ? p.purchasedAddons : undefined,
+  isCurrent: typeof p.isCurrent === 'boolean' ? p.isCurrent : undefined,
+  createdAt: typeof p.createdAt === 'string' ? p.createdAt : undefined,
+  updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : undefined,
+});
 const BookingManager = dynamic(() => import('./dashboard/BookingManager'), { ssr: false });
 const SupporterDashboard = dynamic(() => import('./SupporterDashboard'), { ssr: false });
 const AssessmentQuestionnaire = dynamic(() => import('./AssessmentQuestionnaire'), { ssr: false });
@@ -133,6 +272,7 @@ interface ClientProject {
   id: string;
   recordType?: 'request' | 'project';
   assessmentId?: string;
+  subscriptionId?: string;
   name: string;
   businessName?: string;
   status: string;
@@ -151,6 +291,8 @@ interface ClientProject {
   paymentDueDate?: string;
   paymentInstructions?: string;
   paymentConfirmedAt?: string;
+  productionMode?: string;
+  productionSourceNote?: string;
   stagingUrl?: string;
   stagingNotes?: string;
   stagingReviewStatus?: string;
@@ -163,6 +305,8 @@ interface ClientProject {
   completionAcknowledgedAt?: string;
   completedAt?: string;
   buildMilestones?: BuildMilestone[];
+  studioLinks?: StudioLink[];
+  studioUpdates?: StudioUpdate[];
   clientNotes?: string;
   siteUrl?: string;
   domain?: string;
@@ -186,6 +330,22 @@ interface BuildMilestone {
   clientNote?: string;
 }
 
+interface StudioLink {
+  id: string;
+  label: string;
+  url?: string;
+  type: string;
+  note?: string;
+  createdAt?: string;
+}
+
+interface StudioUpdate {
+  id: string;
+  message: string;
+  visibility: string;
+  createdAt?: string;
+}
+
 interface ClientActivity {
   type: 'payment' | 'file';
   title: string;
@@ -198,11 +358,17 @@ interface UserData {
   name: string;
   email: string;
   phone?: string;
+  role?: string;
+  country?: string;
+  defaultCurrency?: string;
+  accountType?: string;
+  billingRegion?: string;
 }
 
 interface BillingItem {
   id: string;
   amount: number;
+  currency?: string;
   status: string;
   description: string;
   createdAt: string;
@@ -319,6 +485,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [quoteMessage, setQuoteMessage] = useState('');
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [showAgreementPaymentMethods, setShowAgreementPaymentMethods] = useState(false);
+  const [selectedAgreementPaymentMethod, setSelectedAgreementPaymentMethod] = useState('card');
   const [briefResponseAnswers, setBriefResponseAnswers] = useState<Record<string, string>>({});
   const [briefResponseSubmitting, setBriefResponseSubmitting] = useState(false);
   const [briefResponseFeedback, setBriefResponseFeedback] = useState('');
@@ -333,10 +501,18 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [revealTier, setRevealTier] = useState<SupporterTier | null>(null);
   const [isRevealing, setIsRevealing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [profileData, setProfileData] = useState({ name: '', phone: '' });
+  const [profileData, setProfileData] = useState({
+    name: '',
+    phone: '',
+    country: 'US',
+    defaultCurrency: 'USD',
+    accountType: 'individual',
+    billingRegion: 'US'
+  });
   const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
+  const selectedProjectIdRef = useRef(selectedProjectId);
 
   useEffect(() => {
     // Check for search parameters
@@ -443,50 +619,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       // Projects includes Build requests from ProjectRequest plus legacy active projects.
       const projectList = readApiArray<ApiRecord>(safeProjectsRes, ['data', 'projects', 'subscriptions']);
       
-      const mappedProjects = projectList.map((p): ClientProject => ({
-        id: String(p.id || ''),
-        recordType: p.recordType === 'request' || p.recordType === 'project' ? p.recordType : undefined,
-        assessmentId: typeof p.assessmentId === 'string' ? p.assessmentId : undefined,
-        name: String(p.name || p.title || p.siteName || p.customName || 'Untitled Project'),
-        status: String(p.status || (p.suspended === false ? 'active' : 'suspended')).toLowerCase(),
-        progress: typeof p.progress === 'number' ? p.progress : 0,
-        planType: typeof p.planType === 'string' ? p.planType : typeof p.packageIntent === 'string' ? p.packageIntent : undefined,
-        budget: typeof p.budget === 'string' ? p.budget : undefined,
-        timeline: typeof p.timeline === 'string' ? p.timeline : undefined,
-        summary: typeof p.summary === 'string' ? p.summary : undefined,
-        priority: typeof p.priority === 'string' ? p.priority : undefined,
-        quotedAmount: typeof p.quotedAmount === 'number' ? p.quotedAmount : undefined,
-        quoteCurrency: typeof p.quoteCurrency === 'string' ? p.quoteCurrency : undefined,
-        paymentAgreementType: typeof p.paymentAgreementType === 'string' ? p.paymentAgreementType : undefined,
-        paymentAgreementStatus: typeof p.paymentAgreementStatus === 'string' ? p.paymentAgreementStatus : undefined,
-        depositAmount: typeof p.depositAmount === 'number' ? p.depositAmount : undefined,
-        totalAgreedAmount: typeof p.totalAgreedAmount === 'number' ? p.totalAgreedAmount : undefined,
-        paymentDueDate: typeof p.paymentDueDate === 'string' ? p.paymentDueDate : undefined,
-        paymentInstructions: typeof p.paymentInstructions === 'string' ? p.paymentInstructions : undefined,
-        paymentConfirmedAt: typeof p.paymentConfirmedAt === 'string' ? p.paymentConfirmedAt : undefined,
-        stagingUrl: typeof p.stagingUrl === 'string' ? p.stagingUrl : undefined,
-        stagingNotes: typeof p.stagingNotes === 'string' ? p.stagingNotes : undefined,
-        stagingReviewStatus: typeof p.stagingReviewStatus === 'string' ? p.stagingReviewStatus : undefined,
-        stagingReviewedAt: typeof p.stagingReviewedAt === 'string' ? p.stagingReviewedAt : undefined,
-        launchUrl: typeof p.launchUrl === 'string' ? p.launchUrl : undefined,
-        launchNotes: typeof p.launchNotes === 'string' ? p.launchNotes : undefined,
-        launchApprovedAt: typeof p.launchApprovedAt === 'string' ? p.launchApprovedAt : undefined,
-        handoffNotes: typeof p.handoffNotes === 'string' ? p.handoffNotes : undefined,
-        completionNotes: typeof p.completionNotes === 'string' ? p.completionNotes : undefined,
-        completionAcknowledgedAt: typeof p.completionAcknowledgedAt === 'string' ? p.completionAcknowledgedAt : undefined,
-        completedAt: typeof p.completedAt === 'string' ? p.completedAt : undefined,
-        buildMilestones: Array.isArray(p.buildMilestones) ? p.buildMilestones as BuildMilestone[] : [],
-        clientNotes: typeof p.clientNotes === 'string' ? p.clientNotes : undefined,
-        siteUrl: typeof p.siteUrl === 'string' ? p.siteUrl : undefined,
-        domain: typeof p.domain === 'string' ? p.domain : undefined,
-        reviewRequested: typeof p.reviewRequested === 'boolean' ? p.reviewRequested : undefined,
-        reviewNotes: typeof p.reviewNotes === 'string' ? p.reviewNotes : undefined,
-        revisionCount: typeof p.revisionCount === 'number' ? p.revisionCount : undefined,
-        purchasedAddons: Array.isArray(p.purchasedAddons) || typeof p.purchasedAddons === 'string' ? p.purchasedAddons : undefined,
-        isCurrent: typeof p.isCurrent === 'boolean' ? p.isCurrent : undefined,
-        createdAt: typeof p.createdAt === 'string' ? p.createdAt : undefined,
-        updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : undefined,
-      }));
+      const mappedProjects = projectList.map(mapApiProjectToClientProject);
 
       if (mappedProjects.length > 0) {
         setProjects(mappedProjects);
@@ -529,11 +662,20 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       if (Array.isArray(safeBookingsRes)) setBookings(safeBookingsRes as BookingItem[]);
 
       // Get user from localStorage
-      const userData = localStorage.getItem('user');
+      const userData = localStorage.getItem('sitemendr_client_user') || localStorage.getItem('user');
       if (userData) {
         const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setProfileData({ name: parsedUser.name || '', phone: parsedUser.phone || '' });
+        if (parsedUser.role !== 'admin') {
+          setUser(parsedUser);
+          setProfileData({
+            name: parsedUser.name || '',
+            phone: parsedUser.phone || '',
+            country: parsedUser.country || 'US',
+            defaultCurrency: parsedUser.defaultCurrency || getDefaultCurrencyForCountry(parsedUser.country || 'US'),
+            accountType: parsedUser.accountType || 'individual',
+            billingRegion: parsedUser.billingRegion || parsedUser.country || 'US'
+          });
+        }
       }
     } catch (err) {
       console.error('[ClientDashboard] Fetch failed:', err);
@@ -554,6 +696,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   }, [activeTab]);
 
   useEffect(() => {
+    selectedProjectIdRef.current = selectedProjectId;
+  }, [selectedProjectId]);
+
+  useEffect(() => {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     let normalizedUrl = socketUrl;
     if (!process.env.NEXT_PUBLIC_SOCKET_URL && normalizedUrl.includes('/api')) {
@@ -565,11 +711,13 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     socketRef.current.on('connect', () => {
       // Get userId from localStorage if available
       if (typeof window !== 'undefined') {
-        const userData = localStorage.getItem('user');
+        const userData = localStorage.getItem('sitemendr_client_user') || localStorage.getItem('user');
         if (userData) {
           try {
             const user = JSON.parse(userData);
-            socketRef.current?.emit('join_user', user.id);
+            if (user.role !== 'admin') {
+              socketRef.current?.emit('join_user', user.id);
+            }
           } catch {
             // Ignore malformed local user data; the next fetch will recover the session state.
           }
@@ -586,6 +734,35 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     socketRef.current.on('new_system_message', () => {
       if (activeTabRef.current === 'messages' || activeTabRef.current === 'dashboard') {
         fetchData();
+      }
+    });
+
+    socketRef.current.on('project_request_updated', (data: { request?: ApiRecord }) => {
+      if (!data?.request) return;
+      const updatedProject = mapApiProjectToClientProject(data.request);
+      if (!updatedProject.id) return;
+
+      const normalizeSocketStatus = (status?: string) => ({
+        quoted: 'quote_ready',
+        awaiting_payment: 'approved',
+        payment_pending: 'payment_agreement',
+        active: 'in_development',
+        operational: 'launched',
+      }[status || ''] || status || 'submitted');
+      let stageChanged = false;
+      setProjects(prev => {
+        const existingProject = prev.find(project => project.id === updatedProject.id);
+        stageChanged = Boolean(existingProject && normalizeSocketStatus(existingProject.status) !== normalizeSocketStatus(updatedProject.status));
+        return existingProject
+          ? prev.map(project => project.id === updatedProject.id ? { ...project, ...updatedProject } : project)
+          : [updatedProject, ...prev];
+      });
+
+      const currentSelectedId = selectedProjectIdRef.current;
+      if (!currentSelectedId) {
+        setSelectedProjectId(updatedProject.id);
+      } else if (currentSelectedId === updatedProject.id && stageChanged) {
+        setActiveBuildChapter(null);
       }
     });
 
@@ -622,9 +799,15 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       const res = await apiClient.updateProfile(profileData);
       if (res.success) {
         setProfileMessage({ text: 'Profile synchronization complete.', type: 'success' });
-        const updatedUser: UserData = { ...(user || { id: '', email: '' }), ...profileData };
+        const updatedUser: UserData = {
+          ...(user || { id: '', email: '' }),
+          ...(res.user || {}),
+          ...profileData
+        };
+        localStorage.setItem('sitemendr_client_user', JSON.stringify(updatedUser));
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
+        await fetchData(selectedProjectId || undefined);
       }
     } catch {
       setProfileMessage({ text: 'Profile update failed.', type: 'error' });
@@ -703,15 +886,29 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     }
   };
 
-  const handleAgreementPayment = async (project: ClientProject) => {
+  const handleAgreementPayment = async (
+    project: ClientProject,
+    selectedMethod: { id: string; label: string; gateway: string; channels?: string[] }
+  ) => {
     if (!project?.id || paymentSubmitting) return;
+    if (selectedMethod.gateway !== 'paystack') {
+      alert(`${selectedMethod.label} needs its own payment gateway setup before it can process this deposit.`);
+      return;
+    }
     const amount = project.depositAmount || project.totalAgreedAmount || project.quotedAmount;
     if (!amount) {
       alert('Payment amount is not ready yet.');
       return;
     }
+    if (!user?.email) {
+      alert('Your account email is required before checkout can start.');
+      return;
+    }
 
     setPaymentSubmitting(true);
+    let checkoutOpened = false;
+    let checkoutFallbackTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let checkoutSettled = false;
     try {
       const res = await apiClient.initializePayment({
         amount,
@@ -721,20 +918,87 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
           projectRequestId: project.id,
           paymentStage: project.depositAmount ? 'deposit' : 'agreement',
           buildTitle: project.name,
-          currency: project.quoteCurrency || 'USD'
+          checkoutRoute: 'inline_checkout',
+          selectedPaymentMethod: selectedMethod.id,
+          selectedPaymentChannels: selectedMethod.channels || [],
+          currency: project.quoteCurrency || user?.defaultCurrency || 'USD'
         }
       });
 
-      if (res.success && res.data?.paystack?.authorization_url) {
-        window.location.href = res.data.paystack.authorization_url;
+      const publicKey = res.data?.publicKey;
+      const reference = res.data?.paystack?.reference || res.data?.payment?.reference;
+      const accessCode = res.data?.paystack?.access_code;
+      const checkoutAmount = res.data?.payment?.amount || Math.round(Number(amount) * 100);
+      const checkoutCurrency = res.data?.payment?.currency || project.quoteCurrency || user?.defaultCurrency || 'USD';
+
+      if (res.success && publicKey && reference) {
+        await loadPaystackInline();
+        if (!window.PaystackPop) {
+          throw new Error('Paystack checkout is not available.');
+        }
+
+        checkoutOpened = true;
+        const popup = new window.PaystackPop();
+        const paymentCallbacks = {
+          onSuccess: async (response: { reference?: string; trxref?: string }) => {
+            checkoutSettled = true;
+            if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+            try {
+              await apiClient.verifyPayment(response.reference || response.trxref || reference);
+              await fetchData(project.id);
+              setSelectedProjectId(project.id);
+              setShowAgreementPaymentMethods(false);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : 'Payment was completed, but verification needs support review.');
+            } finally {
+              setPaymentSubmitting(false);
+            }
+          },
+          onCancel: () => {
+            checkoutSettled = true;
+            if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+            setPaymentSubmitting(false);
+          },
+          onError: (error: { message?: string }) => {
+            checkoutSettled = true;
+            if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+            setPaymentSubmitting(false);
+            alert(error.message || 'Payment checkout could not be opened.');
+          }
+        };
+        if (accessCode) {
+          popup.resumeTransaction(accessCode, paymentCallbacks);
+        } else {
+          popup.newTransaction({
+            key: publicKey,
+            email: user.email,
+            amount: checkoutAmount,
+            currency: checkoutCurrency,
+            ref: reference,
+            channels: selectedMethod.channels || ['card', 'bank', 'bank_transfer', 'ussd', 'qr', 'mobile_money', 'eft', 'apple_pay'],
+            metadata: {
+              projectRequestId: project.id,
+              checkoutRoute: 'inline_checkout',
+              selectedPaymentMethod: selectedMethod.id
+            },
+            ...paymentCallbacks
+          });
+        }
+        checkoutFallbackTimer = window.setTimeout(() => {
+          if (!checkoutSettled) {
+            setPaymentSubmitting(false);
+          }
+        }, 8000);
         return;
       }
 
-      throw new Error(res.message || 'Payment checkout could not be started.');
+      throw new Error(res.message || 'Inline payment checkout could not be started.');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to start payment checkout.');
     } finally {
+      if (!checkoutOpened) {
       setPaymentSubmitting(false);
+      }
     }
   };
 
@@ -989,7 +1253,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     { status: 'approved', label: 'Approved', detail: 'Build confirmed' },
     { status: 'payment_agreement', label: 'Agreement', detail: 'Payment terms' },
     { status: 'in_development', label: 'Development', detail: 'Work in progress' },
-    { status: 'staging_review', label: 'Staging', detail: 'Preview review' },
+    { status: 'staging_review', label: 'Review', detail: 'Preview approval' },
     { status: 'launched', label: 'Launched', detail: 'Live release' },
     { status: 'handoff', label: 'Handoff', detail: 'Ownership transfer' },
     { status: 'completed', label: 'Complete', detail: 'Build closed' },
@@ -998,8 +1262,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Request, goals, scope inputs', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Quote response and scope decision', statuses: ['quote_ready', 'approved'] },
     { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: 'Payment gate before production', statuses: ['payment_agreement'] },
-    { id: 'build', label: 'Build', eyebrow: 'Delivery', detail: 'Milestones and team updates', statuses: ['in_development'] },
-    { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Preview approval or changes', statuses: ['staging_review'] },
+    { id: 'build', label: 'Build', eyebrow: 'Delivery', detail: 'Your project is in production', statuses: ['in_development'] },
+    { id: 'review', label: 'Review', eyebrow: 'Preview', detail: 'Approve the preview or request changes', statuses: ['staging_review'] },
     { id: 'launch', label: 'Launch', eyebrow: 'Handoff', detail: 'Live link, access, completion', statuses: ['launched', 'handoff', 'completed'] },
   ];
   const statusAlias: Record<string, string> = {
@@ -1054,10 +1318,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       ? 'Scope approved'
       : 'Client review';
   const paymentAgreementStatusLabel = currentBuildRecord?.paymentAgreementStatus === 'confirmed'
-    ? 'Payment confirmed'
+    ? 'Deposit paid'
     : currentBuildRecord?.paymentAgreementStatus === 'sent'
-      ? 'Payment terms sent'
-      : 'Awaiting payment terms';
+      ? 'Deposit pending'
+      : 'Awaiting payment request';
   const activeBuildLifecycleLabel = currentBuildStatus === 'payment_agreement'
     ? paymentAgreementStatusLabel
     : buildLifecycle[currentLifecycleIndex]?.label || 'Submitted';
@@ -1066,7 +1330,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       ? 'Payment is confirmed. Development can start next.'
       : currentBuildStatus === 'approved'
         ? 'Payment terms are being prepared.'
-        : 'Complete payment before production begins.'
+        : 'Deposit required before production.'
     : selectedBuildChapter.detail;
   const canPayAgreement = currentBuildStatus === 'payment_agreement'
     && currentBuildRecord?.paymentAgreementStatus !== 'confirmed'
@@ -1088,14 +1352,98 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       year: 'numeric'
     }).format(new Date(currentBuildRecord.paymentDueDate))
     : 'Not set';
+  const agreementCurrency = currentBuildRecord?.quoteCurrency || user?.defaultCurrency || 'USD';
   const agreementTotalLabel = currentBuildRecord?.totalAgreedAmount
-    ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.totalAgreedAmount}`
+    ? formatCurrencyAmount(agreementCurrency, currentBuildRecord.totalAgreedAmount)
     : currentBuildRecord?.quotedAmount
-      ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}`
+      ? formatCurrencyAmount(agreementCurrency, currentBuildRecord.quotedAmount)
       : 'Pending';
-  const agreementDepositLabel = currentBuildRecord?.depositAmount
-    ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.depositAmount}`
-    : 'Not set';
+  const agreementTotalAmount = currentBuildRecord?.totalAgreedAmount || currentBuildRecord?.quotedAmount || 0;
+  const agreementDueNowAmount = currentBuildRecord?.depositAmount || agreementTotalAmount || 0;
+  const agreementBalanceAmount = Math.max((agreementTotalAmount || 0) - (agreementDueNowAmount || 0), 0);
+  const agreementDueNowLabel = formatCurrencyAmount(agreementCurrency, agreementDueNowAmount);
+  const agreementBalanceLabel = agreementBalanceAmount ? formatCurrencyAmount(agreementCurrency, agreementBalanceAmount) : 'No balance';
+  const agreementTermsLabel = paymentAgreementTypeLabel;
+  const activePaystackChannels = getPaystackChannelsForCurrency(agreementCurrency);
+  const agreementPaymentReference = currentBuildRecord?.clientNotes?.match(/Reference:\s*([^\n]+)/i)?.[1]?.trim() || '';
+  const agreementPaymentVerifiedLabel = currentBuildRecord?.paymentConfirmedAt
+    ? new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(currentBuildRecord.paymentConfirmedAt))
+    : '';
+  const agreementPaymentMethods = [
+    {
+      id: 'card',
+      label: 'Visa / Mastercard',
+      detail: 'Cards',
+      icon: '/payment-icons/visa-mastercard.svg',
+      gateway: 'paystack',
+      channels: ['card']
+    },
+    {
+      id: 'apple_pay',
+      label: 'Apple Pay',
+      detail: 'Wallet',
+      icon: '/payment-icons/apple-pay.svg',
+      gateway: 'paystack',
+      channels: []
+    },
+    {
+      id: 'google_pay',
+      label: 'Google Pay',
+      detail: 'Wallet',
+      icon: '/payment-icons/google-pay.svg',
+      gateway: 'external',
+      channels: []
+    },
+    {
+      id: 'mobile_money',
+      label: 'Mobile money',
+      detail: 'Network',
+      icon: '/payment-icons/mobile-money.svg',
+      gateway: 'paystack',
+      channels: ['mobile_money']
+    },
+    {
+      id: 'paypal',
+      label: 'PayPal',
+      detail: 'Wallet',
+      icon: '/payment-icons/paypal.svg',
+      gateway: 'external',
+      channels: []
+    },
+    {
+      id: 'bank_transfer',
+      label: 'Bank transfer',
+      detail: 'Bank',
+      icon: '/payment-icons/bank-transfer.svg',
+      gateway: 'paystack',
+      channels: ['bank_transfer', 'bank']
+    },
+    {
+      id: 'ussd_qr',
+      label: 'USSD / QR',
+      detail: 'Code',
+      icon: '/payment-icons/ussd-qr.svg',
+      gateway: 'paystack',
+      channels: ['ussd', 'qr']
+    }
+  ];
+  const selectedAgreementMethod = agreementPaymentMethods.find(method => method.id === selectedAgreementPaymentMethod)
+    || agreementPaymentMethods[0];
+  const availableAgreementPaymentMethods = agreementPaymentMethods.filter(method => {
+    if (method.gateway !== 'paystack') return false;
+    if (!method.channels.length) return method.id === 'apple_pay' && activePaystackChannels.includes('card');
+    return method.channels.some(channel => activePaystackChannels.includes(channel));
+  });
+  const activeAgreementPaymentMethod = availableAgreementPaymentMethods.find(method => method.id === selectedAgreementPaymentMethod)
+    || availableAgreementPaymentMethods[0]
+    || selectedAgreementMethod;
   const currentBuildMilestones = currentBuildRecord?.buildMilestones || [];
   const activeBuildMilestone = currentBuildMilestones.find(milestone => milestone.status === 'in_progress')
     || currentBuildMilestones.find(milestone => milestone.status === 'pending')
@@ -1251,6 +1599,52 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const buildMilestoneProgress = currentBuildMilestones.length
     ? Math.round(currentBuildMilestones.reduce((sum, milestone) => sum + (milestone.progress || (milestone.status === 'completed' ? 100 : 0)), 0) / currentBuildMilestones.length)
     : currentBuildRecord?.progress || 0;
+  const blockedBuildMilestones = currentBuildMilestones.filter(milestone => milestone.status === 'blocked');
+  const clientBuildUpdate = activeBuildMilestone?.clientNote?.trim()
+    || currentBuildRecord?.stagingNotes?.trim()
+    || 'The team has started production and will publish the next update here when there is something useful to review.';
+  const clientBuildStateLabel = blockedBuildMilestones.length
+    ? 'Needs attention'
+    : activeBuildMilestone?.status === 'completed'
+      ? 'Production moving'
+      : activeBuildMilestone?.status === 'in_progress'
+        ? 'In production'
+        : 'Starting production';
+  const clientStudioLinks = currentBuildRecord?.studioLinks || [];
+  const clientStudioUpdates = currentBuildRecord?.studioUpdates || [];
+  const clientPreviewLink = clientStudioLinks.find(link => link.type === 'preview' && link.url);
+  const clientDesignLink = clientStudioLinks.find(link => link.type === 'design' && link.url);
+  const clientPreviewUrl = currentBuildRecord?.stagingUrl || clientPreviewLink?.url || '';
+  const clientPreviewIsReal = Boolean(clientPreviewUrl && /^https?:\/\//i.test(clientPreviewUrl) && !/sitemendr\.test|localhost|127\.0\.0\.1/i.test(clientPreviewUrl));
+  const latestStudioUpdate = clientStudioUpdates[0];
+  const clientProductionFocus = activeBuildMilestone?.title || 'Production setup';
+  const clientProductionUpdate = latestStudioUpdate?.message || clientBuildUpdate;
+  const clientProductionHeadline = blockedBuildMilestones.length
+    ? 'The team needs one thing to keep moving'
+    : clientPreviewIsReal
+      ? 'Preview is ready for you'
+      : 'Production has started';
+  const clientPreviewStatus = clientPreviewIsReal ? 'Ready' : 'Preparing';
+  const clientReviewStatus = currentBuildRecord?.stagingReviewStatus || 'sent';
+  const clientReviewStatusLabel = clientReviewStatus === 'changes_requested'
+    ? 'Changes sent'
+    : clientReviewStatus === 'approved'
+      ? 'Approved'
+      : 'Waiting for your review';
+  const clientReviewStatusTone = clientReviewStatus === 'changes_requested'
+    ? 'text-amber-300'
+    : clientReviewStatus === 'approved'
+      ? 'text-expert-green'
+      : 'text-ai-blue';
+  const clientActionMessage = blockedBuildMilestones.length
+    ? 'The team may ask for one detail before continuing.'
+    : 'Nothing is needed from you right now.';
+  const clientPreparedItems = [
+    briefGoals ? `Goal: ${briefGoals}` : null,
+    briefFeatures ? `Included: ${briefFeatures}` : null,
+    briefStyle ? `Style: ${briefStyle}` : null,
+    briefAudience ? `Audience: ${briefAudience}` : null,
+  ].filter(Boolean) as string[];
   const getLifecycleIndex = (project?: ClientProject | null) => Math.max(0, buildLifecycle.findIndex(step => step.status === normalizeBuildStatus(project?.status)));
   const isProjectRequest = (project?: ClientProject | null) => Boolean(project && (project.recordType === 'request' || requestStatuses.includes(project.status)));
   const averageProgress = projects.length
@@ -1921,8 +2315,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                       <main className="min-w-0">
                         {currentBuildRecord && (
                           <div className="flex h-full flex-col">
-                            <div className="px-5 pb-3 pt-1 sm:px-8 lg:px-10">
-                              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="px-5 pb-2 pt-0 sm:px-8 lg:px-10">
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                 <div className="flex min-w-0 items-center gap-4">
                                   <div className="grid h-12 w-12 shrink-0 place-items-center text-ai-blue">
                                     <Sparkles className="h-6 w-6" />
@@ -1955,10 +2349,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   </div>
                                 ) : (
                                   <div className="min-w-40 border-l border-white/10 pl-5">
-                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Progress</p>
-                                    <p className="mt-1 text-2xl font-black text-white">{buildMilestoneProgress}%</p>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Journey</p>
+                                    <p className="mt-1 text-2xl font-black text-white">{buildPageProgress}%</p>
                                     <div className="mt-3 h-1.5 w-full bg-white/10">
-                                      <div className="h-full bg-ai-blue transition-all" style={{ width: `${buildMilestoneProgress}%` }} />
+                                      <div className="h-full bg-ai-blue transition-all" style={{ width: `${buildPageProgress}%` }} />
                                     </div>
                                   </div>
                                 )}
@@ -1966,14 +2360,14 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                             </div>
 
                             {selectedBuildChapter.id !== 'brief' && (
-                            <div className="border-b border-white/10 px-5 py-5 sm:px-8 lg:px-10">
-                              <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                            <div className="border-b border-white/10 px-5 pb-4 pt-3 sm:px-8 lg:px-10">
+                              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                                 <div className="min-w-0">
                                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue/70">
                                     Step {selectedBuildChapterIndex + 1} of {buildJourneyChapters.length}
                                   </p>
-                                  <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedBuildChapter.label}</h4>
-                                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">{selectedBuildChapterDetail}</p>
+                                  <h4 className="mt-1 text-3xl font-black tracking-tight text-white">{selectedBuildChapter.label}</h4>
+                                  <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">{selectedBuildChapterDetail}</p>
                                 </div>
                                 <div className="w-full md:max-w-sm">
                                   <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
@@ -1983,7 +2377,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   <div className="mt-2 h-1.5 bg-white/10">
                                     <div className="h-full bg-ai-blue" style={{ width: `${buildPageProgress}%` }} />
                                   </div>
-                                  <div className="mt-4 flex flex-wrap gap-2">
+                                  <div className="mt-3 flex flex-wrap gap-2">
                                     {selectedBuildChapterIndex > 0 && (
                                       <button
                                         type="button"
@@ -2380,7 +2774,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           <div className="border-t border-white/10 py-5 xl:border-t-0 xl:pl-6">
                                             <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Price</p>
                                             <p className="mt-2 text-3xl font-black tracking-tight text-white">
-                                              {currentBuildRecord.quotedAmount ? `${currentBuildRecord.quoteCurrency || 'USD'} ${currentBuildRecord.quotedAmount}` : 'Pending'}
+                                              {currentBuildRecord.quotedAmount ? `${agreementCurrency} ${currentBuildRecord.quotedAmount}` : 'Pending'}
                                             </p>
                                             <div className="mt-5 flex items-center gap-3">
                                               <span className={`h-2.5 w-2.5 rounded-full ${scopeDecisionLabel === 'Scope approved' ? 'bg-expert-green' : 'bg-amber-300'}`} />
@@ -2484,73 +2878,140 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   <div className="space-y-6">
                                     {isProjectRequest(currentBuildRecord) && ['approved', 'payment_agreement'].includes(currentBuildStatus) ? (
                                   <div className="border-y border-white/10">
-                                    <div className="py-6">
-                                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                                        <div className="min-w-0">
-                                          <div className="flex flex-wrap items-center gap-3">
-                                            <span className={`h-2.5 w-2.5 rounded-full ${
-                                              currentBuildRecord.paymentAgreementStatus === 'confirmed' ? 'bg-expert-green' : 'bg-amber-300'
-                                            }`} />
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">
-                                              {paymentAgreementStatusLabel}
+                                    <div className="py-7">
+                                      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                                        <div className="flex min-w-0 gap-4">
+                                          <div className={`grid h-12 w-12 shrink-0 place-items-center ${
+                                            currentBuildRecord.paymentAgreementStatus === 'confirmed' ? 'text-expert-green' : currentBuildStatus === 'payment_agreement' ? 'text-amber-300' : 'text-white/42'
+                                          }`}>
+                                            {currentBuildRecord.paymentAgreementStatus === 'confirmed'
+                                              ? <Check className="h-8 w-8" />
+                                              : <CircleDollarSign className="h-8 w-8" />}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+                                              currentBuildRecord.paymentAgreementStatus === 'confirmed' ? 'text-expert-green' : currentBuildStatus === 'payment_agreement' ? 'text-amber-300' : 'text-white/42'
+                                            }`}>
+                                              {currentBuildRecord.paymentAgreementStatus === 'confirmed'
+                                                ? 'Deposit paid'
+                                                : currentBuildStatus === 'payment_agreement'
+                                                  ? 'Deposit pending'
+                                                  : 'Payment terms pending'}
+                                            </p>
+                                            <h5 className="mt-2 text-3xl font-black tracking-tight text-white">{agreementDueNowLabel}</h5>
+                                            {currentBuildRecord.paymentAgreementStatus === 'confirmed' && (
+                                              <p className="mt-2 text-sm font-semibold leading-6 text-white/54">
+                                                Build is ready to open.
+                                              </p>
+                                            )}
+                                            {currentBuildRecord.paymentAgreementStatus !== 'confirmed' && currentBuildStatus !== 'payment_agreement' && (
+                                              <p className="mt-2 text-sm font-semibold leading-6 text-white/48">
+                                                The team is preparing the payment request.
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {currentBuildRecord.paymentAgreementStatus === 'confirmed' && (
+                                          <div className="grid gap-2 text-left lg:min-w-64 lg:text-right">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                                              Verified {agreementPaymentVerifiedLabel || 'Confirmed'} - Paystack
                                             </p>
                                           </div>
-                                          <h5 className="mt-3 text-2xl font-black tracking-tight text-white">
-                                            {currentBuildRecord.paymentAgreementStatus === 'confirmed'
-                                              ? 'Production is ready to begin.'
-                                              : 'Complete the deposit step.'}
-                                          </h5>
-                                          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/58">
-                                            {currentBuildStatus === 'approved'
-                                              ? 'The team is preparing the payment terms after scope approval.'
-                                              : currentBuildRecord.paymentAgreementStatus === 'confirmed'
-                                                ? 'The payment gate is cleared. The team can move this build into Development.'
-                                                : 'Pay the required amount through the secure checkout so Development can begin.'}
-                                          </p>
-                                        </div>
-                                        <div className="min-w-0 lg:min-w-56 lg:text-right">
-                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Agreement total</p>
-                                          <p className="mt-2 text-3xl font-black tracking-tight text-white">{agreementTotalLabel}</p>
-                                        </div>
+                                        )}
                                       </div>
-                                    </div>
 
-                                    <div className="grid border-t border-white/10 md:grid-cols-3 md:divide-x md:divide-white/10">
-                                      {[
-                                        { label: 'Payment terms', value: paymentAgreementTypeLabel },
-                                        { label: 'Deposit due', value: agreementDepositLabel },
-                                        { label: 'Due date', value: paymentDueDateLabel },
-                                      ].map((item) => (
-                                        <div key={item.label} className="border-b border-white/10 py-4 pr-4 md:border-b-0 md:px-4 first:md:pl-0 last:md:pr-0">
-                                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
-                                          <p className="mt-2 text-sm font-semibold text-white/72">{item.value}</p>
-                                        </div>
-                                      ))}
-                                    </div>
+                                      <div className="mt-7 grid gap-4 border-y border-white/10 py-5 md:grid-cols-4">
+                                        {[
+                                          { label: 'Total', value: agreementTotalLabel },
+                                          { label: 'Deposit', value: agreementDueNowLabel },
+                                          { label: 'Balance', value: agreementBalanceLabel },
+                                          { label: 'Due', value: paymentDueDateLabel },
+                                        ].map((item) => (
+                                          <div key={item.label} className="min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                            <p className="mt-1 truncate text-sm font-black capitalize text-white/76">{item.value}</p>
+                                          </div>
+                                        ))}
+                                      </div>
 
-                                    {currentBuildRecord.paymentInstructions && (
-                                      <div className="border-t border-white/10 py-5">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">How to pay</p>
-                                        <p className="mt-3 whitespace-pre-line text-sm leading-7 text-white/64">{currentBuildRecord.paymentInstructions}</p>
-                                      </div>
-                                    )}
-                                    {canPayAgreement && (
-                                      <div className="border-t border-white/10 py-5">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Secure checkout</p>
-                                        <p className="mt-2 max-w-2xl text-sm leading-7 text-white/54">
-                                          Pay {currentBuildRecord.depositAmount ? 'the deposit' : 'the agreement amount'} securely. Payment confirmation returns to this workspace.
-                                        </p>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleAgreementPayment(currentBuildRecord)}
-                                          disabled={paymentSubmitting}
-                                          className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-xs"
-                                        >
-                                          <span>{currentBuildRecord.depositAmount ? `Pay deposit (${agreementDepositLabel})` : `Pay now (${agreementTotalLabel})`}</span>
-                                          {paymentSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                                        </button>
-                                      </div>
-                                    )}
+                                      {currentBuildRecord.paymentAgreementStatus === 'confirmed' && (
+                                        <div className="mt-6 grid gap-4 border-b border-white/10 pb-5 md:grid-cols-3">
+                                          {[
+                                            { label: 'Reference', value: agreementPaymentReference || 'Captured', tone: 'text-white/72' },
+                                            { label: 'Terms', value: agreementTermsLabel, tone: 'text-white/72' },
+                                            { label: 'Next step', value: 'Production setup', tone: 'text-amber-200' },
+                                          ].map((item) => (
+                                            <div key={item.label} className="min-w-0">
+                                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                              <p className={`mt-1 truncate text-sm font-black ${item.tone}`}>{item.value}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {canPayAgreement && (
+                                        <div className="mt-6 space-y-4">
+                                          <button
+                                            type="button"
+                                            onClick={() => setShowAgreementPaymentMethods(value => !value)}
+                                            disabled={paymentSubmitting}
+                                            className="flex min-h-12 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-sm"
+                                          >
+                                            <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Proceed to payment</span>
+                                            <ChevronRight className={`h-4 w-4 transition ${showAgreementPaymentMethods ? 'rotate-90' : ''}`} />
+                                          </button>
+
+                                          {showAgreementPaymentMethods && (
+                                            <div className="space-y-4 py-2">
+                                              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                                {availableAgreementPaymentMethods.map((method) => {
+                                                  const isSelected = activeAgreementPaymentMethod.id === method.id;
+                                                  return (
+                                                  <button
+                                                    key={method.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedAgreementPaymentMethod(method.id)}
+                                                    className={`min-h-16 border-b pb-3 text-left transition ${
+                                                      isSelected
+                                                        ? 'border-amber-300 text-white'
+                                                        : 'border-white/10 text-white/70 hover:border-white/30 hover:text-white'
+                                                    }`}
+                                                  >
+                                                    <div className="flex min-h-7 items-center">
+                                                      <Image
+                                                        src={method.icon}
+                                                        alt=""
+                                                        aria-hidden="true"
+                                                        width={112}
+                                                        height={31}
+                                                        unoptimized
+                                                        className="h-7 max-w-28 object-contain object-left"
+                                                      />
+                                                    </div>
+                                                    <div className="mt-2 flex items-end justify-between gap-3">
+                                                      <p className="truncate text-xs font-black text-white">{method.label}</p>
+                                                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-[0.14em] ${
+                                                        isSelected ? 'text-amber-300' : 'text-white/34'
+                                                      }`}>{method.detail}</span>
+                                                    </div>
+                                                  </button>
+                                                );
+                                                })}
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleAgreementPayment(currentBuildRecord, activeAgreementPaymentMethod)}
+                                                disabled={paymentSubmitting}
+                                                className="flex min-h-12 w-full items-center justify-between gap-3 border border-amber-300/35 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-200 transition hover:border-amber-200 hover:bg-amber-300/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-sm"
+                                              >
+                                                <span>{paymentSubmitting ? 'Opening secure checkout' : `Continue with ${activeAgreementPaymentMethod.label} (${agreementDueNowLabel})`}</span>
+                                                {paymentSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                     ) : (
                                       <div className="border-y border-white/10 py-5">
@@ -2563,123 +3024,200 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
                                 {selectedBuildChapter.id === 'build' && (
                                   <div className="border-y border-white/10 py-5">
-                                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                                      <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Build execution</p>
-                                        <h4 className="mt-2 text-lg font-black tracking-tight text-white">
-                                          {activeBuildMilestone?.title || 'Milestones ready'}
-                                        </h4>
+                                    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,0.36fr)] xl:items-start">
+                                      <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                          <span className={`inline-flex h-2.5 w-2.5 rounded-full ${blockedBuildMilestones.length ? 'bg-amber-300' : 'bg-expert-green'}`} />
+                                          <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${blockedBuildMilestones.length ? 'text-amber-300' : 'text-expert-green'}`}>
+                                            {clientBuildStateLabel}
+                                          </p>
+                                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/32">{buildMilestoneProgress}% complete</span>
+                                        </div>
+                                        <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{clientProductionHeadline}</h4>
+                                        <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-white/74">{clientProductionUpdate}</p>
                                       </div>
-                                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
-                                        {buildMilestoneProgress}% overall
-                                      </span>
-                                    </div>
-                                    {isProjectRequest(currentBuildRecord) && currentBuildMilestones.length > 0 ? (
-                                      <div className="divide-y divide-white/10 border-y border-white/10">
-                                      {currentBuildMilestones.map((milestone) => (
-                                        <div key={milestone.id} className="grid gap-4 px-1 py-4 sm:grid-cols-[1fr_7rem] sm:items-center">
-                                          <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-3">
-                                              <span className={`h-2.5 w-2.5 ${
-                                                milestone.status === 'completed' ? 'bg-expert-green' : milestone.status === 'in_progress' ? 'bg-ai-blue' : milestone.status === 'blocked' ? 'bg-red-400' : 'bg-white/18'
-                                              }`} />
-                                              <p className="text-sm font-black text-white">{milestone.title}</p>
-                                              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{milestone.status.replace(/_/g, ' ')}</span>
-                                            </div>
-                                            {milestone.clientNote ? (
-                                              <p className="mt-2 text-xs leading-6 text-white/52">{milestone.clientNote}</p>
-                                            ) : (
-                                              <p className="mt-2 text-xs leading-6 text-white/34">{milestone.description || 'The team will update this milestone as work progresses.'}</p>
-                                            )}
+
+                                      <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                        <div className="flex items-start gap-3">
+                                          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${blockedBuildMilestones.length ? 'bg-amber-300/12 text-amber-300' : 'bg-expert-green/12 text-expert-green'}`}>
+                                            {blockedBuildMilestones.length ? <TriangleAlert className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                                           </div>
-                                          <div>
-                                            <p className="text-right text-[10px] font-black uppercase tracking-[0.14em] text-white/48">{milestone.progress || 0}%</p>
-                                            <div className="mt-2 h-1.5 bg-white/10">
-                                              <div className="h-full bg-ai-blue" style={{ width: `${milestone.progress || 0}%` }} />
-                                            </div>
+                                          <div className="min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/42">Your part</p>
+                                            <p className="mt-1 text-lg font-black tracking-tight text-white">{blockedBuildMilestones.length ? 'Input needed' : 'Nothing needed'}</p>
+                                            <p className="mt-1 text-sm leading-6 text-white/58">{clientActionMessage}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </section>
+
+                                    <section className="mt-6 grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+                                      {[
+                                        { label: 'Production', value: clientProductionFocus, icon: Sparkles, tone: 'text-ai-blue' },
+                                        { label: 'Preview', value: clientPreviewStatus, icon: Globe, tone: clientPreviewIsReal ? 'text-expert-green' : 'text-white/50' },
+                                        { label: 'Client action', value: blockedBuildMilestones.length ? 'Reply needed' : 'Wait for update', icon: Clock, tone: blockedBuildMilestones.length ? 'text-amber-300' : 'text-white/50' },
+                                      ].map((item) => (
+                                        <div key={item.label} className="flex min-w-0 items-start gap-3 border-b border-white/10 py-4 last:border-b-0 sm:border-b-0 sm:px-4 sm:first:pl-0 sm:last:pr-0">
+                                          <item.icon className={`mt-0.5 h-4 w-4 shrink-0 ${item.tone}`} />
+                                          <div className="min-w-0">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">{item.label}</p>
+                                            <p className="mt-1 truncate text-sm font-black text-white">{item.value}</p>
                                           </div>
                                         </div>
                                       ))}
+                                    </section>
+
+                                    <section className="grid gap-6 border-b border-white/10 py-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(18rem,0.48fr)]">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/46">Project shape</p>
+                                        <div className="mt-3 divide-y divide-white/10">
+                                          {clientPreparedItems.length ? clientPreparedItems.map((item) => (
+                                            <p key={item} className="py-3 text-sm font-semibold leading-6 text-white/72">{item}</p>
+                                          )) : (
+                                            <p className="py-3 text-sm font-semibold leading-6 text-white/62">The approved scope is being prepared for production.</p>
+                                          )}
+                                        </div>
                                       </div>
-                                    ) : (
-                                      <p className="border-y border-white/10 py-5 text-sm leading-7 text-white/54">Milestones will appear here when development starts.</p>
-                                    )}
+
+                                      <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/46">Preview checkpoint</p>
+                                        <p className="mt-3 text-xl font-black tracking-tight text-white">
+                                          {clientPreviewIsReal ? 'Open preview' : 'Not ready yet'}
+                                        </p>
+                                        <p className="mt-2 text-sm leading-6 text-white/62">
+                                          {clientPreviewIsReal
+                                            ? 'The preview is available for inspection.'
+                                            : 'A preview link will appear here when the build is ready to inspect.'}
+                                        </p>
+                                        <div className="mt-4 flex flex-wrap gap-4">
+                                          {clientPreviewIsReal && (
+                                            <a
+                                              href={clientPreviewUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white"
+                                            >
+                                              Open preview <ExternalLink className="h-3.5 w-3.5" />
+                                            </a>
+                                          )}
+                                          {clientDesignLink?.url && (
+                                            <a
+                                              href={clientDesignLink.url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:text-white"
+                                            >
+                                              Open design <ExternalLink className="h-3.5 w-3.5" />
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </section>
+
+                                    <section className="pt-5">
+                                      <div className="flex items-center justify-between gap-4">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/46">Team updates</p>
+                                        {clientStudioUpdates.length > 0 && (
+                                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/40">{clientStudioUpdates.length}</span>
+                                        )}
+                                      </div>
+                                      <div className="mt-3 divide-y divide-white/10">
+                                        {clientStudioUpdates.length ? clientStudioUpdates.slice(0, 3).map((update) => (
+                                          <div key={update.id} className="py-3">
+                                            <p className="text-sm font-semibold leading-6 text-white/72">{update.message}</p>
+                                            {update.createdAt && <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/40">{new Date(update.createdAt).toLocaleDateString()}</p>}
+                                          </div>
+                                        )) : (
+                                          <p className="py-3 text-sm font-semibold leading-6 text-white/56">The team has not published a production update yet.</p>
+                                        )}
+                                      </div>
+                                    </section>
                                   </div>
                                 )}
 
                                 {selectedBuildChapter.id === 'review' && (
-                                  <div className="border-y border-ai-blue/35 bg-ai-blue/[0.04] py-5">
+                                  <div className="border-y border-white/10 py-5">
                                     {isProjectRequest(currentBuildRecord) && currentBuildStatus === 'staging_review' ? (
                                       <>
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                      <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/68">
-                                          Review the staging build and tell the team whether it is ready for launch or needs changes.
-                                        </p>
-                                      </div>
-                                      <div className="border-t border-white/10 pt-4 sm:min-w-40 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Status</p>
-                                        <p className="mt-2 text-lg font-black capitalize text-white">
-                                          {(currentBuildRecord.stagingReviewStatus || 'sent').replace(/_/g, ' ')}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="mt-5 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
-                                      <div className="border-b border-white/10 p-4 sm:border-b-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Preview</p>
-                                        {currentBuildRecord.stagingUrl ? (
-                                          <a
-                                            href={currentBuildRecord.stagingUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="mt-2 inline-flex items-center gap-2 break-all text-sm font-black text-ai-blue transition hover:text-white"
-                                          >
-                                            Open staging <ExternalLink className="h-3.5 w-3.5" />
-                                          </a>
-                                        ) : (
-                                          <p className="mt-2 text-sm font-semibold text-white/52">Preview link pending</p>
-                                        )}
-                                      </div>
-                                      <div className="p-4">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Team note</p>
-                                        <p className="mt-2 text-sm leading-6 text-white/64">
-                                          {currentBuildRecord.stagingNotes || 'The team will add review notes before launch approval.'}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <textarea
-                                      value={stagingReviewMessage}
-                                      onChange={(event) => setStagingReviewMessage(event.target.value)}
-                                      rows={3}
-                                      className="mt-5 w-full resize-none border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
-                                      placeholder="Add review notes for the team"
-                                    />
-                                    <div className="mt-4 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleStagingReviewResponse(currentBuildRecord, 'approve')}
-                                        disabled={stagingReviewSubmitting}
-                                        className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                      >
-                                        <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve launch</span>
-                                        {stagingReviewSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleStagingReviewResponse(currentBuildRecord, 'changes')}
-                                        disabled={stagingReviewSubmitting}
-                                        className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
-                                      >
-                                        <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Request changes</span>
-                                        <ChevronRight className="h-4 w-4" />
-                                      </button>
-                                    </div>
+                                        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,0.38fr)] xl:items-start">
+                                          <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-ai-blue" />
+                                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview ready</p>
+                                              <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${clientReviewStatusTone}`}>{clientReviewStatusLabel}</span>
+                                            </div>
+                                            <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">Your preview is ready</h4>
+                                            <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-white/72">
+                                              Open the preview, check the key pages, then approve it or send one clear change note.
+                                            </p>
+                                          </div>
+                                          <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/42">Review status</p>
+                                            <p className={`mt-2 text-lg font-black ${clientReviewStatusTone}`}>
+                                              {clientReviewStatusLabel}
+                                            </p>
+                                          </div>
+                                        </section>
+
+                                        <section className="mt-6 grid border-y border-white/10 lg:grid-cols-[minmax(0,0.9fr)_minmax(18rem,0.45fr)] lg:divide-x lg:divide-white/10">
+                                          <div className="border-b border-white/10 py-5 lg:border-b-0 lg:pr-6">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Preview</p>
+                                            {currentBuildRecord.stagingUrl ? (
+                                              <a
+                                                href={currentBuildRecord.stagingUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="mt-3 inline-flex min-h-12 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white"
+                                              >
+                                                Open preview <ExternalLink className="h-3.5 w-3.5" />
+                                              </a>
+                                            ) : (
+                                              <p className="mt-2 text-sm font-semibold text-white/52">Preview link pending</p>
+                                            )}
+                                          </div>
+                                          <div className="py-5 lg:pl-6">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">What to check</p>
+                                            <p className="mt-2 text-sm leading-6 text-white/64">
+                                              {currentBuildRecord.stagingNotes || 'Check the main pages, mobile layout, forms, and the overall feel before approval.'}
+                                            </p>
+                                          </div>
+                                        </section>
+
+                                        <section className="mt-6">
+                                          <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Change note</label>
+                                          <textarea
+                                            value={stagingReviewMessage}
+                                            onChange={(event) => setStagingReviewMessage(event.target.value)}
+                                            rows={3}
+                                            className="w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                            placeholder="Only write here if something should change before launch..."
+                                          />
+                                          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleStagingReviewResponse(currentBuildRecord, 'approve')}
+                                              disabled={stagingReviewSubmitting}
+                                              className="flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                              <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve preview</span>
+                                              {stagingReviewSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleStagingReviewResponse(currentBuildRecord, 'changes')}
+                                              disabled={stagingReviewSubmitting}
+                                              className="flex min-h-12 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                              <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Send changes</span>
+                                              <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                          </div>
+                                        </section>
                                       </>
                                     ) : (
                                       <>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/60">The preview link and review controls will appear here when staging is ready.</p>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/60">The preview and approval controls will appear here when the project is ready for review.</p>
                                       </>
                                     )}
                                   </div>
@@ -2807,18 +3345,6 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">Brief questions</p>
                                         </div>
                                       )}
-                                    </div>
-                                  )}
-                                  {selectedBuildChapter.id === 'build' && (
-                                    <div className="px-1 py-4">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Active milestone</p>
-                                      <p className="mt-2 text-xs leading-6 text-white/50">{activeBuildMilestone?.title || 'Milestones pending.'}</p>
-                                    </div>
-                                  )}
-                                  {selectedBuildChapter.id === 'review' && (
-                                    <div className="px-1 py-4">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Review state</p>
-                                      <p className="mt-2 text-xs leading-6 text-white/50">{(currentBuildRecord.stagingReviewStatus || 'not ready').replace(/_/g, ' ')}</p>
                                     </div>
                                   )}
                                   {selectedBuildChapter.id === 'launch' && (
@@ -3153,6 +3679,66 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                           className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
                           placeholder="+X XXX XXX XXXX"
                         />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Country</label>
+                          <select
+                            value={profileData.country}
+                            onChange={(e) => {
+                              const country = e.target.value;
+                              setProfileData({
+                                ...profileData,
+                                country,
+                                billingRegion: country,
+                                defaultCurrency: getDefaultCurrencyForCountry(country)
+                              });
+                            }}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
+                          >
+                            {accountCountryOptions.map(option => (
+                              <option key={option.code} value={option.code} className="bg-black text-white">{option.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Default Currency</label>
+                          <select
+                            value={profileData.defaultCurrency}
+                            onChange={(e) => setProfileData({ ...profileData, defaultCurrency: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
+                          >
+                            {Array.from(new Set(accountCountryOptions.map(option => option.currency))).map(currency => (
+                              <option key={currency} value={currency} className="bg-black text-white">{currency}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Account Type</label>
+                          <select
+                            value={profileData.accountType}
+                            onChange={(e) => setProfileData({ ...profileData, accountType: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
+                          >
+                            {accountTypeOptions.map(option => (
+                              <option key={option.value} value={option.value} className="bg-black text-white">{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Billing Region</label>
+                          <select
+                            value={profileData.billingRegion}
+                            onChange={(e) => setProfileData({ ...profileData, billingRegion: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
+                          >
+                            {accountCountryOptions.map(option => (
+                              <option key={option.code} value={option.code} className="bg-black text-white">{option.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div className="pt-4">
                         <button 

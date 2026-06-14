@@ -75,11 +75,12 @@ const ChatSupport: React.FC = () => {
       // Get userId from localStorage if available
       let userId = null;
       if (typeof window !== 'undefined') {
-        const userData = localStorage.getItem('user');
+        const userData = localStorage.getItem('sitemendr_client_user') || localStorage.getItem('user');
         if (userData) {
           try {
-            userId = JSON.parse(userData).id;
-          } catch (e) {}
+            const parsedUser = JSON.parse(userData);
+            if (parsedUser.role !== 'admin') userId = parsedUser.id;
+          } catch {}
         }
       }
       socketRef.current?.emit('join_chat', { chatId, userId });

@@ -56,7 +56,8 @@ function LoginForm() {
       if (response.user.role === 'admin') {
         router.push('/admin');
       } else {
-        router.push(redirect || '/dashboard');
+        const safeRedirect = redirect && !redirect.startsWith('/admin') ? redirect : '/dashboard';
+        router.push(safeRedirect);
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';

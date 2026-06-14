@@ -737,7 +737,7 @@ const sourceToAssessmentEnum = {
   dashboard_build: 'assessment'
 };
 
-const buildProjectRequestPayload = (userId, assessmentId, responses, results) => {
+const buildProjectRequestPayload = (userId, assessmentId, responses, results, defaultCurrency = 'USD') => {
   const businessName = responses.company || responses.businessName || responses.name || 'Untitled request';
   const selectedPackage = responses.selectedPackage || results?.recommendedPackage || null;
   const summaryParts = [
@@ -764,7 +764,7 @@ const buildProjectRequestPayload = (userId, assessmentId, responses, results) =>
     status: 'submitted',
     priority: responses.timeline && String(responses.timeline).toLowerCase().includes('asap') ? 'high' : 'normal',
     quotedAmount: results?.pricing?.estimatedTotal ? parseFloat(results.pricing.estimatedTotal) : null,
-    quoteCurrency: results?.pricing?.currency || 'USD',
+    quoteCurrency: results?.pricing?.currency || defaultCurrency || 'USD',
     clientNotes: responses.website ? `Existing website: ${responses.website}` : null
   };
 };
@@ -964,8 +964,7 @@ exports.processAssessment = async (req, res) => {
     const dashboardUserId = req.user?.userId || assessment.userId;
     if (dashboardUserId) {
       const dashboardUser = await prisma.user.findUnique({
-        where: { id: dashboardUserId },
-        select: { id: true, name: true, email: true, role: true }
+        where: { id: dashboardUserId }
       });
 
       if (!dashboardUser) {
@@ -977,8 +976,8 @@ exports.processAssessment = async (req, res) => {
 
       const projectRequest = await prisma.projectRequest.upsert({
         where: { assessmentId: assessment.id },
-        update: buildProjectRequestPayload(dashboardUser.id, assessment.id, updatedResponses, results),
-        create: buildProjectRequestPayload(dashboardUser.id, assessment.id, updatedResponses, results)
+        update: buildProjectRequestPayload(dashboardUser.id, assessment.id, updatedResponses, results, dashboardUser.defaultCurrency),
+        create: buildProjectRequestPayload(dashboardUser.id, assessment.id, updatedResponses, results, dashboardUser.defaultCurrency)
       });
 
       await prisma.assessment.update({
@@ -1182,7 +1181,11 @@ exports.convertToLead = async (req, res) => {
             email,
             phone,
             password: hashedPassword,
-            role: 'user'
+            role: 'user',
+            country: req.body.country || 'US',
+            defaultCurrency: req.body.defaultCurrency || 'USD',
+            accountType: req.body.accountType || 'individual',
+            billingRegion: req.body.billingRegion || req.body.country || 'US'
           }
         });
       } else {

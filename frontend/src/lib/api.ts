@@ -7,6 +7,11 @@ export interface User {
   email: string;
   role: string;
   banned: boolean;
+  phone?: string;
+  country?: string;
+  defaultCurrency?: string;
+  accountType?: string;
+  billingRegion?: string;
   lastLogin?: string;
   createdAt?: string;
 }
@@ -230,7 +235,7 @@ class ApiClient {
       
       // If there's already a pending request for the same endpoint, return that instead of starting a new one
       if (this.pendingRequests.has(cacheKey)) {
-        return this.pendingRequests.get(cacheKey) as any;
+        return this.pendingRequests.get(cacheKey) as Promise<T>;
       }
     }
 
@@ -297,6 +302,8 @@ class ApiClient {
             localStorage.removeItem('sitemendr_auth_token');
             localStorage.removeItem('assessment_session_token');
             localStorage.removeItem('user');
+            localStorage.removeItem('sitemendr_admin_user');
+            localStorage.removeItem('sitemendr_client_user');
           }
           
           // Instead of throwing, return error response so UI can handle it gracefully
@@ -400,6 +407,15 @@ class ApiClient {
     if (data.token) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('sitemendr_auth_token', data.token);
+        if (data.user?.role === 'admin') {
+          localStorage.setItem('sitemendr_admin_user', JSON.stringify(data.user));
+          localStorage.removeItem('sitemendr_client_user');
+          localStorage.removeItem('user');
+        } else if (data.user) {
+          localStorage.setItem('sitemendr_client_user', JSON.stringify(data.user));
+          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.removeItem('sitemendr_admin_user');
+        }
       }
     }
     return data;
@@ -411,6 +427,8 @@ class ApiClient {
       localStorage.removeItem('sitemendr_auth_token');
       localStorage.removeItem('assessment_session_token');
       localStorage.removeItem('user');
+      localStorage.removeItem('sitemendr_admin_user');
+      localStorage.removeItem('sitemendr_client_user');
     }
   }
 
@@ -484,7 +502,7 @@ class ApiClient {
 
   // Payment API methods
   async initializePayment(paymentData: Record<string, unknown>) {
-    return this.request<{ success: boolean; data?: { paystack?: { authorization_url: string } }; message?: string }>('/payments/initialize', {
+    return this.request<{ success: boolean; data?: { publicKey?: string; payment?: { reference?: string; amount?: number; currency?: string }; paystack?: { authorization_url: string; access_code?: string; reference?: string } }; message?: string }>('/payments/initialize', {
       method: 'POST',
       body: JSON.stringify(paymentData),
     });
@@ -510,7 +528,7 @@ class ApiClient {
   }
 
   async processAssessment(assessmentId: string, finalResponses: Record<string, unknown>) {
-    return this.request<{ success: boolean; results: AssessmentResultsData; assessmentId: string; token?: string; user?: any; projectCreated?: boolean }>(`/assessment/${assessmentId}/process`, {
+    return this.request<{ success: boolean; results: AssessmentResultsData; assessmentId: string; token?: string; user?: User; projectCreated?: boolean }>(`/assessment/${assessmentId}/process`, {
       method: 'POST',
       body: JSON.stringify({ finalResponses }),
     });
@@ -521,7 +539,7 @@ class ApiClient {
   }
 
   async getAssessmentDetails(assessmentId: string) {
-    return this.request<{ success: boolean; data: any }>(`/assessment/${assessmentId}/details`);
+    return this.request<{ success: boolean; data: unknown }>(`/assessment/${assessmentId}/details`);
   }
 
   async convertToLead(assessmentId: string, leadData: Record<string, unknown>) {
@@ -555,7 +573,7 @@ class ApiClient {
   }
 
   async getClientAssessments() {
-    const response = await this.request<{ success: boolean; data?: any[]; assessments?: any[] }>('/client/assessments');
+    const response = await this.request<{ success: boolean; data?: unknown[]; assessments?: unknown[] }>('/client/assessments');
     return {
       success: response.success,
       data: response.data || response.assessments || []
@@ -611,6 +629,17 @@ class ApiClient {
     return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/staging-review`, {
       method: 'POST',
       body: JSON.stringify({ action, message }),
+    });
+  }
+
+  async getClientReviewChat(requestId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/client/project-requests/${requestId}/review-chat`);
+  }
+
+  async sendClientReviewChat(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message?: string }>(`/client/project-requests/${requestId}/review-chat`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 
@@ -1200,6 +1229,72 @@ class ApiClient {
     });
   }
 
+  async getAdminReviewChat(requestId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/admin/project-requests/${requestId}/review-chat`);
+  }
+
+  async sendAdminReviewChat(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message?: string }>(`/admin/project-requests/${requestId}/review-chat`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createStudioTask(projectRequestId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStudioTask(projectRequestId: string, taskId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteStudioTask(projectRequestId: string, taskId: string) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/tasks/${taskId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createStudioLink(projectRequestId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/links`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStudioLink(projectRequestId: string, linkId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/links/${linkId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createStudioBlocker(projectRequestId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/blockers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStudioBlocker(projectRequestId: string, blockerId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/blockers/${blockerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createStudioUpdate(projectRequestId: string, data: Record<string, unknown>) {
+    return this.request(`/admin/project-requests/${projectRequestId}/studio/updates`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async deleteAssessment(id: string) {
     return this.request<{ success: boolean }>(`/admin/assessments/${id}`, {
       method: 'DELETE',
@@ -1280,7 +1375,7 @@ class ApiClient {
   }
 
   async initializeSupporterSubscription(tierId: string) {
-    return this.request<{ success: boolean; data?: { paystack?: { authorization_url: string } }; message?: string }>('/payments/initialize', {
+    return this.request<{ success: boolean; data?: { publicKey?: string; paystack?: { authorization_url: string; access_code?: string; reference?: string } }; message?: string }>('/payments/initialize', {
       method: 'POST',
       body: JSON.stringify({
         amount: 0, // Backend will determine based on tier

@@ -78,14 +78,14 @@ exports.initializePayment = async (req, res) => {
   try {
     const { amount, serviceType, description, metadata } = req.body;
     let email = req.body.email?.toLowerCase();
+    let authenticatedUser = null;
 
     // If authenticated, fallback to the user email when not provided
-    if (!email && req.user?.userId) {
-      const authUser = await prisma.user.findUnique({
-        where: { id: req.user.userId },
-        select: { email: true }
+    if (req.user?.userId) {
+      authenticatedUser = await prisma.user.findUnique({
+        where: { id: req.user.userId }
       });
-      email = authUser?.email?.toLowerCase();
+      if (!email) email = authenticatedUser?.email?.toLowerCase();
     }
 
     // DEBUG LOG
@@ -150,7 +150,13 @@ exports.initializePayment = async (req, res) => {
 
     // Determine User ID (either from auth or find/create by email)
     let userId = req.user?.userId;
-    let finalMetadata = { ...metadata };
+    let finalMetadata = {
+      country: authenticatedUser?.country || 'US',
+      defaultCurrency: authenticatedUser?.defaultCurrency || 'USD',
+      accountType: authenticatedUser?.accountType || 'individual',
+      billingRegion: authenticatedUser?.billingRegion || authenticatedUser?.country || 'US',
+      ...metadata
+    };
     
     if (!userId) {
       // Find or create guest user
@@ -172,6 +178,10 @@ exports.initializePayment = async (req, res) => {
             name: email.split('@')[0], // Use email prefix as name
             password: hashedPassword,
             role: 'user',
+            country: finalMetadata.country || 'US',
+            defaultCurrency: finalMetadata.currency || finalMetadata.defaultCurrency || 'USD',
+            accountType: finalMetadata.accountType || 'individual',
+            billingRegion: finalMetadata.billingRegion || finalMetadata.country || 'US',
             passwordResetToken,
             passwordResetExpires
           }
@@ -187,10 +197,13 @@ exports.initializePayment = async (req, res) => {
 
     // Generate unique reference
     const reference = `sitemendr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const allowedPaystackChannels = new Set(['card', 'bank', 'bank_transfer', 'ussd', 'qr', 'mobile_money', 'eft']);
+    const selectedPaymentChannels = Array.isArray(finalMetadata.selectedPaymentChannels)
+      ? finalMetadata.selectedPaymentChannels.filter(channel => allowedPaystackChannels.has(channel))
+      : [];
 
-    // Use USD as the default currency across the system
-    const targetCurrency = process.env.PAYSTACK_CURRENCY || 'USD';
-    const sourceCurrency = finalMetadata.currency || 'USD';
+    const sourceCurrency = finalMetadata.currency || finalMetadata.defaultCurrency || 'USD';
+    const targetCurrency = sourceCurrency || process.env.PAYSTACK_CURRENCY || 'USD';
     let paystackAmount = finalAmount;
 
     // Only convert if explicitly configured to use NGN and input is USD
@@ -199,6 +212,21 @@ exports.initializePayment = async (req, res) => {
       const rate = 1500; 
       paystackAmount = finalAmount * rate;
       logger.info('Converting USD to NGN for Paystack', { original: finalAmount, converted: paystackAmount, rate });
+    }
+
+    if (serviceType === 'build_agreement' && finalMetadata.projectRequestId) {
+      await prisma.payment.updateMany({
+        where: {
+          userId,
+          serviceType: 'build_agreement',
+          status: 'pending',
+          metadata: {
+            path: ['projectRequestId'],
+            equals: finalMetadata.projectRequestId
+          }
+        },
+        data: { status: 'superseded' }
+      });
     }
 
     // Create payment record
@@ -240,21 +268,56 @@ exports.initializePayment = async (req, res) => {
         }
       };
 
+      if (selectedPaymentChannels.length) {
+        paystackData.channels = selectedPaymentChannels;
+      }
+
       if (!PAYSTACK_SECRET_KEY) {
         throw new Error('PAYSTACK_SECRET_KEY is missing');
       }
 
-      const paystackResponse = await axios.post(
-        `${PAYSTACK_BASE_URL}/transaction/initialize`,
-        paystackData,
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 20000 // 20 seconds timeout
+      const paystackHeaders = {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json'
+      };
+      let paystackResponse;
+      try {
+        paystackResponse = await axios.post(
+          `${PAYSTACK_BASE_URL}/transaction/initialize`,
+          paystackData,
+          {
+            headers: paystackHeaders,
+            timeout: 20000 // 20 seconds timeout
+          }
+        );
+      } catch (channelError) {
+        const channelErrorData = channelError.response?.data;
+        const shouldRetryWithoutChannels = selectedPaymentChannels.length
+          && channelError.response?.status === 400
+          && channelErrorData?.code === 'invalid_params'
+          && /No active channel/i.test(channelErrorData?.message || '');
+
+        if (!shouldRetryWithoutChannels) {
+          throw channelError;
         }
-      );
+
+        const fallbackPaystackData = { ...paystackData };
+        delete fallbackPaystackData.channels;
+        logger.warn('Retrying Paystack initialization without forced channels', {
+          reference,
+          selectedPaymentChannels,
+          paystackMessage: channelErrorData?.message
+        });
+
+        paystackResponse = await axios.post(
+          `${PAYSTACK_BASE_URL}/transaction/initialize`,
+          fallbackPaystackData,
+          {
+            headers: paystackHeaders,
+            timeout: 20000
+          }
+        );
+      }
 
       logger.info('Paystack initialization response received', { 
         status: paystackResponse.data.status,
@@ -270,11 +333,25 @@ exports.initializePayment = async (req, res) => {
         success: true,
         data: {
           payment,
+          publicKey: PAYSTACK_PUBLIC_KEY,
           paystack: paystackResponse.data.data // Paystack returns data in a 'data' field
         }
       });
     } catch (paystackError) {
       const errorData = paystackError.response?.data;
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'failed',
+          gatewayResponse: errorData || { message: paystackError.message }
+        }
+      }).catch(updateError => {
+        logger.error('Failed to mark payment initialization attempt failed', {
+          errorCode: 'PAYMENT_INIT_STATUS_UPDATE_ERROR',
+          error: updateError.message,
+          reference
+        });
+      });
       logger.error('Paystack API call failed', {
         errorCode: 'PAYSTACK_API_ERROR',
         message: paystackError.message,

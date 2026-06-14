@@ -25,8 +25,9 @@ export default function AdminPage() {
       if (data.success && data.user) {
         if (data.user.role === 'admin') {
           setIsAuthenticated(true);
-          // Store user data in localStorage for dashboard display
-          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('sitemendr_admin_user', JSON.stringify(data.user));
+          localStorage.removeItem('sitemendr_client_user');
+          localStorage.removeItem('user');
         } else {
           // Redirect to client dashboard if not admin
           router.push('/dashboard');
@@ -54,6 +55,8 @@ export default function AdminPage() {
   const handleLogout = () => {
     localStorage.removeItem('sitemendr_auth_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('sitemendr_admin_user');
+    localStorage.removeItem('sitemendr_client_user');
     setIsAuthenticated(false);
     router.push('/login');
   };

@@ -14,6 +14,8 @@ router.get('/projects', clientController.getProjects);
 router.post('/project-requests/:requestId/brief-clarification', clientController.respondToBriefClarification);
 router.post('/project-requests/:requestId/quote-response', clientController.respondToProjectQuote);
 router.post('/project-requests/:requestId/staging-review', clientController.respondToStagingReview);
+router.get('/project-requests/:requestId/review-chat', clientController.getReviewChatMessages);
+router.post('/project-requests/:requestId/review-chat', clientController.createReviewChatMessage);
 router.post('/project-requests/:requestId/handoff-response', clientController.respondToHandoff);
 router.get('/assessments', clientController.getAssessments);
 router.get('/activities', clientController.getActivities);

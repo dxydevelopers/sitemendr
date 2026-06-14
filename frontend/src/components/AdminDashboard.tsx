@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api';
-import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays, Send, ShieldCheck } from 'lucide-react';
+import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays, Send, CircleDollarSign } from 'lucide-react';
 
 const BlogEditor = dynamic(() => import('./BlogEditor'), { ssr: false });
 const AssessmentModal = dynamic(() => import('./AssessmentModal'), { ssr: false });
@@ -18,6 +18,11 @@ const CommentManager = dynamic(() => import('./dashboard/CommentManager'), { ssr
 const AdminSystemHealth = dynamic(() => import('./dashboard/AdminSystemHealth'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('./dashboard/PerformanceAudit'), { ssr: false });
 const BookingManager = dynamic(() => import('./dashboard/BookingManager'), { ssr: false });
+
+const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Not set') => {
+  if (!amount) return fallback;
+  return `${currency} ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(amount)}`;
+};
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -197,6 +202,7 @@ interface Assessment {
 interface ProjectRequest {
   id: string;
   assessmentId?: string;
+  subscriptionId?: string;
   title: string;
   businessName?: string;
   serviceType: string;
@@ -215,6 +221,8 @@ interface ProjectRequest {
   paymentDueDate?: string;
   paymentInstructions?: string;
   paymentConfirmedAt?: string;
+  productionMode?: string;
+  productionSourceNote?: string;
   stagingUrl?: string;
   stagingNotes?: string;
   stagingReviewStatus?: string;
@@ -227,6 +235,10 @@ interface ProjectRequest {
   completionAcknowledgedAt?: string;
   completedAt?: string;
   buildMilestones?: BuildMilestone[];
+  studioTasks?: StudioTask[];
+  studioLinks?: StudioLink[];
+  studioBlockers?: StudioBlocker[];
+  studioUpdates?: StudioUpdate[];
   adminNotes?: string;
   clientNotes?: string;
   createdAt: string;
@@ -235,6 +247,10 @@ interface ProjectRequest {
     id: string;
     name: string;
     email: string;
+    country?: string;
+    defaultCurrency?: string;
+    accountType?: string;
+    billingRegion?: string;
   };
   assessment?: {
     id: string;
@@ -243,6 +259,45 @@ interface ProjectRequest {
     status?: string;
     createdAt?: string;
   };
+}
+
+interface StudioTask {
+  id: string;
+  title: string;
+  area: string;
+  status: string;
+  owner?: string;
+  dueDate?: string;
+  note?: string;
+  order?: number;
+  createdAt?: string;
+}
+
+interface StudioLink {
+  id: string;
+  label: string;
+  url?: string;
+  type: string;
+  note?: string;
+  createdAt?: string;
+}
+
+interface StudioBlocker {
+  id: string;
+  title: string;
+  area: string;
+  status: string;
+  note?: string;
+  createdAt?: string;
+  resolvedAt?: string;
+}
+
+interface StudioUpdate {
+  id: string;
+  message: string;
+  visibility: string;
+  createdBy?: string;
+  createdAt: string;
 }
 
 interface BuildMilestone {
@@ -254,6 +309,18 @@ interface BuildMilestone {
   order: number;
   dueDate?: string;
   clientNote?: string;
+}
+
+interface ReviewChatMessage {
+  id: string;
+  projectRequestId: string;
+  senderRole: 'admin' | 'client' | 'system' | string;
+  message: string;
+  kind?: 'message' | 'question' | 'choice_response' | 'file' | string;
+  choices?: string[] | null;
+  selectedChoice?: string | null;
+  attachments?: Array<{ label?: string; url?: string }> | null;
+  createdAt: string;
 }
 
 export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardProps) {
@@ -269,6 +336,23 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [briefClarificationMessage, setBriefClarificationMessage] = useState('');
   const [briefDecisionMessage, setBriefDecisionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [scopeClientNote, setScopeClientNote] = useState('');
+  const [studioTaskDraft, setStudioTaskDraft] = useState({ title: '', area: 'design' });
+  const [studioBlockerDraft, setStudioBlockerDraft] = useState('');
+  const [studioUpdateDraft, setStudioUpdateDraft] = useState('');
+  const [studioLinkDraft, setStudioLinkDraft] = useState({ type: 'design', label: '', url: '' });
+  const [reviewChatOpen, setReviewChatOpen] = useState(false);
+  const [reviewChatMessages, setReviewChatMessages] = useState<ReviewChatMessage[]>([]);
+  const [reviewChatDraft, setReviewChatDraft] = useState('');
+  const [reviewChatChoiceDraft, setReviewChatChoiceDraft] = useState('');
+  const [reviewChatLoading, setReviewChatLoading] = useState(false);
+  const [reviewChatSending, setReviewChatSending] = useState(false);
+  const [agreementDraft, setAgreementDraft] = useState({
+    paymentAgreementType: '',
+    paymentDueDate: '',
+    totalAgreedAmount: '',
+    depositAmount: '',
+    paymentInstructions: ''
+  });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -300,6 +384,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const [isSystemWorking, setIsSystemWorking] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
+  const selectedProjectRequestIdRef = useRef(selectedProjectRequestId);
   const router = useRouter();
 
   const fetchData = useCallback(async () => {
@@ -351,6 +436,10 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   }, [activeTab]);
 
   useEffect(() => {
+    selectedProjectRequestIdRef.current = selectedProjectRequestId;
+  }, [selectedProjectRequestId]);
+
+  useEffect(() => {
     setBriefMissingItems([]);
     setBriefClarificationMessage('');
     setBriefDecisionMessage(null);
@@ -388,6 +477,21 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
       if (activeTabRef.current === 'tickets') {
         fetchData();
       }
+    });
+
+    socketRef.current.on('project_request_updated', (data: { request?: ProjectRequest }) => {
+      if (!data?.request) return;
+      setProjectRequests(prev => {
+        const exists = prev.some(request => request.id === data.request?.id);
+        return exists
+          ? prev.map(request => request.id === data.request?.id ? data.request as ProjectRequest : request)
+          : [data.request as ProjectRequest, ...prev];
+      });
+    });
+
+    socketRef.current.on('review_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
+      if (!data?.message || data.requestId !== selectedProjectRequestIdRef.current) return;
+      setReviewChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
     });
 
     return () => {
@@ -575,12 +679,52 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     { id: 'brief', label: 'Brief', eyebrow: 'Intake', detail: 'Read the request and confirm project basics', statuses: ['submitted', 'in_review'] },
     { id: 'scope', label: 'Scope', eyebrow: 'Quote', detail: 'Set the offer, price, and delivery terms.', statuses: ['quote_ready', 'approved'] },
     { id: 'agreement', label: 'Agreement', eyebrow: 'Payment', detail: '', statuses: ['payment_agreement'] },
-    { id: 'build', label: 'Build', eyebrow: 'Execution', detail: 'Manage milestones and delivery notes', statuses: ['in_development'] },
+    { id: 'build', label: 'Studio', eyebrow: 'Production', detail: '', statuses: ['in_development'] },
     { id: 'review', label: 'Review', eyebrow: 'Staging', detail: 'Send preview and handle feedback', statuses: ['staging_review'] },
     { id: 'launch', label: 'Launch', eyebrow: 'Handoff', detail: 'Launch, handoff, and close the build', statuses: ['launched', 'handoff', 'completed'] },
   ];
 
   const selectedProjectRequest = selectedProjectRequestId ? projectRequests.find(request => request.id === selectedProjectRequestId) || null : null;
+  useEffect(() => {
+    setAgreementDraft({
+      paymentAgreementType: selectedProjectRequest?.paymentAgreementType || '',
+      paymentDueDate: selectedProjectRequest?.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : '',
+      totalAgreedAmount: selectedProjectRequest?.totalAgreedAmount?.toString() || selectedProjectRequest?.quotedAmount?.toString() || '',
+      depositAmount: selectedProjectRequest?.depositAmount?.toString() || '',
+      paymentInstructions: selectedProjectRequest?.paymentInstructions || ''
+    });
+  }, [
+    selectedProjectRequest?.id,
+    selectedProjectRequest?.paymentAgreementType,
+    selectedProjectRequest?.paymentDueDate,
+    selectedProjectRequest?.totalAgreedAmount,
+    selectedProjectRequest?.quotedAmount,
+    selectedProjectRequest?.depositAmount,
+    selectedProjectRequest?.paymentInstructions
+  ]);
+
+  useEffect(() => {
+    if (
+      activeTab !== 'dashboard'
+      || selectedProjectRequest?.status !== 'payment_agreement'
+      || selectedProjectRequest.paymentAgreementStatus === 'confirmed'
+    ) {
+      return;
+    }
+
+    const refreshPaymentState = window.setInterval(() => {
+      fetchData();
+    }, 6000);
+
+    return () => window.clearInterval(refreshPaymentState);
+  }, [
+    activeTab,
+    fetchData,
+    selectedProjectRequest?.id,
+    selectedProjectRequest?.status,
+    selectedProjectRequest?.paymentAgreementStatus
+  ]);
+
   useEffect(() => {
     const note = selectedProjectRequest?.clientNotes?.trim() || '';
     setScopeClientNote(note.toLowerCase().includes('scope sent') ? note : '');
@@ -600,7 +744,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
       if (request.paymentAgreementStatus === 'confirmed') return 'Start development';
       return 'Waiting payment';
     }
-    if (request.status === 'in_development') return 'Update build';
+    if (request.status === 'in_development') return 'Update studio';
     if (request.status === 'staging_review') return 'Handle review';
     if (['launched', 'handoff'].includes(request.status)) return 'Close handoff';
     if (request.status === 'completed') return 'Closed';
@@ -682,12 +826,13 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const nextAdminBuildChapter = adminBuildChapters[Math.min(selectedAdminBuildChapterIndex + 1, adminBuildChapters.length - 1)];
   const adminBuildPageProgress = Math.round(((defaultAdminBuildChapterIndex + 1) / adminBuildChapters.length) * 100);
   const selectedBuildMilestones = selectedProjectRequest?.buildMilestones || [];
-  const selectedBuildMilestoneProgress = selectedBuildMilestones.length
-    ? Math.round(selectedBuildMilestones.reduce((sum, milestone) => sum + (milestone.progress || (milestone.status === 'completed' ? 100 : 0)), 0) / selectedBuildMilestones.length)
-    : 0;
   const selectedActiveBuildMilestone = selectedBuildMilestones.find(milestone => milestone.status === 'in_progress')
     || selectedBuildMilestones.find(milestone => milestone.status === 'pending')
     || selectedBuildMilestones[selectedBuildMilestones.length - 1];
+  const selectedBlockedBuildMilestones = selectedBuildMilestones.filter(milestone => milestone.status === 'blocked');
+  const selectedStudioInternalNote = selectedProjectRequest?.adminNotes?.toLowerCase().includes('client brief clarification')
+    ? ''
+    : selectedProjectRequest?.adminNotes?.trim() || '';
   const briefReviewStatus = selectedProjectRequest?.status === 'submitted'
     ? 'New brief'
     : selectedProjectRequest?.status === 'in_review'
@@ -722,6 +867,125 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const selectedBriefMaterial = readResponseValue(selectedProjectRequest?.assessment?.responses?.hasWebsite) || getSelectedBriefValue('Existing material');
   const selectedBriefStyle = readResponseValue(selectedProjectRequest?.assessment?.responses?.preferredStyle) || getSelectedBriefValue('Style direction');
   const selectedBriefLink = readResponseValue(selectedProjectRequest?.assessment?.responses?.website) || getSelectedBriefValue('Link');
+  const selectedStudioNoteSource = `${selectedProjectRequest?.adminNotes || ''}\n${selectedProjectRequest?.clientNotes || ''}`;
+  const selectedStudioHasContentAssets = Boolean(
+    (selectedBriefMaterial && selectedBriefMaterial.toLowerCase() !== 'nothing yet')
+    || /Content\/assets:\s*(?!\s*(not answered|none|nothing yet)\b).+/i.test(selectedStudioNoteSource)
+  );
+  const selectedStudioTasks = selectedProjectRequest?.studioTasks || [];
+  const selectedStudioLinks = selectedProjectRequest?.studioLinks || [];
+  const selectedStudioBlockers = selectedProjectRequest?.studioBlockers || [];
+  const selectedOpenStudioBlockers = selectedStudioBlockers.filter(blocker => blocker.status !== 'resolved');
+  const selectedStudioUpdates = selectedProjectRequest?.studioUpdates || [];
+  const selectedPreviewLink = selectedStudioLinks.find(link => link.type === 'preview' && link.url) || null;
+  const selectedPreviewUrl = selectedProjectRequest?.stagingUrl || selectedPreviewLink?.url || '';
+  const selectedPreviewIsReal = Boolean(selectedPreviewUrl && /^https?:\/\//i.test(selectedPreviewUrl) && !/sitemendr\.test|localhost|127\.0\.0\.1/i.test(selectedPreviewUrl));
+  const selectedPreviewIsTest = Boolean(selectedPreviewUrl && !selectedPreviewIsReal);
+  const selectedInternalPreviewUrl = selectedProjectRequest?.subscriptionId
+    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/preview/${selectedProjectRequest.subscriptionId}`
+    : '';
+  const selectedStudioNeeds = [
+    selectedStudioHasContentAssets ? null : 'Content/assets',
+    selectedPreviewIsReal ? null : 'Real preview link',
+    selectedBlockedBuildMilestones.length ? 'Blocker resolution' : null,
+    selectedActiveBuildMilestone?.clientNote?.trim() ? null : 'Client update',
+  ].filter(Boolean) as string[];
+  const selectedClientStudioUpdates = selectedStudioUpdates.filter(update => update.visibility === 'client');
+  const selectedDoneStudioTasks = selectedStudioTasks.filter(task => task.status === 'done');
+  const selectedActiveStudioTasks = selectedStudioTasks.filter(task => task.status === 'active');
+  const selectedBlockedStudioTasks = selectedStudioTasks.filter(task => task.status === 'blocked');
+  const selectedStudioCompletion = selectedStudioTasks.length
+    ? Math.round((selectedDoneStudioTasks.length / selectedStudioTasks.length) * 100)
+    : 0;
+  const selectedStudioAreas = [
+    { id: 'design', name: 'Design', icon: <Layout className="h-5 w-5" />, accent: 'text-ai-blue' },
+    { id: 'build', name: 'Build', icon: <Settings className="h-5 w-5" />, accent: 'text-white/70' },
+    { id: 'content', name: 'Content', icon: <Package className="h-5 w-5" />, accent: selectedStudioHasContentAssets ? 'text-expert-green' : 'text-amber-300' },
+    { id: 'qa', name: 'QA', icon: <Eye className="h-5 w-5" />, accent: 'text-white/50' },
+    { id: 'preview', name: 'Preview', icon: <Sparkles className="h-5 w-5" />, accent: selectedPreviewIsReal ? 'text-expert-green' : 'text-amber-300' },
+  ].map(area => ({
+    ...area,
+    tasks: selectedStudioTasks.filter(task => task.area === area.id)
+  }));
+  const getStudioAreaState = (tasks: StudioTask[]) => {
+    if (!tasks.length) return { label: 'Not started', tone: 'text-white/34' };
+    if (tasks.some(task => task.status === 'blocked')) return { label: 'Blocked', tone: 'text-amber-300' };
+    if (tasks.every(task => task.status === 'done')) return { label: 'Ready', tone: 'text-expert-green' };
+    if (tasks.some(task => task.status === 'active')) return { label: 'In progress', tone: 'text-ai-blue' };
+    return { label: 'Queued', tone: 'text-white/48' };
+  };
+  const selectedStudioDeliverables = [
+    { label: 'Build type', value: selectedBriefType || 'Custom build' },
+    { label: 'Goal', value: selectedBriefGoals || 'Not set' },
+    { label: 'Must include', value: selectedBriefFeatures || 'Not set' },
+    { label: 'Audience', value: selectedBriefAudience || 'Not set' },
+    { label: 'Style', value: selectedBriefStyle || 'Not set' },
+    { label: 'Content', value: selectedBriefMaterial || 'Not set' },
+  ];
+  const selectedStudioSignals = [
+    { label: 'Tasks', value: String(selectedStudioTasks.length), tone: selectedStudioTasks.length ? 'text-white' : 'text-white/34' },
+    { label: 'Active', value: String(selectedActiveStudioTasks.length), tone: selectedActiveStudioTasks.length ? 'text-ai-blue' : 'text-white/34' },
+    { label: 'Blocked', value: String(selectedOpenStudioBlockers.length + selectedBlockedStudioTasks.length), tone: selectedOpenStudioBlockers.length || selectedBlockedStudioTasks.length ? 'text-amber-300' : 'text-expert-green' },
+    { label: 'Updates', value: String(selectedClientStudioUpdates.length), tone: selectedClientStudioUpdates.length ? 'text-expert-green' : 'text-white/34' },
+  ];
+  const selectedProductionMode = selectedProjectRequest?.productionMode || 'hybrid';
+  const selectedProductionModeLabel = selectedProductionMode === 'inside_app'
+    ? 'Inside app'
+    : selectedProductionMode === 'outside_tools'
+      ? 'Outside tools'
+      : 'Hybrid';
+  const selectedStudioArtifacts = selectedStudioLinks.filter(link => link.type !== 'preview' || link.url);
+  const selectedStudioIsEmpty = selectedStudioTasks.length === 0;
+  const selectedStudioTaskGroups = selectedStudioAreas
+    .map(area => ({ ...area, state: getStudioAreaState(area.tasks) }))
+    .filter(area => area.tasks.length > 0);
+  const selectedLatestClientUpdate = selectedClientStudioUpdates[0];
+  const selectedReviewChecks = [
+    {
+      label: 'Client update',
+      detail: selectedLatestClientUpdate?.message || 'Publish one clear production update before Review.',
+      ready: selectedClientStudioUpdates.length > 0
+    },
+    {
+      label: 'Preview',
+      detail: selectedPreviewIsReal ? 'Public preview is connected.' : 'Connect a real public preview URL.',
+      ready: selectedPreviewIsReal
+    },
+    {
+      label: 'Production evidence',
+      detail: selectedStudioArtifacts.some(link => ['design', 'repo', 'file', 'link'].includes(link.type))
+        ? 'At least one artifact is attached.'
+        : 'Attach design, repo, file, or production reference.',
+      ready: selectedStudioArtifacts.some(link => ['design', 'repo', 'file', 'link'].includes(link.type))
+    },
+    {
+      label: 'Work completed',
+      detail: selectedDoneStudioTasks.length ? `${selectedDoneStudioTasks.length} work item${selectedDoneStudioTasks.length === 1 ? '' : 's'} done.` : 'Mark at least one production work item as done.',
+      ready: selectedDoneStudioTasks.length > 0
+    },
+    {
+      label: 'Risks cleared',
+      detail: selectedOpenStudioBlockers.length ? `${selectedOpenStudioBlockers.length} open blocker${selectedOpenStudioBlockers.length === 1 ? '' : 's'} still active.` : 'No open blockers.',
+      ready: selectedOpenStudioBlockers.length === 0
+    },
+  ];
+  const selectedStudioCanOpenReview = selectedReviewChecks.every(item => item.ready);
+  const selectedReviewStatus = selectedProjectRequest?.stagingReviewStatus || 'sent';
+  const selectedReviewStatusLabel = selectedReviewStatus === 'changes_requested'
+    ? 'Changes requested'
+    : selectedReviewStatus === 'approved'
+      ? 'Approved'
+      : selectedReviewStatus === 'sent'
+        ? 'Waiting client'
+        : 'Not sent';
+  const selectedReviewStatusTone = selectedReviewStatus === 'approved'
+    ? 'text-expert-green'
+    : selectedReviewStatus === 'changes_requested'
+      ? 'text-amber-300'
+      : selectedReviewStatus === 'sent'
+        ? 'text-ai-blue'
+        : 'text-white/46';
+  const selectedReviewCanMoveForward = selectedReviewStatus === 'approved';
   const selectedBriefAnswerRows = [
     { question: 'What are we building?', answer: selectedBriefType || 'Not answered' },
     { question: 'What should this build help achieve?', answer: selectedBriefGoals || 'Not answered' },
@@ -736,6 +1000,17 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   ];
   const selectedClientNotes = selectedProjectRequest?.clientNotes?.trim() || '';
   const selectedAdminNotes = selectedProjectRequest?.adminNotes?.trim() || '';
+  const selectedReviewFeedbackBlocks = selectedClientNotes
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .filter(block => /Client requested staging changes|Client approved staging/i.test(block));
+  const selectedLatestReviewFeedback = selectedReviewFeedbackBlocks[selectedReviewFeedbackBlocks.length - 1] || '';
+  const selectedLatestReviewMessage = selectedLatestReviewFeedback
+    .split('\n')
+    .map(line => line.trim())
+    .find(line => /^Client message:/i.test(line))
+    ?.replace(/^Client message:\s*/i, '')
+    .trim() || '';
   const selectedScopeDiscussionLines = selectedClientNotes
     .split('\n')
     .map(line => line.trim())
@@ -756,6 +1031,43 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const isScopeAccepted = selectedProjectRequest?.status === 'approved';
   const isAgreementSent = selectedProjectRequest?.status === 'payment_agreement';
   const isAgreementConfirmed = selectedProjectRequest?.paymentAgreementStatus === 'confirmed';
+  const selectedAgreementCurrency = selectedProjectRequest?.quoteCurrency || selectedProjectRequest?.user?.defaultCurrency || 'USD';
+  const selectedAgreementTotal = Number(agreementDraft.totalAgreedAmount || selectedProjectRequest?.totalAgreedAmount || selectedProjectRequest?.quotedAmount || 0);
+  const selectedAgreementDueNow = Number(agreementDraft.depositAmount || selectedProjectRequest?.depositAmount || selectedAgreementTotal || 0);
+  const selectedAgreementBalance = Math.max((selectedAgreementTotal || 0) - (selectedAgreementDueNow || 0), 0);
+  const selectedAgreementDueNowLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementDueNow);
+  const selectedAgreementTotalLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementTotal);
+  const selectedAgreementBalanceLabel = selectedAgreementBalance ? formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementBalance) : 'No balance';
+  const selectedAgreementTypeLabel = agreementDraft.paymentAgreementType === 'deposit'
+    ? 'Deposit payment'
+    : agreementDraft.paymentAgreementType === 'full_payment'
+      ? 'Full payment'
+      : agreementDraft.paymentAgreementType === 'milestone_payments'
+        ? 'Milestone payments'
+        : 'Deposit payment';
+  const selectedAgreementNote = agreementDraft.paymentInstructions
+    ? agreementDraft.paymentInstructions.replace(/Deposit of [A-Z]{3}\s*[\d,]+(\.\d+)?/i, `Deposit of ${selectedAgreementDueNowLabel}`)
+    : selectedAgreementDueNow
+      ? `Deposit of ${selectedAgreementDueNowLabel} before development starts. Balance follows the agreed project terms.`
+      : '';
+  const isAgreementDraftDirty = Boolean(selectedProjectRequest) && (
+    agreementDraft.paymentAgreementType !== (selectedProjectRequest.paymentAgreementType || '')
+    || agreementDraft.paymentDueDate !== (selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : '')
+    || agreementDraft.totalAgreedAmount !== (selectedProjectRequest.totalAgreedAmount?.toString() || selectedProjectRequest.quotedAmount?.toString() || '')
+    || agreementDraft.depositAmount !== (selectedProjectRequest.depositAmount?.toString() || '')
+    || agreementDraft.paymentInstructions !== (selectedProjectRequest.paymentInstructions || '')
+  );
+  const selectedPaymentReference = selectedClientNotes.match(/Reference:\s*([^\n]+)/i)?.[1]?.trim() || '';
+  const selectedPaymentConfirmedAt = selectedProjectRequest?.paymentConfirmedAt
+    ? new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(selectedProjectRequest.paymentConfirmedAt))
+    : '';
   const selectedClientResponseReceivedAt = selectedProjectRequest?.updatedAt
     ? new Intl.DateTimeFormat('en-US', {
       weekday: 'short',
@@ -837,22 +1149,48 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
     handleUpdateProjectRequest(request.id, {
       status: 'quote_ready',
-      quoteCurrency: request.quoteCurrency || 'USD',
+      quoteCurrency: request.quoteCurrency || request.user?.defaultCurrency || 'USD',
       clientNotes: note
     });
+  };
+
+  const handleSendAgreementPaymentRequest = (request: ProjectRequest) => {
+    handleUpdateProjectRequest(request.id, {
+      status: 'payment_agreement',
+      quoteCurrency: request.quoteCurrency || request.user?.defaultCurrency || 'USD',
+      paymentAgreementStatus: 'sent',
+      paymentAgreementType: agreementDraft.paymentAgreementType || 'deposit',
+      paymentDueDate: agreementDraft.paymentDueDate || null,
+      totalAgreedAmount: agreementDraft.totalAgreedAmount,
+      depositAmount: agreementDraft.depositAmount,
+      paymentInstructions: selectedAgreementNote
+    });
+  };
+
+  const patchProjectRequestLocal = (requestId: string, updater: (request: ProjectRequest) => ProjectRequest) => {
+    setProjectRequests(prev => prev.map(request => request.id === requestId ? updater(request) : request));
+    setSelectedProjectRequestId(requestId);
+  };
+
+  const replaceProjectRequestLocal = (requestId: string, request: ProjectRequest) => {
+    setProjectRequests(prev => {
+      const exists = prev.some(item => item.id === requestId);
+      return exists ? prev.map(item => item.id === requestId ? request : item) : [request, ...prev];
+    });
+    setSelectedProjectRequestId(requestId);
   };
 
   const handleUpdateProjectRequest = async (id: string, data: Record<string, unknown>) => {
     setSubmitting(true);
     setBriefDecisionMessage(null);
+    patchProjectRequestLocal(id, request => ({ ...request, ...data, updatedAt: new Date().toISOString() } as ProjectRequest));
     try {
       const res = await apiClient.updateAdminProjectRequest(id, data) as { success: boolean; data?: ProjectRequest; message?: string };
       if (res.success) {
         if (!res.data) {
           throw new Error('Build request updated, but the server did not return the updated request.');
         }
-        setProjectRequests(prev => prev.map(request => request.id === id ? res.data as ProjectRequest : request));
-        setSelectedProjectRequestId(id);
+        replaceProjectRequestLocal(id, res.data);
         const successText = data.status === 'quote_ready'
           ? 'Brief approved. Scope is now open for the client.'
           : data.status === 'payment_agreement'
@@ -875,33 +1213,265 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     }
   };
 
-  const handleCreateDefaultBuildMilestones = async (id: string) => {
-    setSubmitting(true);
+  const fetchAdminReviewChat = useCallback(async (requestId: string) => {
+    setReviewChatLoading(true);
     try {
-      const res = await apiClient.createDefaultBuildMilestones(id) as { success: boolean; data: ProjectRequest };
+      const res = await apiClient.getAdminReviewChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
       if (res.success) {
-        setProjectRequests(prev => prev.map(request => request.id === id ? res.data : request));
-        setSelectedProjectRequestId(id);
+        setReviewChatMessages(res.data || []);
       }
     } catch (error) {
-      console.error('Failed to prepare build milestones:', error);
-      alert('Failed to prepare build milestones');
+      console.error('Failed to load review chat:', error);
+    } finally {
+      setReviewChatLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setReviewChatMessages([]);
+    setReviewChatDraft('');
+    setReviewChatChoiceDraft('');
+    if (selectedProjectRequestId && reviewChatOpen) {
+      fetchAdminReviewChat(selectedProjectRequestId);
+    }
+  }, [fetchAdminReviewChat, reviewChatOpen, selectedProjectRequestId]);
+
+  const handleSendAdminReviewChat = async () => {
+    if (!selectedProjectRequestId || reviewChatSending) return;
+    const message = reviewChatDraft.trim();
+    const choices = reviewChatChoiceDraft
+      .split(',')
+      .map(choice => choice.trim())
+      .filter(Boolean);
+    if (!message && !choices.length) return;
+
+    setReviewChatSending(true);
+    try {
+      const res = await apiClient.sendAdminReviewChat(selectedProjectRequestId, {
+        message,
+        kind: choices.length ? 'question' : 'message',
+        choices
+      }) as { success: boolean; data?: ReviewChatMessage; message?: string };
+      if (res.success && res.data) {
+        setReviewChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setReviewChatDraft('');
+        setReviewChatChoiceDraft('');
+        setReviewChatOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to send review chat message:', error);
+    } finally {
+      setReviewChatSending(false);
+    }
+  };
+
+  const applyStudioProjectResponse = (requestId: string, response: { success?: boolean; data?: ProjectRequest; message?: string }) => {
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Studio update failed.');
+    }
+    replaceProjectRequestLocal(requestId, response.data);
+  };
+
+  const handleCreateStudioTask = async (requestId: string) => {
+    if (!studioTaskDraft.title.trim()) return;
+    const optimisticTask: StudioTask = {
+      id: `pending-task-${Date.now()}`,
+      title: studioTaskDraft.title.trim(),
+      area: studioTaskDraft.area,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      studioTasks: [optimisticTask, ...(request.studioTasks || [])],
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      const res = await apiClient.createStudioTask(requestId, studioTaskDraft) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+      setStudioTaskDraft({ title: '', area: studioTaskDraft.area });
+    } catch (error) {
+      console.error('Failed to create Studio task:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create Studio task');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateBuildMilestone = async (requestId: string, milestoneId: string, data: Record<string, unknown>) => {
+  const handleUpdateStudioTask = async (requestId: string, taskId: string, data: Record<string, unknown>) => {
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      studioTasks: (request.studioTasks || []).map(task => task.id === taskId ? { ...task, ...data } as StudioTask : task),
+      updatedAt: new Date().toISOString()
+    }));
     setSubmitting(true);
     try {
-      const res = await apiClient.updateBuildMilestone(requestId, milestoneId, data) as { success: boolean; data: ProjectRequest };
-      if (res.success) {
-        setProjectRequests(prev => prev.map(request => request.id === requestId ? res.data : request));
+      const res = await apiClient.updateStudioTask(requestId, taskId, data) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+    } catch (error) {
+      console.error('Failed to update Studio task:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update Studio task');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateStudioBlocker = async (requestId: string) => {
+    if (!studioBlockerDraft.trim()) return;
+    const optimisticBlocker: StudioBlocker = {
+      id: `pending-blocker-${Date.now()}`,
+      title: studioBlockerDraft.trim(),
+      area: 'general',
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    };
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      studioBlockers: [optimisticBlocker, ...(request.studioBlockers || [])],
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      const res = await apiClient.createStudioBlocker(requestId, { title: studioBlockerDraft, area: 'general' }) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+      setStudioBlockerDraft('');
+    } catch (error) {
+      console.error('Failed to create Studio blocker:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create Studio blocker');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateStudioBlocker = async (requestId: string, blockerId: string, data: Record<string, unknown>) => {
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      studioBlockers: (request.studioBlockers || []).map(blocker => blocker.id === blockerId ? { ...blocker, ...data } as StudioBlocker : blocker),
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      const res = await apiClient.updateStudioBlocker(requestId, blockerId, data) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+    } catch (error) {
+      console.error('Failed to update Studio blocker:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update Studio blocker');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateStudioUpdate = async (requestId: string) => {
+    if (!studioUpdateDraft.trim()) return;
+    const optimisticUpdate: StudioUpdate = {
+      id: `pending-update-${Date.now()}`,
+      message: studioUpdateDraft.trim(),
+      visibility: 'client',
+      createdAt: new Date().toISOString(),
+    };
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      studioUpdates: [optimisticUpdate, ...(request.studioUpdates || [])],
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      const res = await apiClient.createStudioUpdate(requestId, { message: studioUpdateDraft, visibility: 'client' }) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+      setStudioUpdateDraft('');
+    } catch (error) {
+      console.error('Failed to publish Studio update:', error);
+      alert(error instanceof Error ? error.message : 'Failed to publish Studio update');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreatePreviewLink = async (requestId: string, url: string) => {
+    if (!url.trim()) return;
+    const cleanUrl = url.trim();
+    const optimisticLink: StudioLink = {
+      id: `pending-preview-${Date.now()}`,
+      label: 'Staging preview',
+      url: cleanUrl,
+      type: 'preview',
+      createdAt: new Date().toISOString(),
+    };
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      stagingUrl: cleanUrl,
+      studioLinks: [optimisticLink, ...(request.studioLinks || []).filter(link => link.type !== 'preview')],
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      const res = await apiClient.createStudioLink(requestId, { label: 'Staging preview', url: cleanUrl, type: 'preview' }) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+    } catch (error) {
+      console.error('Failed to save preview link:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save preview link');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClearPreviewLink = async (requestId: string) => {
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      stagingUrl: '',
+      studioLinks: (request.studioLinks || []).map(link => link.type === 'preview' ? { ...link, url: '' } as StudioLink : link),
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      let latestRequest: ProjectRequest | undefined;
+      if (selectedPreviewLink?.id) {
+        const linkRes = await apiClient.updateStudioLink(requestId, selectedPreviewLink.id, { url: '', label: selectedPreviewLink.label || 'Staging preview' }) as { success: boolean; data?: ProjectRequest; message?: string };
+        if (!linkRes.success) throw new Error(linkRes.message || 'Failed to clear preview artifact');
+        latestRequest = linkRes.data;
+      }
+      const requestRes = await apiClient.updateAdminProjectRequest(requestId, { stagingUrl: '' }) as { success: boolean; data?: ProjectRequest; message?: string };
+      if (!requestRes.success || !requestRes.data) throw new Error(requestRes.message || 'Failed to clear preview link');
+      latestRequest = requestRes.data || latestRequest;
+      if (latestRequest) {
+        setProjectRequests(prev => prev.map(request => request.id === requestId ? latestRequest as ProjectRequest : request));
         setSelectedProjectRequestId(requestId);
       }
     } catch (error) {
-      console.error('Failed to update build milestone:', error);
-      alert('Failed to update build milestone');
+      console.error('Failed to clear preview link:', error);
+      alert(error instanceof Error ? error.message : 'Failed to clear preview link');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateStudioLink = async (requestId: string) => {
+    if (!studioLinkDraft.label.trim() && !studioLinkDraft.url.trim()) return;
+    const optimisticLink: StudioLink = {
+      id: `pending-link-${Date.now()}`,
+      type: studioLinkDraft.type,
+      label: studioLinkDraft.label.trim() || studioLinkDraft.type.replace(/_/g, ' '),
+      url: studioLinkDraft.url.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    patchProjectRequestLocal(requestId, request => ({
+      ...request,
+      studioLinks: [optimisticLink, ...(request.studioLinks || [])],
+      updatedAt: new Date().toISOString()
+    }));
+    setSubmitting(true);
+    try {
+      const res = await apiClient.createStudioLink(requestId, {
+        type: studioLinkDraft.type,
+        label: studioLinkDraft.label.trim() || studioLinkDraft.type.replace(/_/g, ' '),
+        url: studioLinkDraft.url.trim()
+      }) as { success: boolean; data?: ProjectRequest; message?: string };
+      applyStudioProjectResponse(requestId, res);
+      setStudioLinkDraft({ type: studioLinkDraft.type, label: '', url: '' });
+    } catch (error) {
+      console.error('Failed to add Studio artifact:', error);
+      alert(error instanceof Error ? error.message : 'Failed to add Studio artifact');
     } finally {
       setSubmitting(false);
     }
@@ -1988,7 +2558,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               : summaryPreview;
                       const rowOpenLabel = rowChapter.id === 'brief' ? 'Open brief' : `Open ${rowChapter.label.toLowerCase()}`;
                       const quoteLabel = request.quotedAmount
-                        ? `${request.quoteCurrency || 'USD'} ${request.quotedAmount}`
+                        ? `${request.quoteCurrency || request.user?.defaultCurrency || 'USD'} ${request.quotedAmount}`
                         : 'Quote pending';
                       const projectLabel = request.packageIntent || request.serviceType || 'Custom build';
                       const createdAtLabel = request.createdAt
@@ -2169,62 +2739,58 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               </span>
                             </div>
                           </div>
-                          <div className="flex min-w-0 items-center gap-4 xl:justify-end">
-                            <div className="grid h-11 w-11 shrink-0 place-items-center text-ai-blue">
-                              {selectedClientResponseReceived ? <MessageSquare className="h-6 w-6 text-expert-green" /> : selectedProjectRequest.status === 'in_review' ? <Clock className="h-6 w-6" /> : <Check className="h-6 w-6 text-expert-green" />}
+                          <div className="grid min-w-0 gap-4 xl:min-w-[30rem] xl:grid-cols-[minmax(0,1fr)_minmax(10rem,0.8fr)] xl:items-start xl:justify-end">
+                            <div className="flex min-w-0 items-start gap-4">
+                              <div className="grid h-11 w-11 shrink-0 place-items-center text-ai-blue">
+                                {selectedAdminBuildChapter.id === 'review' ? <Eye className="h-6 w-6" /> : selectedClientResponseReceived ? <MessageSquare className="h-6 w-6 text-expert-green" /> : selectedProjectRequest.status === 'in_review' ? <Clock className="h-6 w-6" /> : <Check className="h-6 w-6 text-expert-green" />}
+                              </div>
+                              <div className="flex min-w-0 items-start gap-4">
+                                <div className="min-w-0">
+                                  {selectedAdminBuildChapter.id !== 'agreement' && (
+                                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
+                                    Step {selectedAdminBuildChapterIndex + 1} of {adminBuildChapters.length}
+                                  </p>
+                                  )}
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Current</p>
+                                  <p className="mt-1 truncate text-sm font-black tracking-tight text-white">
+                                    {selectedAdminBuildChapter.id === 'brief'
+                                      ? selectedClientResponseReceived ? 'Client responded' : 'Brief review'
+                                      : selectedAdminBuildChapter.label}
+                                  </p>
+                                </div>
+                                <ChevronRight className="mt-7 h-4 w-4 shrink-0 text-white/24" />
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Next</p>
+                                  <p className="mt-1 truncate text-sm font-black tracking-tight text-white/68">
+                                    {nextAdminBuildChapter?.label || 'Scope'}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="mb-2 text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue/70">
-                                Step {selectedAdminBuildChapterIndex + 1} of {adminBuildChapters.length}
-                              </p>
-                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Current</p>
-                              <p className="mt-1 truncate text-sm font-black tracking-tight text-white">
-                                {selectedAdminBuildChapter.id === 'brief'
-                                  ? selectedClientResponseReceived ? 'Client responded' : 'Brief review'
-                                  : selectedAdminBuildChapter.label}
-                              </p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 shrink-0 text-white/24" />
-                            <div className="min-w-0">
-                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Next</p>
-                              <p className="mt-1 truncate text-sm font-black tracking-tight text-white/68">
-                                {nextAdminBuildChapter?.label || 'Scope'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {selectedAdminBuildChapter.id !== 'brief' && (
-                      <div className="border-b border-white/10 px-5 py-5 lg:px-8">
-                        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                          <div className="min-w-0">
-                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.detail && (
-                              <p className="max-w-2xl text-sm leading-6 text-white/50">{selectedAdminBuildChapter.detail}</p>
-                            )}
-                          </div>
-                          <div className="w-full md:max-w-sm">
-                            <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
-                              <span>{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
-                              <span>{adminBuildPageProgress}%</span>
-                            </div>
-                            <div className="mt-2 h-1.5 bg-white/10">
-                              <div className="h-full bg-ai-blue" style={{ width: `${adminBuildPageProgress}%` }} />
-                            </div>
-                            {selectedAdminBuildChapterIndex > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setActiveAdminBuildChapter(adminBuildChapters[selectedAdminBuildChapterIndex - 1].id)}
-                                className="mt-4 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/40 transition hover:text-white"
-                              >
-                                <ChevronRight className="h-3.5 w-3.5 rotate-180" />
-                                Previous step
-                              </button>
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && (
+                              <div className="w-full xl:pt-1">
+                                <div className="flex items-center justify-between gap-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                                  <span>{selectedAdminBuildChapter.id === 'build' ? 'In studio' : selectedAdminBuildChapter.id === 'review' ? selectedReviewStatusLabel : selectedProjectRequest.status.replace(/_/g, ' ')}</span>
+                                  <span>{adminBuildPageProgress}%</span>
+                                </div>
+                                <div className="mt-2 h-1.5 bg-white/10">
+                                  <div className="h-full bg-ai-blue" style={{ width: `${adminBuildPageProgress}%` }} />
+                                </div>
+                                {selectedAdminBuildChapterIndex > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveAdminBuildChapter(adminBuildChapters[selectedAdminBuildChapterIndex - 1].id)}
+                                    className="mt-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/40 transition hover:text-white"
+                                  >
+                                    <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+                                    Previous step
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
                       </div>
-                      )}
 
                       <div className={`flex-1 ${
                         selectedAdminBuildChapter.id === 'brief' || selectedAdminBuildChapter.id === 'agreement'
@@ -2232,10 +2798,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           : 'grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:divide-x xl:divide-white/10'
                       }`}>
                         <section className={`px-5 py-6 lg:px-8 ${selectedAdminBuildChapter.id === 'agreement' ? 'hidden' : ''}`}>
-                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && (
+                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && (
                             <div className="mb-5 flex items-center justify-between gap-4">
                               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{selectedAdminBuildChapter.label}</h4>
-                              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">{selectedProjectRequest.status.replace(/_/g, ' ')}</span>
+                              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue">
+                                {selectedAdminBuildChapter.id === 'build' ? 'In studio' : selectedProjectRequest.status.replace(/_/g, ' ')}
+                              </span>
                             </div>
                           )}
                           {selectedAdminBuildChapter.id === 'brief' && (
@@ -2400,7 +2968,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                   <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/34">Terms</p>
                                   <div className="grid gap-3 md:grid-cols-3">
                                     {[
-                                      { label: 'Price', value: selectedProjectRequest.quotedAmount ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.quotedAmount}` : 'Not set', tone: 'text-amber-300' },
+                                      { label: 'Price', value: selectedProjectRequest.quotedAmount ? `${selectedProjectRequest.quoteCurrency || selectedProjectRequest.user?.defaultCurrency || 'USD'} ${selectedProjectRequest.quotedAmount}` : 'Not set', tone: 'text-amber-300' },
                                       { label: 'Budget direction', value: selectedProjectRequest.budget || 'Not specified', tone: 'text-white/72' },
                                       { label: 'Timeline', value: selectedProjectRequest.timeline || 'Flexible', tone: 'text-white/72' },
                                     ].map((item) => (
@@ -2416,93 +2984,400 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           )}
 
                           {selectedAdminBuildChapter.id === 'build' && (
-                          <div className="mt-6 border-y border-white/10 py-5">
-                            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                              <div>
-                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Build execution</p>
-                                <h4 className="mt-2 text-lg font-black tracking-tight text-white">
-                                  {selectedActiveBuildMilestone?.title || 'Milestones'}
-                                </h4>
-                                <p className="mt-2 max-w-2xl text-xs leading-6 text-white/42">
-                                  These milestones appear in the client Build view after development starts. Keep notes short and client-facing.
-                                </p>
-                              </div>
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
-                                  {selectedBuildMilestoneProgress}% overall
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCreateDefaultBuildMilestones(selectedProjectRequest.id)}
-                                  disabled={submitting}
-                                  className="min-h-10 border border-ai-blue/30 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50"
-                                >
-                                  Prepare milestones
-                                </button>
-                              </div>
-                            </div>
-
-                            {selectedBuildMilestones.length === 0 ? (
-                              <div className="border-y border-white/10 py-8 text-sm leading-7 text-white/42">
-                                No execution milestones yet. They are created automatically when payment is confirmed and the build moves to Development.
-                              </div>
-                            ) : (
-                              <div className="divide-y divide-white/10 border-y border-white/10">
-                                {selectedBuildMilestones.map((milestone) => (
-                                  <div key={milestone.id} className="grid gap-4 py-5 xl:grid-cols-[minmax(0,1fr)_12rem_7rem] xl:items-start">
-                                    <div className="min-w-0">
-                                      <div className="flex flex-wrap items-center gap-3">
-                                        <span className={`h-2.5 w-2.5 ${
-                                          milestone.status === 'completed' ? 'bg-expert-green' : milestone.status === 'in_progress' ? 'bg-ai-blue' : milestone.status === 'blocked' ? 'bg-red-400' : 'bg-white/18'
-                                        }`} />
-                                        <p className="text-sm font-black text-white">{milestone.title}</p>
-                                        <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{milestone.status.replace(/_/g, ' ')}</span>
+                          <div className="mt-4 space-y-6">
+                            <section className="border-y border-white/10 py-5">
+                              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.34fr)] xl:items-start">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Production room</span>
+                                    <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedOpenStudioBlockers.length || selectedBlockedStudioTasks.length ? 'text-amber-300' : 'text-expert-green'}`}>
+                                      {selectedOpenStudioBlockers.length || selectedBlockedStudioTasks.length ? 'Needs attention' : 'Moving'}
+                                    </span>
+                                  </div>
+                                  <h3 className="mt-3 text-2xl font-black tracking-tight text-white">{selectedProjectRequest.title}</h3>
+                                  <div className="mt-4 grid gap-x-5 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    {selectedStudioDeliverables.map(item => (
+                                      <div key={item.label} className="min-w-0 border-b border-white/10 pb-3">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/46">{item.label}</p>
+                                        <p className="mt-1 truncate text-sm font-semibold text-white/82">{item.value}</p>
                                       </div>
-                                      <p className="mt-2 text-xs leading-6 text-white/42">{milestone.description || 'No internal description.'}</p>
-                                      <textarea
-                                        defaultValue={milestone.clientNote || ''}
-                                        onBlur={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { clientNote: e.target.value })}
-                                        className="mt-4 h-20 w-full resize-none border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
-                                        placeholder="Client-facing update..."
-                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="border-y border-white/10 py-3">
+                                  {selectedStudioSignals.map(signal => (
+                                    <div key={signal.label} className="flex items-center justify-between gap-4 border-b border-white/10 py-2 last:border-b-0">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">{signal.label}</p>
+                                      <p className={`text-sm font-black tracking-tight ${signal.tone}`}>{signal.value}</p>
                                     </div>
-                                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                                      <select
-                                        value={milestone.status}
-                                        onChange={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { status: e.target.value })}
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="mt-5 h-1 bg-white/10">
+                                <div className="h-full bg-ai-blue transition-all" style={{ width: `${selectedStudioCompletion}%` }} />
+                              </div>
+                            </section>
+
+                            <section className="border-b border-white/10 pb-5">
+                              <div className="grid gap-5 xl:grid-cols-[minmax(0,0.82fr)_minmax(18rem,0.38fr)] xl:items-start">
+                                <div>
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/56">Production source</p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {[
+                                      { id: 'inside_app', label: 'Inside app' },
+                                      { id: 'outside_tools', label: 'Outside tools' },
+                                      { id: 'hybrid', label: 'Hybrid' },
+                                    ].map(mode => (
+                                      <button
+                                        key={mode.id}
+                                        type="button"
+                                        onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { productionMode: mode.id })}
                                         disabled={submitting}
-                                        className="border border-white/10 bg-[#080b10] px-3 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50 disabled:opacity-50"
+                                        className={`min-h-9 border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition disabled:opacity-45 ${
+                                          selectedProductionMode === mode.id ? 'border-ai-blue/50 text-ai-blue' : 'border-white/10 text-white/52 hover:border-white/25 hover:text-white'
+                                        }`}
                                       >
-                                        <option value="pending">Pending</option>
-                                        <option value="in_progress">In progress</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="blocked">Blocked</option>
+                                        {mode.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="border-t border-white/10 pt-4 xl:border-t-0 xl:border-l xl:pl-5 xl:pt-0">
+                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/56">Current mode</p>
+                                  <p className="mt-2 text-xl font-black tracking-tight text-white">{selectedProductionModeLabel}</p>
+                                  <textarea
+                                    defaultValue={selectedProjectRequest.productionSourceNote || ''}
+                                    onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { productionSourceNote: e.target.value })}
+                                    className="mt-3 h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                    placeholder="Where is the team building this project?"
+                                  />
+                                </div>
+                              </div>
+                            </section>
+
+                            <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.42fr)]">
+                              <div className="min-w-0 space-y-6">
+                                <section className="space-y-4">
+                                  <div className="border-y border-white/10">
+                                    {selectedStudioIsEmpty ? (
+                                      <div className="py-5">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">No production work added</p>
+                                        <p className="mt-2 max-w-2xl text-sm leading-7 text-white/62">
+                                          Add the first real work item above. The category only organizes the work; empty categories stay hidden.
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="divide-y divide-white/10">
+                                        {selectedStudioTaskGroups.map(group => (
+                                          <div key={group.id} className="grid gap-4 py-4 lg:grid-cols-[10rem_minmax(0,1fr)]">
+                                            <div className="flex items-start gap-3">
+                                              <span className={group.accent}>{group.icon}</span>
+                                              <div>
+                                                <p className="text-sm font-black text-white">{group.name}</p>
+                                                <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.14em] ${group.state.tone}`}>{group.state.label}</p>
+                                              </div>
+                                            </div>
+                                            <div className="divide-y divide-white/10">
+                                              {group.tasks.map(task => (
+                                                <div key={task.id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_8rem] sm:items-center">
+                                                  <div className="min-w-0">
+                                                    <p className="text-sm font-semibold leading-5 text-white/76">{task.title}</p>
+                                                    {task.note && <p className="mt-2 text-xs leading-5 text-white/56">{task.note}</p>}
+                                                  </div>
+                                                  <select
+                                                    value={task.status}
+                                                    onChange={(e) => handleUpdateStudioTask(selectedProjectRequest.id, task.id, { status: e.target.value })}
+                                                    disabled={submitting}
+                                                    className="border-0 border-b border-white/10 bg-transparent px-0 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/70 outline-none [color-scheme:dark]"
+                                                  >
+                                                    <option className="bg-black text-white" value="open">Open</option>
+                                                    <option className="bg-black text-white" value="active">Active</option>
+                                                    <option className="bg-black text-white" value="blocked">Blocked</option>
+                                                    <option className="bg-black text-white" value="done">Done</option>
+                                                  </select>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="grid gap-3 border-b border-white/10 pb-4 lg:grid-cols-[11rem_minmax(0,1fr)_8rem]">
+                                    <select
+                                      value={studioTaskDraft.area}
+                                      onChange={(e) => setStudioTaskDraft(prev => ({ ...prev, area: e.target.value }))}
+                                      className="border-0 border-b border-white/10 bg-transparent px-0 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none [color-scheme:dark] focus:border-ai-blue/60"
+                                    >
+                                      {selectedStudioAreas.map(area => (
+                                        <option key={area.id} value={area.id} className="bg-black text-white">{area.name}</option>
+                                      ))}
+                                    </select>
+                                    <input
+                                      value={studioTaskDraft.title}
+                                      onChange={(e) => setStudioTaskDraft(prev => ({ ...prev, title: e.target.value }))}
+                                      className="border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                      placeholder="Add production work item..."
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCreateStudioTask(selectedProjectRequest.id)}
+                                      disabled={submitting || !studioTaskDraft.title.trim()}
+                                      className="border-b border-ai-blue/35 py-3 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white disabled:opacity-40"
+                                    >
+                                      Add work
+                                    </button>
+                                  </div>
+                                </section>
+
+                                <section className="grid gap-px bg-white/10 lg:grid-cols-3">
+                                  <div className="bg-[#05070a] p-4">
+                                    <div className="flex items-start justify-between gap-4">
+                                      <div className="flex items-center gap-3 text-expert-green">
+                                        <Eye className="h-4 w-4" />
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em]">Preview</p>
+                                      </div>
+                                      <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedPreviewIsReal ? 'text-expert-green' : selectedPreviewIsTest ? 'text-amber-300' : 'text-white/30'}`}>
+                                        {selectedPreviewIsReal ? 'Public' : selectedPreviewIsTest ? 'Test' : 'Not connected'}
+                                      </span>
+                                    </div>
+                                    <div className="mt-4 border-y border-white/10 py-3">
+                                      {selectedPreviewIsReal ? (
+                                        <a href={selectedPreviewUrl} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-2 break-all text-sm font-black leading-6 text-ai-blue hover:text-white">
+                                          Open public preview <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                                        </a>
+                                      ) : selectedPreviewIsTest ? (
+                                        <div className="space-y-3">
+                                          <p className="text-sm font-semibold leading-6 text-amber-300">A test/local preview is saved, but it cannot be sent to the client for Review.</p>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleClearPreviewLink(selectedProjectRequest.id)}
+                                            disabled={submitting}
+                                            className="text-[10px] font-black uppercase tracking-[0.14em] text-white/68 transition hover:text-white disabled:opacity-40"
+                                          >
+                                            Remove test link
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm font-semibold leading-6 text-white/62">No public preview connected yet.</p>
+                                      )}
+                                    </div>
+                                    {selectedInternalPreviewUrl && (
+                                      <div className="mt-4 border-b border-white/10 pb-3">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/50">Inside app preview</p>
+                                        <button
+                                          type="button"
+                                          onClick={() => window.open(selectedInternalPreviewUrl, '_blank')}
+                                          className="mt-2 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white"
+                                        >
+                                          Open internal preview <ChevronRight className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
+                                    <input
+                                      defaultValue={selectedPreviewIsReal ? selectedPreviewUrl : ''}
+                                      onBlur={(e) => handleCreatePreviewLink(selectedProjectRequest.id, e.target.value)}
+                                      className="mt-3 w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                      placeholder="Paste public staging URL"
+                                    />
+                                  </div>
+                                  <div className="bg-[#05070a] p-4">
+                                    <div className="flex items-center gap-3 text-ai-blue">
+                                      <Layout className="h-4 w-4" />
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em]">Artifacts</p>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                      {selectedStudioArtifacts.filter(link => link.type !== 'preview').slice(0, 3).map(link => (
+                                        link.url ? (
+                                          <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="block break-all border-b border-white/10 pb-2 text-sm font-black leading-6 text-ai-blue hover:text-white">
+                                            {link.label}
+                                          </a>
+                                        ) : (
+                                          <p key={link.id} className="border-b border-white/10 pb-2 text-sm font-semibold text-white/70">{link.label}</p>
+                                        )
+                                      ))}
+                                      {selectedStudioArtifacts.filter(link => link.type !== 'preview').length === 0 && (
+                                        <p className="text-sm font-semibold leading-6 text-white/62">No files or external tools attached yet.</p>
+                                      )}
+                                    </div>
+                                    <div className="mt-4 grid gap-2">
+                                      <select
+                                        value={studioLinkDraft.type}
+                                        onChange={(e) => setStudioLinkDraft(prev => ({ ...prev, type: e.target.value }))}
+                                        className="border-0 border-b border-white/10 bg-transparent px-0 py-2 text-[10px] font-black uppercase tracking-widest text-white outline-none [color-scheme:dark] focus:border-ai-blue/60"
+                                      >
+                                        {['design', 'repo', 'file', 'access', 'link', 'note'].map(type => (
+                                          <option key={type} value={type} className="bg-black text-white">{type}</option>
+                                        ))}
                                       </select>
                                       <input
-                                        type="date"
-                                        defaultValue={milestone.dueDate ? milestone.dueDate.slice(0, 10) : ''}
-                                        onBlur={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { dueDate: e.target.value })}
-                                        className="border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
+                                        value={studioLinkDraft.label}
+                                        onChange={(e) => setStudioLinkDraft(prev => ({ ...prev, label: e.target.value }))}
+                                        className="border-0 border-b border-white/10 bg-transparent px-0 py-2 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                        placeholder="Label"
                                       />
-                                    </div>
-                                    <div>
-                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Progress</label>
                                       <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        defaultValue={milestone.progress || 0}
-                                        onBlur={(e) => handleUpdateBuildMilestone(selectedProjectRequest.id, milestone.id, { progress: e.target.value })}
-                                        className="w-full border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-black text-white outline-none transition focus:border-ai-blue/50"
+                                        value={studioLinkDraft.url}
+                                        onChange={(e) => setStudioLinkDraft(prev => ({ ...prev, url: e.target.value }))}
+                                        className="border-0 border-b border-white/10 bg-transparent px-0 py-2 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                        placeholder="URL or reference"
                                       />
-                                      <div className="mt-3 h-1.5 bg-white/10">
-                                        <div className="h-full bg-ai-blue" style={{ width: `${milestone.progress || 0}%` }} />
-                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCreateStudioLink(selectedProjectRequest.id)}
+                                        disabled={submitting || (!studioLinkDraft.label.trim() && !studioLinkDraft.url.trim())}
+                                        className="pt-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white disabled:opacity-40"
+                                      >
+                                        Add artifact
+                                      </button>
                                     </div>
                                   </div>
-                                ))}
+                                  <div className="bg-[#05070a] p-4">
+                                    <div className="flex items-center gap-3 text-amber-300">
+                                      <Package className="h-4 w-4" />
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em]">Needs</p>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                      {[...selectedStudioNeeds, ...selectedOpenStudioBlockers.map(blocker => blocker.title)].slice(0, 4).map(need => (
+                                        <p key={need} className="break-words border-b border-white/10 pb-2 text-sm font-semibold leading-6 text-white/76">{need}</p>
+                                      ))}
+                                      {selectedStudioNeeds.length === 0 && selectedOpenStudioBlockers.length === 0 && (
+                                        <p className="text-sm font-semibold text-expert-green">Nothing blocking production.</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </section>
                               </div>
-                            )}
+
+                              <div className="space-y-6">
+                                <section className="border-y border-white/10 py-4">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Control desk</p>
+                                    <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedStudioCanOpenReview ? 'text-expert-green' : 'text-amber-300'}`}>
+                                      {selectedStudioCanOpenReview ? 'Review ready' : 'Preparing'}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-5 divide-y divide-white/10 border-y border-white/10">
+                                  <div className="py-4">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/52">Client communication</p>
+                                    {selectedLatestClientUpdate ? (
+                                      <div className="mt-3 border-b border-white/10 pb-3">
+                                        <p className="text-sm font-semibold leading-6 text-white/82">{selectedLatestClientUpdate.message}</p>
+                                        {selectedLatestClientUpdate.createdAt && (
+                                          <p className="mt-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/46">
+                                            {new Date(selectedLatestClientUpdate.createdAt).toLocaleString()}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p className="mt-3 border-b border-white/10 pb-3 text-sm font-semibold leading-6 text-white/62">
+                                        No client-facing production update has been published yet.
+                                      </p>
+                                    )}
+                                    <textarea
+                                      value={studioUpdateDraft}
+                                      onChange={(e) => setStudioUpdateDraft(e.target.value)}
+                                      className="mt-4 h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                      placeholder="Write a short client-facing production update..."
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCreateStudioUpdate(selectedProjectRequest.id)}
+                                      disabled={submitting || !studioUpdateDraft.trim()}
+                                      className="mt-4 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white disabled:opacity-40"
+                                    >
+                                      Publish client update
+                                    </button>
+                                  </div>
+
+                                  <div className="py-4">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/52">Production risks</p>
+                                      <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedOpenStudioBlockers.length ? 'text-amber-300' : 'text-expert-green'}`}>
+                                        {selectedOpenStudioBlockers.length ? `${selectedOpenStudioBlockers.length} open` : 'Clear'}
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 divide-y divide-white/10">
+                                      {selectedOpenStudioBlockers.map((blocker) => (
+                                        <div key={blocker.id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_5rem] sm:items-center">
+                                          <p className="text-sm font-semibold leading-6 text-white/82">{blocker.title}</p>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateStudioBlocker(selectedProjectRequest.id, blocker.id, { status: 'resolved' })}
+                                            className="text-left text-[9px] font-black uppercase tracking-[0.14em] text-expert-green sm:text-right"
+                                          >
+                                            Resolve
+                                          </button>
+                                        </div>
+                                      ))}
+                                      {selectedOpenStudioBlockers.length === 0 && (
+                                        <p className="py-3 text-sm font-semibold text-white/62">No active production risks.</p>
+                                      )}
+                                    </div>
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem] xl:grid-cols-1">
+                                      <input
+                                        value={studioBlockerDraft}
+                                        onChange={(e) => setStudioBlockerDraft(e.target.value)}
+                                        className="border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-amber-300/60"
+                                        placeholder="Add production risk or blocker..."
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCreateStudioBlocker(selectedProjectRequest.id)}
+                                        disabled={submitting || !studioBlockerDraft.trim()}
+                                        className="py-3 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 disabled:opacity-40"
+                                      >
+                                        Add risk
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="py-4">
+                                    <div className="flex items-center gap-3">
+                                      <Folder className="h-4 w-4 text-white/62" />
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/52">Internal context</p>
+                                    </div>
+                                    <textarea
+                                      defaultValue={selectedStudioInternalNote}
+                                      onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { adminNotes: e.target.value })}
+                                      className="mt-3 h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                      placeholder="Private production context for the team..."
+                                    />
+                                  </div>
+                                  </div>
+
+                                  <div className="pt-4">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/52">Review gate</p>
+                                      <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedStudioCanOpenReview ? 'text-expert-green' : 'text-amber-300'}`}>
+                                        {selectedStudioCanOpenReview ? 'Ready' : 'Not ready'}
+                                      </span>
+                                    </div>
+                                    <div className="mt-4 grid gap-2">
+                                      {selectedReviewChecks.map((item) => (
+                                        <div key={item.label} className="grid gap-3 border-b border-white/10 py-2 sm:grid-cols-[1rem_minmax(0,1fr)_4rem] sm:items-center">
+                                          <span className={`mt-1 h-2 w-2 rounded-full sm:mt-0 ${item.ready ? 'bg-expert-green' : 'bg-white/24'}`} />
+                                          <p className="text-sm font-semibold leading-6 text-white/76">{item.label}</p>
+                                          <span className={`text-left text-[9px] font-black uppercase tracking-[0.14em] sm:text-right ${item.ready ? 'text-expert-green' : 'text-white/42'}`}>
+                                            {item.ready ? 'Done' : 'Open'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'staging_review' })}
+                                      disabled={submitting || !selectedStudioCanOpenReview}
+                                      className="mt-5 flex min-h-10 w-full items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                      Open Review
+                                      <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </section>
+                              </div>
+                            </div>
                           </div>
                           )}
                         </section>
@@ -2510,7 +3385,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                         <aside className={`border-t border-white/10 px-5 py-6 ${
                           selectedAdminBuildChapter.id === 'brief' ? 'lg:px-8' : 'xl:border-t-0 xl:px-6'
                         }`}>
-                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && (
+                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && (
                             <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">
                               {selectedAdminBuildChapter.id === 'scope' ? 'Scope actions' : 'Decision panel'}
                             </h4>
@@ -2689,48 +3564,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                           </div>
                           )
                           )}
-                          {['review', 'launch'].includes(selectedAdminBuildChapter.id) && (
-                          <div className="mb-5 border-y border-ai-blue/25 bg-ai-blue/[0.035] py-4">
-                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Staging review</p>
-                            <p className="mt-2 text-xs leading-6 text-white/52">
-                              Send the staging preview to the client, then wait for approval or changes before launch.
-                            </p>
-                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                  status: 'staging_review',
-                                  stagingReviewStatus: 'sent'
-                                })}
-                                disabled={submitting}
-                                className="min-h-10 border border-ai-blue/30 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50"
-                              >
-                                Send staging
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                  status: 'handoff'
-                                })}
-                                disabled={submitting || selectedProjectRequest.stagingReviewStatus !== 'approved'}
-                                className="min-h-10 border border-expert-green/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 disabled:opacity-40"
-                              >
-                                Move to handoff
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                  status: 'completed',
-                                  completionNotes: selectedProjectRequest.completionNotes || 'Build handoff completed.'
-                                })}
-                                disabled={submitting || !['handoff', 'launched'].includes(selectedProjectRequest.status)}
-                                className="min-h-10 border border-white/15 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/68 transition hover:bg-white/10 hover:text-white disabled:opacity-40 sm:col-span-2"
-                              >
-                                Mark complete
-                              </button>
-                            </div>
-                          </div>
-                          )}
                           <div className="space-y-5">
                           {selectedAdminBuildChapter.id === 'scope' && (
                               <div className={`border-y py-4 ${isScopeAccepted ? 'border-expert-green/25' : 'border-white/10'}`}>
@@ -2766,201 +3599,343 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Currency</label>
                               <input
                                 type="text"
-                                defaultValue={selectedProjectRequest.quoteCurrency || 'USD'}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quoteCurrency: e.target.value || 'USD' })}
+                                defaultValue={selectedProjectRequest.quoteCurrency || selectedProjectRequest.user?.defaultCurrency || 'USD'}
+                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quoteCurrency: e.target.value || selectedProjectRequest.user?.defaultCurrency || 'USD' })}
                                 className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold uppercase text-white outline-none transition focus:border-amber-300/50"
                               />
                             </div>
                             </div>
                             {selectedAdminBuildChapter.id === 'agreement' && (
                             <div className="border-y border-white/10">
-                              <div className="grid gap-4 py-5 md:grid-cols-3 md:divide-x md:divide-white/10">
-                                {[
-                                  {
-                                    label: 'Payment state',
-                                    value: isAgreementConfirmed ? 'Verified' : isAgreementSent ? 'Awaiting payment' : 'Draft',
-                                    icon: isAgreementConfirmed ? <ShieldCheck className="h-4 w-4" /> : isAgreementSent ? <CreditCard className="h-4 w-4" /> : <Clock className="h-4 w-4" />,
-                                    tone: isAgreementConfirmed ? 'text-expert-green' : isAgreementSent ? 'text-ai-blue' : 'text-amber-300'
-                                  },
-                                  {
-                                    label: 'Due now',
-                                    value: selectedProjectRequest.depositAmount
-                                      ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.depositAmount}`
-                                      : selectedProjectRequest.totalAgreedAmount
-                                        ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.totalAgreedAmount}`
-                                        : 'Not set',
-                                    icon: <CreditCard className="h-4 w-4" />,
-                                    tone: 'text-white'
-                                  },
-                                  {
-                                    label: 'Development',
-                                    value: isAgreementConfirmed ? 'Ready' : 'Locked',
-                                    icon: <ChevronRight className="h-4 w-4" />,
-                                    tone: isAgreementConfirmed ? 'text-expert-green' : 'text-white/42'
-                                  }
-                                ].map((item) => (
-                                  <div key={item.label} className="flex items-center gap-3 md:px-4 first:md:pl-0 last:md:pr-0">
-                                    <span className={item.tone}>{item.icon}</span>
+                              <div className="py-7">
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                                  <div className="flex min-w-0 gap-4">
+                                    <div className={`grid h-12 w-12 shrink-0 place-items-center ${
+                                      isAgreementConfirmed ? 'text-expert-green' : isAgreementSent ? 'text-amber-300' : 'text-white/42'
+                                    }`}>
+                                      {isAgreementConfirmed ? <Check className="h-8 w-8" /> : <CircleDollarSign className="h-8 w-8" />}
+                                    </div>
                                     <div className="min-w-0">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
-                                      <p className={`mt-1 truncate text-sm font-black ${item.tone}`}>{item.value}</p>
+                                      <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+                                        isAgreementConfirmed ? 'text-expert-green' : isAgreementSent ? 'text-amber-300' : 'text-white/42'
+                                      }`}>
+                                        {isAgreementConfirmed ? 'Deposit paid' : isAgreementSent ? 'Deposit pending' : 'Deposit not sent'}
+                                      </p>
+                                      <h4 className="mt-2 text-3xl font-black tracking-tight text-white">{selectedAgreementDueNowLabel}</h4>
+                                      {isAgreementConfirmed ? (
+                                        <p className="mt-2 text-sm font-semibold leading-6 text-white/54">
+                                          Build is ready to open.
+                                        </p>
+                                      ) : !isAgreementSent && (
+                                        <p className="mt-2 text-sm font-semibold leading-6 text-white/48">
+                                          Prepare and send the payment request to the client.
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
-                                ))}
-                              </div>
+                                  <div className="grid gap-2 text-left lg:min-w-64 lg:text-right">
+                                    {isAgreementConfirmed && (
+                                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+                                        Verified {selectedPaymentConfirmedAt || 'Confirmed'} - Paystack
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
 
-                              <div className="grid gap-6 border-t border-white/10 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] xl:divide-x xl:divide-white/10">
-                                <div className="space-y-6 xl:pr-6">
-                                  <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="mt-7 grid gap-4 border-y border-white/10 py-5 md:grid-cols-4">
+                                  {[
+                                    { label: 'Total', value: selectedAgreementTotalLabel },
+                                    { label: 'Deposit', value: selectedAgreementDueNowLabel },
+                                    { label: 'Balance', value: selectedAgreementBalanceLabel },
+                                    { label: 'Due', value: agreementDraft.paymentDueDate ? new Date(agreementDraft.paymentDueDate).toLocaleDateString() : 'Not set' }
+                                  ].map((item) => (
+                                    <div key={item.label} className="min-w-0">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                      <p className="mt-1 truncate text-sm font-black capitalize text-white/76">{item.value}</p>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {isAgreementConfirmed && (
+                                  <div className="mt-6 grid gap-4 border-b border-white/10 pb-5 md:grid-cols-3">
+                                    {[
+                                      { label: 'Reference', value: selectedPaymentReference || 'Captured', tone: 'text-white/72' },
+                                      { label: 'Terms', value: selectedAgreementTypeLabel, tone: 'text-white/72' },
+                                      { label: 'Build gate', value: 'Ready to open', tone: 'text-amber-200' },
+                                    ].map((item) => (
+                                      <div key={item.label} className="min-w-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                                        <p className={`mt-1 truncate text-sm font-black ${item.tone}`}>{item.value}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">
+                                  {!isAgreementConfirmed ? (
+                                  <div className="grid gap-5 sm:grid-cols-2">
                                     <div>
                                       <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Payment model</label>
                                       <select
-                                        defaultValue={selectedProjectRequest.paymentAgreementType || ''}
-                                        onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentAgreementType: e.target.value || null, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
-                                        className="w-full border border-white/10 bg-black px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-expert-green/50"
+                                        value={agreementDraft.paymentAgreementType}
+                                        onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentAgreementType: e.target.value }))}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition [color-scheme:dark] focus:border-expert-green/60"
                                       >
-                                        <option value="">Select terms</option>
-                                        <option value="deposit">Deposit payment</option>
-                                        <option value="full_payment">Full payment</option>
-                                        <option value="milestone_payments">Milestone payments</option>
+                                        <option className="bg-black text-white" value="">Select terms</option>
+                                        <option className="bg-black text-white" value="deposit">Deposit payment</option>
+                                        <option className="bg-black text-white" value="full_payment">Full payment</option>
+                                        <option className="bg-black text-white" value="milestone_payments">Milestone payments</option>
                                       </select>
                                     </div>
                                     <div>
                                       <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Due date</label>
                                       <input
                                         type="date"
-                                        defaultValue={selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : ''}
-                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentDueDate: e.target.value })}
-                                        className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/50"
+                                        value={agreementDraft.paymentDueDate}
+                                        onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentDueDate: e.target.value }))}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition [color-scheme:dark] focus:border-expert-green/60"
                                       />
                                     </div>
                                     <div>
                                       <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Total agreed</label>
                                       <input
                                         type="number"
-                                        defaultValue={selectedProjectRequest.totalAgreedAmount || ''}
-                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { totalAgreedAmount: e.target.value })}
-                                        className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/50"
+                                        value={agreementDraft.totalAgreedAmount}
+                                        onChange={(e) => setAgreementDraft(prev => ({ ...prev, totalAgreedAmount: e.target.value }))}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60"
                                         placeholder="0"
                                       />
                                     </div>
                                     <div>
-                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Amount due now</label>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Deposit required</label>
                                       <input
                                         type="number"
-                                        defaultValue={selectedProjectRequest.depositAmount || ''}
-                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { depositAmount: e.target.value })}
-                                        className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/50"
+                                        value={agreementDraft.depositAmount}
+                                        onChange={(e) => setAgreementDraft(prev => ({ ...prev, depositAmount: e.target.value }))}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60"
                                         placeholder="0"
                                       />
                                     </div>
+                                    <div className="sm:col-span-2">
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client payment note</label>
+                                      <textarea
+                                        value={selectedAgreementNote}
+                                        onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentInstructions: e.target.value }))}
+                                        className="h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
+                                        placeholder="Explain what the payment covers and what happens after checkout..."
+                                      />
+                                    </div>
                                   </div>
+                                  ) : <div className="hidden xl:block" />}
 
-                                  <div className="border-t border-white/10 pt-5">
-                                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client payment note</label>
-                                    <textarea
-                                      defaultValue={selectedProjectRequest.paymentInstructions || ''}
-                                      onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { paymentInstructions: e.target.value, status: selectedProjectRequest.status === 'approved' ? 'payment_agreement' : selectedProjectRequest.status })}
-                                      className="h-28 w-full resize-none border-0 bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24"
-                                      placeholder="Explain what the payment covers, what is due now, and what happens after checkout..."
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="space-y-5 xl:pl-6">
-                                  <div>
-                                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Client checkout</p>
-                                    <p className="mt-2 text-3xl font-black tracking-tight text-white">
-                                      {selectedProjectRequest.depositAmount
-                                        ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.depositAmount}`
-                                        : selectedProjectRequest.totalAgreedAmount
-                                          ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.totalAgreedAmount}`
-                                          : 'Not set'}
-                                    </p>
-                                    <p className="mt-2 text-xs leading-6 text-white/44">
-                                      {isAgreementConfirmed
-                                        ? 'Payment received through verified checkout.'
-                                        : isAgreementSent
-                                          ? 'Waiting for the client to complete checkout.'
-                                          : 'Send the request to open checkout for the client.'}
-                                    </p>
-                                  </div>
-
-                                  <div className="divide-y divide-white/10 border-y border-white/10">
-                                    {[
-                                      { label: 'Total', value: selectedProjectRequest.totalAgreedAmount ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.totalAgreedAmount}` : 'Not set' },
-                                      { label: 'Due now', value: selectedProjectRequest.depositAmount ? `${selectedProjectRequest.quoteCurrency || 'USD'} ${selectedProjectRequest.depositAmount}` : 'Not set' },
-                                      { label: 'Payment state', value: isAgreementConfirmed ? 'Verified' : isAgreementSent ? 'Waiting checkout' : 'Draft' },
-                                      { label: 'Due', value: selectedProjectRequest.paymentDueDate ? new Date(selectedProjectRequest.paymentDueDate).toLocaleDateString() : 'Not set' },
-                                    ].map((item) => (
-                                      <div key={item.label} className="flex items-center justify-between gap-4 py-3">
-                                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">{item.label}</span>
-                                        <span className="text-right text-sm font-black text-white/72">{item.value}</span>
+                                  <div className="space-y-3">
+                                    {!isAgreementConfirmed && isAgreementSent && !isAgreementDraftDirty ? (
+                                      <div className="flex min-h-12 items-center justify-between gap-3 border border-amber-300/20 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300">
+                                        <span className="flex items-center gap-2"><Check className="h-4 w-4" /> Payment request sent</span>
                                       </div>
-                                    ))}
+                                    ) : !isAgreementConfirmed ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendAgreementPaymentRequest(selectedProjectRequest)}
+                                        disabled={submitting || isAgreementConfirmed}
+                                        className="flex min-h-12 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          <Send className="h-4 w-4" />
+                                          {isAgreementSent ? 'Send updated payment request' : 'Send payment request'}
+                                        </span>
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleUpdateProjectRequest(selectedProjectRequest.id, {
+                                          status: 'in_development'
+                                        });
+                                      }}
+                                      disabled={submitting || !isAgreementConfirmed}
+                                      className="flex min-h-12 w-full items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                      <span>{isAgreementConfirmed ? 'Proceed to Build' : 'Build opens after deposit'}</span>
+                                      <ChevronRight className="h-4 w-4" />
+                                    </button>
                                   </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                      status: 'payment_agreement',
-                                      paymentAgreementStatus: selectedProjectRequest.paymentAgreementStatus === 'confirmed' ? 'confirmed' : 'sent'
-                                    })}
-                                    disabled={submitting || isAgreementConfirmed}
-                                    className="flex min-h-12 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
-                                  >
-                                    <span className="flex items-center gap-2"><Send className="h-4 w-4" /> {isAgreementSent ? 'Update payment request' : 'Send payment request'}</span>
-                                    <ChevronRight className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleUpdateProjectRequest(selectedProjectRequest.id, {
-                                        status: 'in_development'
-                                      });
-                                    }}
-                                    disabled={submitting || !isAgreementConfirmed}
-                                    className="flex min-h-12 w-full items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                                  >
-                                    <span>Start development</span>
-                                    <ChevronRight className="h-4 w-4" />
-                                  </button>
                                 </div>
                               </div>
                             </div>
                             )}
-                            <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging URL</label>
-                              <input
-                                type="url"
-                                defaultValue={selectedProjectRequest.stagingUrl || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingUrl: e.target.value })}
-                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="https://preview..."
-                              />
-                            </div>
-                            <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging notes</label>
-                              <textarea
-                                defaultValue={selectedProjectRequest.stagingNotes || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingNotes: e.target.value })}
-                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="What should the client review?"
-                              />
-                            </div>
-                            <div className={selectedAdminBuildChapter.id === 'review' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Staging response</label>
-                              <select
-                                value={selectedProjectRequest.stagingReviewStatus || 'not_sent'}
-                                onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingReviewStatus: e.target.value })}
-                                className="w-full border border-white/10 bg-[#080b10] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue/50"
-                              >
-                                <option value="not_sent">Not sent</option>
-                                <option value="sent">Sent</option>
-                                <option value="changes_requested">Changes requested</option>
-                                <option value="approved">Approved</option>
-                              </select>
-                            </div>
+                            {selectedAdminBuildChapter.id === 'review' && (
+                              <div className="border-y border-white/10 py-5">
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
+                                      <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedReviewStatusTone}`}>{selectedReviewStatusLabel}</span>
+                                    </div>
+                                    <h4 className="mt-3 text-2xl font-black tracking-tight text-white">Client approval</h4>
+                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-white/52">
+                                      Share the preview, guide what to inspect, then wait for approval or change notes.
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'handoff' })}
+                                    disabled={submitting || !selectedReviewCanMoveForward}
+                                    className={`flex min-h-11 items-center justify-between gap-3 border px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] transition disabled:cursor-not-allowed lg:min-w-48 ${
+                                      selectedReviewCanMoveForward
+                                        ? 'border-expert-green/25 text-expert-green hover:bg-expert-green/10 hover:text-white'
+                                        : 'border-white/10 text-white/34'
+                                    }`}
+                                  >
+                                    {selectedReviewCanMoveForward ? 'Move to handoff' : 'Waiting approval'}
+                                    <ChevronRight className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem]">
+                                  <div className="grid gap-5 sm:grid-cols-2">
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Preview URL</label>
+                                      <input
+                                        type="url"
+                                        defaultValue={selectedProjectRequest.stagingUrl || ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingUrl: e.target.value })}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                        placeholder="https://preview..."
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Response state</label>
+                                      <select
+                                        value={selectedProjectRequest.stagingReviewStatus || 'sent'}
+                                        onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingReviewStatus: e.target.value })}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition [color-scheme:dark] focus:border-ai-blue/60"
+                                      >
+                                        <option className="bg-black text-white" value="not_sent">Not sent</option>
+                                        <option className="bg-black text-white" value="sent">Waiting client</option>
+                                        <option className="bg-black text-white" value="changes_requested">Changes requested</option>
+                                        <option className="bg-black text-white" value="approved">Approved</option>
+                                      </select>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Review note to client</label>
+                                      <textarea
+                                        defaultValue={selectedProjectRequest.stagingNotes || ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingNotes: e.target.value })}
+                                        className="h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                        placeholder="Tell the client what to inspect in the preview..."
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Client response</p>
+                                    <p className={`mt-2 text-lg font-black tracking-tight ${selectedReviewStatusTone}`}>{selectedReviewStatusLabel}</p>
+                                    <p className="mt-2 text-sm leading-6 text-white/52">
+                                      {selectedReviewStatus === 'changes_requested'
+                                        ? 'Send the project back to Studio, make the changes, then reopen Review.'
+                                        : selectedReviewStatus === 'approved'
+                                          ? 'The client approved the preview. Handoff can begin.'
+                                          : 'Waiting for the client to approve the preview or request changes.'}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setReviewChatOpen(prev => !prev)}
+                                      className="mt-5 inline-flex min-h-10 items-center gap-3 border-b border-ai-blue/35 pb-2 text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:border-white hover:text-white"
+                                    >
+                                      <MessageSquare className="h-4 w-4" />
+                                      Review chat
+                                      {reviewChatMessages.length > 0 && <span className="text-white/46">{reviewChatMessages.length}</span>}
+                                    </button>
+                                  </div>
+                                </div>
+                                {reviewChatOpen && (
+                                  <div className="mt-6 border-y border-white/10 py-5">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                      <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Project review chat</p>
+                                        <p className="mt-2 text-sm leading-6 text-white/54">Ask clear questions, confirm fixes, and keep Review decisions inside this project.</p>
+                                      </div>
+                                      <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">
+                                        {reviewChatLoading ? 'Loading' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}
+                                      </span>
+                                    </div>
+                                    <div className="mt-5 max-h-80 space-y-3 overflow-y-auto pr-1">
+                                      {reviewChatMessages.length ? reviewChatMessages.map((message) => {
+                                        const isAdminMessage = message.senderRole === 'admin';
+                                        return (
+                                          <div key={message.id} className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[86%] border-b px-0 py-3 ${isAdminMessage ? 'border-ai-blue/35 text-right' : 'border-white/10 text-left'}`}>
+                                              <div className={`text-[9px] font-black uppercase tracking-[0.16em] ${isAdminMessage ? 'text-ai-blue' : 'text-amber-300'}`}>
+                                                {isAdminMessage ? 'Admin' : 'Client'} · {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                              </div>
+                                              <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-white/78">{message.message}</p>
+                                              {Array.isArray(message.choices) && message.choices.length > 0 && (
+                                                <div className={`mt-3 flex flex-wrap gap-2 ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
+                                                  {message.choices.map(choice => (
+                                                    <span key={choice} className="border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/48">
+                                                      {choice}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      }) : (
+                                        <div className="border-y border-white/10 py-6">
+                                          <p className="text-sm font-semibold text-white/58">No review chat yet. Start with a direct question or a short client-facing note.</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,0.35fr)]">
+                                      <textarea
+                                        value={reviewChatDraft}
+                                        onChange={(event) => setReviewChatDraft(event.target.value)}
+                                        className="h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                        placeholder="Write to the client about this review..."
+                                      />
+                                      <div className="space-y-3">
+                                        <input
+                                          value={reviewChatChoiceDraft}
+                                          onChange={(event) => setReviewChatChoiceDraft(event.target.value)}
+                                          className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-xs font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                          placeholder="Optional choices, comma separated"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={handleSendAdminReviewChat}
+                                          disabled={reviewChatSending || (!reviewChatDraft.trim() && !reviewChatChoiceDraft.trim())}
+                                          className="flex min-h-11 w-full items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                          {reviewChatSending ? 'Sending' : reviewChatChoiceDraft.trim() ? 'Send question' : 'Send message'}
+                                          <Send className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {selectedReviewStatus === 'changes_requested' && (
+                                  <div className="mt-6 border-y border-amber-300/20 py-4">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="min-w-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Client feedback</p>
+                                        <p className="mt-2 text-sm leading-7 text-white/68">
+                                          {selectedLatestReviewMessage || 'The client requested changes, but no extra note was added.'}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'in_development', stagingReviewStatus: 'changes_requested' })}
+                                        disabled={submitting}
+                                        className="min-h-10 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-45"
+                                      >
+                                        Return to Studio
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch URL</label>
                               <input
@@ -3019,7 +3994,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               </div>
                             </div>
                             )}
-                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && (
+                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
                                 Client note
@@ -3085,7 +4060,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 </button>
                               </div>
                             )}
-                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && (
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
                               <textarea

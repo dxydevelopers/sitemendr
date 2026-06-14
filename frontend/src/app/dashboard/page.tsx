@@ -23,10 +23,13 @@ export default function DashboardPage() {
       const data = await apiClient.getProfile();
 
       if (data.success && data.user) {
-        if (data.user.role === 'user' || data.user.role === 'admin' || data.user.role === 'client') {
+        if (data.user.role === 'user' || data.user.role === 'client') {
           setIsAuthenticated(true);
-          // Store user data in localStorage for dashboard display
+          localStorage.setItem('sitemendr_client_user', JSON.stringify(data.user));
           localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.removeItem('sitemendr_admin_user');
+        } else if (data.user.role === 'admin') {
+          router.push('/admin');
         } else {
           router.push('/login');
         }
@@ -47,6 +50,8 @@ export default function DashboardPage() {
   const handleLogout = () => {
     localStorage.removeItem('sitemendr_auth_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('sitemendr_client_user');
+    localStorage.removeItem('sitemendr_admin_user');
     setIsAuthenticated(false);
     router.push('/');
   };

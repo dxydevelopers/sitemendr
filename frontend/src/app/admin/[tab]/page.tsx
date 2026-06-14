@@ -27,7 +27,9 @@ export default function AdminTabPage() {
       if (data.success && data.user) {
         if (data.user.role === 'admin') {
           setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('sitemendr_admin_user', JSON.stringify(data.user));
+          localStorage.removeItem('sitemendr_client_user');
+          localStorage.removeItem('user');
         } else {
           router.push('/dashboard');
         }
@@ -53,6 +55,8 @@ export default function AdminTabPage() {
   const handleLogout = () => {
     localStorage.removeItem('sitemendr_auth_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('sitemendr_admin_user');
+    localStorage.removeItem('sitemendr_client_user');
     setIsAuthenticated(false);
     router.push('/login');
   };

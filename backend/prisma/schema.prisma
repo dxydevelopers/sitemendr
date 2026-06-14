@@ -23,6 +23,10 @@ model User {
   passwordResetExpires    DateTime?
   banned                  Boolean          @default(false)
   lastLogin               DateTime?
+  country                 String           @default("US")
+  defaultCurrency         String           @default("USD")
+  accountType             String           @default("individual")
+  billingRegion           String?
   subdomainsClaimed       Int              @default(0)
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
@@ -284,6 +288,8 @@ model ProjectRequest {
   paymentDueDate         DateTime?
   paymentInstructions    String?
   paymentConfirmedAt     DateTime?
+  productionMode         String   @default("hybrid")
+  productionSourceNote   String?
   stagingUrl             String?
   stagingNotes           String?
   stagingReviewStatus    String  @default("not_sent")
@@ -297,6 +303,11 @@ model ProjectRequest {
   adminNotes      String?
   clientNotes     String?
   buildMilestones BuildMilestone[]
+  studioTasks     StudioTask[]
+  studioLinks     StudioLink[]
+  studioBlockers  StudioBlocker[]
+  studioUpdates   StudioUpdate[]
+  reviewMessages  ReviewChatMessage[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   reviewedAt      DateTime?
@@ -306,6 +317,83 @@ model ProjectRequest {
 
   @@index([serviceType, status, updatedAt])
   @@index([userId, updatedAt])
+}
+
+model ReviewChatMessage {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  senderId         String?
+  senderRole       String         @default("client") // client, admin, system
+  message          String
+  kind             String         @default("message") // message, question, choice_response, file
+  choices          Json?
+  selectedChoice   String?
+  attachments      Json?
+  readByAdmin      Boolean        @default(false)
+  readByClient     Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  @@index([projectRequestId, createdAt])
+  @@index([projectRequestId, senderRole, readByAdmin, readByClient])
+}
+
+model StudioTask {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  title            String
+  area             String         @default("build") // design, build, content, qa, preview
+  status           String         @default("open") // open, active, blocked, done
+  owner            String?
+  dueDate          DateTime?
+  note             String?
+  order            Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([projectRequestId, area, status])
+}
+
+model StudioLink {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  label            String
+  url              String?
+  type             String         @default("link") // preview, design, file, access, repo, note
+  note             String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([projectRequestId, type])
+}
+
+model StudioBlocker {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  title            String
+  area             String         @default("general")
+  status           String         @default("open") // open, resolved
+  note             String?
+  createdAt        DateTime       @default(now())
+  resolvedAt       DateTime?
+  updatedAt        DateTime       @updatedAt
+
+  @@index([projectRequestId, status])
+}
+
+model StudioUpdate {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  message          String
+  visibility       String         @default("client") // client, internal
+  createdBy        String?
+  createdAt        DateTime       @default(now())
+
+  @@index([projectRequestId, visibility, createdAt])
 }
 
 model BuildMilestone {

@@ -1,6 +1,6 @@
 const { prisma } = require('../config/db');
 const { sendEmail, verifyConnection } = require('../config/email');
-const { notifyUser } = require('../services/socketService');
+const { notifyUser, notifyAdmins } = require('../services/socketService');
 const { runSuspensionAutomation, suspendSubscription } = require('../scripts/suspensionAutomation');
 const { verifyDomains } = require('../scripts/dnsWorker');
 const logger = require('../config/logger');
@@ -14,6 +14,24 @@ const runInBatches = async (tasks, batchSize = 3) => {
   }
 
   return results;
+};
+
+const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
+
+const sanitizeReviewChatChoices = (choices) => {
+  if (!Array.isArray(choices)) return null;
+  const cleaned = choices
+    .map(choice => typeof choice === 'string' ? choice.trim() : '')
+    .filter(Boolean)
+    .slice(0, 6);
+  return cleaned.length ? cleaned : null;
+};
+
+const normalizeReviewChatKind = (kind, choices) => {
+  if (kind === 'question' || (Array.isArray(choices) && choices.length)) return 'question';
+  if (kind === 'choice_response') return 'choice_response';
+  if (kind === 'file') return 'file';
+  return 'message';
 };
 
 // Get admin dashboard stats
@@ -664,13 +682,7 @@ const defaultBuildMilestones = [
 ];
 
 const projectRequestInclude = {
-  user: {
-    select: {
-      id: true,
-      name: true,
-      email: true
-    }
-  },
+  user: true,
   assessment: {
     select: {
       id: true,
@@ -682,6 +694,19 @@ const projectRequestInclude = {
   },
   buildMilestones: {
     orderBy: { order: 'asc' }
+  },
+  studioTasks: {
+    orderBy: [{ area: 'asc' }, { order: 'asc' }, { createdAt: 'asc' }]
+  },
+  studioLinks: {
+    orderBy: { createdAt: 'desc' }
+  },
+  studioBlockers: {
+    orderBy: { createdAt: 'desc' }
+  },
+  studioUpdates: {
+    orderBy: { createdAt: 'desc' },
+    take: 20
   }
 };
 
@@ -696,6 +721,23 @@ const ensureDefaultBuildMilestones = async (projectRequestId) => {
     data: defaultBuildMilestones.map((milestone) => ({
       projectRequestId,
       ...milestone
+    }))
+  });
+};
+
+const resetBuildStartMilestones = async (projectRequestId) => {
+  await prisma.buildMilestone.deleteMany({
+    where: { projectRequestId }
+  });
+
+  await prisma.buildMilestone.createMany({
+    data: defaultBuildMilestones.map((milestone) => ({
+      projectRequestId,
+      ...milestone,
+      status: milestone.order === 1 ? 'completed' : milestone.order === 2 ? 'in_progress' : 'pending',
+      progress: milestone.order === 1 ? 100 : milestone.order === 2 ? 20 : 0,
+      clientNote: null,
+      dueDate: null
     }))
   });
 };
@@ -731,6 +773,86 @@ exports.getProjectRequests = async (req, res) => {
   }
 };
 
+exports.getReviewChatMessages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'build' },
+      select: { id: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const messages = await prisma.$queryRawUnsafe(
+      `SELECT ${reviewChatSelect}
+       FROM "ReviewChatMessage"
+       WHERE "projectRequestId" = $1
+       ORDER BY "createdAt" ASC`,
+      id
+    );
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "ReviewChatMessage"
+       SET "readByAdmin" = true
+       WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`,
+      id
+    );
+
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_REVIEW_CHAT_MESSAGES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load review chat' });
+  }
+};
+
+exports.createReviewChatMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message = '', kind = 'message', choices = null, selectedChoice = null, attachments = null } = req.body || {};
+    const cleanedMessage = String(message || '').trim();
+    const cleanedChoices = sanitizeReviewChatChoices(choices);
+    const cleanedKind = normalizeReviewChatKind(kind, cleanedChoices);
+
+    if (!cleanedMessage && !cleanedChoices?.length && !attachments) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'build' },
+      select: { id: true, userId: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ReviewChatMessage"
+       ("projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
+       VALUES ($1,$2,'admin',$3,$4,$5::jsonb,$6,$7::jsonb,true,false)
+       RETURNING ${reviewChatSelect}`,
+      id,
+      req.user?.userId || null,
+      cleanedMessage,
+      cleanedKind,
+      JSON.stringify(cleanedChoices),
+      selectedChoice ? String(selectedChoice).trim() : null,
+      JSON.stringify(attachments || null)
+    );
+
+    const chatMessage = rows[0];
+    notifyUser(request.userId, 'review_chat_message', { requestId: id, message: chatMessage });
+    notifyAdmins('review_chat_message', { requestId: id, message: chatMessage });
+
+    res.json({ success: true, data: chatMessage, message: 'Review message sent' });
+  } catch (error) {
+    logger.error('CREATE_REVIEW_CHAT_MESSAGE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send review message' });
+  }
+};
+
 exports.updateProjectRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -745,6 +867,8 @@ exports.updateProjectRequest = async (req, res) => {
       totalAgreedAmount,
       paymentDueDate,
       paymentInstructions,
+      productionMode,
+      productionSourceNote,
       stagingUrl,
       stagingNotes,
       stagingReviewStatus,
@@ -759,6 +883,7 @@ exports.updateProjectRequest = async (req, res) => {
       budget
     } = req.body;
 
+    let previousRequestStatus = null;
     const data = {};
     if (status !== undefined) {
       if (!buildRequestStatuses.includes(status)) {
@@ -772,6 +897,7 @@ exports.updateProjectRequest = async (req, res) => {
           where: { id },
           select: { status: true, paymentAgreementStatus: true }
         });
+        previousRequestStatus = currentRequest?.status || null;
 
         if (currentRequest?.status === 'approved') {
           return res.status(400).json({
@@ -815,6 +941,16 @@ exports.updateProjectRequest = async (req, res) => {
     if (totalAgreedAmount !== undefined) data.totalAgreedAmount = totalAgreedAmount === '' || totalAgreedAmount === null ? null : Number(totalAgreedAmount);
     if (paymentDueDate !== undefined) data.paymentDueDate = paymentDueDate ? new Date(paymentDueDate) : null;
     if (paymentInstructions !== undefined) data.paymentInstructions = paymentInstructions;
+    if (productionMode !== undefined) {
+      if (!productionModes.includes(productionMode)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid production mode'
+        });
+      }
+      data.productionMode = productionMode;
+    }
+    if (productionSourceNote !== undefined) data.productionSourceNote = productionSourceNote || null;
     if (stagingUrl !== undefined) data.stagingUrl = stagingUrl || null;
     if (stagingNotes !== undefined) data.stagingNotes = stagingNotes;
     if (stagingReviewStatus !== undefined) {
@@ -851,7 +987,11 @@ exports.updateProjectRequest = async (req, res) => {
     });
 
     if (status === 'in_development') {
-      await ensureDefaultBuildMilestones(id);
+      if (previousRequestStatus && previousRequestStatus !== 'in_development') {
+        await resetBuildStartMilestones(id);
+      } else {
+        await ensureDefaultBuildMilestones(id);
+      }
       request = await prisma.projectRequest.findUnique({
         where: { id },
         include: projectRequestInclude
@@ -948,6 +1088,9 @@ exports.updateProjectRequest = async (req, res) => {
         include: projectRequestInclude
       });
     }
+
+    notifyUser(request.userId, 'project_request_updated', { request });
+    notifyAdmins('project_request_updated', { request });
 
     res.json({
       success: true,
@@ -1067,6 +1210,268 @@ exports.updateBuildMilestone = async (req, res) => {
       success: false,
       message: 'Failed to update build milestone'
     });
+  }
+};
+
+const studioTaskStatuses = ['open', 'active', 'blocked', 'done'];
+const studioBlockerStatuses = ['open', 'resolved'];
+const studioAreas = ['design', 'build', 'content', 'qa', 'preview', 'general'];
+const studioLinkTypes = ['preview', 'design', 'file', 'access', 'repo', 'link', 'note'];
+const studioUpdateVisibility = ['client', 'internal'];
+const productionModes = ['inside_app', 'outside_tools', 'hybrid'];
+
+const findProjectRequestOr404 = async (projectRequestId, res) => {
+  const request = await prisma.projectRequest.findUnique({
+    where: { id: projectRequestId },
+    select: { id: true }
+  });
+  if (!request) {
+    res.status(404).json({
+      success: false,
+      message: 'Build request not found'
+    });
+    return null;
+  }
+  return request;
+};
+
+const sendUpdatedProjectRequest = async (res, projectRequestId, message) => {
+  const request = await prisma.projectRequest.findUnique({
+    where: { id: projectRequestId },
+    include: projectRequestInclude
+  });
+
+  if (request?.userId) {
+    notifyUser(request.userId, 'project_request_updated', { request });
+  }
+  notifyAdmins('project_request_updated', { request });
+
+  return res.json({
+    success: true,
+    data: request,
+    message
+  });
+};
+
+exports.createStudioTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, area = 'build', status = 'open', owner, dueDate, note, order } = req.body;
+
+    if (!title?.trim()) {
+      return res.status(400).json({ success: false, message: 'Task title is required' });
+    }
+    if (!studioAreas.includes(area)) {
+      return res.status(400).json({ success: false, message: 'Invalid Studio area' });
+    }
+    if (!studioTaskStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid task status' });
+    }
+    if (!(await findProjectRequestOr404(id, res))) return;
+
+    await prisma.studioTask.create({
+      data: {
+        projectRequestId: id,
+        title: title.trim(),
+        area,
+        status,
+        owner: owner || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        note: note || null,
+        order: Number.isFinite(Number(order)) ? Number(order) : 0
+      }
+    });
+
+    return sendUpdatedProjectRequest(res, id, 'Studio task created');
+  } catch (error) {
+    logger.error('CREATE_STUDIO_TASK_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to create Studio task' });
+  }
+};
+
+exports.updateStudioTask = async (req, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const { title, area, status, owner, dueDate, note, order } = req.body;
+
+    const existing = await prisma.studioTask.findFirst({ where: { id: taskId, projectRequestId: id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Studio task not found' });
+
+    const data = {};
+    if (title !== undefined) data.title = title.trim();
+    if (area !== undefined) {
+      if (!studioAreas.includes(area)) return res.status(400).json({ success: false, message: 'Invalid Studio area' });
+      data.area = area;
+    }
+    if (status !== undefined) {
+      if (!studioTaskStatuses.includes(status)) return res.status(400).json({ success: false, message: 'Invalid task status' });
+      data.status = status;
+    }
+    if (owner !== undefined) data.owner = owner || null;
+    if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
+    if (note !== undefined) data.note = note || null;
+    if (order !== undefined) data.order = Number.isFinite(Number(order)) ? Number(order) : existing.order;
+
+    await prisma.studioTask.update({ where: { id: taskId }, data });
+
+    return sendUpdatedProjectRequest(res, id, 'Studio task updated');
+  } catch (error) {
+    logger.error('UPDATE_STUDIO_TASK_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update Studio task' });
+  }
+};
+
+exports.deleteStudioTask = async (req, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const existing = await prisma.studioTask.findFirst({ where: { id: taskId, projectRequestId: id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Studio task not found' });
+
+    await prisma.studioTask.delete({ where: { id: taskId } });
+    return sendUpdatedProjectRequest(res, id, 'Studio task deleted');
+  } catch (error) {
+    logger.error('DELETE_STUDIO_TASK_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete Studio task' });
+  }
+};
+
+exports.createStudioLink = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { label, url, type = 'link', note } = req.body;
+    if (!label?.trim()) return res.status(400).json({ success: false, message: 'Link label is required' });
+    if (!studioLinkTypes.includes(type)) return res.status(400).json({ success: false, message: 'Invalid link type' });
+    if (!(await findProjectRequestOr404(id, res))) return;
+
+    await prisma.studioLink.create({
+      data: { projectRequestId: id, label: label.trim(), url: url || null, type, note: note || null }
+    });
+
+    if (type === 'preview' && url) {
+      await prisma.projectRequest.update({ where: { id }, data: { stagingUrl: url } });
+    }
+
+    return sendUpdatedProjectRequest(res, id, 'Studio link added');
+  } catch (error) {
+    logger.error('CREATE_STUDIO_LINK_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to add Studio link' });
+  }
+};
+
+exports.updateStudioLink = async (req, res) => {
+  try {
+    const { id, linkId } = req.params;
+    const { label, url, type, note } = req.body;
+    const existing = await prisma.studioLink.findFirst({ where: { id: linkId, projectRequestId: id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Studio link not found' });
+
+    const data = {};
+    if (label !== undefined) data.label = label.trim();
+    if (url !== undefined) data.url = url || null;
+    if (type !== undefined) {
+      if (!studioLinkTypes.includes(type)) return res.status(400).json({ success: false, message: 'Invalid link type' });
+      data.type = type;
+    }
+    if (note !== undefined) data.note = note || null;
+    await prisma.studioLink.update({ where: { id: linkId }, data });
+
+    const finalType = data.type || existing.type;
+    const finalUrl = data.url !== undefined ? data.url : existing.url;
+    if (finalType === 'preview') {
+      await prisma.projectRequest.update({ where: { id }, data: { stagingUrl: finalUrl || null } });
+    }
+
+    return sendUpdatedProjectRequest(res, id, 'Studio link updated');
+  } catch (error) {
+    logger.error('UPDATE_STUDIO_LINK_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update Studio link' });
+  }
+};
+
+exports.createStudioBlocker = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, area = 'general', status = 'open', note } = req.body;
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Blocker title is required' });
+    if (!studioAreas.includes(area)) return res.status(400).json({ success: false, message: 'Invalid blocker area' });
+    if (!studioBlockerStatuses.includes(status)) return res.status(400).json({ success: false, message: 'Invalid blocker status' });
+    if (!(await findProjectRequestOr404(id, res))) return;
+
+    await prisma.studioBlocker.create({
+      data: {
+        projectRequestId: id,
+        title: title.trim(),
+        area,
+        status,
+        note: note || null,
+        resolvedAt: status === 'resolved' ? new Date() : null
+      }
+    });
+
+    return sendUpdatedProjectRequest(res, id, 'Studio blocker created');
+  } catch (error) {
+    logger.error('CREATE_STUDIO_BLOCKER_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to create Studio blocker' });
+  }
+};
+
+exports.updateStudioBlocker = async (req, res) => {
+  try {
+    const { id, blockerId } = req.params;
+    const { title, area, status, note } = req.body;
+    const existing = await prisma.studioBlocker.findFirst({ where: { id: blockerId, projectRequestId: id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Studio blocker not found' });
+
+    const data = {};
+    if (title !== undefined) data.title = title.trim();
+    if (area !== undefined) {
+      if (!studioAreas.includes(area)) return res.status(400).json({ success: false, message: 'Invalid blocker area' });
+      data.area = area;
+    }
+    if (status !== undefined) {
+      if (!studioBlockerStatuses.includes(status)) return res.status(400).json({ success: false, message: 'Invalid blocker status' });
+      data.status = status;
+      data.resolvedAt = status === 'resolved' ? new Date() : null;
+    }
+    if (note !== undefined) data.note = note || null;
+    await prisma.studioBlocker.update({ where: { id: blockerId }, data });
+
+    return sendUpdatedProjectRequest(res, id, 'Studio blocker updated');
+  } catch (error) {
+    logger.error('UPDATE_STUDIO_BLOCKER_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update Studio blocker' });
+  }
+};
+
+exports.createStudioUpdate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message, visibility = 'client' } = req.body;
+    if (!message?.trim()) return res.status(400).json({ success: false, message: 'Update message is required' });
+    if (!studioUpdateVisibility.includes(visibility)) return res.status(400).json({ success: false, message: 'Invalid update visibility' });
+    if (!(await findProjectRequestOr404(id, res))) return;
+
+    await prisma.studioUpdate.create({
+      data: {
+        projectRequestId: id,
+        message: message.trim(),
+        visibility,
+        createdBy: req.user?.userId || null
+      }
+    });
+
+    if (visibility === 'client') {
+      const existing = await prisma.projectRequest.findUnique({ where: { id }, select: { clientNotes: true } });
+      await prisma.projectRequest.update({
+        where: { id },
+        data: { clientNotes: `${existing?.clientNotes ? `${existing.clientNotes}\n\n` : ''}Studio update: ${message.trim()}` }
+      });
+    }
+
+    return sendUpdatedProjectRequest(res, id, 'Studio update published');
+  } catch (error) {
+    logger.error('CREATE_STUDIO_UPDATE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to publish Studio update' });
   }
 };
 

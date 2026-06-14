@@ -1,0 +1,6 @@
+<svg width="160" height="44" viewBox="0 0 160 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M9 10H24V25H9V10ZM13 14V21H20V14H13ZM28 10H43V25H28V10ZM32 14V21H39V14H32ZM9 29H24V44H9V29ZM13 33V40H20V33H13ZM30 29H35V34H30V29ZM38 29H43V34H38V29ZM30 37H43V42H30V37Z" fill="white"/>
+  <path d="M58 18L66 10M66 10L74 18M66 10V34" stroke="#F7C948" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="88" y="20" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800">USSD</text>
+  <text x="88" y="35" fill="#F7C948" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800">QR</text>
+</svg>
