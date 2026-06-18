@@ -83,9 +83,9 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['date-fns'],
   },
 
-  // Turbopack config to set root directory correctly
+  // Turbopack expects an absolute project root.
   turbopack: {
-    root: './',
+    root: process.cwd(),
   },
 
   // Webpack configuration
