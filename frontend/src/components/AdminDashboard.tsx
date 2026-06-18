@@ -1050,13 +1050,14 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     : selectedAgreementDueNow
       ? `Deposit of ${selectedAgreementDueNowLabel} before development starts. Balance follows the agreed project terms.`
       : '';
-  const isAgreementDraftDirty = Boolean(selectedProjectRequest) && (
-    agreementDraft.paymentAgreementType !== (selectedProjectRequest.paymentAgreementType || '')
-    || agreementDraft.paymentDueDate !== (selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : '')
-    || agreementDraft.totalAgreedAmount !== (selectedProjectRequest.totalAgreedAmount?.toString() || selectedProjectRequest.quotedAmount?.toString() || '')
-    || agreementDraft.depositAmount !== (selectedProjectRequest.depositAmount?.toString() || '')
-    || agreementDraft.paymentInstructions !== (selectedProjectRequest.paymentInstructions || '')
-  );
+  const selectedAgreementProject = selectedProjectRequest;
+  const isAgreementDraftDirty = selectedAgreementProject ? (
+    agreementDraft.paymentAgreementType !== (selectedAgreementProject.paymentAgreementType || '')
+    || agreementDraft.paymentDueDate !== (selectedAgreementProject.paymentDueDate ? selectedAgreementProject.paymentDueDate.slice(0, 10) : '')
+    || agreementDraft.totalAgreedAmount !== (selectedAgreementProject.totalAgreedAmount?.toString() || selectedAgreementProject.quotedAmount?.toString() || '')
+    || agreementDraft.depositAmount !== (selectedAgreementProject.depositAmount?.toString() || '')
+    || agreementDraft.paymentInstructions !== (selectedAgreementProject.paymentInstructions || '')
+  ) : false;
   const selectedPaymentReference = selectedClientNotes.match(/Reference:\s*([^\n]+)/i)?.[1]?.trim() || '';
   const selectedPaymentConfirmedAt = selectedProjectRequest?.paymentConfirmedAt
     ? new Intl.DateTimeFormat('en-US', {

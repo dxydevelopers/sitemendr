@@ -42,7 +42,8 @@ import {
   Sparkles,
   Gift,
   ExternalLink,
-  CircleDollarSign
+  CircleDollarSign,
+  Send
 } from 'lucide-react';
 import { apiClient, SupporterTier } from '@/lib/api';
 import dynamic from 'next/dynamic';
@@ -346,6 +347,18 @@ interface StudioUpdate {
   createdAt?: string;
 }
 
+interface ReviewChatMessage {
+  id: string;
+  projectRequestId: string;
+  senderRole: 'admin' | 'client' | 'system' | string;
+  message: string;
+  kind?: 'message' | 'question' | 'choice_response' | 'file' | string;
+  choices?: string[] | null;
+  selectedChoice?: string | null;
+  attachments?: Array<{ label?: string; url?: string }> | null;
+  createdAt: string;
+}
+
 interface ClientActivity {
   type: 'payment' | 'file';
   title: string;
@@ -492,6 +505,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [briefResponseFeedback, setBriefResponseFeedback] = useState('');
   const [stagingReviewMessage, setStagingReviewMessage] = useState('');
   const [stagingReviewSubmitting, setStagingReviewSubmitting] = useState(false);
+  const [reviewChatOpen, setReviewChatOpen] = useState(false);
+  const [reviewChatMessages, setReviewChatMessages] = useState<ReviewChatMessage[]>([]);
+  const [reviewChatDraft, setReviewChatDraft] = useState('');
+  const [reviewChatLoading, setReviewChatLoading] = useState(false);
+  const [reviewChatSending, setReviewChatSending] = useState(false);
   const [handoffMessage, setHandoffMessage] = useState('');
   const [handoffSubmitting, setHandoffSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -766,6 +784,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       }
     });
 
+    socketRef.current.on('review_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
+      if (!data?.message || data.requestId !== selectedProjectIdRef.current) return;
+      setReviewChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
+    });
+
     return () => {
       socketRef.current?.disconnect();
     };
@@ -829,7 +852,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   };
 
   const handleViewAssessment = async (project: ClientProject) => {
-    const fallbackAssessment = {
+    const fallbackAssessment: ClientAssessment = {
       id: project.assessmentId || project.id,
       createdAt: project.createdAt || new Date().toISOString(),
       source: 'Build brief',
@@ -854,7 +877,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     try {
       const res = await apiClient.getAssessmentDetails(project.assessmentId);
       if (res.success) {
-        setSelectedAssessment(res.data || fallbackAssessment);
+        setSelectedAssessment(isApiRecord(res.data) && typeof res.data.id === 'string' ? res.data as ClientAssessment : fallbackAssessment);
         setShowAssessmentModal(true);
       } else {
         setSelectedAssessment(fallbackAssessment);
@@ -907,7 +930,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
     setPaymentSubmitting(true);
     let checkoutOpened = false;
-    let checkoutFallbackTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let checkoutFallbackTimer: number | null = null;
     let checkoutSettled = false;
     try {
       const res = await apiClient.initializePayment({
@@ -1047,6 +1070,53 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       alert(err instanceof Error ? err.message : 'Failed to respond to staging review.');
     } finally {
       setStagingReviewSubmitting(false);
+    }
+  };
+
+  const fetchClientReviewChat = useCallback(async (requestId: string) => {
+    setReviewChatLoading(true);
+    try {
+      const res = await apiClient.getClientReviewChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
+      if (res.success) {
+        setReviewChatMessages(res.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load review chat:', error);
+    } finally {
+      setReviewChatLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setReviewChatMessages([]);
+    setReviewChatDraft('');
+    if (selectedProjectId && reviewChatOpen) {
+      fetchClientReviewChat(selectedProjectId);
+    }
+  }, [fetchClientReviewChat, reviewChatOpen, selectedProjectId]);
+
+  const handleSendClientReviewChat = async (choice?: string) => {
+    const projectId = currentBuildRecord?.id;
+    if (!projectId || reviewChatSending) return;
+    const message = (choice || reviewChatDraft).trim();
+    if (!message) return;
+
+    setReviewChatSending(true);
+    try {
+      const res = await apiClient.sendClientReviewChat(projectId, {
+        message,
+        kind: choice ? 'choice_response' : 'message',
+        selectedChoice: choice || undefined
+      }) as { success: boolean; data?: ReviewChatMessage; message?: string };
+      if (res.success && res.data) {
+        setReviewChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setReviewChatDraft('');
+        setReviewChatOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to send review chat message:', error);
+    } finally {
+      setReviewChatSending(false);
     }
   };
 
@@ -3180,8 +3250,82 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                             <p className="mt-2 text-sm leading-6 text-white/64">
                                               {currentBuildRecord.stagingNotes || 'Check the main pages, mobile layout, forms, and the overall feel before approval.'}
                                             </p>
+                                            <button
+                                              type="button"
+                                              onClick={() => setReviewChatOpen(prev => !prev)}
+                                              className="mt-5 inline-flex min-h-10 items-center gap-3 border-b border-ai-blue/35 pb-2 text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:border-white hover:text-white"
+                                            >
+                                              <MessageSquare className="h-4 w-4" />
+                                              Review chat
+                                              {reviewChatMessages.length > 0 && <span className="text-white/46">{reviewChatMessages.length}</span>}
+                                            </button>
                                           </div>
                                         </section>
+
+                                        {reviewChatOpen && (
+                                          <section className="mt-6 border-y border-white/10 py-5">
+                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                              <div>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Review chat</p>
+                                                <p className="mt-2 text-sm leading-6 text-white/54">Ask about the preview, answer team questions, and keep review decisions here.</p>
+                                              </div>
+                                              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">
+                                                {reviewChatLoading ? 'Loading' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}
+                                              </span>
+                                            </div>
+                                            <div className="mt-5 max-h-80 space-y-3 overflow-y-auto pr-1">
+                                              {reviewChatMessages.length ? reviewChatMessages.map((message) => {
+                                                const isClientMessage = message.senderRole === 'client';
+                                                return (
+                                                  <div key={message.id} className={`flex ${isClientMessage ? 'justify-end' : 'justify-start'}`}>
+                                                    <div className={`max-w-[86%] border-b py-3 ${isClientMessage ? 'border-ai-blue/35 text-right' : 'border-white/10 text-left'}`}>
+                                                      <div className={`text-[9px] font-black uppercase tracking-[0.16em] ${isClientMessage ? 'text-ai-blue' : 'text-amber-300'}`}>
+                                                        {isClientMessage ? 'You' : 'Team'} · {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                      </div>
+                                                      <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-white/78">{message.message}</p>
+                                                      {!isClientMessage && Array.isArray(message.choices) && message.choices.length > 0 && (
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                          {message.choices.map(choice => (
+                                                            <button
+                                                              key={choice}
+                                                              type="button"
+                                                              onClick={() => handleSendClientReviewChat(choice)}
+                                                              disabled={reviewChatSending}
+                                                              className="border border-ai-blue/25 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40"
+                                                            >
+                                                              {choice}
+                                                            </button>
+                                                          ))}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              }) : (
+                                                <div className="border-y border-white/10 py-6">
+                                                  <p className="text-sm font-semibold text-white/58">No review chat yet. Use this when you need to ask or answer something about the preview.</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                                              <textarea
+                                                value={reviewChatDraft}
+                                                onChange={(event) => setReviewChatDraft(event.target.value)}
+                                                className="h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                                placeholder="Write a review message..."
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => handleSendClientReviewChat()}
+                                                disabled={reviewChatSending || !reviewChatDraft.trim()}
+                                                className="flex min-h-11 items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-40"
+                                              >
+                                                {reviewChatSending ? 'Sending' : 'Send'}
+                                                <Send className="h-4 w-4" />
+                                              </button>
+                                            </div>
+                                          </section>
+                                        )}
 
                                         <section className="mt-6">
                                           <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Change note</label>

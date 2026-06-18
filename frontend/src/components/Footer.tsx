@@ -50,8 +50,8 @@ const legalLinks = [
 ];
 
 const contactLinks = [
-  { name: 'support@sitemendr.com', href: 'mailto:support@sitemendr.com', icon: Mail },
-  { name: '+254 790 057 596', href: 'tel:+254790057596', icon: Phone },
+  { name: 'support@sitemendr.com', href: 'mailto:dxydevelopers@gmail.com', icon: Mail },
+  { name: '+254 140 122 685', href: 'tel:+254140122685', icon: Phone },
   { name: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya', icon: MapPin },
 ];
 
