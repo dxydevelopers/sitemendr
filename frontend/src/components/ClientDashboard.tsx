@@ -43,7 +43,8 @@ import {
   Gift,
   ExternalLink,
   CircleDollarSign,
-  Send
+  Send,
+  Mail
 } from 'lucide-react';
 import { apiClient, SupporterTier } from '@/lib/api';
 import dynamic from 'next/dynamic';
@@ -90,17 +91,66 @@ const normalizeDashboardTab = (tab?: string | null) => {
   return tab ? groupOnlyTabs[tab] || tab : 'dashboard';
 };
 
-const accountCountryOptions = [
-  { code: 'US', name: 'United States', currency: 'USD' },
-  { code: 'KE', name: 'Kenya', currency: 'KES' },
-  { code: 'NG', name: 'Nigeria', currency: 'NGN' },
-  { code: 'GH', name: 'Ghana', currency: 'GHS' },
-  { code: 'ZA', name: 'South Africa', currency: 'ZAR' },
-  { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
-  { code: 'EU', name: 'Europe', currency: 'EUR' },
-  { code: 'CA', name: 'Canada', currency: 'CAD' },
-  { code: 'AU', name: 'Australia', currency: 'AUD' },
+const lockedClientTabs: Record<string, { label: string; area: string }> = {
+  audit: { label: 'Repair and performance', area: 'workspace' },
+  business: { label: 'Merchant tools', area: 'workspace' },
+  ecommerce: { label: 'Commerce', area: 'merchant' },
+  booking: { label: 'Bookings', area: 'merchant' },
+  editor: { label: 'Editor', area: 'project' },
+  domains: { label: 'Domains', area: 'project' },
+  addons: { label: 'Add-ons', area: 'billing' },
+  resources: { label: 'Resources', area: 'support' },
+  supporter: { label: 'Community', area: 'account' },
+};
+
+const countryCodes = [
+  'AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','SZ','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IR','IQ','IE','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MK','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW'
 ];
+
+const countryCurrencyByCode: Record<string, string> = {
+  AD: 'EUR', AE: 'AED', AF: 'AFN', AG: 'XCD', AI: 'XCD', AL: 'ALL', AM: 'AMD', AO: 'AOA', AR: 'ARS', AS: 'USD', AT: 'EUR', AU: 'AUD', AW: 'AWG', AX: 'EUR', AZ: 'AZN',
+  BA: 'BAM', BB: 'BBD', BD: 'BDT', BE: 'EUR', BF: 'XOF', BG: 'BGN', BH: 'BHD', BI: 'BIF', BJ: 'XOF', BL: 'EUR', BM: 'BMD', BN: 'BND', BO: 'BOB', BQ: 'USD', BR: 'BRL', BS: 'BSD', BT: 'BTN', BW: 'BWP', BY: 'BYN', BZ: 'BZD',
+  CA: 'CAD', CC: 'AUD', CD: 'CDF', CF: 'XAF', CG: 'XAF', CH: 'CHF', CI: 'XOF', CK: 'NZD', CL: 'CLP', CM: 'XAF', CN: 'CNY', CO: 'COP', CR: 'CRC', CU: 'CUP', CV: 'CVE', CW: 'ANG', CX: 'AUD', CY: 'EUR', CZ: 'CZK',
+  DE: 'EUR', DJ: 'DJF', DK: 'DKK', DM: 'XCD', DO: 'DOP', DZ: 'DZD', EC: 'USD', EE: 'EUR', EG: 'EGP', EH: 'MAD', ER: 'ERN', ES: 'EUR', ET: 'ETB',
+  FI: 'EUR', FJ: 'FJD', FK: 'FKP', FM: 'USD', FO: 'DKK', FR: 'EUR',
+  GA: 'XAF', GB: 'GBP', GD: 'XCD', GE: 'GEL', GF: 'EUR', GG: 'GBP', GH: 'GHS', GI: 'GIP', GL: 'DKK', GM: 'GMD', GN: 'GNF', GP: 'EUR', GQ: 'XAF', GR: 'EUR', GT: 'GTQ', GU: 'USD', GW: 'XOF', GY: 'GYD',
+  HK: 'HKD', HN: 'HNL', HR: 'EUR', HT: 'HTG', HU: 'HUF',
+  ID: 'IDR', IE: 'EUR', IL: 'ILS', IM: 'GBP', IN: 'INR', IO: 'USD', IQ: 'IQD', IR: 'IRR', IS: 'ISK', IT: 'EUR',
+  JE: 'GBP', JM: 'JMD', JO: 'JOD', JP: 'JPY',
+  KE: 'KES', KG: 'KGS', KH: 'KHR', KI: 'AUD', KM: 'KMF', KN: 'XCD', KP: 'KPW', KR: 'KRW', KW: 'KWD', KY: 'KYD', KZ: 'KZT',
+  LA: 'LAK', LB: 'LBP', LC: 'XCD', LI: 'CHF', LK: 'LKR', LR: 'LRD', LS: 'LSL', LT: 'EUR', LU: 'EUR', LV: 'EUR', LY: 'LYD',
+  MA: 'MAD', MC: 'EUR', MD: 'MDL', ME: 'EUR', MF: 'EUR', MG: 'MGA', MH: 'USD', MK: 'MKD', ML: 'XOF', MM: 'MMK', MN: 'MNT', MO: 'MOP', MP: 'USD', MQ: 'EUR', MR: 'MRU', MS: 'XCD', MT: 'EUR', MU: 'MUR', MV: 'MVR', MW: 'MWK', MX: 'MXN', MY: 'MYR', MZ: 'MZN',
+  NA: 'NAD', NC: 'XPF', NE: 'XOF', NF: 'AUD', NG: 'NGN', NI: 'NIO', NL: 'EUR', NO: 'NOK', NP: 'NPR', NR: 'AUD', NU: 'NZD', NZ: 'NZD',
+  OM: 'OMR',
+  PA: 'PAB', PE: 'PEN', PF: 'XPF', PG: 'PGK', PH: 'PHP', PK: 'PKR', PL: 'PLN', PM: 'EUR', PN: 'NZD', PR: 'USD', PS: 'ILS', PT: 'EUR', PW: 'USD', PY: 'PYG',
+  QA: 'QAR',
+  RE: 'EUR', RO: 'RON', RS: 'RSD', RU: 'RUB', RW: 'RWF',
+  SA: 'SAR', SB: 'SBD', SC: 'SCR', SD: 'SDG', SE: 'SEK', SG: 'SGD', SH: 'SHP', SI: 'EUR', SJ: 'NOK', SK: 'EUR', SL: 'SLE', SM: 'EUR', SN: 'XOF', SO: 'SOS', SR: 'SRD', SS: 'SSP', ST: 'STN', SV: 'USD', SX: 'ANG', SY: 'SYP', SZ: 'SZL',
+  TC: 'USD', TD: 'XAF', TF: 'EUR', TG: 'XOF', TH: 'THB', TJ: 'TJS', TK: 'NZD', TL: 'USD', TM: 'TMT', TN: 'TND', TO: 'TOP', TR: 'TRY', TT: 'TTD', TV: 'AUD', TW: 'TWD', TZ: 'TZS',
+  UA: 'UAH', UG: 'UGX', UM: 'USD', US: 'USD', UY: 'UYU', UZ: 'UZS',
+  VA: 'EUR', VC: 'XCD', VE: 'VES', VG: 'USD', VI: 'USD', VN: 'VND', VU: 'VUV',
+  WF: 'XPF', WS: 'WST',
+  YE: 'YER', YT: 'EUR',
+  ZA: 'ZAR', ZM: 'ZMW', ZW: 'USD',
+};
+
+const countryDialCodeByCode: Record<string, string> = {
+  US: '+1', CA: '+1', GB: '+44', KE: '+254', NG: '+234', GH: '+233', ZA: '+27', AU: '+61', NZ: '+64', IN: '+91', PK: '+92', BD: '+880', AE: '+971', SA: '+966', QA: '+974', KW: '+965', BH: '+973', OM: '+968',
+  UG: '+256', TZ: '+255', RW: '+250', BI: '+257', ET: '+251', SO: '+252', SS: '+211', SD: '+249', EG: '+20', MA: '+212', DZ: '+213', TN: '+216', CM: '+237', CI: '+225', SN: '+221', ML: '+223', BF: '+226', NE: '+227',
+  FR: '+33', DE: '+49', IT: '+39', ES: '+34', PT: '+351', NL: '+31', BE: '+32', CH: '+41', AT: '+43', IE: '+353', NO: '+47', SE: '+46', DK: '+45', FI: '+358', PL: '+48', CZ: '+420', RO: '+40', GR: '+30', TR: '+90',
+  BR: '+55', MX: '+52', AR: '+54', CL: '+56', CO: '+57', PE: '+51', VE: '+58', EC: '+593', UY: '+598', PY: '+595', BO: '+591',
+  CN: '+86', HK: '+852', JP: '+81', KR: '+82', SG: '+65', MY: '+60', ID: '+62', PH: '+63', TH: '+66', VN: '+84', TW: '+886',
+};
+
+const countryDisplayNames = new Intl.DisplayNames(['en'], { type: 'region' });
+const accountCountryOptions = countryCodes
+  .map(code => ({
+    code,
+    name: countryDisplayNames.of(code) || code,
+    currency: countryCurrencyByCode[code] || 'USD',
+    dialCode: countryDialCodeByCode[code] || '',
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 const accountTypeOptions = [
   { value: 'individual', label: 'Individual' },
@@ -112,6 +162,37 @@ const accountTypeOptions = [
 const getDefaultCurrencyForCountry = (country?: string) => (
   accountCountryOptions.find(option => option.code === country)?.currency || 'USD'
 );
+
+const getDialCodeForCountry = (country?: string) => (
+  accountCountryOptions.find(option => option.code === country)?.dialCode || ''
+);
+
+const normalizePhoneForCountry = (phone: string, country?: string) => {
+  const trimmed = phone.trim();
+  if (!trimmed) return '';
+  const digits = trimmed.replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits;
+  const dialCode = getDialCodeForCountry(country);
+  const localDigits = digits.replace(/\D/g, '').replace(/^0+/, '');
+  return dialCode ? `${dialCode}${localDigits}` : localDigits;
+};
+
+const getLocalPhoneForCountry = (phone: string, country?: string) => {
+  const dialCode = getDialCodeForCountry(country);
+  const trimmed = phone.trim();
+  if (dialCode && trimmed.startsWith(dialCode)) {
+    return trimmed.slice(dialCode.length).replace(/^0+/, '');
+  }
+  return trimmed;
+};
+
+const isValidProfilePhone = (phone: string, country?: string) => {
+  if (!phone.trim()) return true;
+  const normalized = normalizePhoneForCountry(phone, country);
+  const digitCount = normalized.replace(/\D/g, '').length;
+  const dialCode = getDialCodeForCountry(country);
+  return digitCount >= 8 && digitCount <= 15 && (!dialCode || normalized.startsWith(dialCode));
+};
 
 const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Pending') => {
   if (!amount) return fallback;
@@ -372,6 +453,7 @@ interface UserData {
   email: string;
   phone?: string;
   role?: string;
+  isEmailVerified?: boolean;
   country?: string;
   defaultCurrency?: string;
   accountType?: string;
@@ -528,6 +610,12 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     billingRegion: 'US'
   });
   const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordMessage, setPasswordMessage] = useState({ text: '', type: '' });
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
   const selectedProjectIdRef = useRef(selectedProjectId);
@@ -818,24 +906,64 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidProfilePhone(profileData.phone, profileData.country)) {
+      setProfileMessage({ text: 'Enter a valid phone number for the selected country.', type: 'error' });
+      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+      return;
+    }
+    const cleanProfileData = {
+      ...profileData,
+      phone: normalizePhoneForCountry(profileData.phone, profileData.country),
+      billingRegion: profileData.country,
+    };
     try {
-      const res = await apiClient.updateProfile(profileData);
+      const res = await apiClient.updateProfile(cleanProfileData);
       if (res.success) {
-        setProfileMessage({ text: 'Profile synchronization complete.', type: 'success' });
+        setProfileMessage({ text: 'Settings saved.', type: 'success' });
         const updatedUser: UserData = {
           ...(user || { id: '', email: '' }),
           ...(res.user || {}),
-          ...profileData
+          ...cleanProfileData
         };
         localStorage.setItem('sitemendr_client_user', JSON.stringify(updatedUser));
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
+        setProfileData(cleanProfileData);
         await fetchData(selectedProjectId || undefined);
+      } else {
+        setProfileMessage({ text: 'Could not save settings.', type: 'error' });
       }
     } catch {
-      setProfileMessage({ text: 'Profile update failed.', type: 'error' });
+      setProfileMessage({ text: 'Could not save settings.', type: 'error' });
     }
     setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordData.currentPassword || !passwordData.newPassword) {
+      setPasswordMessage({ text: 'Enter your current and new password.', type: 'error' });
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage({ text: 'New passwords do not match.', type: 'error' });
+      return;
+    }
+    try {
+      const res = await apiClient.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      if (res.success) {
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setPasswordMessage({ text: 'Password updated.', type: 'success' });
+      } else {
+        setPasswordMessage({ text: 'Could not update password.', type: 'error' });
+      }
+    } catch {
+      setPasswordMessage({ text: 'Could not update password.', type: 'error' });
+    }
+    setTimeout(() => setPasswordMessage({ text: '', type: '' }), 3000);
   };
 
   const handleAnalyzeSite = async (projectId: string, url: string) => {
@@ -1296,6 +1424,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
   const currentTab = allNavItems.find(item => item.id === activeTab);
+  const activeTabLock = lockedClientTabs[activeTab];
 
   const navGroups: Record<string, string[]> = {
     workspaces: ['workspaces', 'projects', 'audit', 'business'],
@@ -2023,7 +2152,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                     {unreadMessages > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-ai-blue rounded-full border-2 border-[#05070a]"></span>}
                   </button>
                 </div>
-                <button onClick={() => setActiveTab('settings')} className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.06] text-white/72 transition hover:bg-white/10 hover:text-white lg:hidden">
+                <button onClick={() => setActiveTab('settings')} className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.06] text-white/72 transition hover:bg-white/10 hover:text-white sm:hidden">
                   <User className="w-5 h-5" />
                 </button>
               </div>
@@ -2043,6 +2172,33 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             )}
 
             {/* TAB CONTENT */}
+            {activeTabLock ? (
+              <section className="animate-fade-in grid min-h-[58vh] place-items-center border-y border-white/10 px-5 py-14 text-center">
+                <div className="max-w-sm space-y-6">
+                  <div className="mx-auto grid h-14 w-14 place-items-center border border-white/10 bg-white/[0.03] text-ai-blue">
+                    <Key className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-ai-blue/70">No access</p>
+                    <h1 className="text-2xl font-black tracking-tight text-white">{activeTabLock.label}</h1>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('projects');
+                      setSelectedProjectId(null);
+                      setOpenSidebarGroup(null);
+                      setMobileRailGroup(null);
+                    }}
+                    className="inline-flex min-h-11 items-center gap-3 bg-ai-blue px-5 text-[10px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Build
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <>
             {activeTab === 'business' && (
               <div className="space-y-8 animate-fade-in">
                 <div className="max-w-3xl space-y-4">
@@ -3769,19 +3925,22 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
             )}
 
             {activeTab === 'settings' && (
-              <div className="max-w-5xl space-y-12 animate-fade-in pb-20">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 px-2">
-                  <div>
-                    <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-                      <Settings className="w-5 h-5 text-ai-blue" />
-                      Settings
-                    </h2>
-                    <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Manage your account profile and security details</p>
+              <div className="max-w-6xl animate-fade-in pb-20 pt-2">
+                <div className="mb-8 border-b border-white/10 pb-5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-3">
+                    <Mail className="h-4 w-4 shrink-0 text-white/38" />
+                    <p className="min-w-0 break-all text-base font-black text-white">{user?.email}</p>
+                    <span className={`inline-flex w-fit items-center gap-1.5 text-xs font-black ${
+                      user?.isEmailVerified ? 'text-expert-green' : 'text-amber-300'
+                    }`}>
+                      {user?.isEmailVerified ? <Check className="h-3.5 w-3.5" /> : <TriangleAlert className="h-3.5 w-3.5" />}
+                      {user?.isEmailVerified ? 'Verified' : 'Not verified'}
+                    </span>
                   </div>
                 </div>
 
                 {profileMessage.text && (
-                  <div className={`p-6 rounded-[24px] text-[10px] font-black uppercase tracking-widest border animate-in slide-in-from-top-4 duration-300 ${
+                  <div className={`mb-7 border px-4 py-3 text-sm font-semibold animate-in slide-in-from-top-4 duration-300 ${
                     profileMessage.type === 'success' ? 'bg-expert-green/10 border-expert-green/20 text-expert-green' : 'bg-red-500/10 border-red-500/20 text-red-400'
                   }`}>
                     <div className="flex items-center gap-3">
@@ -3791,140 +3950,136 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                   </div>
                 )}
 
-                <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-                  <section className="bg-white/[0.01] border border-white/5 p-8 lg:p-10 rounded-[40px] space-y-10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-ai-blue/10 border border-ai-blue/20 rounded-2xl flex items-center justify-center">
-                        <User className="w-6 h-6 text-ai-blue" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-black uppercase tracking-tight">Identity Profile</h3>
-                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">General Operational Data</p>
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleUpdateProfile} className="space-y-6">
+                <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                  <section>
+                    <form onSubmit={handleUpdateProfile} className="grid gap-5 sm:grid-cols-2">
                       <div className="space-y-3">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Assigned Name</label>
+                        <label className="text-sm font-semibold text-white/60">Name</label>
                         <input 
                           type="text" 
                           value={profileData.name}
                           onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
+                          className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
                           placeholder="Your name"
                         />
                       </div>
                       <div className="space-y-3">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Communication Channel</label>
-                        <input 
-                          type="tel" 
-                          value={profileData.phone}
-                          onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
-                          placeholder="+X XXX XXX XXXX"
-                        />
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Country</label>
-                          <select
-                            value={profileData.country}
-                            onChange={(e) => {
-                              const country = e.target.value;
-                              setProfileData({
-                                ...profileData,
-                                country,
-                                billingRegion: country,
-                                defaultCurrency: getDefaultCurrencyForCountry(country)
-                              });
-                            }}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
-                          >
-                            {accountCountryOptions.map(option => (
-                              <option key={option.code} value={option.code} className="bg-black text-white">{option.name}</option>
-                            ))}
-                          </select>
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-sm font-semibold text-white/60">Phone</label>
+                          <span className={`text-xs font-black ${
+                            profileData.phone ? 'text-amber-300' : 'text-white/28'
+                          }`}>
+                            {profileData.phone ? 'Not verified' : 'Not added'}
+                          </span>
                         </div>
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Default Currency</label>
-                          <select
-                            value={profileData.defaultCurrency}
-                            onChange={(e) => setProfileData({ ...profileData, defaultCurrency: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
-                          >
-                            {Array.from(new Set(accountCountryOptions.map(option => option.currency))).map(currency => (
-                              <option key={currency} value={currency} className="bg-black text-white">{currency}</option>
-                            ))}
-                          </select>
+                        <div className="flex border-b border-white/14 transition focus-within:border-ai-blue">
+                          <span className="shrink-0 py-3 pr-3 text-sm font-semibold text-white/38">
+                            {getDialCodeForCountry(profileData.country) || '+'}
+                          </span>
+                          <input
+                            type="tel"
+                            value={getLocalPhoneForCountry(profileData.phone, profileData.country)}
+                            onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                            className="min-w-0 flex-1 bg-transparent py-3 text-sm text-white outline-none"
+                            placeholder="Add phone number"
+                          />
                         </div>
                       </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Account Type</label>
-                          <select
-                            value={profileData.accountType}
-                            onChange={(e) => setProfileData({ ...profileData, accountType: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
-                          >
-                            {accountTypeOptions.map(option => (
-                              <option key={option.value} value={option.value} className="bg-black text-white">{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Billing Region</label>
-                          <select
-                            value={profileData.billingRegion}
-                            onChange={(e) => setProfileData({ ...profileData, billingRegion: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white focus:border-ai-blue outline-none transition-all font-mono"
-                          >
-                            {accountCountryOptions.map(option => (
-                              <option key={option.code} value={option.code} className="bg-black text-white">{option.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="pt-4">
-                        <button 
-                          type="submit"
-                          className="w-full py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-lg shadow-ai-blue/20"
+                      <div className="space-y-3">
+                        <label className="text-sm font-semibold text-white/60">Country</label>
+                        <select
+                          value={profileData.country}
+                          onChange={(e) => {
+                            const country = e.target.value;
+                            setProfileData({
+                              ...profileData,
+                              country,
+                              billingRegion: country,
+                              defaultCurrency: getDefaultCurrencyForCountry(country)
+                            });
+                          }}
+                          className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
                         >
-                          Synchronize Data
+                          {accountCountryOptions.map(option => (
+                            <option key={option.code} value={option.code} className="bg-black text-white">{option.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-sm font-semibold text-white/60">Currency</label>
+                        <select
+                          value={profileData.defaultCurrency}
+                          onChange={(e) => setProfileData({ ...profileData, defaultCurrency: e.target.value })}
+                          className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
+                        >
+                          {Array.from(new Set(accountCountryOptions.map(option => option.currency))).map(currency => (
+                            <option key={currency} value={currency} className="bg-black text-white">{currency}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-sm font-semibold text-white/60">Account type</label>
+                        <select
+                          value={profileData.accountType}
+                          onChange={(e) => setProfileData({ ...profileData, accountType: e.target.value })}
+                          className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
+                        >
+                          {accountTypeOptions.map(option => (
+                            <option key={option.value} value={option.value} className="bg-black text-white">{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2 pt-3">
+                        <button type="submit" className="min-h-11 bg-ai-blue px-5 text-sm font-black text-white transition hover:bg-white hover:text-black">
+                          Save changes
                         </button>
                       </div>
                     </form>
                   </section>
 
-                  <section className="bg-white/[0.01] border border-white/5 p-8 lg:p-10 rounded-[40px] space-y-10 flex flex-col justify-between">
-                    <div className="space-y-10">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-tech-purple/10 border border-tech-purple/20 rounded-2xl flex items-center justify-center">
-                          <Key className="w-6 h-6 text-tech-purple" />
+                  <section className="space-y-6 border-t border-white/10 pt-8 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
+                    <div className="space-y-6">
+                      <form onSubmit={handleChangePassword} className="space-y-5">
+                        {passwordMessage.text && (
+                          <div className={`border px-4 py-3 text-sm font-semibold ${
+                            passwordMessage.type === 'success' ? 'border-expert-green/20 bg-expert-green/10 text-expert-green' : 'border-red-500/20 bg-red-500/10 text-red-400'
+                          }`}>
+                            {passwordMessage.text}
+                          </div>
+                        )}
+                        <div className="space-y-4">
+                          <input
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                            className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
+                            placeholder="Current password"
+                          />
+                          <input
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                            className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
+                            placeholder="New password"
+                          />
+                          <input
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                            className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue"
+                            placeholder="Confirm new password"
+                          />
                         </div>
-                        <div>
-                          <h3 className="text-base font-black uppercase tracking-tight">Access Control</h3>
-                          <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Security Credentials</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-6">
-                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
-                          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest opacity-60">Current account email</p>
-                          <p className="text-sm font-mono text-white/80">{user?.email}</p>
-                        </div>
-                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
-                          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest opacity-60">Security status</p>
-                          <p className="text-sm font-mono text-expert-green">TWO_FACTOR_ENABLED</p>
-                        </div>
-                      </div>
+                        <button type="submit" className="min-h-11 border border-white/16 px-5 text-sm font-black text-white transition hover:border-white/34 hover:bg-white/8">
+                          Change password
+                        </button>
+                      </form>
                     </div>
-
-                    <button className="w-full py-4 bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white/10 transition-all">
-                      Reset Security Key
-                    </button>
                   </section>
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         </main>
