@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Github } from 'lucide-react';
+import { Eye, EyeOff, Github } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -35,6 +35,9 @@ const socialOptions = [
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [inactiveSocial, setInactiveSocial] = useState(false);
+  const [pulseCredentials, setPulseCredentials] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -47,7 +50,7 @@ function LoginForm() {
     setError('');
 
     try {
-      const response = await apiClient.login({ email, password });
+      const response = await apiClient.login({ email: email.trim().toLowerCase(), password });
 
       if (!response.success) {
         throw new Error(response.message || 'Login failed. Please check your credentials.');
@@ -66,6 +69,21 @@ function LoginForm() {
       setLoading(false);
     }
   };
+
+  const handleSocialClick = () => {
+    setInactiveSocial(true);
+    setPulseCredentials(true);
+    window.setTimeout(() => setPulseCredentials(false), 900);
+  };
+
+  const clearFeedback = () => {
+    if (inactiveSocial) setInactiveSocial(false);
+    if (error) setError('');
+  };
+
+  const inputClass = `mt-2 w-full border-0 border-b bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue ${
+    pulseCredentials ? 'border-red-400 animate-pulse' : 'border-white/16'
+  }`;
 
   return (
     <main className="min-h-screen bg-[#05070a] pt-16 text-white">
@@ -89,10 +107,8 @@ function LoginForm() {
                     <button
                       key={option.label}
                       type="button"
-                      disabled
-                      aria-disabled="true"
-                      title={`${option.label} login is not active yet`}
-                      className="grid h-12 w-12 place-items-center transition"
+                      onClick={handleSocialClick}
+                      className="grid h-12 w-12 place-items-center transition hover:opacity-70"
                     >
                       <Icon className={`h-8 w-8 ${option.className || ''}`} />
                       <span className="sr-only">{option.label}</span>
@@ -100,6 +116,7 @@ function LoginForm() {
                   );
                 })}
               </div>
+              {inactiveSocial && <p className="mt-3 text-xs font-black text-red-300">Inactive</p>}
 
               <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
                 {error && (
@@ -113,10 +130,15 @@ function LoginForm() {
                   <input
                     type="email"
                     required
-                    className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
+                    className={inputClass}
                     placeholder="name@company.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={clearFeedback}
+                    onBlur={() => setEmail(email.trim().toLowerCase())}
+                    onChange={(e) => {
+                      clearFeedback();
+                      setEmail(e.target.value);
+                    }}
                   />
                 </div>
 
@@ -127,14 +149,23 @@ function LoginForm() {
                       Forgot password?
                     </Link>
                   </div>
-                  <input
-                    type="password"
-                    required
-                    className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24"
+                      placeholder="Password"
+                      value={password}
+                      onFocus={clearFeedback}
+                      onChange={(e) => {
+                        clearFeedback();
+                        setPassword(e.target.value);
+                      }}
+                    />
+                    <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/42 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button

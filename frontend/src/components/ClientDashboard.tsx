@@ -44,9 +44,19 @@ import {
   ExternalLink,
   CircleDollarSign,
   Send,
-  Mail
+  Mail,
+  X
 } from 'lucide-react';
 import { apiClient, SupporterTier } from '@/lib/api';
+import {
+  accountTypes as accountTypeOptions,
+  countryOptions as accountCountryOptions,
+  getDefaultCurrencyForCountry,
+  getDialCodeForCountry,
+  getLocalPhoneForCountry,
+  isValidProfilePhone,
+  normalizePhoneForCountry,
+} from '@/lib/account-profile';
 import dynamic from 'next/dynamic';
 import AssessmentModal from './AssessmentModal';
 
@@ -101,97 +111,6 @@ const lockedClientTabs: Record<string, { label: string; area: string }> = {
   addons: { label: 'Add-ons', area: 'billing' },
   resources: { label: 'Resources', area: 'support' },
   supporter: { label: 'Community', area: 'account' },
-};
-
-const countryCodes = [
-  'AF','AX','AL','DZ','AS','AD','AO','AI','AQ','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BQ','BA','BW','BV','BR','IO','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CX','CC','CO','KM','CG','CD','CK','CR','CI','HR','CU','CW','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','SZ','ET','FK','FO','FJ','FI','FR','GF','PF','TF','GA','GM','GE','DE','GH','GI','GR','GL','GD','GP','GU','GT','GG','GN','GW','GY','HT','HM','VA','HN','HK','HU','IS','IN','ID','IR','IQ','IE','IM','IL','IT','JM','JP','JE','JO','KZ','KE','KI','KP','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MO','MG','MW','MY','MV','ML','MT','MH','MQ','MR','MU','YT','MX','FM','MD','MC','MN','ME','MS','MA','MZ','MM','NA','NR','NP','NL','NC','NZ','NI','NE','NG','NU','NF','MK','MP','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PN','PL','PT','PR','QA','RE','RO','RU','RW','BL','SH','KN','LC','MF','PM','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SX','SK','SI','SB','SO','ZA','GS','SS','ES','LK','SD','SR','SJ','SE','CH','SY','TW','TJ','TZ','TH','TL','TG','TK','TO','TT','TN','TR','TM','TC','TV','UG','UA','AE','GB','US','UM','UY','UZ','VU','VE','VN','VG','VI','WF','EH','YE','ZM','ZW'
-];
-
-const countryCurrencyByCode: Record<string, string> = {
-  AD: 'EUR', AE: 'AED', AF: 'AFN', AG: 'XCD', AI: 'XCD', AL: 'ALL', AM: 'AMD', AO: 'AOA', AR: 'ARS', AS: 'USD', AT: 'EUR', AU: 'AUD', AW: 'AWG', AX: 'EUR', AZ: 'AZN',
-  BA: 'BAM', BB: 'BBD', BD: 'BDT', BE: 'EUR', BF: 'XOF', BG: 'BGN', BH: 'BHD', BI: 'BIF', BJ: 'XOF', BL: 'EUR', BM: 'BMD', BN: 'BND', BO: 'BOB', BQ: 'USD', BR: 'BRL', BS: 'BSD', BT: 'BTN', BW: 'BWP', BY: 'BYN', BZ: 'BZD',
-  CA: 'CAD', CC: 'AUD', CD: 'CDF', CF: 'XAF', CG: 'XAF', CH: 'CHF', CI: 'XOF', CK: 'NZD', CL: 'CLP', CM: 'XAF', CN: 'CNY', CO: 'COP', CR: 'CRC', CU: 'CUP', CV: 'CVE', CW: 'ANG', CX: 'AUD', CY: 'EUR', CZ: 'CZK',
-  DE: 'EUR', DJ: 'DJF', DK: 'DKK', DM: 'XCD', DO: 'DOP', DZ: 'DZD', EC: 'USD', EE: 'EUR', EG: 'EGP', EH: 'MAD', ER: 'ERN', ES: 'EUR', ET: 'ETB',
-  FI: 'EUR', FJ: 'FJD', FK: 'FKP', FM: 'USD', FO: 'DKK', FR: 'EUR',
-  GA: 'XAF', GB: 'GBP', GD: 'XCD', GE: 'GEL', GF: 'EUR', GG: 'GBP', GH: 'GHS', GI: 'GIP', GL: 'DKK', GM: 'GMD', GN: 'GNF', GP: 'EUR', GQ: 'XAF', GR: 'EUR', GT: 'GTQ', GU: 'USD', GW: 'XOF', GY: 'GYD',
-  HK: 'HKD', HN: 'HNL', HR: 'EUR', HT: 'HTG', HU: 'HUF',
-  ID: 'IDR', IE: 'EUR', IL: 'ILS', IM: 'GBP', IN: 'INR', IO: 'USD', IQ: 'IQD', IR: 'IRR', IS: 'ISK', IT: 'EUR',
-  JE: 'GBP', JM: 'JMD', JO: 'JOD', JP: 'JPY',
-  KE: 'KES', KG: 'KGS', KH: 'KHR', KI: 'AUD', KM: 'KMF', KN: 'XCD', KP: 'KPW', KR: 'KRW', KW: 'KWD', KY: 'KYD', KZ: 'KZT',
-  LA: 'LAK', LB: 'LBP', LC: 'XCD', LI: 'CHF', LK: 'LKR', LR: 'LRD', LS: 'LSL', LT: 'EUR', LU: 'EUR', LV: 'EUR', LY: 'LYD',
-  MA: 'MAD', MC: 'EUR', MD: 'MDL', ME: 'EUR', MF: 'EUR', MG: 'MGA', MH: 'USD', MK: 'MKD', ML: 'XOF', MM: 'MMK', MN: 'MNT', MO: 'MOP', MP: 'USD', MQ: 'EUR', MR: 'MRU', MS: 'XCD', MT: 'EUR', MU: 'MUR', MV: 'MVR', MW: 'MWK', MX: 'MXN', MY: 'MYR', MZ: 'MZN',
-  NA: 'NAD', NC: 'XPF', NE: 'XOF', NF: 'AUD', NG: 'NGN', NI: 'NIO', NL: 'EUR', NO: 'NOK', NP: 'NPR', NR: 'AUD', NU: 'NZD', NZ: 'NZD',
-  OM: 'OMR',
-  PA: 'PAB', PE: 'PEN', PF: 'XPF', PG: 'PGK', PH: 'PHP', PK: 'PKR', PL: 'PLN', PM: 'EUR', PN: 'NZD', PR: 'USD', PS: 'ILS', PT: 'EUR', PW: 'USD', PY: 'PYG',
-  QA: 'QAR',
-  RE: 'EUR', RO: 'RON', RS: 'RSD', RU: 'RUB', RW: 'RWF',
-  SA: 'SAR', SB: 'SBD', SC: 'SCR', SD: 'SDG', SE: 'SEK', SG: 'SGD', SH: 'SHP', SI: 'EUR', SJ: 'NOK', SK: 'EUR', SL: 'SLE', SM: 'EUR', SN: 'XOF', SO: 'SOS', SR: 'SRD', SS: 'SSP', ST: 'STN', SV: 'USD', SX: 'ANG', SY: 'SYP', SZ: 'SZL',
-  TC: 'USD', TD: 'XAF', TF: 'EUR', TG: 'XOF', TH: 'THB', TJ: 'TJS', TK: 'NZD', TL: 'USD', TM: 'TMT', TN: 'TND', TO: 'TOP', TR: 'TRY', TT: 'TTD', TV: 'AUD', TW: 'TWD', TZ: 'TZS',
-  UA: 'UAH', UG: 'UGX', UM: 'USD', US: 'USD', UY: 'UYU', UZ: 'UZS',
-  VA: 'EUR', VC: 'XCD', VE: 'VES', VG: 'USD', VI: 'USD', VN: 'VND', VU: 'VUV',
-  WF: 'XPF', WS: 'WST',
-  YE: 'YER', YT: 'EUR',
-  ZA: 'ZAR', ZM: 'ZMW', ZW: 'USD',
-};
-
-const countryDialCodeByCode: Record<string, string> = {
-  US: '+1', CA: '+1', GB: '+44', KE: '+254', NG: '+234', GH: '+233', ZA: '+27', AU: '+61', NZ: '+64', IN: '+91', PK: '+92', BD: '+880', AE: '+971', SA: '+966', QA: '+974', KW: '+965', BH: '+973', OM: '+968',
-  UG: '+256', TZ: '+255', RW: '+250', BI: '+257', ET: '+251', SO: '+252', SS: '+211', SD: '+249', EG: '+20', MA: '+212', DZ: '+213', TN: '+216', CM: '+237', CI: '+225', SN: '+221', ML: '+223', BF: '+226', NE: '+227',
-  FR: '+33', DE: '+49', IT: '+39', ES: '+34', PT: '+351', NL: '+31', BE: '+32', CH: '+41', AT: '+43', IE: '+353', NO: '+47', SE: '+46', DK: '+45', FI: '+358', PL: '+48', CZ: '+420', RO: '+40', GR: '+30', TR: '+90',
-  BR: '+55', MX: '+52', AR: '+54', CL: '+56', CO: '+57', PE: '+51', VE: '+58', EC: '+593', UY: '+598', PY: '+595', BO: '+591',
-  CN: '+86', HK: '+852', JP: '+81', KR: '+82', SG: '+65', MY: '+60', ID: '+62', PH: '+63', TH: '+66', VN: '+84', TW: '+886',
-};
-
-const countryDisplayNames = new Intl.DisplayNames(['en'], { type: 'region' });
-const accountCountryOptions = countryCodes
-  .map(code => ({
-    code,
-    name: countryDisplayNames.of(code) || code,
-    currency: countryCurrencyByCode[code] || 'USD',
-    dialCode: countryDialCodeByCode[code] || '',
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name));
-
-const accountTypeOptions = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'business', label: 'Business' },
-  { value: 'organization', label: 'Organization' },
-  { value: 'agency', label: 'Agency' },
-];
-
-const getDefaultCurrencyForCountry = (country?: string) => (
-  accountCountryOptions.find(option => option.code === country)?.currency || 'USD'
-);
-
-const getDialCodeForCountry = (country?: string) => (
-  accountCountryOptions.find(option => option.code === country)?.dialCode || ''
-);
-
-const normalizePhoneForCountry = (phone: string, country?: string) => {
-  const trimmed = phone.trim();
-  if (!trimmed) return '';
-  const digits = trimmed.replace(/[^\d+]/g, '');
-  if (digits.startsWith('+')) return digits;
-  const dialCode = getDialCodeForCountry(country);
-  const localDigits = digits.replace(/\D/g, '').replace(/^0+/, '');
-  return dialCode ? `${dialCode}${localDigits}` : localDigits;
-};
-
-const getLocalPhoneForCountry = (phone: string, country?: string) => {
-  const dialCode = getDialCodeForCountry(country);
-  const trimmed = phone.trim();
-  if (dialCode && trimmed.startsWith(dialCode)) {
-    return trimmed.slice(dialCode.length).replace(/^0+/, '');
-  }
-  return trimmed;
-};
-
-const isValidProfilePhone = (phone: string, country?: string) => {
-  if (!phone.trim()) return true;
-  const normalized = normalizePhoneForCountry(phone, country);
-  const digitCount = normalized.replace(/\D/g, '').length;
-  const dialCode = getDialCodeForCountry(country);
-  return digitCount >= 8 && digitCount <= 15 && (!dialCode || normalized.startsWith(dialCode));
 };
 
 const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Pending') => {
@@ -454,6 +373,7 @@ interface UserData {
   phone?: string;
   role?: string;
   isEmailVerified?: boolean;
+  phoneVerified?: boolean;
   country?: string;
   defaultCurrency?: string;
   accountType?: string;
@@ -589,6 +509,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [stagingReviewSubmitting, setStagingReviewSubmitting] = useState(false);
   const [reviewChatOpen, setReviewChatOpen] = useState(false);
   const [reviewChatMessages, setReviewChatMessages] = useState<ReviewChatMessage[]>([]);
+  const [reviewChatUnreadCount, setReviewChatUnreadCount] = useState(0);
+  const [reviewChatLoadedProjectId, setReviewChatLoadedProjectId] = useState<string | null>(null);
   const [reviewChatDraft, setReviewChatDraft] = useState('');
   const [reviewChatLoading, setReviewChatLoading] = useState(false);
   const [reviewChatSending, setReviewChatSending] = useState(false);
@@ -619,6 +541,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
   const selectedProjectIdRef = useRef(selectedProjectId);
+  const reviewChatOpenRef = useRef(reviewChatOpen);
 
   useEffect(() => {
     // Check for search parameters
@@ -806,6 +729,13 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   }, [selectedProjectId]);
 
   useEffect(() => {
+    reviewChatOpenRef.current = reviewChatOpen;
+    if (reviewChatOpen) {
+      setReviewChatUnreadCount(0);
+    }
+  }, [reviewChatOpen]);
+
+  useEffect(() => {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     let normalizedUrl = socketUrl;
     if (!process.env.NEXT_PUBLIC_SOCKET_URL && normalizedUrl.includes('/api')) {
@@ -875,6 +805,9 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     socketRef.current.on('review_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
       if (!data?.message || data.requestId !== selectedProjectIdRef.current) return;
       setReviewChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
+      if (!reviewChatOpenRef.current && data.message.senderRole !== 'client') {
+        setReviewChatUnreadCount(prev => prev + 1);
+      }
     });
 
     return () => {
@@ -1186,12 +1119,16 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
     setStagingReviewSubmitting(true);
     try {
-      const res = await apiClient.respondToStagingReview(project.id, action, stagingReviewMessage.trim());
+      const reviewResponseMessage = action === 'changes'
+        ? (stagingReviewMessage.trim() || reviewChatDraft.trim())
+        : stagingReviewMessage.trim();
+      const res = await apiClient.respondToStagingReview(project.id, action, reviewResponseMessage);
       if (!res.success) {
         throw new Error(res.message || 'Failed to respond to staging review');
       }
 
       setStagingReviewMessage('');
+      if (action === 'changes') setReviewChatDraft('');
       await fetchData(project.id);
       setSelectedProjectId(project.id);
     } catch (err) {
@@ -1207,6 +1144,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       const res = await apiClient.getClientReviewChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
       if (res.success) {
         setReviewChatMessages(res.data || []);
+        setReviewChatLoadedProjectId(requestId);
+        setReviewChatUnreadCount(0);
       }
     } catch (error) {
       console.error('Failed to load review chat:', error);
@@ -1218,10 +1157,22 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   useEffect(() => {
     setReviewChatMessages([]);
     setReviewChatDraft('');
-    if (selectedProjectId && reviewChatOpen) {
+    setReviewChatUnreadCount(0);
+    setReviewChatLoadedProjectId(null);
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    const selectedProject = projects.find(project => project.id === selectedProjectId);
+    const shouldLoadReviewChat = Boolean(
+      selectedProjectId
+      && selectedProject?.status === 'staging_review'
+      && reviewChatLoadedProjectId !== selectedProjectId
+    );
+
+    if (shouldLoadReviewChat && selectedProjectId) {
       fetchClientReviewChat(selectedProjectId);
     }
-  }, [fetchClientReviewChat, reviewChatOpen, selectedProjectId]);
+  }, [fetchClientReviewChat, projects, reviewChatLoadedProjectId, selectedProjectId]);
 
   const handleSendClientReviewChat = async (choice?: string) => {
     const projectId = currentBuildRecord?.id;
@@ -1239,6 +1190,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       if (res.success && res.data) {
         setReviewChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
         setReviewChatDraft('');
+        setReviewChatUnreadCount(0);
         setReviewChatOpen(true);
       }
     } catch (error) {
@@ -1835,6 +1787,43 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
     : clientReviewStatus === 'approved'
       ? 'text-expert-green'
       : 'text-ai-blue';
+  const clientReviewChecklist = [
+    'Homepage direction',
+    'Lead form flow',
+    'Mobile layout',
+    'Copy and visual polish'
+  ];
+  const latestPreviewDiscussionMessage = [...reviewChatMessages]
+    .reverse()
+    .find(message => message.senderRole === 'client' || message.senderRole === 'admin');
+  const clientReviewHeadline = clientReviewStatus === 'changes_requested'
+    ? 'Changes are with the team'
+    : clientReviewStatus === 'approved'
+      ? 'Preview approved'
+      : `${currentBuildRecord?.name || 'Project'} preview`;
+  const clientReviewIntro = clientReviewStatus === 'changes_requested'
+    ? 'Your notes have been sent. The team will update the preview and return it for approval.'
+    : clientReviewStatus === 'approved'
+      ? 'The preview is approved. The team can prepare launch and handoff next.'
+      : currentBuildRecord?.stagingNotes || 'Review the preview, ask questions in the preview discussion, then approve when it is ready for launch.';
+  const clientReviewFlow = [
+    {
+      label: 'Preview shared',
+      value: currentBuildRecord?.stagingUrl ? 'Ready' : 'Pending',
+      tone: currentBuildRecord?.stagingUrl ? 'text-expert-green' : 'text-white/40'
+    },
+    {
+      label: 'Discussion',
+      value: reviewChatUnreadCount ? `${reviewChatUnreadCount} unread` : reviewChatMessages.length ? 'Active' : 'Open',
+      tone: reviewChatUnreadCount ? 'text-amber-300' : reviewChatMessages.length ? 'text-ai-blue' : 'text-white/40'
+    },
+    {
+      label: 'Decision',
+      value: clientReviewStatusLabel,
+      tone: clientReviewStatusTone
+    }
+  ];
+
   const clientActionMessage = blockedBuildMilestones.length
     ? 'The team may ask for one detail before continuing.'
     : 'Nothing is needed from you right now.';
@@ -3365,65 +3354,122 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   <div className="border-y border-white/10 py-5">
                                     {isProjectRequest(currentBuildRecord) && currentBuildStatus === 'staging_review' ? (
                                       <>
-                                        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,0.38fr)] xl:items-start">
+                                        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.34fr)] xl:items-start">
                                           <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-3">
-                                              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-ai-blue" />
-                                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview ready</p>
+                                              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${clientReviewStatus === 'approved' ? 'bg-expert-green' : clientReviewStatus === 'changes_requested' ? 'bg-amber-300' : 'bg-ai-blue'}`} />
+                                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
                                               <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${clientReviewStatusTone}`}>{clientReviewStatusLabel}</span>
                                             </div>
-                                            <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">Your preview is ready</h4>
+                                            <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{clientReviewHeadline}</h4>
                                             <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-white/72">
-                                              Open the preview, check the key pages, then approve it or send one clear change note.
+                                              {clientReviewIntro}
                                             </p>
                                           </div>
                                           <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/42">Review status</p>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/42">Decision state</p>
                                             <p className={`mt-2 text-lg font-black ${clientReviewStatusTone}`}>
                                               {clientReviewStatusLabel}
+                                            </p>
+                                            <p className="mt-2 text-sm leading-6 text-white/52">
+                                              {clientReviewStatus === 'changes_requested'
+                                                ? 'The team is reviewing your requested changes before the next approval pass.'
+                                                : clientReviewStatus === 'approved'
+                                                  ? 'The preview is approved and the team can prepare launch.'
+                                                  : 'Approve the preview, or use the conversation to request changes.'}
                                             </p>
                                           </div>
                                         </section>
 
-                                        <section className="mt-6 grid border-y border-white/10 lg:grid-cols-[minmax(0,0.9fr)_minmax(18rem,0.45fr)] lg:divide-x lg:divide-white/10">
+                                        <section className="mt-6 grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
+                                          {clientReviewFlow.map((item) => (
+                                            <div key={item.label} className="border-b border-white/10 py-4 last:border-b-0 sm:border-b-0 sm:px-4 sm:first:pl-0 sm:last:pr-0">
+                                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{item.label}</p>
+                                              <p className={`mt-2 text-sm font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</p>
+                                            </div>
+                                          ))}
+                                        </section>
+
+                                        <section className="mt-6 grid border-y border-white/10 lg:grid-cols-[minmax(0,0.72fr)_minmax(18rem,0.45fr)] lg:divide-x lg:divide-white/10">
                                           <div className="border-b border-white/10 py-5 lg:border-b-0 lg:pr-6">
                                             <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Preview</p>
-                                            {currentBuildRecord.stagingUrl ? (
-                                              <a
-                                                href={currentBuildRecord.stagingUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="mt-3 inline-flex min-h-12 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white"
-                                              >
-                                                Open preview <ExternalLink className="h-3.5 w-3.5" />
-                                              </a>
-                                            ) : (
-                                              <p className="mt-2 text-sm font-semibold text-white/52">Preview link pending</p>
-                                            )}
+                                            <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                                              <div>
+                                                <p className="text-xl font-black tracking-tight text-white">
+                                                  {currentBuildRecord.stagingUrl ? 'Ready to inspect' : 'Link pending'}
+                                                </p>
+                                                <p className="mt-2 text-sm leading-6 text-white/54">
+                                                  {currentBuildRecord.stagingUrl ? 'Open the live preview in a new tab and return here with your decision.' : 'The preview link will appear here once the team publishes it.'}
+                                                </p>
+                                              </div>
+                                              {currentBuildRecord.stagingUrl && (
+                                                <a
+                                                  href={currentBuildRecord.stagingUrl}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="inline-flex min-h-11 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white"
+                                                >
+                                                  Open preview <ExternalLink className="h-3.5 w-3.5" />
+                                                </a>
+                                              )}
+                                            </div>
                                           </div>
                                           <div className="py-5 lg:pl-6">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">What to check</p>
-                                            <p className="mt-2 text-sm leading-6 text-white/64">
-                                              {currentBuildRecord.stagingNotes || 'Check the main pages, mobile layout, forms, and the overall feel before approval.'}
-                                            </p>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Review focus</p>
+                                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                                              {clientReviewChecklist.map((item, index) => (
+                                                <div key={item} className="flex min-h-10 items-center gap-3 border-b border-white/10 py-2">
+                                                  <span className="text-[9px] font-black uppercase tracking-[0.12em] text-white/28">{String(index + 1).padStart(2, '0')}</span>
+                                                  <span className="text-sm font-semibold text-white/68">{item}</span>
+                                                </div>
+                                              ))}
+                                            </div>
                                             <button
                                               type="button"
-                                              onClick={() => setReviewChatOpen(prev => !prev)}
-                                              className="mt-5 inline-flex min-h-10 items-center gap-3 border-b border-ai-blue/35 pb-2 text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:border-white hover:text-white"
+                                              onClick={() => {
+                                                setReviewChatOpen(prev => {
+                                                  const next = !prev;
+                                                  if (next) setReviewChatUnreadCount(0);
+                                                  return next;
+                                                });
+                                              }}
+                                              className={`mt-5 flex min-h-14 w-full items-center justify-between gap-4 border-y py-3 text-left transition ${
+                                                reviewChatOpen ? 'border-ai-blue/45 text-white' : 'border-white/10 text-white/72 hover:border-ai-blue/35 hover:text-white'
+                                              }`}
                                             >
-                                              <MessageSquare className="h-4 w-4" />
-                                              Review chat
-                                              {reviewChatMessages.length > 0 && <span className="text-white/46">{reviewChatMessages.length}</span>}
+                                              <span className="flex min-w-0 items-center gap-3">
+                                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ai-blue/10 text-ai-blue">
+                                                  <MessageSquare className="h-4 w-4" />
+                                                </span>
+                                                <span className="min-w-0">
+                                                  <span className="block text-[10px] font-black uppercase tracking-[0.16em]">Preview discussion</span>
+                                                  <span className="mt-1 block text-xs font-semibold text-white/45">
+                                                    {reviewChatUnreadCount
+                                                      ? `${reviewChatUnreadCount} unread`
+                                                      : latestPreviewDiscussionMessage?.message
+                                                        ? latestPreviewDiscussionMessage.message
+                                                        : reviewChatLoading
+                                                          ? 'Loading thread'
+                                                          : 'Ask or request changes'}
+                                                  </span>
+                                                </span>
+                                              </span>
+                                              {reviewChatUnreadCount > 0 && !reviewChatOpen && (
+                                                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-300 px-2 text-[10px] font-black text-black">
+                                                  {reviewChatUnreadCount}
+                                                </span>
+                                              )}
+                                              <ChevronRight className={`h-4 w-4 shrink-0 transition ${reviewChatOpen ? 'rotate-90 text-ai-blue' : 'text-white/32'}`} />
                                             </button>
                                           </div>
                                         </section>
 
-                                        {reviewChatOpen && (
+                                        {false && reviewChatOpen && (
                                           <section className="mt-6 border-y border-white/10 py-5">
                                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                               <div>
-                                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Review chat</p>
-                                                <p className="mt-2 text-sm leading-6 text-white/54">Ask about the preview, answer team questions, and keep review decisions here.</p>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview discussion</p>
+                                                <p className="mt-2 text-sm leading-6 text-white/54">Use this for questions, changes, and team replies about this preview.</p>
                                               </div>
                                               <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">
                                                 {reviewChatLoading ? 'Loading' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}
@@ -3459,7 +3505,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                                 );
                                               }) : (
                                                 <div className="border-y border-white/10 py-6">
-                                                  <p className="text-sm font-semibold text-white/58">No review chat yet. Use this when you need to ask or answer something about the preview.</p>
+                                                  <p className="text-sm font-semibold text-white/58">No preview discussion yet. Ask here if anything needs to be clarified before approval.</p>
                                                 </div>
                                               )}
                                             </div>
@@ -3468,7 +3514,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                                 value={reviewChatDraft}
                                                 onChange={(event) => setReviewChatDraft(event.target.value)}
                                                 className="h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
-                                                placeholder="Write a review message..."
+                                                placeholder="Write a review message or change request..."
                                               />
                                               <button
                                                 type="button"
@@ -3483,36 +3529,151 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           </section>
                                         )}
 
-                                        <section className="mt-6">
-                                          <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Change note</label>
-                                          <textarea
-                                            value={stagingReviewMessage}
-                                            onChange={(event) => setStagingReviewMessage(event.target.value)}
-                                            rows={3}
-                                            className="w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
-                                            placeholder="Only write here if something should change before launch..."
-                                          />
-                                          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                            <button
-                                              type="button"
-                                              onClick={() => handleStagingReviewResponse(currentBuildRecord, 'approve')}
-                                              disabled={stagingReviewSubmitting}
-                                              className="flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                              <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve preview</span>
-                                              {stagingReviewSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleStagingReviewResponse(currentBuildRecord, 'changes')}
-                                              disabled={stagingReviewSubmitting}
-                                              className="flex min-h-12 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                              <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Send changes</span>
-                                              <ChevronRight className="h-4 w-4" />
-                                            </button>
+                                        <section className="mt-6 border-t border-white/10 pt-5">
+                                          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                            <div className="min-w-0">
+                                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">
+                                                {clientReviewStatus === 'changes_requested' ? 'Review cycle' : clientReviewStatus === 'approved' ? 'Approval recorded' : 'Final decision'}
+                                              </p>
+                                              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
+                                                {clientReviewStatus === 'changes_requested'
+                                                  ? 'The requested changes are now with the team. Keep any follow-up inside Preview discussion while the preview is updated.'
+                                                  : clientReviewStatus === 'approved'
+                                                    ? 'The preview has been approved. Launch preparation can continue from here.'
+                                                    : 'Approve the preview when it is ready for launch. If changes are needed, write them in Preview discussion first, then send changes.'}
+                                              </p>
+                                            </div>
+                                            <div className={`grid gap-3 ${clientReviewStatus === 'sent' ? 'sm:grid-cols-2 lg:min-w-[28rem]' : 'lg:min-w-[18rem]'}`}>
+                                              {clientReviewStatus === 'changes_requested' ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setReviewChatOpen(true)}
+                                                  className="flex min-h-12 items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white"
+                                                >
+                                                  <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Open discussion</span>
+                                                  <ChevronRight className="h-4 w-4" />
+                                                </button>
+                                              ) : clientReviewStatus === 'approved' ? (
+                                                <div className="flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green">
+                                                  <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Preview approved</span>
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStagingReviewResponse(currentBuildRecord, 'approve')}
+                                                    disabled={stagingReviewSubmitting}
+                                                    className="flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                  >
+                                                    <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Approve preview</span>
+                                                    {stagingReviewSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleStagingReviewResponse(currentBuildRecord, 'changes')}
+                                                    disabled={stagingReviewSubmitting || (!stagingReviewMessage.trim() && !reviewChatDraft.trim() && reviewChatMessages.length === 0)}
+                                                    className="flex min-h-12 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                  >
+                                                    <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Send changes</span>
+                                                    <ChevronRight className="h-4 w-4" />
+                                                  </button>
+                                                </>
+                                              )}
+                                            </div>
                                           </div>
                                         </section>
+                                        {reviewChatOpen && (
+                                          <div className="fixed inset-x-0 bottom-0 z-[90] flex h-[100dvh] flex-col border-t border-white/10 bg-[#05070a] shadow-2xl sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[520px] sm:w-[390px] sm:border sm:shadow-black/50">
+                                            <div className="flex min-h-16 items-center justify-between gap-3 border-b border-white/10 bg-ai-blue px-4 text-white">
+                                              <div className="flex min-w-0 items-center gap-3">
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15">
+                                                  <MessageSquare className="h-4 w-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                  <p className="truncate text-sm font-black tracking-tight">Preview discussion</p>
+                                                  <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/72">
+                                                    {reviewChatLoading ? 'Loading thread' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => setReviewChatOpen(false)}
+                                                className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
+                                                aria-label="Close preview discussion"
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </button>
+                                            </div>
+
+                                            <div className="flex-1 space-y-4 overflow-y-auto bg-black/35 p-4">
+                                              {reviewChatMessages.length ? reviewChatMessages.map((message) => {
+                                                const isClientMessage = message.senderRole === 'client';
+                                                return (
+                                                  <div key={message.id} className={`flex ${isClientMessage ? 'justify-end' : 'justify-start'}`}>
+                                                    <div className={`max-w-[84%] ${isClientMessage ? 'text-right' : 'text-left'}`}>
+                                                      <div className={`inline-block rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${
+                                                        isClientMessage
+                                                          ? 'rounded-tr-sm bg-ai-blue text-white'
+                                                          : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'
+                                                      }`}>
+                                                        <p className="whitespace-pre-line">{message.message}</p>
+                                                        <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>
+                                                          {isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                        </p>
+                                                      </div>
+                                                      {!isClientMessage && Array.isArray(message.choices) && message.choices.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                          {message.choices.map(choice => (
+                                                            <button
+                                                              key={choice}
+                                                              type="button"
+                                                              onClick={() => handleSendClientReviewChat(choice)}
+                                                              disabled={reviewChatSending}
+                                                              className="rounded-full border border-ai-blue/25 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40"
+                                                            >
+                                                              {choice}
+                                                            </button>
+                                                          ))}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              }) : (
+                                                <div className="flex h-full items-center justify-center text-center">
+                                                  <p className="max-w-xs text-sm font-semibold leading-6 text-white/50">
+                                                    Ask a question or write the changes you want the team to review.
+                                                  </p>
+                                                </div>
+                                              )}
+                                            </div>
+
+                                            <div className="border-t border-white/10 bg-[#05070a] p-4">
+                                              <div className="relative">
+                                                <textarea
+                                                  value={reviewChatDraft}
+                                                  onChange={(event) => setReviewChatDraft(event.target.value)}
+                                                  rows={2}
+                                                  className="max-h-28 min-h-12 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] py-3 pl-4 pr-12 text-sm leading-6 text-white outline-none transition placeholder:text-white/28 focus:border-ai-blue/55"
+                                                  placeholder="Message about this preview..."
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSendClientReviewChat()}
+                                                  disabled={reviewChatSending || !reviewChatDraft.trim()}
+                                                  className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-lg bg-ai-blue text-white transition hover:scale-105 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30"
+                                                  aria-label="Send preview discussion message"
+                                                >
+                                                  {reviewChatSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                                </button>
+                                              </div>
+                                              <p className="mt-2 text-center text-[9px] font-black uppercase tracking-[0.16em] text-white/28">
+                                                Project review only
+                                              </p>
+                                            </div>
+                                          </div>
+                                        )}
                                       </>
                                     ) : (
                                       <>
@@ -3967,9 +4128,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                         <div className="flex items-center justify-between gap-3">
                           <label className="text-sm font-semibold text-white/60">Phone</label>
                           <span className={`text-xs font-black ${
-                            profileData.phone ? 'text-amber-300' : 'text-white/28'
+                            profileData.phone
+                              ? user?.phoneVerified ? 'text-expert-green' : 'text-amber-300'
+                              : 'text-white/28'
                           }`}>
-                            {profileData.phone ? 'Not verified' : 'Not added'}
+                            {profileData.phone ? user?.phoneVerified ? 'Verified' : 'Not verified' : 'Not added'}
                           </span>
                         </div>
                         <div className="flex border-b border-white/14 transition focus-within:border-ai-blue">

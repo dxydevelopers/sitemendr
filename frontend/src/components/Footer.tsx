@@ -122,7 +122,7 @@ const socials = [
   { name: 'Facebook', href: 'https://facebook.com/sitemendr', className: 'text-[#1877F2]', icon: <FacebookIcon /> },
   { name: 'YouTube', href: 'https://youtube.com/@sitemendr', className: 'text-[#FF0000]', icon: <YouTubeIcon /> },
   { name: 'TikTok', href: 'https://tiktok.com/@sitemendr', className: 'text-white', icon: <TikTokIcon /> },
-  { name: 'WhatsApp', href: 'https://wa.me/254790057596', className: 'text-[#25D366]', icon: <WhatsAppIcon /> },
+  { name: 'WhatsApp', href: 'https://wa.me/254140122685', className: 'text-[#25D366]', icon: <WhatsAppIcon /> },
 ];
 
 const paymentProcessors = [

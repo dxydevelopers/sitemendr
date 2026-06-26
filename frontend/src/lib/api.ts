@@ -8,6 +8,7 @@ export interface User {
   role: string;
   banned: boolean;
   isEmailVerified?: boolean;
+  phoneVerified?: boolean;
   phone?: string;
   country?: string;
   defaultCurrency?: string;

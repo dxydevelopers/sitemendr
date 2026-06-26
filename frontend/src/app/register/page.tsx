@@ -3,8 +3,20 @@
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Github } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Github } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import {
+  accountTypes,
+  countryOptions,
+  getDefaultCurrencyForCountry,
+  getDialCodeForCountry,
+  getEmailDomain,
+  isValidEmail,
+  isValidProfilePhone,
+  normalizeEmail,
+  normalizePhoneForCountry,
+  personalEmailDomains,
+} from '@/lib/account-profile';
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -26,64 +38,11 @@ function AppleIcon({ className }: { className?: string }) {
   );
 }
 
-const countryCodes = ['AF','AL','DZ','AS','AD','AO','AI','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BA','BW','BR','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CO','KM','CG','CD','CR','CI','HR','CU','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','SZ','ET','FJ','FI','FR','GA','GM','GE','DE','GH','GI','GR','GD','GT','GN','GW','GY','HT','HN','HK','HU','IS','IN','ID','IR','IQ','IE','IL','IT','JM','JP','JO','KZ','KE','KI','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MG','MW','MY','MV','ML','MT','MH','MR','MU','MX','MD','MC','MN','ME','MA','MZ','MM','NA','NR','NP','NL','NZ','NI','NE','NG','MK','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PL','PT','QA','RO','RW','KN','LC','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SK','SI','SB','SO','ZA','SS','ES','LK','SD','SR','SE','CH','TW','TJ','TZ','TH','TL','TG','TO','TT','TN','TR','TM','UG','UA','AE','GB','US','UY','UZ','VU','VN','YE','ZM','ZW'];
-
-const countryCurrencyByCode: Record<string, string> = {
-  KE: 'KES', US: 'USD', GB: 'GBP', NG: 'NGN', GH: 'GHS', ZA: 'ZAR', CA: 'CAD', AU: 'AUD', NZ: 'NZD', IN: 'INR', AE: 'AED', SA: 'SAR',
-  UG: 'UGX', TZ: 'TZS', RW: 'RWF', BI: 'BIF', ET: 'ETB', EG: 'EGP', MA: 'MAD', DZ: 'DZD', TN: 'TND', SN: 'XOF', CI: 'XOF', CM: 'XAF',
-  FR: 'EUR', DE: 'EUR', IT: 'EUR', ES: 'EUR', PT: 'EUR', NL: 'EUR', BE: 'EUR', IE: 'EUR', FI: 'EUR', AT: 'EUR', GR: 'EUR', SK: 'EUR', SI: 'EUR',
-  SE: 'SEK', NO: 'NOK', DK: 'DKK', CH: 'CHF', PL: 'PLN', CZ: 'CZK', RO: 'RON', HU: 'HUF', TR: 'TRY',
-  BR: 'BRL', MX: 'MXN', AR: 'ARS', CL: 'CLP', CO: 'COP', PE: 'PEN', UY: 'UYU', PY: 'PYG',
-  CN: 'CNY', HK: 'HKD', JP: 'JPY', KR: 'KRW', SG: 'SGD', MY: 'MYR', ID: 'IDR', PH: 'PHP', TH: 'THB', VN: 'VND', TW: 'TWD',
-};
-
-const countryDialCodeByCode: Record<string, string> = {
-  US: '+1', CA: '+1', GB: '+44', KE: '+254', NG: '+234', GH: '+233', ZA: '+27', AU: '+61', NZ: '+64', IN: '+91', PK: '+92', BD: '+880', AE: '+971', SA: '+966',
-  UG: '+256', TZ: '+255', RW: '+250', BI: '+257', ET: '+251', EG: '+20', MA: '+212', DZ: '+213', TN: '+216', CM: '+237', CI: '+225', SN: '+221',
-  FR: '+33', DE: '+49', IT: '+39', ES: '+34', PT: '+351', NL: '+31', BE: '+32', CH: '+41', AT: '+43', IE: '+353', NO: '+47', SE: '+46', DK: '+45', FI: '+358',
-  BR: '+55', MX: '+52', AR: '+54', CL: '+56', CO: '+57', PE: '+51', CN: '+86', HK: '+852', JP: '+81', KR: '+82', SG: '+65', MY: '+60', ID: '+62', PH: '+63', TH: '+66', VN: '+84',
-};
-
-const displayNames = new Intl.DisplayNames(['en'], { type: 'region' });
-const countryOptions = countryCodes
-  .map(code => ({
-    code,
-    name: displayNames.of(code) || code,
-    currency: countryCurrencyByCode[code] || 'USD',
-    dialCode: countryDialCodeByCode[code] || '',
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name));
-
-const accountTypes = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'business', label: 'Business' },
-  { value: 'organization', label: 'Organization' },
-  { value: 'agency', label: 'Agency' },
-];
-
 const socialOptions = [
   { label: 'Google', Icon: GoogleIcon },
   { label: 'GitHub', Icon: Github, className: 'text-white' },
   { label: 'Apple', Icon: AppleIcon },
 ];
-
-const getCurrency = (country: string) => countryOptions.find(option => option.code === country)?.currency || 'USD';
-const getDialCode = (country: string) => countryOptions.find(option => option.code === country)?.dialCode || '';
-const normalizePhone = (phone: string, country: string) => {
-  const trimmed = phone.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('+')) return trimmed.replace(/[^\d+]/g, '');
-  const local = trimmed.replace(/\D/g, '').replace(/^0+/, '');
-  const dialCode = getDialCode(country);
-  return dialCode ? `${dialCode}${local}` : local;
-};
-const isValidPhone = (phone: string, country: string) => {
-  if (!phone.trim()) return true;
-  const normalized = normalizePhone(phone, country);
-  const digits = normalized.replace(/\D/g, '');
-  const dialCode = getDialCode(country);
-  return digits.length >= 8 && digits.length <= 15 && (!dialCode || normalized.startsWith(dialCode));
-};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -94,6 +53,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [inactiveSocial, setInactiveSocial] = useState(false);
   const [pulseIdentity, setPulseIdentity] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -107,6 +69,25 @@ export default function RegisterPage() {
 
   const selectedCountry = useMemo(() => countryOptions.find(option => option.code === formData.country), [formData.country]);
   const progress = ((step + 1) / 3) * 100;
+  const passwordScore = [
+    formData.password.length >= 8,
+    /[A-Z]/.test(formData.password),
+    /[0-9]/.test(formData.password),
+    /[^A-Za-z0-9]/.test(formData.password),
+  ].filter(Boolean).length;
+  const passwordStrength = formData.password
+    ? passwordScore >= 4 ? { label: 'Strong', color: 'bg-expert-green', text: 'text-expert-green' }
+      : passwordScore >= 3 ? { label: 'Good', color: 'bg-ai-blue', text: 'text-ai-blue' }
+        : { label: 'Weak', color: 'bg-amber-300', text: 'text-amber-300' }
+    : null;
+  const emailDomain = getEmailDomain(formData.email);
+  const emailStatus = formData.email.trim()
+    ? !isValidEmail(formData.email)
+      ? { label: 'Invalid email', className: 'text-red-300' }
+      : formData.accountType !== 'individual' && personalEmailDomains.has(emailDomain)
+        ? { label: 'Personal email', className: 'text-amber-300' }
+        : null
+    : null;
 
   const fieldClass = `w-full border-0 border-b bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue ${
     pulseIdentity ? 'border-red-400 animate-pulse' : 'border-white/16'
@@ -137,12 +118,11 @@ export default function RegisterPage() {
 
   const validateStep = () => {
     if (step === 0) {
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!formData.accountType) return 'Select an account type.';
       if (formData.name.trim().length < 2) return 'Enter your name.';
-      if (!emailPattern.test(formData.email.trim())) return 'Enter a valid email.';
+      if (!isValidEmail(formData.email)) return 'Enter a valid email.';
     }
-    if (step === 1 && !isValidPhone(formData.phone, formData.country)) {
+    if (step === 1 && !isValidProfilePhone(formData.phone, formData.country)) {
       return 'Enter a valid phone number.';
     }
     if (step === 2) {
@@ -176,7 +156,7 @@ export default function RegisterPage() {
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        phone: normalizePhone(formData.phone, formData.country),
+        phone: normalizePhoneForCountry(formData.phone, formData.country),
         country: formData.country,
         defaultCurrency: formData.defaultCurrency,
         accountType: formData.accountType,
@@ -195,13 +175,32 @@ export default function RegisterPage() {
         localStorage.setItem('user', JSON.stringify(response.user));
       }
 
-      router.push('/dashboard');
+      setRegisteredEmail(response.user?.email || normalizeEmail(formData.email));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (registeredEmail) {
+    return (
+      <main className="min-h-screen bg-[#05070a] pt-16 text-white">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-5 py-14 sm:px-8 lg:px-10">
+          <section className="border-y border-white/10 py-10">
+            <div className="mb-8 h-1 w-24 bg-ai-blue" />
+            <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl">Email sent.</h1>
+            <p className="mt-5 break-all text-lg font-black text-white">{registeredEmail}</p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 bg-white px-5 text-sm font-black text-black transition hover:bg-ai-blue hover:text-white">
+                Open dashboard
+              </button>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#05070a] pt-16 text-white">
@@ -271,10 +270,15 @@ export default function RegisterPage() {
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Email</label>
-                      <input type="email" value={formData.email} onFocus={clearFieldFeedback} onChange={(e) => {
+                      <input type="email" value={formData.email} onFocus={clearFieldFeedback} onBlur={() => setFormData({ ...formData, email: normalizeEmail(formData.email) })} onChange={(e) => {
                         clearFieldFeedback();
                         setFormData({ ...formData, email: e.target.value });
                       }} className={fieldClass} placeholder="name@company.com" />
+                      {emailStatus && (
+                        <p className={`mt-2 text-xs font-black ${emailStatus.className}`}>
+                          {emailStatus.label}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -289,7 +293,7 @@ export default function RegisterPage() {
                         onChange={(e) => {
                           clearFieldFeedback();
                           const country = e.target.value;
-                          setFormData({ ...formData, country, defaultCurrency: getCurrency(country) });
+                          setFormData({ ...formData, country, defaultCurrency: getDefaultCurrencyForCountry(country) });
                         }}
                         className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition focus:border-ai-blue"
                       >
@@ -338,19 +342,37 @@ export default function RegisterPage() {
                     <div className="grid gap-5 sm:grid-cols-2">
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Password</label>
-                        <input type="password" value={formData.password} onFocus={clearFieldFeedback} onChange={(e) => {
-                          clearFieldFeedback();
-                          setFormData({ ...formData, password: e.target.value });
-                        }} className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue" placeholder="Password" />
+                        <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
+                          <input type={showPassword ? 'text' : 'password'} value={formData.password} onFocus={clearFieldFeedback} onChange={(e) => {
+                            clearFieldFeedback();
+                            setFormData({ ...formData, password: e.target.value });
+                          }} className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24" placeholder="Password" />
+                          <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/42 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Confirm</label>
-                        <input type="password" value={formData.confirmPassword} onFocus={clearFieldFeedback} onChange={(e) => {
-                          clearFieldFeedback();
-                          setFormData({ ...formData, confirmPassword: e.target.value });
-                        }} className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue" placeholder="Password" />
+                        <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
+                          <input type={showConfirmPassword ? 'text' : 'password'} value={formData.confirmPassword} onFocus={clearFieldFeedback} onChange={(e) => {
+                            clearFieldFeedback();
+                            setFormData({ ...formData, confirmPassword: e.target.value });
+                          }} className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24" placeholder="Password" />
+                          <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="grid w-10 place-items-center text-white/42 transition hover:text-white" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}>
+                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
+                    {passwordStrength && (
+                      <div className="flex items-center gap-3">
+                        <div className="h-1 flex-1 bg-white/10">
+                          <div className={`h-1 transition-all ${passwordStrength.color}`} style={{ width: `${Math.max(25, passwordScore * 25)}%` }} />
+                        </div>
+                        <span className={`text-xs font-black ${passwordStrength.text}`}>{passwordStrength.label}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
