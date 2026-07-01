@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api';
-import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays, Send, CircleDollarSign } from 'lucide-react';
+import { Layout, ShoppingBag, Eye, Plus, Trash2, FileText, Clock, Users, BarChart3, CreditCard, Settings, MessageSquare, Activity, Folder, PenLine, Sparkles, ChevronRight, PanelLeftClose, PanelLeftOpen, Check, ArrowLeft, Search, Package, UserRound, Mail, CalendarDays, Send, CircleDollarSign, ExternalLink } from 'lucide-react';
 
 const BlogEditor = dynamic(() => import('./BlogEditor'), { ssr: false });
 const AssessmentModal = dynamic(() => import('./AssessmentModal'), { ssr: false });
@@ -986,6 +986,16 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         ? 'text-ai-blue'
         : 'text-white/46';
   const selectedReviewCanMoveForward = selectedReviewStatus === 'approved';
+  const selectedReviewHeadline = selectedReviewStatus === 'changes_requested'
+    ? 'Client requested changes'
+    : selectedReviewStatus === 'approved'
+      ? 'Preview approved'
+      : 'Preview is with client';
+  const selectedReviewIntro = selectedReviewStatus === 'changes_requested'
+    ? 'Review the note, return to Studio, then send the updated preview back.'
+    : selectedReviewStatus === 'approved'
+      ? 'Client approval is recorded. Handoff can begin when the team is ready.'
+      : 'Awaiting approval or change notes.';
   const selectedBriefAnswerRows = [
     { question: 'What are we building?', answer: selectedBriefType || 'Not answered' },
     { question: 'What should this build help achieve?', answer: selectedBriefGoals || 'Not answered' },
@@ -1005,12 +1015,23 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
     .map(block => block.trim())
     .filter(block => /Client requested staging changes|Client approved staging/i.test(block));
   const selectedLatestReviewFeedback = selectedReviewFeedbackBlocks[selectedReviewFeedbackBlocks.length - 1] || '';
-  const selectedLatestReviewMessage = selectedLatestReviewFeedback
+  const selectedLatestReviewMessageFromBlock = selectedLatestReviewFeedback
     .split('\n')
     .map(line => line.trim())
     .find(line => /^Client message:/i.test(line))
     ?.replace(/^Client message:\s*/i, '')
     .trim() || '';
+  const selectedLatestClientMessage = selectedClientNotes
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => /^Client message:/i.test(line))
+    .map(line => line.replace(/^Client message:\s*/i, '').trim())
+    .filter(Boolean)
+    .pop() || '';
+  const selectedLatestReviewMessage = selectedLatestReviewMessageFromBlock || selectedLatestClientMessage;
+  const latestReviewChatMessage = [...reviewChatMessages]
+    .reverse()
+    .find(message => message.senderRole === 'client' || message.senderRole === 'admin');
   const selectedScopeDiscussionLines = selectedClientNotes
     .split('\n')
     .map(line => line.trim())
@@ -1038,6 +1059,75 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   const selectedAgreementDueNowLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementDueNow);
   const selectedAgreementTotalLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementTotal);
   const selectedAgreementBalanceLabel = selectedAgreementBalance ? formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementBalance) : 'No balance';
+  const selectedHandoffNote = selectedProjectRequest?.handoffNotes?.trim() || '';
+  
+  // Better parser for client handoff issues - finds the MOST RECENT issue with its message
+  const parseClientHandoffIssue = () => {
+    const lines = selectedClientNotes.split('\n').map((line) => line.trim());
+    let lastIssueIndex = -1;
+    let lastMessageIndex = -1;
+    
+    // Find the last "Client reported a handoff issue" line
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (/^Client reported a handoff issue\./i.test(lines[i])) {
+        lastIssueIndex = i;
+        break;
+      }
+    }
+    
+    if (lastIssueIndex === -1) return null;
+    
+    // Find the first "Client message:" line AFTER the issue line
+    for (let i = lastIssueIndex + 1; i < lines.length; i++) {
+      if (/^Client message:/i.test(lines[i])) {
+        lastMessageIndex = i;
+        break;
+      }
+    }
+    
+    // Extract message - get the line after "Client message:" and continue until next section
+    let issueMessage = '';
+    if (lastMessageIndex !== -1) {
+      const messageLine = lines[lastMessageIndex].replace(/^Client message:\s*/i, '').trim();
+      issueMessage = messageLine;
+      
+      // Collect any continuation lines that don't start with known prefixes
+      for (let i = lastMessageIndex + 1; i < lines.length; i++) {
+        const nextLine = lines[i];
+        // Stop if we hit another client action or empty lines followed by a new section
+        if (/^Client (reported|acknowledged|requested|wants|approved|sent)/i.test(nextLine) || 
+            /^(Reference|Deposit|Payment|Reference):/i.test(nextLine) ||
+            /^(Handoff|Completion|Launch|Closeout)/i.test(nextLine)) {
+          break;
+        }
+        if (nextLine && !nextLine.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && nextLine.length < 100) {
+          issueMessage += '\n' + nextLine;
+        } else if (!nextLine) {
+          break;
+        }
+      }
+    }
+    
+    return { issueText: 'Client reported a handoff issue.', messageText: issueMessage };
+  };
+  
+  const clientHandoffIssueData = parseClientHandoffIssue();
+  const selectedClientHandoffIssueMessage = clientHandoffIssueData?.messageText || '';
+  
+  // Show issues if they exist, regardless of acceptance status
+  const hasClientReportedIssues = Boolean(clientHandoffIssueData);
+  const hasAdminNotes = selectedHandoffNote.length > 0;
+  
+  // Determine if there are UNRESOLVED issues (reported but no admin response)
+  const selectedHandoffHasUnresolvedIssue = hasClientReportedIssues && !hasAdminNotes && !selectedProjectRequest?.completionAcknowledgedAt;
+  
+  // Show the issue box if it exists (for context), whether resolved or not
+  const selectedShouldDisplayIssueBox = hasClientReportedIssues;
+  const selectedHandoffIssueMessage = hasAdminNotes ? selectedHandoffNote : selectedClientHandoffIssueMessage;
+  
+  const selectedHandoffAccepted = !!selectedProjectRequest?.completionAcknowledgedAt;
+  const selectedFinalBalancePaid = selectedAgreementBalance <= 0 || selectedProjectRequest?.status === 'completed';
+  const selectedCanCloseBuild = selectedHandoffAccepted && selectedFinalBalancePaid;
   const selectedAgreementTypeLabel = agreementDraft.paymentAgreementType === 'deposit'
     ? 'Deposit payment'
     : agreementDraft.paymentAgreementType === 'full_payment'
@@ -3768,35 +3858,63 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                             )}
                             {selectedAdminBuildChapter.id === 'review' && (
                               <div className="border-y border-white/10 py-5">
-                                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                <div className="grid gap-6 xl:grid-cols-[minmax(0,0.86fr)_minmax(16rem,0.34fr)]">
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-3">
+                                      <span className={`inline-flex h-2.5 w-2.5 rounded-full ${selectedReviewStatus === 'approved' ? 'bg-expert-green' : selectedReviewStatus === 'changes_requested' ? 'bg-amber-300' : 'bg-ai-blue'}`} />
                                       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
-                                      <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${selectedReviewStatusTone}`}>{selectedReviewStatusLabel}</span>
                                     </div>
-                                    <h4 className="mt-3 text-2xl font-black tracking-tight text-white">Client approval</h4>
-                                    <p className="mt-3 max-w-2xl text-sm leading-7 text-white/52">
-                                      Share the preview, guide what to inspect, then wait for approval or change notes.
-                                    </p>
+                                    <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{selectedReviewHeadline}</h4>
+                                    <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/58">{selectedReviewIntro}</p>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'handoff' })}
-                                    disabled={submitting || !selectedReviewCanMoveForward}
-                                    className={`flex min-h-11 items-center justify-between gap-3 border px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] transition disabled:cursor-not-allowed lg:min-w-48 ${
-                                      selectedReviewCanMoveForward
-                                        ? 'border-expert-green/25 text-expert-green hover:bg-expert-green/10 hover:text-white'
-                                        : 'border-white/10 text-white/34'
-                                    }`}
-                                  >
-                                    {selectedReviewCanMoveForward ? 'Move to handoff' : 'Waiting approval'}
-                                    <ChevronRight className="h-4 w-4" />
-                                  </button>
+                                  <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Conversation</p>
+                                    <p className={`mt-2 text-lg font-black tracking-tight ${selectedReviewStatusTone}`}>
+                                      {selectedReviewStatus === 'changes_requested' ? 'Client note received' : selectedReviewStatus === 'approved' ? 'Approval recorded' : 'Thread open'}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setReviewChatOpen(true)}
+                                      className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border-y border-ai-blue/30 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:border-white hover:text-white"
+                                    >
+                                      <span className="flex items-center gap-3">
+                                        <MessageSquare className="h-4 w-4" />
+                                        Review chat
+                                      </span>
+                                      <span className="text-white/46">{reviewChatMessages.length || (selectedLatestReviewMessage ? 1 : 0)}</span>
+                                    </button>
+                                    {latestReviewChatMessage?.message && (
+                                      <p className="mt-3 line-clamp-2 text-xs font-semibold leading-5 text-white/42">{latestReviewChatMessage.message}</p>
+                                    )}
+                                  </div>
                                 </div>
+                                {selectedReviewStatus === 'changes_requested' && (
+                                  <section className="mt-6 border-y border-amber-300/20 py-5">
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                      <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                          <MessageSquare className="h-4 w-4 text-amber-300" />
+                                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Client changes</p>
+                                        </div>
+                                        <p className="mt-3 max-w-3xl whitespace-pre-line text-sm font-semibold leading-7 text-white/76">
+                                          {selectedLatestReviewMessage || latestReviewChatMessage?.message || 'The client requested changes. Check the review chat for details.'}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setReviewChatOpen(true)}
+                                        className="flex min-h-11 shrink-0 items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white"
+                                      >
+                                        Open chat
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </section>
+                                )}
                                 <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem]">
-                                  <div className="grid gap-5 sm:grid-cols-2">
+                                  <div className="grid gap-5">
                                     <div>
-                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Preview URL</label>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Preview link</label>
                                       <input
                                         type="url"
                                         defaultValue={selectedProjectRequest.stagingUrl || ''}
@@ -3806,19 +3924,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                       />
                                     </div>
                                     <div>
-                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Response state</label>
-                                      <select
-                                        value={selectedProjectRequest.stagingReviewStatus || 'sent'}
-                                        onChange={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { stagingReviewStatus: e.target.value })}
-                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-[10px] font-black uppercase tracking-widest text-white outline-none transition [color-scheme:dark] focus:border-ai-blue/60"
-                                      >
-                                        <option className="bg-black text-white" value="not_sent">Not sent</option>
-                                        <option className="bg-black text-white" value="sent">Waiting client</option>
-                                        <option className="bg-black text-white" value="changes_requested">Changes requested</option>
-                                        <option className="bg-black text-white" value="approved">Approved</option>
-                                      </select>
-                                    </div>
-                                    <div className="sm:col-span-2">
                                       <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Review note to client</label>
                                       <textarea
                                         defaultValue={selectedProjectRequest.stagingNotes || ''}
@@ -3827,53 +3932,95 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                         placeholder="Tell the client what to inspect in the preview..."
                                       />
                                     </div>
+                                    {selectedHandoffHasUnresolvedIssue && (
+                                      <div className="border-y border-amber-300/25 py-4">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                          <MessageSquare className="h-4 w-4 text-amber-300" />
+                                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Handoff issue</p>
+                                        </div>
+                                        <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-white/76">
+                                          {selectedHandoffIssueMessage || 'The client reported a handoff issue but did not add extra detail.'}
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Client response</p>
-                                    <p className={`mt-2 text-lg font-black tracking-tight ${selectedReviewStatusTone}`}>{selectedReviewStatusLabel}</p>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Next move</p>
+                                    <p className={`mt-2 text-lg font-black tracking-tight ${selectedReviewStatusTone}`}>
+                                      {selectedReviewCanMoveForward ? 'Open handoff' : selectedReviewStatus === 'changes_requested' ? 'Update preview' : 'Await client'}
+                                    </p>
                                     <p className="mt-2 text-sm leading-6 text-white/52">
                                       {selectedReviewStatus === 'changes_requested'
-                                        ? 'Send the project back to Studio, make the changes, then reopen Review.'
+                                        ? 'Return to Studio, make the requested changes, then send a fresh preview pass.'
                                         : selectedReviewStatus === 'approved'
-                                          ? 'The client approved the preview. Handoff can begin.'
-                                          : 'Waiting for the client to approve the preview or request changes.'}
+                                          ? 'The preview is approved. Move the project into handoff.'
+                                          : 'No admin action is needed until the client replies.'}
                                     </p>
-                                    <button
-                                      type="button"
-                                      onClick={() => setReviewChatOpen(prev => !prev)}
-                                      className="mt-5 inline-flex min-h-10 items-center gap-3 border-b border-ai-blue/35 pb-2 text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:border-white hover:text-white"
-                                    >
-                                      <MessageSquare className="h-4 w-4" />
-                                      Review chat
-                                      {reviewChatMessages.length > 0 && <span className="text-white/46">{reviewChatMessages.length}</span>}
-                                    </button>
+                                    {selectedReviewStatus === 'changes_requested' ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'in_development', stagingReviewStatus: 'changes_requested' })}
+                                        disabled={submitting}
+                                        className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-45"
+                                      >
+                                        Return to Studio
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'handoff' })}
+                                        disabled={submitting || !selectedReviewCanMoveForward}
+                                        className={`mt-5 flex min-h-11 w-full items-center justify-between gap-3 border px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] transition disabled:cursor-not-allowed ${
+                                          selectedReviewCanMoveForward
+                                            ? 'border-expert-green/25 text-expert-green hover:bg-expert-green/10 hover:text-white'
+                                            : 'border-white/10 text-white/34'
+                                        }`}
+                                      >
+                                        {selectedReviewCanMoveForward ? 'Move to handoff' : 'Waiting approval'}
+                                        <ChevronRight className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                                 {reviewChatOpen && (
-                                  <div className="mt-6 border-y border-white/10 py-5">
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="fixed inset-x-0 bottom-0 z-[90] flex h-[100dvh] flex-col border-t border-white/10 bg-[#05070a] shadow-2xl sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[540px] sm:w-[410px] sm:border sm:shadow-black/50">
+                                    <div className="flex min-h-16 items-center justify-between gap-3 border-b border-white/10 bg-ai-blue px-4 text-white">
                                       <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Project review chat</p>
-                                        <p className="mt-2 text-sm leading-6 text-white/54">Ask clear questions, confirm fixes, and keep Review decisions inside this project.</p>
+                                        <p className="text-sm font-black tracking-tight">Review chat</p>
+                                        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/72">
+                                          {reviewChatLoading ? 'Loading thread' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}
+                                        </p>
                                       </div>
-                                      <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">
-                                        {reviewChatLoading ? 'Loading' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}
-                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setReviewChatOpen(false)}
+                                        className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-black text-white/80 transition hover:bg-white/10 hover:text-white"
+                                        aria-label="Close review chat"
+                                      >
+                                        ×
+                                      </button>
                                     </div>
-                                    <div className="mt-5 max-h-80 space-y-3 overflow-y-auto pr-1">
+                                    <div className="flex-1 space-y-4 overflow-y-auto bg-black/35 p-4">
                                       {reviewChatMessages.length ? reviewChatMessages.map((message) => {
                                         const isAdminMessage = message.senderRole === 'admin';
                                         return (
                                           <div key={message.id} className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[86%] border-b px-0 py-3 ${isAdminMessage ? 'border-ai-blue/35 text-right' : 'border-white/10 text-left'}`}>
-                                              <div className={`text-[9px] font-black uppercase tracking-[0.16em] ${isAdminMessage ? 'text-ai-blue' : 'text-amber-300'}`}>
-                                                {isAdminMessage ? 'Admin' : 'Client'} · {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                            <div className={`max-w-[84%] ${isAdminMessage ? 'text-right' : 'text-left'}`}>
+                                              <div className={`inline-block rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${
+                                                isAdminMessage
+                                                  ? 'rounded-tr-sm bg-ai-blue text-white'
+                                                  : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'
+                                              }`}>
+                                                <p className="whitespace-pre-line">{message.message}</p>
+                                                <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${isAdminMessage ? 'text-white/65' : 'text-white/35'}`}>
+                                                  {isAdminMessage ? 'Admin' : 'Client'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                </p>
                                               </div>
-                                              <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-white/78">{message.message}</p>
                                               {Array.isArray(message.choices) && message.choices.length > 0 && (
                                                 <div className={`mt-3 flex flex-wrap gap-2 ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
                                                   {message.choices.map(choice => (
-                                                    <span key={choice} className="border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/48">
+                                                    <span key={choice} className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/48">
                                                       {choice}
                                                     </span>
                                                   ))}
@@ -3883,30 +4030,31 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                           </div>
                                         );
                                       }) : (
-                                        <div className="border-y border-white/10 py-6">
-                                          <p className="text-sm font-semibold text-white/58">No review chat yet. Start with a direct question or a short client-facing note.</p>
+                                        <div className="flex h-full items-center justify-center text-center">
+                                          <p className="max-w-xs text-sm font-semibold leading-6 text-white/50">Start a direct review conversation with the client.</p>
                                         </div>
                                       )}
                                     </div>
-                                    <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,0.35fr)]">
+                                    <div className="border-t border-white/10 bg-[#05070a] p-4">
                                       <textarea
                                         value={reviewChatDraft}
                                         onChange={(event) => setReviewChatDraft(event.target.value)}
-                                        className="h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                        rows={2}
+                                        className="max-h-28 min-h-12 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
                                         placeholder="Write to the client about this review..."
                                       />
-                                      <div className="space-y-3">
+                                      <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                                         <input
                                           value={reviewChatChoiceDraft}
                                           onChange={(event) => setReviewChatChoiceDraft(event.target.value)}
-                                          className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-xs font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
+                                          className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-2 text-xs font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60"
                                           placeholder="Optional choices, comma separated"
                                         />
                                         <button
                                           type="button"
                                           onClick={handleSendAdminReviewChat}
                                           disabled={reviewChatSending || (!reviewChatDraft.trim() && !reviewChatChoiceDraft.trim())}
-                                          className="flex min-h-11 w-full items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                          className="flex min-h-11 items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-36"
                                         >
                                           {reviewChatSending ? 'Sending' : reviewChatChoiceDraft.trim() ? 'Send question' : 'Send message'}
                                           <Send className="h-4 w-4" />
@@ -3915,70 +4063,150 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                     </div>
                                   </div>
                                 )}
-                                {selectedReviewStatus === 'changes_requested' && (
-                                  <div className="mt-6 border-y border-amber-300/20 py-4">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                      <div className="min-w-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Client feedback</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/68">
-                                          {selectedLatestReviewMessage || 'The client requested changes, but no extra note was added.'}
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'in_development', stagingReviewStatus: 'changes_requested' })}
-                                        disabled={submitting}
-                                        className="min-h-10 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-45"
-                                      >
-                                        Return to Studio
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             )}
-                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch URL</label>
-                              <input
-                                type="url"
-                                defaultValue={selectedProjectRequest.launchUrl || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchUrl: e.target.value })}
-                                className="w-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="https://live..."
-                              />
-                            </div>
-                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch notes</label>
-                              <textarea
-                                defaultValue={selectedProjectRequest.launchNotes || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchNotes: e.target.value })}
-                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="Launch details visible to client..."
-                              />
-                            </div>
-                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Handoff notes</label>
-                              <textarea
-                                defaultValue={selectedProjectRequest.handoffNotes || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { handoffNotes: e.target.value })}
-                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="Access, next steps, and final handoff notes..."
-                              />
-                            </div>
-                            <div className={selectedAdminBuildChapter.id === 'launch' ? '' : 'hidden'}>
-                              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Completion notes</label>
-                              <textarea
-                                defaultValue={selectedProjectRequest.completionNotes || ''}
-                                onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { completionNotes: e.target.value })}
-                                className="h-24 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50"
-                                placeholder="Final completion summary..."
-                              />
-                              {selectedProjectRequest.completionAcknowledgedAt && (
-                                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-expert-green">
-                                  Client acknowledged {new Date(selectedProjectRequest.completionAcknowledgedAt).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
+                            {selectedAdminBuildChapter.id === 'launch' && (
+                              <div className="border-y border-expert-green/25 py-5">
+                                <div className="grid gap-6 xl:grid-cols-[minmax(0,0.86fr)_minmax(16rem,0.34fr)]">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <span className="inline-flex h-2.5 w-2.5 rounded-full bg-expert-green" />
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch room</p>
+                                    </div>
+                                    <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                                      {selectedProjectRequest.status === 'completed' ? 'Build completed' : selectedProjectRequest.status === 'handoff' ? 'Handoff in progress' : 'Live build is ready'}
+                                    </h4>
+                                    <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/58">
+                                      Share the live delivery and wait for client acceptance. Final balance is handled in the next closeout step.
+                                    </p>
+                                  </div>
+                                  <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Launch state</p>
+                                    <p className="mt-2 text-lg font-black tracking-tight text-expert-green">
+                                      {selectedProjectRequest.status === 'completed' ? 'Closed' : selectedProjectRequest.status === 'handoff' ? 'Client handoff' : 'Live'}
+                                    </p>
+                                    {selectedProjectRequest.launchUrl && (
+                                      <a
+                                        href={selectedProjectRequest.launchUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border-y border-expert-green/25 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:border-white hover:text-white"
+                                      >
+                                        Open live build
+                                        <ExternalLink className="h-4 w-4" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem]">
+                                  <div className="grid gap-5">
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Live URL</label>
+                                      <input
+                                        type="url"
+                                        defaultValue={selectedProjectRequest.launchUrl || ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchUrl: e.target.value })}
+                                        className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
+                                        placeholder="https://live..."
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch note</label>
+                                      <textarea
+                                        defaultValue={selectedProjectRequest.launchNotes || ''}
+                                        onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchNotes: e.target.value })}
+                                        className="h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
+                                        placeholder="What should the client know about the live build?"
+                                      />
+                                    </div>
+<div>
+                                       <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Handoff</label>
+                                       {/* DISPLAY CLIENT'S ISSUE PROMINENTLY WHEN PRESENT */}
+                                       {selectedShouldDisplayIssueBox && selectedHandoffIssueMessage ? (
+                                         <div className="mb-4 p-3 border-l-4 border-amber-300/20 bg-amber-50/20">
+                                           <p className="text-sm font-semibold text-amber-800 mb-1">Client Reported Handoff Issue:</p>
+                                           <p className="text-sm text-amber-600 whitespace-pre-line">{selectedHandoffIssueMessage}</p>
+                                         </div>
+                                       ) : null}
+                                       {/* ADMIN RESPONSE FIELD (always visible) */}
+                                       <textarea
+                                         defaultValue={selectedProjectRequest.handoffNotes || ''}
+                                         onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { handoffNotes: e.target.value })}
+                                         className="h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
+                                         placeholder="Add your response or resolution notes here..."
+                                       />
+                                     </div>
+                                  </div>
+                                  {!selectedHandoffHasUnresolvedIssue && (
+                                  <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Closeout</p>
+                                    <div className="mt-3 space-y-3 border-y border-white/10 py-4">
+                                      {[
+                                        { label: 'Handoff', value: selectedHandoffHasUnresolvedIssue ? 'Issue reported' : selectedHandoffAccepted ? 'Accepted' : 'Waiting client', tone: selectedHandoffHasUnresolvedIssue ? 'text-amber-300' : selectedHandoffAccepted ? 'text-expert-green' : 'text-amber-300' },
+                                        { label: 'Total agreed', value: selectedAgreementTotalLabel, tone: 'text-white/70' },
+                                        { label: 'Deposit paid', value: selectedAgreementDueNowLabel, tone: 'text-expert-green' },
+                                        { label: 'Remaining balance', value: selectedAgreementBalanceLabel, tone: selectedFinalBalancePaid ? 'text-expert-green' : 'text-amber-300' },
+                                        { label: 'Next', value: selectedCanCloseBuild ? 'Ready to close' : selectedHandoffHasUnresolvedIssue ? 'Resolve handoff issue' : selectedHandoffAccepted ? 'Final balance step' : 'Acceptance required', tone: selectedCanCloseBuild ? 'text-expert-green' : selectedHandoffHasUnresolvedIssue ? 'text-amber-300' : 'text-white/46' },
+                                      ].map(item => (
+                                        <div key={item.label} className="flex items-center justify-between gap-4">
+                                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</span>
+                                          <span className={`text-[10px] font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+{(selectedCanCloseBuild || selectedProjectRequest.status === 'completed') ? (
+                                       <textarea
+                                         defaultValue={selectedProjectRequest.completionNotes || ''}
+                                         onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { completionNotes: e.target.value })}
+                                         className="mt-5 h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
+                                         placeholder="Final completion summary..."
+                                       />
+                                     ) : (
+                                       <div className="mt-5 border-y border-amber-300/20 py-4">
+                                         <p className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-300">
+                                           {selectedHandoffHasUnresolvedIssue ? 'Handoff issue reported' : selectedHandoffAccepted ? 'Ready for final balance step' : 'Waiting client acceptance'}
+                                         </p>
+                                         <p className="mt-2 text-sm font-semibold leading-6 text-white/52">
+                                           {selectedHandoffHasUnresolvedIssue
+                                             ? 'Resolve the client issue and send updated handoff details before closeout.'
+                                             : selectedHandoffAccepted
+                                             ? `${selectedAgreementBalanceLabel} remains. The final payment room opens next.`
+                                             : 'The client must accept handoff before final closeout starts.'}
+                                         </p>
+                                       </div>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const requestId = selectedProjectRequest.id;
+
+                                        if (selectedProjectRequest.status === 'handoff') {
+                                          if (selectedCanCloseBuild) {
+                                            // Ready to close: handoff accepted + balance paid
+                                            handleUpdateProjectRequest(requestId, { status: 'completed' });
+                                          } else if (selectedHandoffHasUnresolvedIssue) {
+                                            // Handoff issue exists: prompt user to respond in the textarea above
+                                            alert(`Please respond to the client's handoff issue in the Handoff section above`);
+                                          } else if (selectedHandoffAccepted) {
+                                            // Handoff accepted but balance not paid: proceed to final balance setup
+                                            alert(`The final balance payment step is now open. Please collect payment and then click "Close build" when done.`);
+                                          }
+                                        } else if (selectedProjectRequest.status === 'completed') {
+                                          // If already completed, we can reset to handoff if needed (optional)
+                                          handleUpdateProjectRequest(requestId, { status: 'handoff' });
+                                        }
+                                      }}
+                                      disabled={submitting || (selectedProjectRequest.status === 'handoff' && !selectedCanCloseBuild && !selectedHandoffHasUnresolvedIssue && !selectedHandoffAccepted)}
+                                      className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:opacity-45"
+                                    >
+                                      {selectedProjectRequest.status === 'completed' ? 'Reset to handoff' : 'Close build'}
+                                    </button>
+                                  </div>
+)}
+                              </div>
+                              </div>
+                            )}
                             {selectedAdminBuildChapter.id === 'scope' && hasScopeDiscussionRequest && !isScopeAccepted && (
                             <div className="border-y border-amber-300/20 py-4">
                               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Client discussion</p>
@@ -3995,7 +4223,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                               </div>
                             </div>
                             )}
-                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && (
+                          {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && selectedAdminBuildChapter.id !== 'launch' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
                                 Client note
@@ -4061,7 +4289,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                                 </button>
                               </div>
                             )}
-                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && (
+                            {selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && selectedAdminBuildChapter.id !== 'build' && selectedAdminBuildChapter.id !== 'review' && selectedAdminBuildChapter.id !== 'launch' && (
                             <div>
                               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
                               <textarea

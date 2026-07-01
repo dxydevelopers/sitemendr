@@ -359,7 +359,7 @@ exports.respondToHandoff = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { requestId } = req.params;
-    const { action, message } = req.body;
+    let { action, message } = req.body;
 
     const validActions = ['complete', 'issue'];
     if (!validActions.includes(action)) {
@@ -367,6 +367,20 @@ exports.respondToHandoff = async (req, res) => {
         success: false,
         message: 'Invalid handoff response'
       });
+    }
+
+    // Sanitize message - limit to reasonable length and remove suspiciously large content
+    if (message && message.length > 5000) {
+      // If message is suspiciously large, try to extract just the meaningful part
+      const lines = message.split('\n').map(l => l.trim()).filter(Boolean);
+      // Take only lines that look like actual messages (not too long, not special characters)
+      const meaningfulLines = lines.filter(line => line.length < 200 && !line.match(/^[\d\/]+$/) && !line.match(/^[a-z0-9]+@/) && !line.match(/^(http|Step|Launch|Handoff|Close|Open)/i));
+      if (meaningfulLines.length > 0) {
+        message = meaningfulLines.slice(0, 5).join('\n'); // Take first 5 meaningful lines
+        console.log(`[HANDOFF] Message was suspiciously large (${message.length}), sanitized to: ${message.substring(0, 100)}...`);
+      } else {
+        message = message.substring(0, 500); // Fallback to first 500 chars
+      }
     }
 
     const request = await prisma.projectRequest.findFirst({
@@ -449,6 +463,40 @@ exports.respondToHandoff = async (req, res) => {
           clientNote: message || 'Client reported a handoff issue.'
         }
       });
+    }
+
+    const responseRequest = await prisma.projectRequest.findUnique({
+      where: { id: request.id },
+      include: {
+        assessment: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            results: true,
+            responses: true
+          }
+        },
+        buildMilestones: {
+          orderBy: { order: 'asc' }
+        },
+        studioLinks: {
+          where: { type: { in: ['preview', 'design'] } },
+          orderBy: { createdAt: 'desc' }
+        },
+        studioUpdates: {
+          where: { visibility: 'client' },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        }
+      }
+    });
+
+    if (responseRequest) {
+      notifyAdmins('project_request_updated', { request: responseRequest });
+      if (action === 'issue') {
+        notifyAdmins('new_client_message', { requestId: request.id, message: message || 'Client reported a handoff issue.' });
+      }
     }
 
     res.json({

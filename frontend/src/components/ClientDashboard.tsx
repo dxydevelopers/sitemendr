@@ -515,7 +515,9 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
   const [reviewChatLoading, setReviewChatLoading] = useState(false);
   const [reviewChatSending, setReviewChatSending] = useState(false);
   const [handoffMessage, setHandoffMessage] = useState('');
+  const [handoffMessageError, setHandoffMessageError] = useState('');
   const [handoffSubmitting, setHandoffSubmitting] = useState(false);
+  const [handoffSubmittingAction, setHandoffSubmittingAction] = useState<'complete' | 'issue' | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>(null);
@@ -1202,8 +1204,21 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
 
   const handleHandoffResponse = async (project: ClientProject, action: 'complete' | 'issue') => {
     if (!project?.id || handoffSubmitting) return;
+    if (action === 'issue' && !handoffMessage.trim()) {
+      setHandoffMessageError('Please describe what is missing before sending the handoff issue.');
+      return;
+    }
+    
+    // Validate message length for issue reports
+    if (action === 'issue' && handoffMessage.trim().length > 2000) {
+      setHandoffMessageError('Your message is too long. Please keep it under 2000 characters.');
+      return;
+    }
+    
+    setHandoffMessageError('');
 
     setHandoffSubmitting(true);
+    setHandoffSubmittingAction(action);
     try {
       const res = await apiClient.respondToHandoff(project.id, action, handoffMessage.trim());
       if (!res.success) {
@@ -1217,6 +1232,7 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       alert(err instanceof Error ? err.message : 'Failed to respond to handoff.');
     } finally {
       setHandoffSubmitting(false);
+      setHandoffSubmittingAction(null);
     }
   };
 
@@ -1788,10 +1804,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       ? 'text-expert-green'
       : 'text-ai-blue';
   const clientReviewChecklist = [
-    'Homepage direction',
-    'Lead form flow',
-    'Mobile layout',
-    'Copy and visual polish'
+    { label: 'Homepage', detail: 'Direction, first impression, primary action' },
+    { label: 'Lead form', detail: 'Fields, flow, destination' },
+    { label: 'Mobile', detail: 'Spacing, readable sections, button access' },
+    { label: 'Copy / polish', detail: 'Words, visuals, final client confidence' }
   ];
   const latestPreviewDiscussionMessage = [...reviewChatMessages]
     .reverse()
@@ -1823,6 +1839,11 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
       tone: clientReviewStatusTone
     }
   ];
+  const clientReviewDecisionText = clientReviewStatus === 'changes_requested'
+    ? 'Changes are already sent. Keep the thread open while the team updates the preview.'
+    : clientReviewStatus === 'approved'
+      ? 'Approval is recorded. Launch preparation can continue.'
+      : 'Approve when the preview is ready, or send changes from the discussion.';
 
   const clientActionMessage = blockedBuildMilestones.length
     ? 'The team may ask for one detail before continuing.'
@@ -3354,52 +3375,18 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   <div className="border-y border-white/10 py-5">
                                     {isProjectRequest(currentBuildRecord) && currentBuildStatus === 'staging_review' ? (
                                       <>
-                                        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.34fr)] xl:items-start">
-                                          <div className="min-w-0">
+                                        <section className="grid gap-6 xl:grid-cols-[minmax(0,0.86fr)_minmax(18rem,0.36fr)] xl:items-stretch">
+                                          <div className="min-w-0 border-y border-white/10 py-5">
                                             <div className="flex flex-wrap items-center gap-3">
                                               <span className={`inline-flex h-2.5 w-2.5 rounded-full ${clientReviewStatus === 'approved' ? 'bg-expert-green' : clientReviewStatus === 'changes_requested' ? 'bg-amber-300' : 'bg-ai-blue'}`} />
                                               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
                                               <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${clientReviewStatusTone}`}>{clientReviewStatusLabel}</span>
                                             </div>
-                                            <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{clientReviewHeadline}</h4>
-                                            <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-white/72">
-                                              {clientReviewIntro}
-                                            </p>
-                                          </div>
-                                          <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/42">Decision state</p>
-                                            <p className={`mt-2 text-lg font-black ${clientReviewStatusTone}`}>
-                                              {clientReviewStatusLabel}
-                                            </p>
-                                            <p className="mt-2 text-sm leading-6 text-white/52">
-                                              {clientReviewStatus === 'changes_requested'
-                                                ? 'The team is reviewing your requested changes before the next approval pass.'
-                                                : clientReviewStatus === 'approved'
-                                                  ? 'The preview is approved and the team can prepare launch.'
-                                                  : 'Approve the preview, or use the conversation to request changes.'}
-                                            </p>
-                                          </div>
-                                        </section>
-
-                                        <section className="mt-6 grid border-y border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-white/10">
-                                          {clientReviewFlow.map((item) => (
-                                            <div key={item.label} className="border-b border-white/10 py-4 last:border-b-0 sm:border-b-0 sm:px-4 sm:first:pl-0 sm:last:pr-0">
-                                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{item.label}</p>
-                                              <p className={`mt-2 text-sm font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</p>
-                                            </div>
-                                          ))}
-                                        </section>
-
-                                        <section className="mt-6 grid border-y border-white/10 lg:grid-cols-[minmax(0,0.72fr)_minmax(18rem,0.45fr)] lg:divide-x lg:divide-white/10">
-                                          <div className="border-b border-white/10 py-5 lg:border-b-0 lg:pr-6">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Preview</p>
-                                            <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                                              <div>
-                                                <p className="text-xl font-black tracking-tight text-white">
-                                                  {currentBuildRecord.stagingUrl ? 'Ready to inspect' : 'Link pending'}
-                                                </p>
-                                                <p className="mt-2 text-sm leading-6 text-white/54">
-                                                  {currentBuildRecord.stagingUrl ? 'Open the live preview in a new tab and return here with your decision.' : 'The preview link will appear here once the team publishes it.'}
+                                            <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                                              <div className="min-w-0">
+                                                <h4 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{clientReviewHeadline}</h4>
+                                                <p className="mt-3 max-w-3xl text-sm font-semibold leading-7 text-white/66">
+                                                  {clientReviewIntro}
                                                 </p>
                                               </div>
                                               {currentBuildRecord.stagingUrl && (
@@ -3407,60 +3394,76 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                                   href={currentBuildRecord.stagingUrl}
                                                   target="_blank"
                                                   rel="noreferrer"
-                                                  className="inline-flex min-h-11 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white"
+                                                  className="inline-flex min-h-12 shrink-0 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white"
                                                 >
                                                   Open preview <ExternalLink className="h-3.5 w-3.5" />
                                                 </a>
                                               )}
                                             </div>
-                                          </div>
-                                          <div className="py-5 lg:pl-6">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Review focus</p>
-                                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                                              {clientReviewChecklist.map((item, index) => (
-                                                <div key={item} className="flex min-h-10 items-center gap-3 border-b border-white/10 py-2">
-                                                  <span className="text-[9px] font-black uppercase tracking-[0.12em] text-white/28">{String(index + 1).padStart(2, '0')}</span>
-                                                  <span className="text-sm font-semibold text-white/68">{item}</span>
+                                            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                                              {clientReviewFlow.map((item) => (
+                                                <div key={item.label} className="border-b border-white/10 pb-3">
+                                                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{item.label}</p>
+                                                  <p className={`mt-2 text-sm font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</p>
                                                 </div>
                                               ))}
                                             </div>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setReviewChatOpen(prev => {
-                                                  const next = !prev;
-                                                  if (next) setReviewChatUnreadCount(0);
-                                                  return next;
-                                                });
-                                              }}
-                                              className={`mt-5 flex min-h-14 w-full items-center justify-between gap-4 border-y py-3 text-left transition ${
-                                                reviewChatOpen ? 'border-ai-blue/45 text-white' : 'border-white/10 text-white/72 hover:border-ai-blue/35 hover:text-white'
-                                              }`}
-                                            >
-                                              <span className="flex min-w-0 items-center gap-3">
-                                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ai-blue/10 text-ai-blue">
-                                                  <MessageSquare className="h-4 w-4" />
-                                                </span>
-                                                <span className="min-w-0">
-                                                  <span className="block text-[10px] font-black uppercase tracking-[0.16em]">Preview discussion</span>
-                                                  <span className="mt-1 block text-xs font-semibold text-white/45">
-                                                    {reviewChatUnreadCount
-                                                      ? `${reviewChatUnreadCount} unread`
-                                                      : latestPreviewDiscussionMessage?.message
-                                                        ? latestPreviewDiscussionMessage.message
-                                                        : reviewChatLoading
-                                                          ? 'Loading thread'
-                                                          : 'Ask or request changes'}
-                                                  </span>
-                                                </span>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setReviewChatOpen(prev => {
+                                                const next = !prev;
+                                                if (next) setReviewChatUnreadCount(0);
+                                                return next;
+                                              });
+                                            }}
+                                            className={`group flex min-h-40 flex-col justify-between border-y py-5 text-left transition ${
+                                              reviewChatOpen ? 'border-ai-blue/45 text-white' : 'border-white/10 text-white/74 hover:border-ai-blue/35 hover:text-white'
+                                            }`}
+                                          >
+                                            <span className="flex items-start justify-between gap-4">
+                                              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ai-blue/10 text-ai-blue transition group-hover:bg-ai-blue group-hover:text-white">
+                                                <MessageSquare className="h-5 w-5" />
                                               </span>
                                               {reviewChatUnreadCount > 0 && !reviewChatOpen && (
-                                                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-300 px-2 text-[10px] font-black text-black">
+                                                <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-300 px-2 text-[10px] font-black text-black">
                                                   {reviewChatUnreadCount}
                                                 </span>
                                               )}
-                                              <ChevronRight className={`h-4 w-4 shrink-0 transition ${reviewChatOpen ? 'rotate-90 text-ai-blue' : 'text-white/32'}`} />
-                                            </button>
+                                            </span>
+                                            <span className="mt-5 block">
+                                              <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview discussion</span>
+                                              <span className="mt-2 line-clamp-2 block text-sm font-semibold leading-6 text-white/58">
+                                                {reviewChatUnreadCount
+                                                  ? `${reviewChatUnreadCount} unread message${reviewChatUnreadCount === 1 ? '' : 's'}`
+                                                  : latestPreviewDiscussionMessage?.message
+                                                    ? latestPreviewDiscussionMessage.message
+                                                    : reviewChatLoading
+                                                      ? 'Loading thread'
+                                                      : 'Open the project chat'}
+                                              </span>
+                                            </span>
+                                          </button>
+                                        </section>
+
+                                        <section className="mt-6 border-y border-white/10 py-5">
+                                          <div className="flex flex-col gap-5">
+                                            <div className="min-w-0">
+                                              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Review focus</p>
+                                              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                                {clientReviewChecklist.map((item, index) => (
+                                                  <div key={item.label} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 border-b border-white/10 pb-3">
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.12em] text-white/28">{String(index + 1).padStart(2, '0')}</span>
+                                                    <span className="min-w-0">
+                                                      <span className="block text-sm font-black tracking-tight text-white/78">{item.label}</span>
+                                                      <span className="mt-1 block text-xs font-semibold leading-5 text-white/42">{item.detail}</span>
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
                                           </div>
                                         </section>
 
@@ -3533,26 +3536,19 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                                             <div className="min-w-0">
                                               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">
-                                                {clientReviewStatus === 'changes_requested' ? 'Review cycle' : clientReviewStatus === 'approved' ? 'Approval recorded' : 'Final decision'}
+                                                {clientReviewStatus === 'changes_requested' ? 'Decision sent' : clientReviewStatus === 'approved' ? 'Approval recorded' : 'Ready for your decision'}
                                               </p>
                                               <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
-                                                {clientReviewStatus === 'changes_requested'
-                                                  ? 'The requested changes are now with the team. Keep any follow-up inside Preview discussion while the preview is updated.'
-                                                  : clientReviewStatus === 'approved'
-                                                    ? 'The preview has been approved. Launch preparation can continue from here.'
-                                                    : 'Approve the preview when it is ready for launch. If changes are needed, write them in Preview discussion first, then send changes.'}
+                                                {clientReviewStatus === 'sent'
+                                                  ? 'Approve the preview if it is ready. If something should change, open the discussion and send one clear note.'
+                                                  : clientReviewDecisionText}
                                               </p>
                                             </div>
                                             <div className={`grid gap-3 ${clientReviewStatus === 'sent' ? 'sm:grid-cols-2 lg:min-w-[28rem]' : 'lg:min-w-[18rem]'}`}>
                                               {clientReviewStatus === 'changes_requested' ? (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setReviewChatOpen(true)}
-                                                  className="flex min-h-12 items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-amber-300 transition hover:bg-amber-300/10 hover:text-white"
-                                                >
-                                                  <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Open discussion</span>
-                                                  <ChevronRight className="h-4 w-4" />
-                                                </button>
+                                                <div className="flex min-h-12 items-center justify-between gap-3 border-y border-amber-300/20 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">
+                                                  <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Changes sent</span>
+                                                </div>
                                               ) : clientReviewStatus === 'approved' ? (
                                                 <div className="flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green">
                                                   <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Preview approved</span>
@@ -3570,11 +3566,20 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                                   </button>
                                                   <button
                                                     type="button"
-                                                    onClick={() => handleStagingReviewResponse(currentBuildRecord, 'changes')}
-                                                    disabled={stagingReviewSubmitting || (!stagingReviewMessage.trim() && !reviewChatDraft.trim() && reviewChatMessages.length === 0)}
+                                                    onClick={() => {
+                                                      if (!stagingReviewMessage.trim() && !reviewChatDraft.trim() && reviewChatMessages.length === 0) {
+                                                        setReviewChatOpen(true);
+                                                        return;
+                                                      }
+                                                      handleStagingReviewResponse(currentBuildRecord, 'changes');
+                                                    }}
+                                                    disabled={stagingReviewSubmitting}
                                                     className="flex min-h-12 items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                                   >
-                                                    <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Send changes</span>
+                                                    <span className="flex items-center gap-3">
+                                                      <MessageSquare className="h-4 w-4" />
+                                                      {stagingReviewMessage.trim() || reviewChatDraft.trim() || reviewChatMessages.length > 0 ? 'Send change request' : 'Request changes in chat'}
+                                                    </span>
                                                     <ChevronRight className="h-4 w-4" />
                                                   </button>
                                                 </>
@@ -3685,51 +3690,83 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                 )}
 
                                 {selectedBuildChapter.id === 'launch' && (
-                                  <div className="border-y border-expert-green/30 bg-expert-green/[0.035] py-5">
+                                  <div className="border-y border-expert-green/25 py-5">
                                     {isProjectRequest(currentBuildRecord) && ['launched', 'handoff', 'completed'].includes(currentBuildStatus) ? (
                                       <>
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                      <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch and handoff</p>
-                                        <p className="mt-2 text-sm leading-7 text-white/68">
-                                          {currentBuildStatus === 'completed'
-                                            ? 'This build is completed. Launch and handoff details stay here for reference.'
-                                            : 'The staging review is approved. Review launch and handoff details before closing the build.'}
+                                    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.86fr)_minmax(16rem,0.34fr)]">
+                                      <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-expert-green" />
+                                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p>
+                                        </div>
+                                        <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                                          {currentBuildStatus === 'completed' ? 'Your build is complete' : currentBuildStatus === 'handoff' ? 'Confirm handoff' : 'Your build is live'}
+                                        </h4>
+                                        <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/60">
+                                          {currentBuildStatus === 'handoff'
+                                            ? 'Review the live build and handoff details. Accept delivery if everything is okay, or report what is missing.'
+                                            : currentBuildRecord.launchNotes || 'The live build and handoff details are ready here.'}
                                         </p>
                                       </div>
-                                      {currentBuildRecord.launchApprovedAt && (
-                                        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
-                                          Approved {new Date(currentBuildRecord.launchApprovedAt).toLocaleDateString()}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="mt-5 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
-                                      <div className="border-b border-white/10 p-4 sm:border-b-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Live URL</p>
-                                        {currentBuildRecord.launchUrl ? (
-                                          <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 break-all text-sm font-black text-expert-green transition hover:text-white">
-                                            Open live build <ExternalLink className="h-3.5 w-3.5" />
-                                          </a>
-                                        ) : (
-                                          <p className="mt-2 text-sm font-semibold text-white/52">Live link pending</p>
+                                      <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Delivery state</p>
+                                        <p className="mt-2 text-lg font-black tracking-tight text-expert-green">
+                                          {currentBuildStatus === 'completed' ? 'Completed' : currentBuildStatus === 'handoff' ? 'Waiting confirmation' : 'Live'}
+                                        </p>
+                                        {currentBuildRecord.launchApprovedAt && (
+                                          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/38">
+                                            Approved {new Date(currentBuildRecord.launchApprovedAt).toLocaleDateString()}
+                                          </p>
                                         )}
                                       </div>
-                                      <div className="p-4">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Handoff</p>
-                                        <p className="mt-2 whitespace-pre-line text-sm leading-6 text-white/64">
-                                          {currentBuildRecord.handoffNotes || currentBuildRecord.launchNotes || 'Handoff notes will appear when launch is finalized.'}
+                                    </div>
+                                    <div className="mt-6 grid gap-6 border-y border-white/10 py-5 lg:grid-cols-[minmax(0,0.72fr)_minmax(16rem,0.36fr)] lg:divide-x lg:divide-white/10">
+                                      <div className="lg:pr-6">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Live build</p>
+                                        {currentBuildRecord.launchUrl ? (
+                                          <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white">
+                                            Open live build <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        ) : (
+                                          <p className="mt-3 text-sm font-semibold text-white/52">Live link pending</p>
+                                        )}
+                                      </div>
+                                      <div className="border-t border-white/10 pt-5 lg:border-t-0 lg:pl-6 lg:pt-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Handoff details</p>
+                                        <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-white/64">
+                                          {currentBuildRecord.handoffNotes || 'Access details and final next steps will appear here.'}
                                         </p>
                                       </div>
                                     </div>
                                     {currentBuildStatus === 'handoff' && (
                                       <>
+                                        <div className="mt-6 grid gap-3 border-y border-white/10 py-4 sm:grid-cols-3">
+                                          {[
+                                            { label: 'Total', value: agreementTotalLabel, tone: 'text-white/70' },
+                                            { label: 'Deposit paid', value: agreementDueNowLabel, tone: 'text-expert-green' },
+                                            { label: 'Final balance', value: agreementBalanceLabel, tone: agreementBalanceAmount ? 'text-amber-300' : 'text-expert-green' },
+                                          ].map(item => (
+                                            <div key={item.label} className="border-b border-white/10 pb-3 last:border-b-0 sm:border-b-0">
+                                              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
+                                              <p className={`mt-2 text-sm font-black uppercase tracking-[0.1em] ${item.tone}`}>{item.value}</p>
+                                            </div>
+                                          ))}
+                                        </div>
                                         <textarea
                                           value={handoffMessage}
-                                          onChange={(event) => setHandoffMessage(event.target.value)}
+                                          onChange={(event) => {
+                                            setHandoffMessage(event.target.value);
+                                            if (handoffMessageError) setHandoffMessageError('');
+                                          }}
                                           rows={3}
-                                          className="mt-5 w-full resize-none border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60"
-                                          placeholder="Add a final handoff note for the team"
+                                          className={`mt-5 w-full resize-none border bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 ${
+                                            handoffMessageError ? 'border-amber-300/60 focus:border-amber-300' : 'border-white/10 focus:border-expert-green/60'
+                                          }`}
+                                          placeholder="Add a note if anything is missing..."
                                         />
+                                        {handoffMessageError && (
+                                          <p className="mt-2 text-xs font-semibold leading-5 text-amber-300">{handoffMessageError}</p>
+                                        )}
                                         <div className="mt-4 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
                                           <button
                                             type="button"
@@ -3737,8 +3774,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                             disabled={handoffSubmitting}
                                             className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                           >
-                                            <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Mark complete</span>
-                                            {handoffSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                                            <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Accept handoff</span>
+                                            {handoffSubmittingAction === 'complete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
                                           </button>
                                           <button
                                             type="button"
@@ -3746,8 +3783,8 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                             disabled={handoffSubmitting}
                                             className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:border-t-0"
                                           >
-                                            <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Handoff issue</span>
-                                            <ChevronRight className="h-4 w-4" />
+                                            <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Report handoff issue</span>
+                                            {handoffSubmittingAction === 'issue' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
                                           </button>
                                         </div>
                                       </>
@@ -3810,8 +3847,10 @@ const ClientDashboard: React.FC<{ onLogout?: () => void, initialTab?: string }> 
                                   )}
                                   {selectedBuildChapter.id === 'launch' && (
                                     <div className="px-1 py-4">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch state</p>
-                                      <p className="mt-2 text-xs leading-6 text-white/50">{currentBuildStatus.replace(/_/g, ' ')}</p>
+                                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Delivery</p>
+                                      <p className="mt-2 text-xs leading-6 text-white/50">
+                                        {currentBuildStatus === 'completed' ? 'Completed' : currentBuildStatus === 'handoff' ? 'Handoff ready' : 'Live'}
+                                      </p>
                                     </div>
                                   )}
                                   {!isProjectRequest(currentBuildRecord) && (
