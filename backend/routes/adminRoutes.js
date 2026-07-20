@@ -46,6 +46,8 @@ router.get('/project-requests', adminController.getProjectRequests);
 router.put('/project-requests/:id', adminController.updateProjectRequest);
 router.get('/project-requests/:id/review-chat', adminController.getReviewChatMessages);
 router.post('/project-requests/:id/review-chat', adminController.createReviewChatMessage);
+router.get('/project-requests/:id/handoff-chat', adminController.getHandoffChatMessages);
+router.post('/project-requests/:id/handoff-chat', adminController.createHandoffChatMessage);
 router.post('/project-requests/:id/build-milestones/defaults', adminController.createDefaultBuildMilestones);
 router.put('/project-requests/:id/build-milestones/:milestoneId', adminController.updateBuildMilestone);
 router.post('/project-requests/:id/studio/tasks', adminController.createStudioTask);

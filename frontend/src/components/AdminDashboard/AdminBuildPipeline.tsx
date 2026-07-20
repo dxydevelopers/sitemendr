@@ -11,6 +11,8 @@
 
 'use client';
 
+import { useEffect } from 'react';
+
 import {
   ArrowLeft, ChevronRight, Search, Package, UserRound, Mail, CalendarDays,
   Activity, Clock, CreditCard, MessageSquare, Check, ExternalLink, Send,
@@ -42,11 +44,23 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
     handleUpdateProjectRequest, handleCreateStudioTask, handleUpdateStudioTask,
     handleCreateStudioBlocker, handleUpdateStudioBlocker, handleCreateStudioUpdate,
     handleCreatePreviewLink, handleClearPreviewLink, handleCreateStudioLink,
+    handoffChatMessages, handoffChatDraft, setHandoffChatDraft, handoffChatLoading, handoffChatSending,
+    handoffChatLoadedRequestId, fetchAdminHandoffChat, handleSendAdminHandoffChat, handleMarkFinalPaymentReceived,
   } = dashboard;
 
   const selectedProjectRequest = selectedProjectRequestId
     ? projectRequests.find(r => r.id === selectedProjectRequestId) || null
     : null;
+
+  useEffect(() => {
+    if (
+      selectedProjectRequest
+      && selectedProjectRequest.status === 'handoff'
+      && handoffChatLoadedRequestId !== selectedProjectRequest.id
+    ) {
+      fetchAdminHandoffChat(selectedProjectRequest.id);
+    }
+  }, [selectedProjectRequest?.id, selectedProjectRequest?.status, handoffChatLoadedRequestId]);
 
   const buildSearchTerm = searchTerm.trim().toLowerCase();
   const filteredBySearch = projectRequests.filter(request => {
@@ -730,34 +744,134 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
 
           {/* LAUNCH */}
           {selectedAdminBuildChapter.id === 'launch' && (
-            <div className="border-y border-expert-green/25 py-5">
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,0.86fr)_minmax(16rem,0.34fr)]">
+            <div className="border-y border-expert-green/25 py-6 md:py-8">
+              {/* Hero row */}
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3"><span className="inline-flex h-2.5 w-2.5 rounded-full bg-expert-green" /><p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch room</p></div>
                   <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{selectedProjectRequest.status === 'completed' ? 'Build completed' : selectedProjectRequest.status === 'handoff' ? 'Handoff in progress' : 'Live build is ready'}</h4>
-                  <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/58">Share the live delivery and wait for client acceptance. Final balance is handled in the closeout step.</p>
+                  <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/58">{selectedProjectRequest.status === 'completed' ? 'This build is closed and fully paid. Reopen to handoff if anything still needs attention.' : selectedProjectRequest.status === 'handoff' ? 'Share the live delivery and wait for client acceptance. Final balance is handled in the closeout step.' : 'The build is live. Share the link and handoff notes when the client is ready to review.'}</p>
                 </div>
-                <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                <div className="border border-white/10 bg-white/[0.02] p-5">
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Launch state</p>
                   <p className="mt-2 text-lg font-black tracking-tight text-expert-green">{selectedProjectRequest.status === 'completed' ? 'Closed' : selectedProjectRequest.status === 'handoff' ? 'Client handoff' : 'Live'}</p>
-                  {selectedProjectRequest.launchUrl && <a href={selectedProjectRequest.launchUrl} target="_blank" rel="noreferrer" className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border-y border-expert-green/25 py-2 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:border-white hover:text-white">Open live build<ExternalLink className="h-4 w-4" /></a>}
+                  {selectedProjectRequest.launchUrl && <a href={selectedProjectRequest.launchUrl} target="_blank" rel="noreferrer" className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:border-expert-green hover:bg-expert-green/10 hover:text-white">Open live build<ExternalLink className="h-4 w-4 shrink-0" /></a>}
                 </div>
               </div>
-              <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem]">
-                <div className="grid gap-5">
-                  <div><label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Live URL</label><input type="url" defaultValue={selectedProjectRequest.launchUrl || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchUrl: e.target.value })} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60" placeholder="https://live..." /></div>
-                  <div><label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch note</label><textarea defaultValue={selectedProjectRequest.launchNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchNotes: e.target.value })} className="h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60" placeholder="What should the client know about the live build?" /></div>
-                  <div><label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Handoff</label><textarea defaultValue={selectedProjectRequest.handoffNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { handoffNotes: e.target.value })} className="h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60" placeholder="Add your response or resolution notes here..." /></div>
-                </div>
-                <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Closeout</p>
-                  <div className="mt-3 space-y-3 border-y border-white/10 py-4">
-                    {[{ label: 'Total agreed', value: selectedAgreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: selectedAgreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Remaining balance', value: selectedAgreementBalanceLabel, tone: selectedAgreementBalance <= 0 ? 'text-expert-green' : 'text-amber-300' }].map(item => (
-                      <div key={item.label} className="flex items-center justify-between gap-4"><span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</span><span className={`text-[10px] font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</span></div>
-                    ))}
+
+              {/* Content row */}
+              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+                {/* Delivery details card */}
+                <div className="divide-y divide-white/10 border border-white/10 bg-white/[0.02]">
+                  <div className="p-5">
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Live URL</label>
+                    <input type="url" defaultValue={selectedProjectRequest.launchUrl || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchUrl: e.target.value })} className="w-full bg-transparent text-sm font-semibold text-white outline-none transition placeholder:text-white/24" placeholder="https://live..." />
                   </div>
-                  <textarea defaultValue={selectedProjectRequest.completionNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { completionNotes: e.target.value })} className="mt-5 h-20 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60" placeholder="Final completion summary..." />
-                  <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: selectedProjectRequest.status === 'completed' ? 'handoff' : 'completed' })} disabled={submitting} className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:opacity-45">{selectedProjectRequest.status === 'completed' ? 'Reset to handoff' : 'Close build'}</button>
+                  <div className="p-5">
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Launch note</label>
+                    <textarea defaultValue={selectedProjectRequest.launchNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { launchNotes: e.target.value })} className="h-20 w-full resize-none bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24" placeholder="What should the client know about the live build?" />
+                  </div>
+                  <div className="p-5">
+                    <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Handoff</label>
+                    <textarea defaultValue={selectedProjectRequest.handoffNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { handoffNotes: e.target.value })} className="h-20 w-full resize-none bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24" placeholder="Add your response or resolution notes here..." />
+                  </div>
+                </div>
+
+                {/* Dynamic status column */}
+                <div className="flex flex-col gap-6">
+                  {selectedProjectRequest.status === 'handoff' && (selectedProjectRequest.handoffIssuesReportedAt || selectedProjectRequest.completionAcknowledgedAt) && (
+                    <div className="border border-ai-blue/20 bg-white/[0.02]">
+                      <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-ai-blue">Handoff discussion</p>
+                        <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-white/30">{handoffChatLoading ? 'Loading' : `${handoffChatMessages.length} msg${handoffChatMessages.length === 1 ? '' : 's'}`}</span>
+                      </div>
+                      <div className="max-h-64 space-y-3 overflow-y-auto px-5 py-4">
+                        {handoffChatMessages.length ? handoffChatMessages.map(message => {
+                          const isAdminMessage = message.senderRole === 'admin';
+                          return (
+                            <div key={message.id} className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[88%] rounded-xl px-3 py-2 text-xs font-semibold leading-5 ${isAdminMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
+                                <p className="whitespace-pre-line">{message.message}</p>
+                                <p className={`mt-1 text-[8px] font-black uppercase tracking-[0.1em] ${isAdminMessage ? 'text-white/65' : 'text-white/35'}`}>{isAdminMessage ? 'You' : 'Client'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
+                              </div>
+                            </div>
+                          );
+                        }) : <p className="py-4 text-center text-xs font-semibold leading-5 text-white/46">No handoff messages yet.</p>}
+                      </div>
+                      <div className="border-t border-white/10 p-4">
+                        <textarea value={handoffChatDraft} onChange={(e) => setHandoffChatDraft(e.target.value)} rows={2} className="w-full resize-none bg-transparent text-sm text-white outline-none transition placeholder:text-white/24" placeholder="e.g. Are you happy with the handoff?" />
+                        <button type="button" onClick={() => handleSendAdminHandoffChat(selectedProjectRequest.id)} disabled={handoffChatSending || !handoffChatDraft.trim()} className="mt-2 inline-flex min-h-9 w-full items-center justify-between gap-2 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
+                          {handoffChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedProjectRequest.status === 'handoff' && selectedProjectRequest.completionAcknowledgedAt && !selectedProjectRequest.handoffIssuesReportedAt && (
+                    <div className="border border-expert-green/20 bg-white/[0.02]">
+                      <div className="flex items-center gap-2 border-b border-white/10 px-5 py-4 text-expert-green"><Check className="h-4 w-4 shrink-0" /><p className="text-[9px] font-black uppercase tracking-[0.16em]">Client accepted handoff</p></div>
+
+                      <div className="grid grid-cols-4 gap-1.5 px-5 pt-4">
+                        {[
+                          { label: 'Delivered', done: true },
+                          { label: 'Accepted', done: true },
+                          { label: 'Paid', done: selectedAgreementBalance <= 0 || Boolean(selectedProjectRequest.finalPaymentConfirmedAt) },
+                          { label: 'Closed', done: false },
+                        ].map(step => (
+                          <div key={step.label} className="min-w-0">
+                            <div className={`h-1 w-full ${step.done ? 'bg-expert-green' : 'bg-white/10'}`} />
+                            <p className={`mt-2 truncate text-[8px] font-black uppercase tracking-[0.1em] ${step.done ? 'text-expert-green' : 'text-white/30'}`}>{step.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="px-5 pb-5 pt-5">
+                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Closeout</p>
+                        <div className="mt-3 space-y-2 border-y border-white/10 py-4">
+                          <div className="flex items-center justify-between gap-4"><span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">Total agreed</span><span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/70">{selectedAgreementTotalLabel}</span></div>
+                          <div className="h-1.5 w-full bg-white/10"><div className="h-full bg-expert-green" style={{ width: `${selectedAgreementTotal > 0 ? Math.min(100, Math.round((selectedAgreementDueNow / selectedAgreementTotal) * 100)) : 0}%` }} /></div>
+                          <div className="flex items-center justify-between gap-4 text-[9px] font-black uppercase tracking-[0.12em] text-white/40">
+                            <span>{selectedAgreementDueNowLabel} deposit</span>
+                            <span className={selectedAgreementBalance <= 0 ? 'text-expert-green' : 'text-amber-300'}>{selectedAgreementBalanceLabel} left</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4 pt-1">
+                            <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">Final payment</span>
+                            <span className={`text-[10px] font-black uppercase tracking-[0.12em] ${selectedAgreementBalance <= 0 || selectedProjectRequest.finalPaymentConfirmedAt ? 'text-expert-green' : 'text-amber-300'}`}>{selectedAgreementBalance <= 0 ? 'Not owed' : selectedProjectRequest.finalPaymentConfirmedAt ? 'Received' : 'Pending'}</span>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'completed' })} disabled={submitting || (selectedAgreementBalance > 0 && !selectedProjectRequest.finalPaymentConfirmedAt)} className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40">Close build<ChevronRight className="h-4 w-4 shrink-0" /></button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedProjectRequest.status === 'handoff' && !selectedProjectRequest.completionAcknowledgedAt && !selectedProjectRequest.handoffIssuesReportedAt && (
+                    <div className="border border-amber-300/20 bg-white/[0.02] p-5">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Closeout</p>
+                      <div className="mt-3 space-y-3 border-y border-white/10 py-4">
+                        {[{ label: 'Total agreed', value: selectedAgreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: selectedAgreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Remaining balance', value: selectedAgreementBalanceLabel, tone: selectedAgreementBalance <= 0 ? 'text-expert-green' : 'text-amber-300' }].map(item => (
+                          <div key={item.label} className="flex items-center justify-between gap-4"><span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</span><span className={`text-[10px] font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</span></div>
+                        ))}
+                      </div>
+                      <textarea defaultValue={selectedProjectRequest.completionNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { completionNotes: e.target.value })} className="mt-4 h-16 w-full resize-none border border-white/10 bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-amber-300/40" placeholder="Notes for closeout (optional, can add now or later)..." />
+                      <div className="mt-4 flex items-center gap-2 text-amber-300">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em]">Waiting on client to accept handoff</p>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-white/46">Closeout and final payment open once the client accepts. If they flag an issue instead, it'll show here as a discussion thread.</p>
+                    </div>
+                  )}
+
+                  {selectedProjectRequest.status === 'completed' && (
+                    <div className="border border-expert-green/20 bg-white/[0.02] p-5">
+                      <div className="flex items-center gap-2 text-expert-green"><Check className="h-4 w-4 shrink-0" /><p className="text-[9px] font-black uppercase tracking-[0.16em]">Build closed</p></div>
+                      <div className="mt-4 space-y-3 border-y border-white/10 py-4">
+                        {[{ label: 'Total agreed', value: selectedAgreementTotalLabel }, { label: 'Deposit paid', value: selectedAgreementDueNowLabel }, { label: 'Final balance', value: selectedAgreementBalance <= 0 ? 'Settled' : selectedAgreementBalanceLabel }].map(item => (
+                          <div key={item.label} className="flex items-center justify-between gap-4"><span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</span><span className="text-[10px] font-black uppercase tracking-[0.12em] text-expert-green">{item.value}</span></div>
+                        ))}
+                      </div>
+                      <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'handoff' })} disabled={submitting} className="mt-4 flex min-h-10 w-full items-center justify-between gap-3 border border-white/10 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-white/50 transition hover:bg-white/[0.04] hover:text-white disabled:opacity-45">Reopen to handoff<ChevronRight className="h-4 w-4 shrink-0" /></button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -903,8 +1017,8 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
             </div>
           )}
 
-          {(selectedAdminBuildChapter.id === 'build' || selectedAdminBuildChapter.id === 'review' || selectedAdminBuildChapter.id === 'launch') === false && selectedAdminBuildChapter.id !== 'brief' && selectedAdminBuildChapter.id !== 'scope' && selectedAdminBuildChapter.id !== 'agreement' && (
-            <div>
+          {(selectedAdminBuildChapter.id === 'build' || selectedAdminBuildChapter.id === 'review' || selectedAdminBuildChapter.id === 'launch') && (
+            <div className="border border-white/10 bg-white/[0.02] p-5">
               <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Internal note</label>
               <textarea defaultValue={selectedProjectRequest.adminNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { adminNotes: e.target.value })} className="h-28 w-full resize-none border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-ai-blue/50" placeholder="Private admin note..." />
             </div>

@@ -18,6 +18,8 @@ const runInBatches = async (tasks, batchSize = 3) => {
 
 const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
 
+const handoffChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
+
 const sanitizeReviewChatChoices = (choices) => {
   if (!Array.isArray(choices)) return null;
   const cleaned = choices
@@ -853,6 +855,84 @@ exports.createReviewChatMessage = async (req, res) => {
   }
 };
 
+exports.getHandoffChatMessages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'build' },
+      select: { id: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const messages = await prisma.$queryRawUnsafe(
+      `SELECT ${handoffChatSelect}
+       FROM "HandoffChatMessage"
+       WHERE "projectRequestId" = $1
+       ORDER BY "createdAt" ASC`,
+      id
+    );
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "HandoffChatMessage"
+       SET "readByAdmin" = true
+       WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`,
+      id
+    );
+
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_HANDOFF_CHAT_MESSAGES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load handoff chat' });
+  }
+};
+
+exports.createHandoffChatMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message = '', attachments = null } = req.body || {};
+    const cleanedMessage = String(message || '').trim();
+
+    if (!cleanedMessage && !attachments) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'build' },
+      select: { id: true, userId: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const newMessageId = require('crypto').randomUUID();
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "HandoffChatMessage"
+       ("id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
+       VALUES ($1,$2,$3,'admin',$4,'message',NULL,NULL,$5::jsonb,true,false)
+       RETURNING ${handoffChatSelect}`,
+      newMessageId,
+      id,
+      req.user?.userId || null,
+      cleanedMessage,
+      JSON.stringify(attachments || null)
+    );
+
+    const chatMessage = rows[0];
+    notifyUser(request.userId, 'handoff_chat_message', { requestId: id, message: chatMessage });
+    notifyAdmins('handoff_chat_message', { requestId: id, message: chatMessage });
+
+    res.json({ success: true, data: chatMessage, message: 'Handoff message sent' });
+  } catch (error) {
+    logger.error('CREATE_HANDOFF_CHAT_MESSAGE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send handoff message' });
+  }
+};
+
 exports.updateProjectRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -876,6 +956,9 @@ exports.updateProjectRequest = async (req, res) => {
       launchNotes,
       handoffNotes,
       completionNotes,
+      completionAcknowledgedAt,
+      handoffIssuesReportedAt,
+      finalPaymentConfirmedAt,
       adminNotes,
       clientNotes,
       packageIntent,
@@ -974,6 +1057,7 @@ exports.updateProjectRequest = async (req, res) => {
     if (launchNotes !== undefined) data.launchNotes = launchNotes;
     if (handoffNotes !== undefined) data.handoffNotes = handoffNotes;
     if (completionNotes !== undefined) data.completionNotes = completionNotes;
+    if (finalPaymentConfirmedAt !== undefined) data.finalPaymentConfirmedAt = finalPaymentConfirmedAt ? new Date(finalPaymentConfirmedAt) : null;
     if (adminNotes !== undefined) data.adminNotes = adminNotes;
     if (clientNotes !== undefined) data.clientNotes = clientNotes;
     if (packageIntent !== undefined) data.packageIntent = packageIntent;

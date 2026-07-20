@@ -75,6 +75,13 @@ export function useClientDashboard(initialTab?: string) {
   const [handoffMessageError, setHandoffMessageError] = useState('');
   const [handoffSubmitting, setHandoffSubmitting] = useState(false);
   const [handoffSubmittingAction, setHandoffSubmittingAction] = useState<'complete' | 'issue' | null>(null);
+  const [handoffChatStarted, setHandoffChatStarted] = useState(false);
+  const [handoffChatMessages, setHandoffChatMessages] = useState<ReviewChatMessage[]>([]);
+  const [handoffChatDraft, setHandoffChatDraft] = useState('');
+  const [handoffChatLoading, setHandoffChatLoading] = useState(false);
+  const [handoffChatSending, setHandoffChatSending] = useState(false);
+  const [handoffChatLoadedProjectId, setHandoffChatLoadedProjectId] = useState<string | null>(null);
+  const [finalPaymentSubmitting, setFinalPaymentSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>(null);
@@ -309,6 +316,12 @@ export function useClientDashboard(initialTab?: string) {
       if (!reviewChatOpenRef.current && data.message.senderRole !== 'client') {
         setReviewChatUnreadCount(prev => prev + 1);
       }
+    });
+
+    socketRef.current.on('handoff_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
+      if (!data?.message || data.requestId !== selectedProjectIdRef.current) return;
+      setHandoffChatMessages(prev => prev.some(m => m.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
+      setHandoffChatStarted(true);
     });
 
     return () => { socketRef.current?.disconnect(); };
@@ -616,6 +629,10 @@ export function useClientDashboard(initialTab?: string) {
     setReviewChatDraft('');
     setReviewChatUnreadCount(0);
     setReviewChatLoadedProjectId(null);
+    setHandoffChatMessages([]);
+    setHandoffChatDraft('');
+    setHandoffChatStarted(false);
+    setHandoffChatLoadedProjectId(null);
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -672,6 +689,144 @@ export function useClientDashboard(initialTab?: string) {
     } finally {
       setHandoffSubmitting(false);
       setHandoffSubmittingAction(null);
+    }
+  };
+
+  // --- Handoff chat: replaces the old single-textarea "report an issue" flow.
+  // Reporting an issue now just means sending the first chat message.
+  const fetchClientHandoffChat = useCallback(async (requestId: string) => {
+    setHandoffChatLoading(true);
+    try {
+      const res = await apiClient.getClientHandoffChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
+      if (res.success) {
+        setHandoffChatMessages(res.data || []);
+        setHandoffChatLoadedProjectId(requestId);
+        if ((res.data || []).length > 0) setHandoffChatStarted(true);
+      }
+    } catch (error) {
+      console.error('Failed to load handoff chat:', error);
+    } finally {
+      setHandoffChatLoading(false);
+    }
+  }, []);
+
+  const handleOpenHandoffChat = (project: ClientProject) => {
+    setHandoffChatStarted(true);
+    if (handoffChatLoadedProjectId !== project.id) fetchClientHandoffChat(project.id);
+  };
+
+  const handleSendClientHandoffChat = async (projectId: string | undefined) => {
+    if (!projectId || handoffChatSending) return;
+    const message = handoffChatDraft.trim();
+    if (!message) return;
+    setHandoffChatSending(true);
+    try {
+      const res = await apiClient.sendClientHandoffChat(projectId, { message }) as { success: boolean; data?: ReviewChatMessage; message?: string };
+      if (res.success && res.data) {
+        setHandoffChatMessages(prev => prev.some(m => m.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setHandoffChatDraft('');
+        setHandoffChatStarted(true);
+      }
+    } catch (error) {
+      console.error('Failed to send handoff chat message:', error);
+    } finally {
+      setHandoffChatSending(false);
+    }
+  };
+
+  const handleFinalBalancePayment = async (
+    project: ClientProject,
+    selectedMethod: { id: string; label: string; gateway: string; channels?: string[] },
+    balanceAmount: number,
+  ) => {
+    if (!project?.id || finalPaymentSubmitting) return;
+    if (selectedMethod.gateway !== 'paystack') {
+      alert(`${selectedMethod.label} needs its own payment gateway setup before it can process this payment.`);
+      return;
+    }
+    if (!balanceAmount) { alert('There is no remaining balance to pay.'); return; }
+    if (!user?.email) { alert('Your account email is required before checkout can start.'); return; }
+
+    setFinalPaymentSubmitting(true);
+    let checkoutOpened = false;
+    let checkoutFallbackTimer: number | null = null;
+    let checkoutSettled = false;
+    try {
+      const res = await apiClient.initializePayment({
+        amount: balanceAmount,
+        serviceType: 'build_final_balance',
+        description: `${project.name} final balance payment`,
+        metadata: {
+          projectRequestId: project.id,
+          paymentStage: 'final_balance',
+          buildTitle: project.name,
+          checkoutRoute: 'inline_checkout',
+          selectedPaymentMethod: selectedMethod.id,
+          selectedPaymentChannels: selectedMethod.channels || [],
+          currency: project.quoteCurrency || user?.defaultCurrency || 'USD',
+        },
+      });
+
+      const publicKey = res.data?.publicKey;
+      const reference = res.data?.paystack?.reference || res.data?.payment?.reference;
+      const accessCode = res.data?.paystack?.access_code;
+      const checkoutAmount = res.data?.payment?.amount || Math.round(Number(balanceAmount) * 100);
+      const checkoutCurrency = res.data?.payment?.currency || project.quoteCurrency || user?.defaultCurrency || 'USD';
+
+      if (res.success && publicKey && reference) {
+        await loadPaystackInline();
+        if (!window.PaystackPop) throw new Error('Paystack checkout is not available.');
+
+        checkoutOpened = true;
+        const popup = new window.PaystackPop();
+        const paymentCallbacks = {
+          onSuccess: async (response: { reference?: string; trxref?: string }) => {
+            checkoutSettled = true;
+            if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+            try {
+              await apiClient.verifyPayment(response.reference || response.trxref || reference);
+              await fetchData(project.id);
+              setSelectedProjectId(project.id);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : 'Payment was completed, but verification needs support review.');
+            } finally {
+              setFinalPaymentSubmitting(false);
+            }
+          },
+          onCancel: () => {
+            checkoutSettled = true;
+            if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+            setFinalPaymentSubmitting(false);
+          },
+          onError: (error: { message?: string }) => {
+            checkoutSettled = true;
+            if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+            setFinalPaymentSubmitting(false);
+            alert(error.message || 'Payment checkout could not be opened.');
+          },
+        };
+        if (accessCode) {
+          popup.resumeTransaction(accessCode, paymentCallbacks);
+        } else {
+          popup.newTransaction({
+            key: publicKey,
+            email: user.email,
+            amount: checkoutAmount,
+            currency: checkoutCurrency,
+            ref: reference,
+            channels: selectedMethod.channels || ['card', 'bank', 'bank_transfer', 'ussd', 'qr', 'mobile_money', 'eft', 'apple_pay'],
+            metadata: { projectRequestId: project.id, checkoutRoute: 'inline_checkout', selectedPaymentMethod: selectedMethod.id },
+            ...paymentCallbacks,
+          });
+        }
+        checkoutFallbackTimer = window.setTimeout(() => { if (!checkoutSettled) setFinalPaymentSubmitting(false); }, 8000);
+        return;
+      }
+      throw new Error(res.message || 'Inline payment checkout could not be started.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to start payment checkout.');
+    } finally {
+      if (!checkoutOpened) setFinalPaymentSubmitting(false);
     }
   };
 
@@ -737,6 +892,9 @@ export function useClientDashboard(initialTab?: string) {
     reviewChatDraft, setReviewChatDraft, reviewChatLoading, reviewChatSending, handleSendClientReviewChat,
     handoffMessage, setHandoffMessage, handoffMessageError, setHandoffMessageError,
     handoffSubmitting, handoffSubmittingAction, handleHandoffResponse,
+    handoffChatStarted, handoffChatMessages, handoffChatDraft, setHandoffChatDraft,
+    handoffChatLoading, handoffChatSending, handleOpenHandoffChat, handleSendClientHandoffChat,
+    finalPaymentSubmitting, handleFinalBalancePayment,
     // community reveal
     revealTier, isRevealing, setIsRevealing,
     // settings

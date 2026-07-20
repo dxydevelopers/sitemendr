@@ -44,6 +44,9 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
     reviewChatLoading, reviewChatSending, handleSendClientReviewChat, handoffMessage,
     setHandoffMessage, handoffMessageError, setHandoffMessageError, handoffSubmitting,
     handoffSubmittingAction, handleHandoffResponse, handleViewAssessment,
+    handoffChatStarted, handoffChatMessages, handoffChatDraft, setHandoffChatDraft,
+    handoffChatLoading, handoffChatSending, handleOpenHandoffChat, handleSendClientHandoffChat,
+    finalPaymentSubmitting, handleFinalBalancePayment,
   } = dashboard;
 
   const averageProgress = projects.length
@@ -305,7 +308,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                     <span className="block h-1 bg-white/10"><span className="block h-full bg-ai-blue" style={{ width: `${rowProgress}%` }} /></span>
                     <span className="mt-2 block text-right text-[10px] font-black uppercase tracking-[0.12em] text-white/34">{rowProgress}%</span>
                   </span>
-                  <span className="text-right text-[10px] font-black uppercase tracking-[0.12em] text-ai-blue">{rowChapter.label}</span>
+                  <span className={`text-right text-[10px] font-black uppercase tracking-[0.12em] ${rowStatus === 'completed' ? 'text-expert-green' : 'text-ai-blue'}`}>{rowStatus === 'completed' ? 'Completed' : rowChapter.label}</span>
                   <ChevronRight className="h-4 w-4 justify-self-end text-white/24" />
                 </button>
               );
@@ -318,6 +321,63 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
   // ---------- SELECTED PROJECT VIEW ----------
   if (!currentBuildRecord) return null;
+
+  if (currentBuildStatus === 'completed') {
+    return (
+      <div className="animate-fade-in">
+        <div className="px-5 pb-6 pt-0 sm:px-8 lg:px-10">
+          <div className="flex items-center gap-4">
+            <button type="button" onClick={() => { setSelectedProjectId(null); setActiveBuildChapter(null); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/70 transition hover:bg-white/10">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="grid h-12 w-12 shrink-0 place-items-center text-expert-green"><Check className="h-6 w-6" /></div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{currentBuildPlanLabel}</p>
+              <p className="mt-1 truncate text-sm font-black tracking-tight text-white">{currentBuildRecord.businessName || currentBuildRecord.title || 'Your build'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-y border-expert-green/25 px-5 py-10 text-center sm:px-8 sm:py-14 lg:px-10">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-expert-green/10 text-expert-green"><Check className="h-7 w-7" /></div>
+          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.2em] text-expert-green">Project complete</p>
+          <h4 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{currentBuildRecord.businessName || currentBuildRecord.title || 'Your project'} is live and fully paid</h4>
+          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-7 text-white/60">{currentBuildRecord.completionNotes || 'This build is fully paid, handed off, and complete.'}</p>
+
+          <div className="mx-auto mt-8 grid max-w-md grid-cols-1 gap-3 border-y border-white/10 py-5 sm:grid-cols-3">
+            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Total paid</p><p className="mt-2 text-lg font-black tracking-tight text-expert-green">{agreementTotalLabel}</p></div>
+            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Completed</p><p className="mt-2 text-lg font-black tracking-tight text-white">{currentBuildRecord.completedAt ? new Date(currentBuildRecord.completedAt).toLocaleDateString() : new Date().toLocaleDateString()}</p></div>
+            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Plan</p><p className="mt-2 truncate text-lg font-black capitalize tracking-tight text-white">{currentBuildPlanLabel}</p></div>
+          </div>
+
+          {currentBuildRecord.launchUrl && (
+            <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-8 inline-flex min-h-12 items-center gap-3 border border-expert-green/35 px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:border-expert-green hover:bg-expert-green/10 hover:text-white">Open live site <ExternalLink className="h-4 w-4 shrink-0" /></a>
+          )}
+        </div>
+
+        <div className="px-5 py-8 sm:px-8 lg:px-10">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Need something else?</p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-white/50">This project is closed, so work continues in a new place depending on what you need.</p>
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <button type="button" onClick={onStartRequest} className="flex items-start justify-between gap-3 border border-ai-blue/25 bg-ai-blue/[0.04] p-5 text-left transition hover:bg-ai-blue/10">
+              <span>
+                <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue">Start a new build</span>
+                <span className="mt-1 block text-xs leading-5 text-white/50">A new feature, a second site, or a bigger project — begin a fresh request.</span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ai-blue" />
+            </button>
+            <button type="button" className="flex items-start justify-between gap-3 border border-white/10 bg-white/[0.02] p-5 text-left opacity-60 transition">
+              <span>
+                <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/60">Need a quick fix?</span>
+                <span className="mt-1 block text-xs leading-5 text-white/40">Small tweaks to the live site go through support, not a new build.</span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -777,64 +837,149 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
           )}
 
           {selectedBuildChapter.id === 'launch' && (
-            <div className="border-y border-expert-green/25 py-5">
+            <div className="border-y border-expert-green/25 py-6 md:py-8">
               {isProjectRequest(currentBuildRecord) && ['launched', 'handoff', 'completed'].includes(currentBuildStatus) ? (
                 <>
-                  <div className="grid gap-6 xl:grid-cols-[minmax(0,0.86fr)_minmax(16rem,0.34fr)]">
+                  {/* Hero row */}
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3"><span className="inline-flex h-2.5 w-2.5 rounded-full bg-expert-green" /><p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p></div>
                       <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{currentBuildStatus === 'completed' ? 'Your build is complete' : currentBuildStatus === 'handoff' ? 'Confirm handoff' : 'Your build is live'}</h4>
                       <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/60">{currentBuildStatus === 'handoff' ? 'Review the live build and handoff details. Accept delivery if everything is okay, or report what is missing.' : currentBuildRecord.launchNotes || 'The live build and handoff details are ready here.'}</p>
                     </div>
-                    <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                    <div className="border border-white/10 bg-white/[0.02] p-5">
                       <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Delivery state</p>
                       <p className="mt-2 text-lg font-black tracking-tight text-expert-green">{currentBuildStatus === 'completed' ? 'Completed' : currentBuildStatus === 'handoff' ? 'Waiting confirmation' : 'Live'}</p>
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-6 border-y border-white/10 py-5 lg:grid-cols-[minmax(0,0.72fr)_minmax(16rem,0.36fr)] lg:divide-x lg:divide-white/10">
-                    <div className="lg:pr-6">
+                  {/* Delivery details card */}
+                  <div className="mt-6 grid grid-cols-1 divide-y divide-white/10 border border-white/10 bg-white/[0.02] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                    <div className="p-5">
                       <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Live build</p>
                       {currentBuildRecord.launchUrl ? (
-                        <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-12 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white">Open live build <ExternalLink className="h-4 w-4" /></a>
+                        <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white">Open live build <ExternalLink className="h-4 w-4 shrink-0" /></a>
                       ) : <p className="mt-3 text-sm font-semibold text-white/52">Live link pending</p>}
                     </div>
-                    <div className="border-t border-white/10 pt-5 lg:border-t-0 lg:pl-6 lg:pt-0">
+                    <div className="p-5">
                       <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Handoff details</p>
                       <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-white/64">{currentBuildRecord.handoffNotes || 'Access details and final next steps will appear here.'}</p>
                     </div>
                   </div>
 
-                  {currentBuildStatus === 'handoff' && (
-                    <>
-                      <div className="mt-6 grid gap-3 border-y border-white/10 py-4 sm:grid-cols-3">
-                        {[{ label: 'Total', value: agreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: agreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Final balance', value: agreementBalanceLabel, tone: agreementBalanceAmount ? 'text-amber-300' : 'text-expert-green' }].map(item => (
-                          <div key={item.label} className="border-b border-white/10 pb-3 last:border-b-0 sm:border-b-0">
-                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
-                            <p className={`mt-2 text-sm font-black uppercase tracking-[0.1em] ${item.tone}`}>{item.value}</p>
-                          </div>
-                        ))}
+                  <div className="mt-6 flex flex-col gap-6">
+                    {/* Handoff: not yet accepted, no issues -> default summary with buttons */}
+                    {currentBuildStatus === 'handoff' && !currentBuildRecord.completionAcknowledgedAt && !currentBuildRecord.handoffIssuesReportedAt && !handoffChatStarted && (
+                      <div className="border border-white/10 bg-white/[0.02]">
+                        <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                          {[{ label: 'Total', value: agreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: agreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Final balance', value: agreementBalanceLabel, tone: agreementBalanceAmount ? 'text-amber-300' : 'text-expert-green' }].map(item => (
+                            <div key={item.label} className="p-5">
+                              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
+                              <p className={`mt-2 text-sm font-black uppercase tracking-[0.1em] ${item.tone}`}>{item.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-1 border-t border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
+                          <button type="button" onClick={() => handleHandoffResponse(currentBuildRecord, 'complete')} disabled={handoffSubmitting} className="flex items-center justify-between gap-3 px-5 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:opacity-50">
+                            <span className="flex items-center gap-3"><Check className="h-4 w-4 shrink-0" /> Accept handoff</span>{handoffSubmittingAction === 'complete' ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                          </button>
+                          <button type="button" onClick={() => handleOpenHandoffChat(currentBuildRecord)} className="flex items-center justify-between gap-3 border-t border-white/10 px-5 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white sm:border-t-0">
+                            <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4 shrink-0" /> Report handoff issue</span><ChevronRight className="h-4 w-4 shrink-0" />
+                          </button>
+                        </div>
                       </div>
-                      <textarea value={handoffMessage} onChange={(e) => { setHandoffMessage(e.target.value); if (handoffMessageError) setHandoffMessageError(''); }} rows={3} className={`mt-5 w-full resize-none border bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 ${handoffMessageError ? 'border-amber-300/60 focus:border-amber-300' : 'border-white/10 focus:border-expert-green/60'}`} placeholder="Add a note if anything is missing..." />
-                      {handoffMessageError && <p className="mt-2 text-xs font-semibold leading-5 text-amber-300">{handoffMessageError}</p>}
-                      <div className="mt-4 grid border-y border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
-                        <button type="button" onClick={() => handleHandoffResponse(currentBuildRecord, 'complete')} disabled={handoffSubmitting} className="flex items-center justify-between gap-3 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-white/[0.04] hover:text-white disabled:opacity-50">
-                          <span className="flex items-center gap-3"><Check className="h-4 w-4" /> Accept handoff</span>{handoffSubmittingAction === 'complete' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        <button type="button" onClick={() => handleHandoffResponse(currentBuildRecord, 'issue')} disabled={handoffSubmitting} className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-left text-[10px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-white/[0.04] hover:text-white disabled:opacity-50 sm:border-t-0">
-                          <span className="flex items-center gap-3"><MessageSquare className="h-4 w-4" /> Report handoff issue</span>{handoffSubmittingAction === 'issue' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    )}
 
-                  {currentBuildStatus === 'completed' && (
-                    <div className="mt-5 border-y border-white/10 py-4">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Completed</p>
-                      <p className="mt-2 text-sm leading-7 text-white/64">{currentBuildRecord.completionAcknowledgedAt ? `Acknowledged ${new Date(currentBuildRecord.completionAcknowledgedAt).toLocaleDateString()}` : 'Completion recorded.'}</p>
-                      {currentBuildRecord.completionNotes && <p className="mt-3 whitespace-pre-line text-sm leading-7 text-white/58">{currentBuildRecord.completionNotes}</p>}
-                    </div>
-                  )}
+                    {/* Handoff issues reported, or client opened the thread manually -> discussion chat */}
+                    {currentBuildStatus === 'handoff' && (currentBuildRecord.handoffIssuesReportedAt || handoffChatStarted) && (
+                      <div className="border border-ai-blue/20 bg-white/[0.02]">
+                        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 p-5">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Handoff discussion</p>
+                            <p className="mt-1 text-xs leading-5 text-white/44">{currentBuildRecord.completionAcknowledgedAt ? "You've already accepted handoff. Flag anything you spot before or during final payment." : "Tell the team what's missing. You can accept handoff here once it's sorted."}</p>
+                          </div>
+                          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">{handoffChatLoading ? 'Loading' : `${handoffChatMessages.length} message${handoffChatMessages.length === 1 ? '' : 's'}`}</span>
+                        </div>
+                        <div className="max-h-72 space-y-3 overflow-y-auto p-5">
+                          {handoffChatMessages.length ? handoffChatMessages.map(message => {
+                            const isClientMessage = message.senderRole === 'client';
+                            return (
+                              <div key={message.id} className={`flex ${isClientMessage ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[84%] rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${isClientMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
+                                  <p className="whitespace-pre-line">{message.message}</p>
+                                  <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
+                                </div>
+                              </div>
+                            );
+                          }) : <p className="py-6 text-center text-sm font-semibold leading-6 text-white/50">Describe what's missing below to start the conversation.</p>}
+                        </div>
+                        <div className="border-t border-white/10 p-5">
+                          <textarea value={handoffChatDraft} onChange={(e) => setHandoffChatDraft(e.target.value)} rows={2} className="w-full resize-none bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24" placeholder="Describe the handoff issue..." />
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <button type="button" onClick={() => handleSendClientHandoffChat(currentBuildRecord.id)} disabled={handoffChatSending || !handoffChatDraft.trim()} className="inline-flex min-h-10 items-center gap-2 border border-ai-blue/30 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
+                              {handoffChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5 shrink-0" />
+                            </button>
+                            {(currentBuildRecord.completionAcknowledgedAt || handoffChatMessages.some(m => m.senderRole === 'admin')) && (
+                              <button type="button" onClick={() => handleHandoffResponse(currentBuildRecord, 'complete')} disabled={handoffSubmitting} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 border border-expert-green/30 px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:opacity-40 sm:flex-none">
+                                {handoffSubmittingAction === 'complete' ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Check className="h-3.5 w-3.5 shrink-0" />} {currentBuildRecord.completionAcknowledgedAt ? 'Mark resolved' : 'Accept handoff'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Handoff accepted, build not yet fully completed -> modernized closeout / final payment */}
+                    {currentBuildStatus === 'handoff' && currentBuildRecord.completionAcknowledgedAt && !currentBuildRecord.handoffIssuesReportedAt && !handoffChatStarted && (
+                      <div className="border border-expert-green/20 bg-white/[0.02] p-5 sm:p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-3"><Check className="h-4 w-4 shrink-0 text-expert-green" /><p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Handoff accepted</p></div>
+                          <button type="button" onClick={() => handleOpenHandoffChat(currentBuildRecord)} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/40 transition hover:text-ai-blue">
+                            <MessageSquare className="h-3.5 w-3.5 shrink-0" /> Something not right?
+                          </button>
+                        </div>
+                        <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">Finish activating your project</h4>
+                        <p className="mt-2 max-w-2xl text-sm font-semibold leading-7 text-white/60">Pay the remaining balance to fully finalize and activate the project.</p>
+
+                        <div className="mt-6 grid grid-cols-1 gap-4 border-y border-white/10 py-5 sm:grid-cols-3">
+                          {[{ label: 'Total', value: agreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: agreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Final balance', value: agreementBalanceLabel, tone: agreementBalanceAmount ? 'text-amber-300' : 'text-expert-green' }].map(item => (
+                            <div key={item.label} className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p><p className={`mt-2 text-lg font-black tracking-tight ${item.tone}`}>{item.value}</p></div>
+                          ))}
+                        </div>
+
+                        {(agreementBalanceAmount <= 0 || currentBuildRecord.finalPaymentConfirmedAt) ? (
+                          <div className="mt-6">
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {[
+                                { label: 'Delivered', done: true },
+                                { label: 'Accepted', done: true },
+                                { label: 'Paid', done: true },
+                                { label: 'Closed', done: false },
+                              ].map(step => (
+                                <div key={step.label} className="min-w-0">
+                                  <div className={`h-1 w-full ${step.done ? 'bg-expert-green' : 'bg-white/10'}`} />
+                                  <p className={`mt-2 truncate text-[8px] font-black uppercase tracking-[0.1em] ${step.done ? 'text-expert-green' : 'text-white/30'}`}>{step.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-5 border border-expert-green/25 bg-expert-green/[0.04] p-4 sm:p-5">
+                              <div className="flex items-center gap-2 text-expert-green"><Check className="h-4 w-4 shrink-0" /><p className="text-[10px] font-black uppercase tracking-[0.14em]">Payment confirmed</p></div>
+                              <p className="mt-2 text-sm font-semibold leading-6 text-white/64">Our team is doing one last check before marking this fully complete — you'll be notified the moment it's official.</p>
+                              {currentBuildRecord.launchUrl && (
+                                <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white">Open live build <ExternalLink className="h-3.5 w-3.5 shrink-0" /></a>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => handleFinalBalancePayment(currentBuildRecord, activeAgreementPaymentMethod, agreementBalanceAmount)} disabled={finalPaymentSubmitting} className="mt-5 flex min-h-12 w-full items-center justify-between gap-3 border border-expert-green/35 px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:border-expert-green hover:bg-expert-green/10 hover:text-white disabled:opacity-50 sm:max-w-sm">
+                            <span>{finalPaymentSubmitting ? 'Opening secure checkout' : `Proceed to final payment (${agreementBalanceLabel})`}</span>
+                            {finalPaymentSubmitting ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
                 </>
               ) : (
                 <>
@@ -879,8 +1024,8 @@ function BuildSummaryHeader({ averageProgress, projects, onStartRequest }: { ave
           <div className="mt-7 grid gap-px bg-white/10 sm:grid-cols-3">
             {[
               { label: 'Records', value: projects.length, detail: `${averageProgress}% avg progress` },
-              { label: 'Active', value: projects.filter(p => ['active', 'in_development', 'staging_review'].includes(normalizeBuildStatus(p.status))).length, detail: 'In production' },
-              { label: 'Waiting', value: projects.filter(p => ['quote_ready', 'payment_agreement', 'handoff'].includes(normalizeBuildStatus(p.status))).length, detail: 'Needs action' },
+              { label: 'Active', value: projects.filter(p => ['in_development', 'staging_review', 'launched', 'handoff'].includes(normalizeBuildStatus(p.status))).length, detail: 'In production' },
+              { label: 'Waiting', value: projects.filter(p => ['submitted', 'in_review', 'quote_ready', 'approved', 'payment_agreement'].includes(normalizeBuildStatus(p.status))).length, detail: 'Needs action' },
             ].map(metric => (
               <div key={metric.label} className="bg-[#05070a] px-4 py-4">
                 <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{metric.label}</p>

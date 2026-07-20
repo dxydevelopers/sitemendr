@@ -55,6 +55,10 @@ exports.processSuccessfulPayment = async (paymentId) => {
     else if (serviceType === 'build_agreement') {
       await handleBuildAgreementPayment(payment);
     }
+    // 5. Handle Build final balance payment
+    else if (serviceType === 'build_final_balance') {
+      await handleBuildFinalBalancePayment(payment);
+    }
 
     logger.info('Payment processing completed successfully', { paymentId, serviceType });
   } catch (error) {
@@ -256,8 +260,58 @@ async function handleBuildAgreementPayment(payment) {
 }
 
 /**
- * Trigger AI Template generation based on assessment
+ * Handle final balance payment for a build request
  */
+async function handleBuildFinalBalancePayment(payment) {
+  const projectRequestId = payment.metadata?.projectRequestId;
+
+  if (!projectRequestId) {
+    logger.warn('Build final balance payment missing projectRequestId metadata', { paymentId: payment.id });
+    return;
+  }
+
+  const request = await prisma.projectRequest.findFirst({
+    where: {
+      id: projectRequestId,
+      userId: payment.userId,
+      serviceType: 'build'
+    }
+  });
+
+  if (!request) {
+    logger.warn('Build final balance payment project request not found', {
+      paymentId: payment.id,
+      projectRequestId
+    });
+    return;
+  }
+
+  const noteParts = [
+    request.clientNotes,
+    `Final balance payment received through Paystack.\nReference: ${payment.reference}`
+  ].filter(Boolean);
+
+  await prisma.projectRequest.update({
+    where: { id: request.id },
+    data: {
+      finalPaymentConfirmedAt: new Date(),
+      status: 'completed',
+      completedAt: new Date(),
+      clientNotes: noteParts.join('\n\n')
+    }
+  });
+
+  await prisma.buildMilestone.updateMany({
+    where: { projectRequestId: request.id },
+    data: { status: 'completed', progress: 100 }
+  });
+
+  logger.info('Build final balance payment confirmed', {
+    paymentId: payment.id,
+    projectRequestId: request.id,
+    reference: payment.reference
+  });
+}
 async function triggerAITemplateGeneration(subscription, payment) {
   try {
     const { metadata, userId } = payment;

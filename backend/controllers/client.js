@@ -15,6 +15,8 @@ const groq = new Groq({
 
 const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
 
+const handoffChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
+
 const sanitizeReviewChatChoices = (choices) => {
   if (!Array.isArray(choices)) return null;
   const cleaned = choices
@@ -92,6 +94,8 @@ const mapProjectRequestForClient = (request) => {
     handoffNotes: request.handoffNotes,
     completionNotes: request.completionNotes,
     completionAcknowledgedAt: request.completionAcknowledgedAt,
+    handoffIssuesReportedAt: request.handoffIssuesReportedAt,
+    finalPaymentConfirmedAt: request.finalPaymentConfirmedAt,
     completedAt: request.completedAt,
     buildMilestones: request.buildMilestones,
     studioLinks: request.studioLinks,
@@ -436,13 +440,17 @@ exports.respondToHandoff = async (req, res) => {
       `${label}${message ? `\nClient message: ${message}` : ''}`
     ].filter(Boolean);
 
+    const remainingBalance = Math.max((request.totalAgreedAmount || request.quotedAmount || 0) - (request.depositAmount || 0), 0);
+    const hasFinalBalance = remainingBalance > 0;
+
     const updated = await prisma.projectRequest.update({
       where: { id: request.id },
       data: {
-        status: action === 'complete' ? 'completed' : 'handoff',
+        status: action === 'complete' ? (hasFinalBalance ? 'handoff' : 'completed') : 'handoff',
         completionAcknowledgedAt: action === 'complete' ? new Date() : request.completionAcknowledgedAt,
-        completedAt: action === 'complete' ? new Date() : request.completedAt,
+        completedAt: action === 'complete' && !hasFinalBalance ? new Date() : request.completedAt,
         completionNotes: action === 'complete' ? (message || request.completionNotes) : request.completionNotes,
+        handoffIssuesReportedAt: action === 'issue' ? new Date() : null,
         clientNotes: noteParts.join('\n\n')
       }
     });
@@ -734,6 +742,100 @@ exports.createReviewChatMessage = async (req, res) => {
   } catch (error) {
     logger.error('CREATE_CLIENT_REVIEW_CHAT_MESSAGE_ERROR:', error);
     res.status(500).json({ success: false, message: 'Failed to send review message' });
+  }
+};
+
+exports.getHandoffChatMessages = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      },
+      select: { id: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const messages = await prisma.$queryRawUnsafe(
+      `SELECT ${handoffChatSelect}
+       FROM "HandoffChatMessage"
+       WHERE "projectRequestId" = $1
+       ORDER BY "createdAt" ASC`,
+      requestId
+    );
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "HandoffChatMessage"
+       SET "readByClient" = true
+       WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`,
+      requestId
+    );
+
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_CLIENT_HANDOFF_CHAT_MESSAGES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load handoff chat' });
+  }
+};
+
+exports.createHandoffChatMessage = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { message = '', attachments = null } = req.body || {};
+    const cleanedMessage = String(message || '').trim();
+
+    if (!cleanedMessage && !attachments) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+        serviceType: 'build'
+      },
+      select: { id: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Build request not found' });
+    }
+
+    const newMessageId = require('crypto').randomUUID();
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "HandoffChatMessage"
+       ("id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
+       VALUES ($1,$2,$3,'client',$4,'message',NULL,NULL,$5::jsonb,false,true)
+       RETURNING ${handoffChatSelect}`,
+      newMessageId,
+      requestId,
+      userId,
+      cleanedMessage,
+      JSON.stringify(attachments || null)
+    );
+
+    const chatMessage = rows[0];
+
+    await prisma.projectRequest.update({
+      where: { id: requestId },
+      data: { handoffIssuesReportedAt: new Date() }
+    });
+
+    notifyAdmins('handoff_chat_message', { requestId, message: chatMessage });
+
+    res.json({ success: true, data: chatMessage, message: 'Handoff message sent' });
+  } catch (error) {
+    logger.error('CREATE_CLIENT_HANDOFF_CHAT_MESSAGE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send handoff message' });
   }
 };
 

@@ -300,6 +300,8 @@ model ProjectRequest {
   handoffNotes           String?
   completionNotes        String?
   completionAcknowledgedAt DateTime?
+  finalPaymentConfirmedAt  DateTime?
+  handoffIssuesReportedAt   DateTime?
   adminNotes      String?
   clientNotes     String?
   buildMilestones BuildMilestone[]
@@ -308,6 +310,7 @@ model ProjectRequest {
   studioBlockers  StudioBlocker[]
   studioUpdates   StudioUpdate[]
   reviewMessages  ReviewChatMessage[]
+  handoffMessages HandoffChatMessage[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   reviewedAt      DateTime?
@@ -320,6 +323,25 @@ model ProjectRequest {
 }
 
 model ReviewChatMessage {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  senderId         String?
+  senderRole       String         @default("client") // client, admin, system
+  message          String
+  kind             String         @default("message") // message, question, choice_response, file
+  choices          Json?
+  selectedChoice   String?
+  attachments      Json?
+  readByAdmin      Boolean        @default(false)
+  readByClient     Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  @@index([projectRequestId, createdAt])
+  @@index([projectRequestId, senderRole, readByAdmin, readByClient])
+}
+
+model HandoffChatMessage {
   id               String         @id @default(uuid())
   projectRequestId String
   projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)

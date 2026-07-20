@@ -652,6 +652,17 @@ class ApiClient {
     });
   }
 
+  async getClientHandoffChat(requestId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/client/project-requests/${requestId}/handoff-chat`);
+  }
+
+  async sendClientHandoffChat(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message?: string }>(`/client/project-requests/${requestId}/handoff-chat`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ============================================
   // PAGE EDITOR API
   // ============================================
@@ -1237,6 +1248,17 @@ class ApiClient {
 
   async sendAdminReviewChat(requestId: string, data: Record<string, unknown>) {
     return this.request<{ success: boolean; data: unknown; message?: string }>(`/admin/project-requests/${requestId}/review-chat`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminHandoffChat(requestId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/admin/project-requests/${requestId}/handoff-chat`);
+  }
+
+  async sendAdminHandoffChat(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message?: string }>(`/admin/project-requests/${requestId}/handoff-chat`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

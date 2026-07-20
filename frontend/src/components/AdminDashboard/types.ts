@@ -196,6 +196,8 @@ export interface ProjectRequest {
   handoffNotes?: string;
   completionNotes?: string;
   completionAcknowledgedAt?: string;
+  handoffIssuesReportedAt?: string;
+  finalPaymentConfirmedAt?: string;
   completedAt?: string;
   buildMilestones?: BuildMilestone[];
   studioTasks?: StudioTask[];

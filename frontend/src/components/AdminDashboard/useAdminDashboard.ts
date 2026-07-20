@@ -35,6 +35,11 @@ export function useAdminDashboard(initialTab?: string) {
   const [studioUpdateDraft, setStudioUpdateDraft] = useState('');
   const [studioLinkDraft, setStudioLinkDraft] = useState({ type: 'design', label: '', url: '' });
   const [reviewChatOpen, setReviewChatOpen] = useState(false);
+  const [handoffChatMessages, setHandoffChatMessages] = useState<ReviewChatMessage[]>([]);
+  const [handoffChatDraft, setHandoffChatDraft] = useState('');
+  const [handoffChatLoading, setHandoffChatLoading] = useState(false);
+  const [handoffChatSending, setHandoffChatSending] = useState(false);
+  const [handoffChatLoadedRequestId, setHandoffChatLoadedRequestId] = useState<string | null>(null);
   const [reviewChatMessages, setReviewChatMessages] = useState<ReviewChatMessage[]>([]);
   const [reviewChatDraft, setReviewChatDraft] = useState('');
   const [reviewChatChoiceDraft, setReviewChatChoiceDraft] = useState('');
@@ -151,6 +156,11 @@ export function useAdminDashboard(initialTab?: string) {
     socketRef.current.on('review_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
       if (!data?.message || data.requestId !== selectedProjectRequestIdRef.current) return;
       setReviewChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
+    });
+
+    socketRef.current.on('handoff_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
+      if (!data?.message || data.requestId !== selectedProjectRequestIdRef.current) return;
+      setHandoffChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
     });
 
     return () => { socketRef.current?.disconnect(); };
@@ -376,6 +386,49 @@ export function useAdminDashboard(initialTab?: string) {
     } finally { setReviewChatSending(false); }
   };
 
+  // --- Handoff chat: shown inline in the Launch stage whenever a request is
+  // in 'handoff' and not yet accepted by the client. Replaces the old
+  // regex-parsed "client reported a handoff issue" note.
+  const fetchAdminHandoffChat = useCallback(async (requestId: string) => {
+    setHandoffChatLoading(true);
+    try {
+      const res = await apiClient.getAdminHandoffChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
+      if (res.success) {
+        setHandoffChatMessages(res.data || []);
+        setHandoffChatLoadedRequestId(requestId);
+      }
+    } catch (error) {
+      console.error('Failed to load handoff chat:', error);
+    } finally { setHandoffChatLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    setHandoffChatMessages([]);
+    setHandoffChatDraft('');
+    setHandoffChatLoadedRequestId(null);
+  }, [selectedProjectRequestId]);
+
+  const handleSendAdminHandoffChat = async (requestId: string) => {
+    if (!requestId || handoffChatSending) return;
+    const message = handoffChatDraft.trim();
+    if (!message) return;
+    setHandoffChatSending(true);
+    try {
+      const res = await apiClient.sendAdminHandoffChat(requestId, { message }) as { success: boolean; data?: ReviewChatMessage; message?: string };
+      if (res.success && res.data) {
+        setHandoffChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setHandoffChatDraft('');
+      }
+    } catch (error) {
+      console.error('Failed to send handoff chat message:', error);
+    } finally { setHandoffChatSending(false); }
+  };
+
+  const handleMarkFinalPaymentReceived = (requestId: string) => {
+    if (!confirm('Confirm the final balance has been received for this build?')) return;
+    handleUpdateProjectRequest(requestId, { finalPaymentConfirmedAt: new Date().toISOString() });
+  };
+
   const applyStudioProjectResponse = (requestId: string, response: { success?: boolean; data?: ProjectRequest; message?: string }) => {
     if (!response.success || !response.data) throw new Error(response.message || 'Studio update failed.');
     replaceProjectRequestLocal(requestId, response.data);
@@ -528,6 +581,8 @@ export function useAdminDashboard(initialTab?: string) {
     studioUpdateDraft, setStudioUpdateDraft, studioLinkDraft, setStudioLinkDraft,
     reviewChatOpen, setReviewChatOpen, reviewChatMessages, reviewChatDraft, setReviewChatDraft,
     reviewChatChoiceDraft, setReviewChatChoiceDraft, reviewChatLoading, reviewChatSending, handleSendAdminReviewChat,
+    handoffChatMessages, handoffChatDraft, setHandoffChatDraft, handoffChatLoading, handoffChatSending,
+    handoffChatLoadedRequestId, fetchAdminHandoffChat, handleSendAdminHandoffChat, handleMarkFinalPaymentReceived,
     agreementDraft, setAgreementDraft,
     stats, leads, users, subscriptions, assessments, projectRequests, setProjectRequests,
     selectedProjectRequestId, setSelectedProjectRequestId, activeAdminBuildChapter, setActiveAdminBuildChapter,

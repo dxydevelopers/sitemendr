@@ -85,7 +85,9 @@ export interface ClientProject {
   handoffNotes?: string;
   completionNotes?: string;
   completionAcknowledgedAt?: string;
+  handoffIssuesReportedAt?: string;
   completedAt?: string;
+  finalPaymentConfirmedAt?: string;
   buildMilestones?: BuildMilestone[];
   studioLinks?: StudioLink[];
   studioUpdates?: StudioUpdate[];

@@ -229,6 +229,21 @@ exports.initializePayment = async (req, res) => {
       });
     }
 
+    if (serviceType === 'build_final_balance' && finalMetadata.projectRequestId) {
+      await prisma.payment.updateMany({
+        where: {
+          userId,
+          serviceType: 'build_final_balance',
+          status: 'pending',
+          metadata: {
+            path: ['projectRequestId'],
+            equals: finalMetadata.projectRequestId
+          }
+        },
+        data: { status: 'superseded' }
+      });
+    }
+
     // Create payment record
     const payment = await prisma.payment.create({
       data: {
