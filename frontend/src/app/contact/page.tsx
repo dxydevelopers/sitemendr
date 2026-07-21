@@ -54,6 +54,21 @@ const directContacts = [
     tone: 'text-expert-green',
   },
   {
+    label: 'Phone',
+    value: '+254 140 122 685',
+    href: 'tel:+254140122685',
+    icon: 'Phone',
+    tone: 'text-expert-yellow',
+  },
+
+    {
+    label: 'WhatsApp',
+    value: '+254 790 057 596',
+    href: 'https://wa.me/254790057596',
+    icon: MessageSquare,
+    tone: 'text-amber-300',
+  },
+  {
     label: 'WhatsApp',
     value: '+254 140 122 685',
     href: 'https://wa.me/254140122685',
