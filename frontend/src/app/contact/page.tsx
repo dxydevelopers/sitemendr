@@ -10,6 +10,7 @@ import {
   Mail,
   MapPin,
   MessageSquare,
+  MessagesSquare,
   Phone,
   Send,
   ShieldCheck,
@@ -40,8 +41,8 @@ const contactRoutes = [
 const directContacts = [
   {
     label: 'Email',
-    value: 'support@sitemendr.com',
-    href: 'mailto:support@sitemendr.com',
+    value: 'dxydevelopers@gmail.com',
+    href: 'mailto:dxydevelopers@gmail.com',
     icon: Mail,
     tone: 'text-ai-blue',
   },
@@ -54,10 +55,11 @@ const directContacts = [
   },
   {
     label: 'WhatsApp',
-    value: '+254 790 057 596',
-    href: 'https://wa.me/254790057596',
-    icon: MessageSquare,
+    value: '+254 140 122 685',
+    href: 'https://wa.me/254140122685',
+    icon: MessagesSquare,
     tone: 'text-amber-300',
+
   },
   {
     label: 'Operating center',
