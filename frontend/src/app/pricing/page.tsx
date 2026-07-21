@@ -44,13 +44,13 @@ const pricingPaths = [
 const buildFixedTiers = [
   {
     name: 'Starter',
-    price: '$39.99',
+    price: '$299',
     tagline: 'A basic site, done right, nothing extra to decide.',
     includes: ['Up to 5 pages', 'Contact and lead forms', 'Mobile-first build', 'Launch on a Sitemendr subdomain'],
   },
   {
     name: 'Core',
-    price: '$98.90',
+    price: '$699',
     tagline: 'More structure, more room to grow into.',
     includes: ['Up to 12 pages', 'Custom domain setup', 'Blog or resource section', 'Priority build queue'],
   },
@@ -73,9 +73,9 @@ const repairFlow = [
 ];
 
 const careTiers = [
-  { id: 'essential', name: 'Essential care', price: 'From $50', reason: 'You want the lights to stay on and nothing more.' },
-  { id: 'operational', name: 'Operational care', price: 'From $140', reason: 'Your site is active and you want a hand keeping up with it.' },
-  { id: 'managed', name: 'Managed care', price: 'From $200', reason: 'Your business runs through this site and it needs real supervision.' },
+  { id: 'essential', name: 'Essential care', price: 'From $49', reason: 'You want the lights to stay on and nothing more.' },
+  { id: 'operational', name: 'Operational care', price: 'From $149', reason: 'Your site is active and you want a hand keeping up with it.' },
+  { id: 'managed', name: 'Managed care', price: 'From $299', reason: 'Your business runs through this site and it needs real supervision.' },
 ];
 
 const careFeatures = [
