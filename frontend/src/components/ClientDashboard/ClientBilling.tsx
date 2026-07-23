@@ -21,7 +21,7 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
     <div className="animate-fade-in">
       <BillingViewer
         billing={billing}
-        subscriptions={projects}
+        buildContracts={projects}
         onManageSubscription={() => { window.location.href = '/payment'; }}
         onDownloadReceipt={() => alert('Receipt download coming soon. Contact billing@sitemendr.com for invoices.')}
         onUpdatePaymentMethod={() => { window.location.href = '/payment'; }}

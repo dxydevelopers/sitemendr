@@ -14,7 +14,7 @@ import {
 import { apiClient } from '@/lib/api';
 import { useAdminDashboard } from './useAdminDashboard';
 import { adminTabs, adminTabGroups } from './utils';
-import type { AdminDashboardProps, SiteVitals } from './types';
+import type { AdminDashboardProps, SiteVitals } from './AdminDashboard_types';
 import AdminOverview from './AdminOverview';
 import AdminBuildPipeline from './AdminBuildPipeline';
 import AdminClients from './AdminClients';

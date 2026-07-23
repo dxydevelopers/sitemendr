@@ -46,7 +46,7 @@ export default function AdminBilling({
   }
 
   if (view === 'subscriptions') {
-    const filtered = subscriptions.filter(sub => (filterStatus === 'ALL' || sub.planType === filterStatus)
+    const filtered = subscriptions.filter(sub => (filterStatus === 'ALL' || sub.tier === filterStatus)
       && ((sub.customName || sub.siteName || '').toLowerCase().includes(searchTerm.toLowerCase()) || (sub.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (sub.id || '').toLowerCase().includes(searchTerm.toLowerCase())));
     return (
       <div className="space-y-6 animate-fade-in">
@@ -68,7 +68,7 @@ export default function AdminBilling({
               <div className="flex-1 min-w-[280px]">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em]">ID {(sub.id || '').slice(0, 8)}</span>
-                  <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${sub.status === 'ACTIVE' ? 'bg-expert-green/20 text-expert-green' : 'bg-red-500/20 text-red-500'}`}>{sub.status}</span>
+                  <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${sub.status === 'active' ? 'bg-expert-green/20 text-expert-green' : 'bg-red-500/20 text-red-500'}`}>{sub.status}</span>
                 </div>
                 <h3 className="text-xl font-black uppercase tracking-tight mb-2">
                   {sub.customName || sub.siteName}
@@ -78,6 +78,8 @@ export default function AdminBilling({
                   <div className="flex items-center gap-2"><span className="text-[8px] text-medium-gray font-black uppercase tracking-widest">Client:</span><span className="text-[9px] font-black uppercase">{sub.user?.name || 'GUEST'}</span></div>
                   <div className="w-[1px] h-3 bg-white/5"></div>
                   <div className="flex items-center gap-2"><span className="text-[8px] text-medium-gray font-black uppercase tracking-widest">Plan:</span><span className="text-[9px] font-black text-ai-blue uppercase">{sub.planType}</span></div>
+                  <div className="w-[1px] h-3 bg-white/5"></div>
+                  <div className="flex items-center gap-2"><span className="text-[8px] text-medium-gray font-black uppercase tracking-widest">Tier:</span><span className="text-[9px] font-black text-tech-purple uppercase">{sub.tier?.replace(/_/g, ' ')}</span></div>
                 </div>
                 {sub.purchasedAddons && sub.purchasedAddons.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -91,7 +93,7 @@ export default function AdminBilling({
                 <div className="text-right"><p className="text-[7px] font-black text-medium-gray uppercase tracking-widest mb-1">Billing_State</p><p className={`text-[10px] font-black uppercase ${sub.paymentStatus === 'PAID' ? 'text-expert-green' : 'text-orange-500'}`}>{sub.paymentStatus}</p></div>
                 <div className="flex gap-3">
                   <button onClick={() => onTriggerAIGeneration(sub.id)} disabled={isSystemWorking} className="px-6 py-3 bg-ai-blue text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-ai-blue/20 disabled:opacity-50">{isSystemWorking ? 'PROCESSING...' : 'INITIALIZE_AI'}</button>
-                  <button onClick={() => onSuspendSubscription(sub.id, sub.status)} className={`px-6 py-3 border text-[9px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all ${sub.status === 'SUSPENDED' ? 'bg-expert-green/20 border-expert-green text-expert-green' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>{sub.status === 'SUSPENDED' ? 'UNSUSPEND' : 'SUSPEND'}</button>
+                  <button onClick={() => onSuspendSubscription(sub.id, sub.status)} className={`px-6 py-3 border text-[9px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all ${sub.status === 'suspended' ? 'bg-expert-green/20 border-expert-green text-expert-green' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>{sub.status === 'suspended' ? 'UNSUSPEND' : 'SUSPEND'}</button>
                   <button onClick={() => onDeleteSubscription(sub.id)} className="p-3 bg-white/5 border border-white/10 text-white hover:bg-red-500/20 hover:border-red-500/50 rounded-xl transition-all" title="DELETE NODE"><Trash2 className="w-4 h-4" /></button>
                   <button onClick={() => setSelectedSubscriptionForEditor(sub.id)} className="px-6 py-3 border border-white/10 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-white/5 transition-all flex items-center gap-2"><Layout className="w-3 h-3" />REFINE</button>
                 </div>

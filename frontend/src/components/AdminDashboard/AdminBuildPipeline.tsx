@@ -18,7 +18,7 @@ import {
   Activity, Clock, CreditCard, MessageSquare, Check, ExternalLink, Send,
   CircleDollarSign, Layout, Folder, Eye, Sparkles, X,
 } from 'lucide-react';
-import type { ProjectRequest, StudioTask, StudioBlocker } from './types';
+import type { ProjectRequest, StudioTask, StudioBlocker } from './AdminDashboard_types';
 import {
   adminBuildChapters, closedBuildStatuses, buildOperatorViews, briefMissingOptions,
   getAdminBuildChapter, getAdminBuildProgress, getAdminNextAction, getAdminBuildState,
@@ -316,7 +316,9 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   const selectedAgreementCurrency = selectedProjectRequest.quoteCurrency || selectedProjectRequest.user?.defaultCurrency || 'USD';
   const selectedAgreementTotal = Number(agreementDraft.totalAgreedAmount || selectedProjectRequest.totalAgreedAmount || selectedProjectRequest.quotedAmount || 0);
   const selectedAgreementDueNow = Number(agreementDraft.depositAmount || selectedProjectRequest.depositAmount || selectedAgreementTotal || 0);
-  const selectedAgreementBalance = Math.max((selectedAgreementTotal || 0) - (selectedAgreementDueNow || 0), 0);
+  const selectedAgreementBalance = (selectedProjectRequest.finalPaymentConfirmedAt || selectedProjectRequest.status === 'completed')
+    ? 0
+    : Math.max((selectedAgreementTotal || 0) - (selectedAgreementDueNow || 0), 0);
   const selectedAgreementDueNowLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementDueNow);
   const selectedAgreementTotalLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementTotal);
   const selectedAgreementBalanceLabel = selectedAgreementBalance ? formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementBalance) : 'No balance';

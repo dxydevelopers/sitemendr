@@ -1,469 +1,666 @@
 const { prisma } = require('../config/db');
-const logger = require('../config/logger');
-const { generateTemplateAI } = require('../controllers/assessment');
+const axios = require('axios');
+const crypto = require('crypto');
 const { sendEmail } = require('../config/email');
-const { deployTemplate } = require('./deploymentService');
-const supporterService = require('./supporterService');
+const { processSuccessfulPayment } = require('../services/paymentService');
+const logger = require('../config/logger');
 
-/**
- * Process a successful payment and trigger necessary provisioning
- */
-exports.processSuccessfulPayment = async (paymentId) => {
+// Paystack configuration
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY;
+const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET;
+const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+// Helper to send welcome email to guest users
+const sendGuestWelcomeEmail = async (email, token, tempPassword) => {
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}&setup=true`;
+
+  logger.info('Attempting to send guest welcome email', { email });
   try {
-    const payment = await prisma.payment.findUnique({
-      where: { id: paymentId },
-      include: { user: true }
+    const emailInfo = await sendEmail({
+      to: email,
+      subject: 'Welcome to Sitemendr - Your Account is Ready',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="color: #0066FF; margin: 0;">Sitemendr AI</h1>
+          </div>
+          <h2 style="color: #333;">Welcome to Sitemendr!</h2>
+          <p>Thank you for your payment. We've created a secure account for you to access your dashboard and track your project.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 25px 0; border: 1px solid #e9ecef;">
+            <h3 style="margin-top: 0; font-size: 16px; color: #333;">Login Credentials</h3>
+            <p style="margin: 8px 0; font-family: monospace;"><strong>Email:</strong> ${email}</p>
+            ${tempPassword ? `<p style="margin: 8px 0; font-family: monospace;"><strong>Temporary Password:</strong> ${tempPassword}</p>` : ''}
+          </div>
+
+          <p>You can use the credentials above to log in, or click the button below to set a custom password immediately:</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background: #0066FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Set Your Password</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #666;">This setup link will expire in 24 hours.</p>
+          <p>Best regards,<br>The Sitemendr Team</p>
+        </div>
+      `,
     });
-
-    if (!payment || payment.status !== 'completed') {
-      logger.error('Payment not found or not completed in processSuccessfulPayment', { paymentId });
-      return;
-    }
-
-    const { userId, serviceType, metadata } = payment;
-
-    // 1. Handle Subscription (Setup, Renewal or Reactivation)
-    if (serviceType === 'subscription' || serviceType === 'setup' || serviceType === 'subscription_reactivation') {
-      await handleSubscriptionActivation(payment);
-      
-      // Update user role to client if they were a basic user
-      if (payment.user && payment.user.role === 'user') {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { role: 'client' }
-        });
-        logger.info('Updated user role to client', { userId });
-      }
-    } 
-    // 2. Handle Add-ons
-    else if (serviceType === 'addon') {
-      await handleAddonProvisioning(payment);
-    }
-    // 3. Handle Supporter Subscriptions
-    else if (serviceType === 'supporter' || serviceType === 'supporter_subscription') {
-      await supporterService.handleSupporterActivation(payment);
-      
-      // Update user role to client if they were a basic user
-      if (payment.user && payment.user.role === 'user') {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { role: 'client' }
-        });
-      }
-    }
-    // 4. Handle Build agreement deposit/payment
-    else if (serviceType === 'build_agreement') {
-      await handleBuildAgreementPayment(payment);
-    }
-    // 5. Handle Build final balance payment
-    else if (serviceType === 'build_final_balance') {
-      await handleBuildFinalBalancePayment(payment);
-    }
-
-    logger.info('Payment processing completed successfully', { paymentId, serviceType });
+    logger.info('Guest welcome email sent successfully', { messageId: emailInfo.messageId, to: email });
   } catch (error) {
-    logger.error('Error in processSuccessfulPayment', { 
-      paymentId, 
-      error: error.message,
-      stack: error.stack
+    logger.error('Failed to send guest welcome email', {
+      errorCode: 'GUEST_WELCOME_EMAIL_ERROR',
+      email,
+      error: error.message
     });
   }
 };
 
-/**
- * Handle subscription activation, extension, and AI template generation
- */
-async function handleSubscriptionActivation(payment) {
-  const { userId, metadata } = payment;
-  const now = new Date();
+// Verify webhook signature
+const verifyWebhookSignature = (req) => {
+  const secret = PAYSTACK_SECRET_KEY;
+  const signature = req.headers['x-paystack-signature'];
+  
+  if (!signature) return false;
+  if (!secret) return false;
 
-  // Find existing subscription or create a new one
-  let subscription = await prisma.subscription.findFirst({
-    where: { 
-      userId,
-      status: { not: 'cancelled' }
-    },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      expiresAt: true,
-      tier: true,
-      status: true,
-      siteName: true,
-      template: { select: { id: true } }
-    }
-  });
+  // Use rawBody if available (set in server.js), otherwise fallback to stringified body
+  const body = req.rawBody || JSON.stringify(req.body);
+  
+  const hash = crypto
+    .createHmac('sha512', secret)
+    .update(body)
+    .digest('hex');
+    
+  return hash === signature;
+};
 
-  const tier = metadata?.tier || 'ai_foundation';
-  const planType = metadata?.planType || 'monthly';
-  const siteName = metadata?.siteName || payment.description;
+// Initialize payment
+exports.initializePayment = async (req, res) => {
+  try {
+    const { amount, serviceType, description, metadata } = req.body;
+    let email = req.body.email?.toLowerCase();
+    let authenticatedUser = null;
 
-  if (subscription) {
-    // Extend or Reactivate
-    let newExpiryDate;
-    if (subscription.expiresAt && subscription.expiresAt > now) {
-      newExpiryDate = new Date(subscription.expiresAt);
-    } else {
-      newExpiryDate = new Date(now);
+    // If authenticated, fallback to the user email when not provided
+    if (req.user?.userId) {
+      authenticatedUser = await prisma.user.findUnique({
+        where: { id: req.user.userId }
+      });
+      if (!email) email = authenticatedUser?.email?.toLowerCase();
     }
 
-    if (tier === 'self_hosted') {
-      newExpiryDate = null; // No expiry for self-hosted
-    } else if (planType === 'monthly') {
-      newExpiryDate.setMonth(newExpiryDate.getMonth() + 1);
-    } else {
-      newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1);
+    // DEBUG LOG
+    if (!email) {
+      logger.warn('EMAIL_MISSING_FOR_PAYMENT', { 
+        serviceType, 
+        hasUser: !!req.user, 
+        userId: req.user?.userId,
+        body: req.body 
+      });
     }
 
-    subscription = await prisma.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        status: 'active',
-        expiresAt: newExpiryDate,
-        lastPaymentDate: now,
-        totalPaid: { increment: payment.amount / 100 },
-        suspendedAt: null,
-        reactivationAttempts: 0
-      },
-      select: {
-        id: true,
-        expiresAt: true,
-        status: true,
-        siteName: true,
-        template: { select: { id: true } }
+    let finalAmount = amount;
+    let finalDescription = description;
+
+    // Handle Supporter Tier Initialization (Backend determines amount)
+    if (serviceType === 'supporter' && metadata?.tierId) {
+      if (!prisma.supporterTier) {
+        logger.error('PRISMA_MODEL_MISSING', { model: 'supporterTier' });
+        return res.status(500).json({
+          success: false,
+          message: 'Supporter features are not initialized in the database client. Please run "npx prisma generate" on the server.'
+        });
       }
-    });
-  } else {
-    // Create new subscription
-    let expiryDate = new Date(now);
-    if (tier === 'self_hosted') {
-      expiryDate = null;
-    } else if (planType === 'monthly') {
-      expiryDate.setMonth(expiryDate.getMonth() + 1);
-    } else {
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+
+      const tier = await prisma.supporterTier.findUnique({
+        where: { id: metadata.tierId }
+      });
+      
+      if (!tier) {
+        return res.status(404).json({
+          success: false,
+          message: 'Supporter tier not found'
+        });
+      }
+      
+      finalAmount = tier.monthlyPrice;
+      finalDescription = `Sitemendr Supporter: ${tier.name}`;
     }
 
-    subscription = await prisma.subscription.create({
+    const missing = [];
+    if (finalAmount === undefined || finalAmount === null) missing.push('amount');
+    if (!email) missing.push('email');
+    if (!serviceType) missing.push('serviceType');
+    if (!finalDescription) missing.push('description');
+
+    if (missing.length) {
+      // Specialized error for supporter tier if not logged in
+      if (serviceType === 'supporter' && !email && !req.user?.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Please log in to become a supporter. We need your account to track your rewards and discounts.',
+          requiresAuth: true
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missing.join(", ")}`
+      });
+    }
+
+    // Determine User ID (either from auth or find/create by email)
+    let userId = req.user?.userId;
+    let finalMetadata = {
+      country: authenticatedUser?.country || 'US',
+      defaultCurrency: authenticatedUser?.defaultCurrency || 'USD',
+      accountType: authenticatedUser?.accountType || 'individual',
+      billingRegion: authenticatedUser?.billingRegion || authenticatedUser?.country || 'US',
+      ...metadata
+    };
+    
+    if (!userId) {
+      // Find or create guest user
+      let user = await prisma.user.findUnique({ where: { email } });
+      
+      if (!user) {
+        // Create a guest user with a random password and a setup token
+        const randomPassword = crypto.randomBytes(16).toString('hex');
+        const salt = await require('bcryptjs').genSalt(10);
+        const hashedPassword = await require('bcryptjs').hash(randomPassword, salt);
+        
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: email.split('@')[0], // Use email prefix as name
+            password: hashedPassword,
+            role: 'user',
+            country: finalMetadata.country || 'US',
+            defaultCurrency: finalMetadata.currency || finalMetadata.defaultCurrency || 'USD',
+            accountType: finalMetadata.accountType || 'individual',
+            billingRegion: finalMetadata.billingRegion || finalMetadata.country || 'US',
+            passwordResetToken,
+            passwordResetExpires
+          }
+        });
+
+        // Add the raw token and temp password to metadata for the welcome email later
+        finalMetadata.isNewGuest = true;
+        finalMetadata.setupToken = resetToken;
+        finalMetadata.tempPassword = randomPassword;
+      }
+      userId = user.id;
+    }
+
+    // Generate unique reference
+    const reference = `sitemendr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const allowedPaystackChannels = new Set(['card', 'bank', 'bank_transfer', 'ussd', 'qr', 'mobile_money', 'eft']);
+    const selectedPaymentChannels = Array.isArray(finalMetadata.selectedPaymentChannels)
+      ? finalMetadata.selectedPaymentChannels.filter(channel => allowedPaystackChannels.has(channel))
+      : [];
+
+    const sourceCurrency = finalMetadata.currency || finalMetadata.defaultCurrency || 'USD';
+    const targetCurrency = sourceCurrency || process.env.PAYSTACK_CURRENCY || 'USD';
+    let paystackAmount = finalAmount;
+
+    // Only convert if explicitly configured to use NGN and input is USD
+    if (sourceCurrency === 'USD' && targetCurrency === 'NGN') {
+      // Dynamic conversion logic if needed
+      const rate = 1500; 
+      paystackAmount = finalAmount * rate;
+      logger.info('Converting USD to NGN for Paystack', { original: finalAmount, converted: paystackAmount, rate });
+    }
+
+    if (serviceType === 'build_agreement' && finalMetadata.projectRequestId) {
+      await prisma.payment.updateMany({
+        where: {
+          userId,
+          serviceType: 'build_agreement',
+          status: 'pending',
+          metadata: {
+            path: ['projectRequestId'],
+            equals: finalMetadata.projectRequestId
+          }
+        },
+        data: { status: 'superseded' }
+      });
+    }
+
+    if (serviceType === 'build_final_balance' && finalMetadata.projectRequestId) {
+      await prisma.payment.updateMany({
+        where: {
+          userId,
+          serviceType: 'build_final_balance',
+          status: 'pending',
+          metadata: {
+            path: ['projectRequestId'],
+            equals: finalMetadata.projectRequestId
+          }
+        },
+        data: { status: 'superseded' }
+      });
+    }
+
+    // Create payment record
+    const payment = await prisma.payment.create({
       data: {
         userId,
-        tier,
-        planType,
-        siteName,
-        status: 'active',
-        expiresAt: expiryDate,
-        lastPaymentDate: now,
-        totalPaid: payment.amount / 100,
-        milestones: {
-          create: [
-            {
-              title: 'Business Analysis',
-              description: 'AI-driven analysis of business requirements and goals.',
-              status: 'COMPLETED',
-              progress: 100,
-              order: 1
-            },
-            {
-              title: 'AI Prototype Generation',
-              description: 'Generating customized visual assets and technical structure.',
-              status: 'IN_PROGRESS',
-              progress: 25,
-              order: 2
-            },
-            {
-              title: 'Expert Review',
-              description: 'Manual verification of AI-generated architecture by senior developers.',
-              status: 'PENDING',
-              progress: 0,
-              order: 3
-            },
-            {
-              title: 'Client Feedback Loop',
-              description: 'Interactive session to refine design and functionality.',
-              status: 'PENDING',
-              progress: 0,
-              order: 4
-            },
-            {
-              title: 'Infrastructure Launch',
-              description: 'Final deployment to global CDN with performance optimization.',
-              status: 'PENDING',
-              progress: 0,
-              order: 5
-            }
-          ]
+        reference,
+        amount: Math.round(paystackAmount * 100), // Convert to subunits (cents/kobo)
+        currency: targetCurrency,
+        serviceType,
+        description: finalDescription,
+        metadata: finalMetadata
+      }
+    });
+
+    // Initialize Paystack payment
+    const koboAmount = Math.round(paystackAmount * 100);
+    logger.info('Initializing Paystack transaction', {
+      email,
+      amount: koboAmount,
+      currency: targetCurrency,
+      reference,
+      hasSecretKey: !!PAYSTACK_SECRET_KEY,
+      secretKeyPrefix: PAYSTACK_SECRET_KEY ? PAYSTACK_SECRET_KEY.substring(0, 7) : 'NONE',
+      callback_url: `${process.env.FRONTEND_URL}/payment/callback`
+    });
+
+    try {
+      const paystackData = {
+        amount: koboAmount,
+        email,
+        currency: targetCurrency,
+        reference,
+        callback_url: `${process.env.FRONTEND_URL}/payment/callback`,
+        metadata: {
+          payment_id: payment.id,
+          service_type: serviceType,
+          ...finalMetadata
+        }
+      };
+
+      if (selectedPaymentChannels.length) {
+        paystackData.channels = selectedPaymentChannels;
+      }
+
+      if (!PAYSTACK_SECRET_KEY) {
+        throw new Error('PAYSTACK_SECRET_KEY is missing');
+      }
+
+      const paystackHeaders = {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json'
+      };
+      let paystackResponse;
+      try {
+        paystackResponse = await axios.post(
+          `${PAYSTACK_BASE_URL}/transaction/initialize`,
+          paystackData,
+          {
+            headers: paystackHeaders,
+            timeout: 20000 // 20 seconds timeout
+          }
+        );
+      } catch (channelError) {
+        const channelErrorData = channelError.response?.data;
+        const shouldRetryWithoutChannels = selectedPaymentChannels.length
+          && channelError.response?.status === 400
+          && channelErrorData?.code === 'invalid_params'
+          && /No active channel/i.test(channelErrorData?.message || '');
+
+        if (!shouldRetryWithoutChannels) {
+          throw channelError;
+        }
+
+        const fallbackPaystackData = { ...paystackData };
+        delete fallbackPaystackData.channels;
+        logger.warn('Retrying Paystack initialization without forced channels', {
+          reference,
+          selectedPaymentChannels,
+          paystackMessage: channelErrorData?.message
+        });
+
+        paystackResponse = await axios.post(
+          `${PAYSTACK_BASE_URL}/transaction/initialize`,
+          fallbackPaystackData,
+          {
+            headers: paystackHeaders,
+            timeout: 20000
+          }
+        );
+      }
+
+      logger.info('Paystack initialization response received', { 
+        status: paystackResponse.data.status,
+        message: paystackResponse.data.message,
+        reference
+      });
+
+      if (!paystackResponse.data.status) {
+        throw new Error(paystackResponse.data.message || 'Paystack initialization failed');
+      }
+
+      res.json({
+        success: true,
+        data: {
+          payment,
+          publicKey: PAYSTACK_PUBLIC_KEY,
+          paystack: paystackResponse.data.data // Paystack returns data in a 'data' field
+        }
+      });
+    } catch (paystackError) {
+      const errorData = paystackError.response?.data;
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'failed',
+          gatewayResponse: errorData || { message: paystackError.message }
+        }
+      }).catch(updateError => {
+        logger.error('Failed to mark payment initialization attempt failed', {
+          errorCode: 'PAYMENT_INIT_STATUS_UPDATE_ERROR',
+          error: updateError.message,
+          reference
+        });
+      });
+      logger.error('Paystack API call failed', {
+        errorCode: 'PAYSTACK_API_ERROR',
+        message: paystackError.message,
+        paystackResponse: errorData,
+        reference
+      });
+      throw paystackError;
+    }
+  } catch (error) {
+    const errorData = error.response?.data;
+    logger.error('Failed to initialize payment', {
+      errorCode: 'INITIALIZE_PAYMENT_ERROR',
+      error: error.message,
+      paystackError: errorData
+    });
+    res.status(error.response?.status || 500).json({
+      success: false,
+      message: errorData?.message || error.message || 'Failed to initialize payment',
+      error: errorData || error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// Verify payment (existing function, adding reactivation check)
+exports.verifyPayment = async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    // Verify with Paystack
+    const paystackResponse = await axios.get(
+      `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`
+        }
+      }
+    );
+
+    const { data } = paystackResponse.data;
+
+    // Update payment status
+    const payment = await prisma.payment.update({
+      where: { reference },
+      data: {
+        status: data.status === 'success' ? 'completed' : 'failed',
+        gatewayResponse: data
+      }
+    });
+
+    // If payment successful, trigger post-payment processing
+    if (data.status === 'success') {
+      try {
+        await processSuccessfulPayment(payment.id);
+        
+        // Send welcome email if guest user
+        if (payment.metadata && payment.metadata.isNewGuest && payment.metadata.setupToken) {
+          const user = await prisma.user.findUnique({ where: { id: payment.userId } });
+          if (user) {
+            await sendGuestWelcomeEmail(user.email, payment.metadata.setupToken, payment.metadata.tempPassword);
+          }
+        }
+      } catch (processingError) {
+        logger.error('Post-payment processing failed after verification', {
+          errorCode: 'POST_PAYMENT_PROCESSING_ERROR',
+          error: processingError.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        payment,
+        paystack: data
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to verify payment', {
+      errorCode: 'VERIFY_PAYMENT_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify payment'
+    });
+  }
+};
+
+// Handle Paystack webhook (existing function, adding reactivation)
+exports.handleWebhook = async (req, res) => {
+  try {
+    logger.info('Webhook received', {
+      provider: 'paystack',
+      ip: req.ip
+    });
+
+    // Verify webhook signature
+    if (!verifyWebhookSignature(req)) {
+      logger.warn('Invalid webhook signature received', {
+        errorCode: 'INVALID_WEBHOOK_SIGNATURE',
+        headers: req.headers
+      });
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    const event = req.body;
+    logger.info('Webhook verified', {
+      provider: 'paystack',
+      event: event?.event,
+      reference: event?.data?.reference
+    });
+
+    if (event.event === 'charge.success') {
+      const { reference } = event.data;
+
+      // Update payment status
+      const payment = await prisma.payment.update({
+        where: { reference },
+        data: {
+          status: 'completed',
+          gatewayResponse: event.data
+        }
+      });
+
+      logger.info('Payment marked completed from webhook', {
+        reference,
+        paymentId: payment.id
+      });
+
+      // Trigger post-payment processing
+      try {
+        await processSuccessfulPayment(payment.id);
+
+        // Send welcome email if guest user
+        if (payment.metadata && payment.metadata.isNewGuest && payment.metadata.setupToken) {
+          const user = await prisma.user.findUnique({ where: { id: payment.userId } });
+          if (user) {
+            await sendGuestWelcomeEmail(user.email, payment.metadata.setupToken, payment.metadata.tempPassword);
+          }
+        }
+      } catch (processingError) {
+        logger.error('Webhook post-payment processing failed', {
+          errorCode: 'WEBHOOK_PROCESSING_ERROR',
+          error: processingError.message
+        });
+      }
+    } else if (event.event === 'subscription.create') {
+      const { customer, plan, subscription_code } = event.data;
+      logger.info('Subscription created webhook received', { customer: customer.email, plan: plan.name, code: subscription_code });
+      
+      // Update supporter record status if exists
+      const { prisma } = require('../config/db');
+      await prisma.supporter.updateMany({
+        where: { reference: subscription_code },
+        data: { status: 'active' }
+      });
+    } else if (event.event === 'subscription.disable' || event.event === 'subscription.not_renew') {
+      const { subscription_code } = event.data;
+      logger.info('Subscription disabled/cancelled webhook received', { code: subscription_code });
+      
+      const { prisma } = require('../config/db');
+      await prisma.supporter.updateMany({
+        where: { reference: subscription_code },
+        data: { status: 'cancelled' }
+      });
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    logger.error('Webhook processing failed', {
+      errorCode: 'WEBHOOK_PROCESSING_ERROR',
+      error: error.message
+    });
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+};
+
+// Get user payments (existing)
+exports.getUserPayments = async (req, res) => {
+  try {
+    const payments = await prisma.payment.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: payments
+    });
+  } catch (error) {
+    logger.error('Failed to get user payments', {
+      errorCode: 'GET_USER_PAYMENTS_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve payments'
+    });
+  }
+};
+
+// Get single payment (existing)
+exports.getPayment = async (req, res) => {
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: payment
+    });
+  } catch (error) {
+    logger.error('Failed to get payment', {
+      errorCode: 'GET_PAYMENT_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve payment'
+    });
+  }
+};
+
+// Get all payments (admin) (existing)
+exports.getAllPayments = async (req, res) => {
+  try {
+    const payments = await prisma.payment.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
         }
       },
-      select: {
-        id: true,
-        expiresAt: true,
-        status: true,
-        siteName: true,
-        template: { select: { id: true } }
-      }
+      orderBy: { createdAt: 'desc' }
     });
-  }
 
-  // 3. Trigger AI Template Generation if applicable
-  if (tier === 'ai_foundation' && !subscription.template) {
-    await triggerAITemplateGeneration(subscription, payment);
-  }
-
-  // 4. Send Confirmation Email
-  await sendPaymentSuccessEmail(payment.user, subscription);
-}
-
-async function handleBuildAgreementPayment(payment) {
-  const projectRequestId = payment.metadata?.projectRequestId;
-
-  if (!projectRequestId) {
-    logger.warn('Build agreement payment missing projectRequestId metadata', { paymentId: payment.id });
-    return;
-  }
-
-  const request = await prisma.projectRequest.findFirst({
-    where: {
-      id: projectRequestId,
-      userId: payment.userId,
-      serviceType: 'build'
-    }
-  });
-
-  if (!request) {
-    logger.warn('Build agreement payment project request not found', {
-      paymentId: payment.id,
-      projectRequestId
-    });
-    return;
-  }
-
-  const noteParts = [
-    request.clientNotes,
-    `Payment received through Paystack.\nReference: ${payment.reference}`
-  ].filter(Boolean);
-
-  await prisma.projectRequest.update({
-    where: { id: request.id },
-    data: {
-      status: 'payment_agreement',
-      paymentAgreementStatus: 'confirmed',
-      paymentConfirmedAt: new Date(),
-      clientNotes: noteParts.join('\n\n')
-    }
-  });
-
-  logger.info('Build agreement payment confirmed', {
-    paymentId: payment.id,
-    projectRequestId: request.id,
-    reference: payment.reference
-  });
-}
-
-/**
- * Handle final balance payment for a build request
- */
-async function handleBuildFinalBalancePayment(payment) {
-  const projectRequestId = payment.metadata?.projectRequestId;
-
-  if (!projectRequestId) {
-    logger.warn('Build final balance payment missing projectRequestId metadata', { paymentId: payment.id });
-    return;
-  }
-
-  const request = await prisma.projectRequest.findFirst({
-    where: {
-      id: projectRequestId,
-      userId: payment.userId,
-      serviceType: 'build'
-    }
-  });
-
-  if (!request) {
-    logger.warn('Build final balance payment project request not found', {
-      paymentId: payment.id,
-      projectRequestId
-    });
-    return;
-  }
-
-  const noteParts = [
-    request.clientNotes,
-    `Final balance payment received through Paystack.\nReference: ${payment.reference}`
-  ].filter(Boolean);
-
-  await prisma.projectRequest.update({
-    where: { id: request.id },
-    data: {
-      finalPaymentConfirmedAt: new Date(),
-      status: 'completed',
-      completedAt: new Date(),
-      clientNotes: noteParts.join('\n\n')
-    }
-  });
-
-  await prisma.buildMilestone.updateMany({
-    where: { projectRequestId: request.id },
-    data: { status: 'completed', progress: 100 }
-  });
-
-  logger.info('Build final balance payment confirmed', {
-    paymentId: payment.id,
-    projectRequestId: request.id,
-    reference: payment.reference
-  });
-}
-async function triggerAITemplateGeneration(subscription, payment) {
-  try {
-    const { metadata, userId } = payment;
-    let assessment;
-
-    // Priority 1: Assessment linked in metadata
-    if (metadata?.assessmentId) {
-      assessment = await prisma.assessment.findUnique({
-        where: { id: metadata.assessmentId }
-      });
-    }
-
-    // Priority 2: Most recent completed assessment for user
-    if (!assessment) {
-      assessment = await prisma.assessment.findFirst({
-        where: { 
-          status: 'completed',
-          OR: [
-            { sessionId: metadata?.sessionId },
-            { lead: { email: payment.user.email } }
-          ]
-        },
-        orderBy: { createdAt: 'desc' }
-      });
-    }
-
-    if (assessment && assessment.responses && assessment.results) {
-      logger.info('Triggering AI template generation for subscription', { 
-        subscriptionId: subscription.id,
-        assessmentId: assessment.id 
-      });
-
-      // Run in background
-      generateTemplateAI(subscription.id, assessment.responses, assessment.results)
-        .then(async () => {
-          logger.info(`Auto-generated template for subscription ${subscription.id}`);
-          // Trigger deployment after template generation
-          try {
-            const deployment = await deployTemplate(subscription.id);
-            if (deployment.success) {
-              logger.info(`Automatically deployed site for subscription ${subscription.id}`, { url: deployment.url });
-              // Optional: Send deployment success email
-            }
-          } catch (deployErr) {
-            logger.error(`AUTO_DEPLOYMENT_ERROR for subscription ${subscription.id}:`, deployErr);
-          }
-        })
-        .catch(err => logger.error(`AUTO_TEMPLATE_GENERATION_ERROR for subscription ${subscription.id}:`, err));
-      
-      // Update assessment to link it
-      await prisma.assessment.update({
-        where: { id: assessment.id },
-        data: { convertedToLead: true }
-      });
-    } else {
-      logger.warn('No suitable assessment found for AI template generation', { 
-        userId, 
-        subscriptionId: subscription.id 
-      });
-    }
-  } catch (error) {
-    logger.error('Error in triggerAITemplateGeneration', { 
-      subscriptionId: subscription.id, 
-      error: error.message 
-    });
-  }
-}
-
-/**
- * Provision addons
- */
-async function handleAddonProvisioning(payment) {
-  const { metadata, userId } = payment;
-  if (!metadata?.addonId) return;
-
-  let subscriptionId = metadata.subscriptionId;
-
-  // Fallback: If no subscription ID provided, find the user's most recent active subscription
-  if (!subscriptionId) {
-    const latestSub = await prisma.subscription.findFirst({
-      where: { userId, status: 'active' },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true }
-    });
-    if (latestSub) {
-      subscriptionId = latestSub.id;
-      logger.info('Automatically linked addon to latest active subscription', { userId, subscriptionId });
-    }
-  }
-
-  if (!subscriptionId) {
-    logger.warn('Addon provisioning failed: No subscription found to attach it to', { userId, addonId: metadata.addonId });
-    return;
-  }
-
-  try {
-    // Mitigate schema mismatch by catching errors on missing columns
-    try {
-      const subscription = await prisma.subscription.findUnique({
-        where: { id: subscriptionId },
-        select: {
-          id: true,
-          purchasedAddons: true
-        }
-      });
-
-      if (!subscription) return;
-
-      let purchasedAddons = subscription.purchasedAddons || [];
-      if (!Array.isArray(purchasedAddons)) purchasedAddons = [];
-
-      if (!purchasedAddons.find(a => a.id === metadata.addonId)) {
-        purchasedAddons.push({
-          id: metadata.addonId,
-          name: metadata.addonName,
-          purchasedAt: new Date(),
-          paymentId: payment.id
-        });
-
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: { purchasedAddons },
-          select: { id: true }
-        });
-      }
-    } catch (dbError) {
-      if (dbError.message.includes('purchasedAddons')) {
-        logger.warn('Skipping purchasedAddons update due to missing column in DB');
-        return;
-      }
-      throw dbError;
-    }
-  } catch (error) {
-    logger.error('Addon provisioning error', { error: error.message });
-  }
-}
-
-async function sendPaymentSuccessEmail(user, subscription) {
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: '✅ Payment Successful - Sitemendr',
-      html: `
-        <h2>Hi ${user.name},</h2>
-        <p>Your payment was successful and your subscription for <strong>${subscription.siteName || 'your website'}</strong> is now active.</p>
-        <p>Status: ${subscription.status}</p>
-        ${subscription.expiresAt ? `<p>Expires: ${subscription.expiresAt.toDateString()}</p>` : '<p>Lifetime Access: One-time purchase</p>'}
-        <p>You can access your dashboard to manage your site.</p>
-        <a href="${process.env.FRONTEND_URL}/dashboard" style="background:#007bff;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Go to Dashboard</a>
-      `
+    res.json({
+      success: true,
+      data: payments
     });
   } catch (error) {
-    logger.error('Failed to send payment success email', { error: error.message });
+    logger.error('Admin failed to get all payments', {
+      errorCode: 'GET_ALL_PAYMENTS_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve payments'
+    });
   }
-}
+};
+
+// Get payment stats (admin) (existing)
+exports.getPaymentStats = async (req, res) => {
+  try {
+    const totalPayments = await prisma.payment.count();
+    const completedPayments = await prisma.payment.count({
+      where: { status: 'completed' }
+    });
+    const totalAmount = await prisma.payment.aggregate({
+      where: { status: 'completed' },
+      _sum: { amount: true }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalPayments,
+        completedPayments,
+        failedPayments: totalPayments - completedPayments,
+        totalAmount: totalAmount._sum.amount || 0
+      }
+    });
+  } catch (error) {
+    logger.error('Admin failed to get payment stats', {
+      errorCode: 'GET_PAYMENT_STATS_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve payment stats'
+    });
+  }
+};

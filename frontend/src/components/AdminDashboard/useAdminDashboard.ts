@@ -14,7 +14,7 @@ import type {
   DashboardStats, Lead, User, Subscription, Assessment, ProjectRequest,
   MediaAsset, AnalyticsData, EnforcementSettings, SiteVitals, StudioTask,
   StudioBlocker, StudioLink, StudioUpdate, ReviewChatMessage,
-} from './types';
+} from './AdminDashboard_types';
 
 export function useAdminDashboard(initialTab?: string) {
   const router = useRouter();

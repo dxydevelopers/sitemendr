@@ -7,7 +7,7 @@
 
 'use client';
 
-import type { Lead, User, Assessment } from './types';
+import type { Lead, User, Assessment } from './AdminDashboard_types';
 
 interface AdminClientsProps {
   view: 'leads' | 'users' | 'assessments';

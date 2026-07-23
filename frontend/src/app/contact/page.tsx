@@ -57,7 +57,7 @@ const directContacts = [
     label: 'Phone',
     value: '+254 140 122 685',
     href: 'tel:+254140122685',
-    icon: 'Phone',
+    icon: Phone,
     tone: 'text-expert-yellow',
   },
 

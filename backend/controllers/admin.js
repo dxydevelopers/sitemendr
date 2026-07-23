@@ -47,6 +47,7 @@ exports.getAdminStats = async (req, res) => {
       activeSubscriptions,
       suspendedSubscriptions,
       totalRevenue,
+      openTickets,
       recentLeads,
       recentAssessments
     ] = await runInBatches([
@@ -60,6 +61,7 @@ exports.getAdminStats = async (req, res) => {
         where: { status: 'completed' },
         _sum: { amount: true }
       }),
+      () => prisma.supportTicket.count({ where: { status: { not: 'closed' } } }),
       () => prisma.lead.findMany({
         orderBy: { createdAt: 'desc' },
         select: {
@@ -155,6 +157,9 @@ exports.getAdminStats = async (req, res) => {
           active: activeSubscriptions,
           suspended: suspendedSubscriptions,
           total: activeSubscriptions + suspendedSubscriptions
+        },
+        support: {
+          openTickets
         },
         revenue: {
           total: (totalRevenue._sum.amount || 0) / 100

@@ -110,7 +110,9 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
     : currentBuildRecord?.quotedAmount ? formatCurrencyAmount(agreementCurrency, currentBuildRecord.quotedAmount) : 'Pending';
   const agreementTotalAmount = currentBuildRecord?.totalAgreedAmount || currentBuildRecord?.quotedAmount || 0;
   const agreementDueNowAmount = currentBuildRecord?.depositAmount || agreementTotalAmount || 0;
-  const agreementBalanceAmount = Math.max((agreementTotalAmount || 0) - (agreementDueNowAmount || 0), 0);
+  const agreementBalanceAmount = (currentBuildRecord?.finalPaymentConfirmedAt || currentBuildStatus === 'completed')
+    ? 0
+    : Math.max((agreementTotalAmount || 0) - (agreementDueNowAmount || 0), 0);
   const agreementDueNowLabel = formatCurrencyAmount(agreementCurrency, agreementDueNowAmount);
   const agreementBalanceLabel = agreementBalanceAmount ? formatCurrencyAmount(agreementCurrency, agreementBalanceAmount) : 'No balance';
   const agreementPaymentReference = currentBuildRecord?.clientNotes?.match(/Reference:\s*([^\n]+)/i)?.[1]?.trim() || '';
@@ -333,7 +335,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
             <div className="grid h-12 w-12 shrink-0 place-items-center text-expert-green"><Check className="h-6 w-6" /></div>
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{currentBuildPlanLabel}</p>
-              <p className="mt-1 truncate text-sm font-black tracking-tight text-white">{currentBuildRecord.businessName || currentBuildRecord.name || 'Your build'}</p>
+              <p className="mt-1 truncate text-sm font-black tracking-tight text-white">{currentBuildRecord.businessName || currentBuildRecord.title || 'Your build'}</p>
             </div>
           </div>
         </div>
@@ -341,7 +343,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
         <div className="border-y border-expert-green/25 px-5 py-10 text-center sm:px-8 sm:py-14 lg:px-10">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-expert-green/10 text-expert-green"><Check className="h-7 w-7" /></div>
           <p className="mt-5 text-[9px] font-black uppercase tracking-[0.2em] text-expert-green">Project complete</p>
-          <h4 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{currentBuildRecord.businessName || currentBuildRecord.name || 'Your project'} is live and fully paid</h4>
+          <h4 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{currentBuildRecord.businessName || currentBuildRecord.title || 'Your project'} is live and fully paid</h4>
           <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-7 text-white/60">{currentBuildRecord.completionNotes || 'This build is fully paid, handed off, and complete.'}</p>
 
           <div className="mx-auto mt-8 grid max-w-md grid-cols-1 gap-3 border-y border-white/10 py-5 sm:grid-cols-3">

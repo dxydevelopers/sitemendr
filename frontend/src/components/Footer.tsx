@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -10,6 +8,7 @@ import {
   Globe,
   Mail,
   MapPin,
+  MessagesSquare,
   Phone,
   Scale,
 } from 'lucide-react';
@@ -51,7 +50,9 @@ const legalLinks = [
 
 const contactLinks = [
   { name: 'dxydevelopers@gmail.com', href: 'mailto:dxydevelopers@gmail.com', icon: Mail },
+  { name: '+254 790 057 596', href: 'tel:+254790057596', icon: Phone },
   { name: '+254 140 122 685', href: 'tel:+254140122685', icon: Phone },
+  { name: '+1 424 445 4461', href: 'https://wa.me/%2B14244454461', icon: MessagesSquare },
   { name: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya', icon: MapPin },
 ];
 
@@ -224,17 +225,20 @@ export default function Footer() {
             <ul className="mt-5 space-y-4">
               {contactLinks.map((link, index) => {
                 const Icon = link.icon;
+                const isExternal = link.href.startsWith('http');
                 return (
                   <li key={link.name}>
-                    <Link
+                    <a
                       href={link.href}
+                      target={isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
                       className="group grid grid-cols-[34px_1fr] items-start gap-3 text-sm leading-5 text-white/68 transition hover:text-white"
                     >
                       <span className={`grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] transition group-hover:border-ai-blue/55 group-hover:bg-ai-blue/10 ${index === 0 ? 'text-ai-blue' : 'text-white/42'}`}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="pt-1">{link.name}</span>
-                    </Link>
+                    </a>
                   </li>
                 );
               })}

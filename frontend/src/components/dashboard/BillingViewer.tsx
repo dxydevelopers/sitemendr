@@ -13,7 +13,16 @@ interface BillingItem {
   reference: string;
 }
 
-interface Subscription {
+interface BuildContract {
+  id: string;
+  name: string;
+  status: string;
+  totalAgreedAmount?: number;
+  quoteCurrency?: string;
+  completedAt?: string;
+}
+
+interface CareSubscription {
   id: string;
   siteName?: string;
   customName?: string;
@@ -33,7 +42,8 @@ interface PaymentMethod {
 interface BillingViewerProps {
   billing: BillingItem[];
   paymentMethod?: PaymentMethod | null;
-  subscriptions?: Subscription[];
+  buildContracts?: BuildContract[];
+  careSubscriptions?: CareSubscription[];
   onManageSubscription?: (subscriptionId: string) => void;
   onDownloadReceipt?: (billingId: string) => void;
   onUpdatePaymentMethod?: () => void;
@@ -41,7 +51,7 @@ interface BillingViewerProps {
   onRequestAudit?: () => void;
 }
 
-const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, subscriptions = [], onManageSubscription, onDownloadReceipt, onUpdatePaymentMethod, onChangeBillingEmail, onRequestAudit }) => {
+const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, buildContracts = [], careSubscriptions = [], onManageSubscription, onDownloadReceipt, onUpdatePaymentMethod, onChangeBillingEmail, onRequestAudit }) => {
   const formatMoney = (amount: number, currency = 'USD') => {
     try {
       return new Intl.NumberFormat(undefined, {
@@ -63,49 +73,100 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, s
         </h2>
       </div>
 
-      {/* Subscription Summary */}
-      {subscriptions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-          {subscriptions.map((sub) => (
-            <div key={sub.id} className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 lg:p-10 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                <Zap className="w-20 h-20" />
-              </div>
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Active plan</span>
-                  <h3 className="text-xl font-black uppercase tracking-tight text-white">{sub.siteName || sub.customName || 'Untitled Project'}</h3>
+      {/* Build contracts */}
+      {buildContracts.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Build contracts</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+            {buildContracts.map((contract) => {
+              const isCompleted = contract.status === 'completed';
+              return (
+                <div key={contract.id} className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 lg:p-10 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                    <Zap className="w-20 h-20" />
+                  </div>
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">One-time contract</span>
+                      <h3 className="text-xl font-black uppercase tracking-tight text-white">{contract.name || 'Untitled project'}</h3>
+                    </div>
+                    <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
+                      isCompleted
+                        ? 'bg-expert-green/10 border-expert-green/20 text-expert-green'
+                        : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
+                    }`}>
+                      {contract.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Total agreed</p>
+                      <p className="text-xs font-black text-white uppercase">{contract.totalAgreedAmount ? `${contract.quoteCurrency || 'USD'} ${contract.totalAgreedAmount.toLocaleString()}` : 'Not yet quoted'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">{isCompleted ? 'Completed' : 'Status'}</p>
+                      <p className="text-xs font-black text-white uppercase">{isCompleted && contract.completedAt ? new Date(contract.completedAt).toLocaleDateString() : 'In progress'}</p>
+                    </div>
+                  </div>
                 </div>
-                <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
-                  sub.status.toLowerCase() === 'active' 
-                    ? 'bg-expert-green/10 border-expert-green/20 text-expert-green' 
-                    : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
-                }`}>
-                  {sub.status}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Architecture</p>
-                  <p className="text-xs font-black text-white uppercase">{(sub.planType || 'active_plan').replace('_', ' ')}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Renewal_Date</p>
-                  <p className="text-xs font-black text-white uppercase">{sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString() : 'Lifetime'}</p>
-                </div>
-              </div>
-              
-              <div className="mt-10 pt-8 border-t border-white/5 flex justify-between items-center">
-                <div className="text-[10px] font-black uppercase tracking-widest text-ai-blue">
-                  {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Plan active'}
-                </div>
-                <button onClick={() => onManageSubscription?.(sub.id)} className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
-              </div>
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       )}
+
+      {/* Care subscriptions */}
+      <div className="space-y-4">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Care subscriptions</h3>
+        {careSubscriptions.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+            {careSubscriptions.map((sub) => (
+              <div key={sub.id} className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 lg:p-10 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                  <Zap className="w-20 h-20" />
+                </div>
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Active plan</span>
+                    <h3 className="text-xl font-black uppercase tracking-tight text-white">{sub.siteName || sub.customName || 'Untitled Project'}</h3>
+                  </div>
+                  <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
+                    sub.status.toLowerCase() === 'active'
+                      ? 'bg-expert-green/10 border-expert-green/20 text-expert-green'
+                      : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
+                  }`}>
+                    {sub.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Care level</p>
+                    <p className="text-xs font-black text-white uppercase">{(sub.planType || 'care_plan').replace(/_/g, ' ')}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Renews</p>
+                    <p className="text-xs font-black text-white uppercase">{sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString() : '—'}</p>
+                  </div>
+                </div>
+
+                <div className="mt-10 pt-8 border-t border-white/5 flex justify-between items-center">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-ai-blue">
+                    {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Plan active'}
+                  </div>
+                  <button onClick={() => onManageSubscription?.(sub.id)} className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="border border-dashed border-white/10 rounded-[32px] p-10 text-center">
+            <p className="text-sm font-semibold text-white/50">You don&apos;t have an active care subscription yet.</p>
+            <p className="mt-2 text-xs text-white/30">Once you add ongoing care to a site, it&apos;ll show up here.</p>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-6">
         <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Transaction History</h3>

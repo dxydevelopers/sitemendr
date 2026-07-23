@@ -8,7 +8,7 @@
 import dynamic from 'next/dynamic';
 import { Plus, FileText, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import type { MediaAsset } from './types';
+import type { MediaAsset } from './AdminDashboard_types';
 
 const BlogEditor = dynamic(() => import('../BlogEditor'), { ssr: false });
 

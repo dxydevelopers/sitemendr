@@ -7,7 +7,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { AnalyticsData, EnforcementSettings, SiteVitals, Recommendation, Subscription } from './types';
+import type { AnalyticsData, EnforcementSettings, SiteVitals, Recommendation, Subscription } from './AdminDashboard_types';
 
 const AdminSystemHealth = dynamic(() => import('../dashboard/AdminSystemHealth'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });

@@ -15,6 +15,7 @@ export interface DashboardStats {
   conversionRate: string;
   revenue?: { total: number };
   subscriptions?: { active: number; suspended: number; total: number };
+  support?: { openTickets: number };
   recentLeads: Array<{ id: string; name: string; email: string; status: string }>;
   recentAssessments: Array<{ id: string; createdAt: string; responses: Record<string, unknown> }>;
   userGrowth: Array<{ date: string; count: number }>;
