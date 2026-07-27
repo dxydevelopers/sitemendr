@@ -1173,6 +1173,15 @@ class ApiClient {
     return this.request<{ success: boolean; data: unknown[] }>('/admin/bookings');
   }
 
+  async getTransactions(params: { page?: number; limit?: number; status?: string; serviceType?: string; search?: string; startDate?: string; endDate?: string } = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '' && value !== 'ALL') query.set(key, String(value));
+    });
+    const qs = query.toString();
+    return this.request<{ success: boolean; data: unknown[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(`/admin/transactions${qs ? `?${qs}` : ''}`);
+  }
+
   async updateBookingStatus(id: string, status: string) {
     return this.request<{ success: boolean }>(`/admin/bookings/${id}/status`, {
       method: 'PUT',

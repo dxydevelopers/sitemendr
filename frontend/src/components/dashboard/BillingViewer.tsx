@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CreditCard, Download, ExternalLink, Clock, Zap } from 'lucide-react';
+import { CreditCard, Download, ExternalLink, Mail, FileSearch } from 'lucide-react';
 
 interface BillingItem {
   id: string;
@@ -11,6 +11,8 @@ interface BillingItem {
   description: string;
   createdAt: string;
   reference: string;
+  preferredCurrency?: string;
+  convertedAmount?: number | null;
 }
 
 interface BuildContract {
@@ -30,6 +32,7 @@ interface CareSubscription {
   status: string;
   expiresAt?: string;
   price?: number;
+  currency?: string;
 }
 
 interface PaymentMethod {
@@ -51,62 +54,78 @@ interface BillingViewerProps {
   onRequestAudit?: () => void;
 }
 
+const formatMoney = (amountInSubunits: number, currency?: string) =>
+  `${currency || 'USD'} ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((amountInSubunits || 0) / 100)}`;
+
+const formatMajorUnits = (amount: number, currency?: string) =>
+  `${currency || 'USD'} ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0)}`;
+
+const statusTone: Record<string, string> = {
+  completed: 'text-expert-green',
+  success: 'text-expert-green',
+  active: 'text-expert-green',
+  pending: 'text-amber-300',
+  failed: 'text-red-400',
+  cancelled: 'text-white/34',
+  superseded: 'text-white/34',
+};
+
 const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, buildContracts = [], careSubscriptions = [], onManageSubscription, onDownloadReceipt, onUpdatePaymentMethod, onChangeBillingEmail, onRequestAudit }) => {
-  const formatMoney = (amount: number, currency = 'USD') => {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2
-      }).format((amount || 0) / 100);
-    } catch {
-      return `${currency} ${((amount || 0) / 100).toFixed(2)}`;
-    }
-  };
+  const totalPaid = billing
+    .filter((item) => ['completed', 'success'].includes(item.status))
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
+  const primaryCurrency = billing[0]?.currency || 'USD';
 
   return (
-    <div className="space-y-8 lg:space-y-12 animate-fade-in pb-20">
-      <div className="flex justify-between items-center px-2">
-        <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
-          <CreditCard className="w-5 h-5 text-ai-blue" />
-          Billing
-        </h2>
+    <div className="animate-fade-in pb-16">
+      {/* Header strip */}
+      <div className="border-y border-white/10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/10">
+          <div className="px-5 py-6">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Total paid</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-expert-green">{formatMoney(totalPaid, primaryCurrency)}</p>
+          </div>
+          <div className="px-5 py-6">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Build contracts</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-white">{buildContracts.length}</p>
+          </div>
+          <div className="px-5 py-6">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Care plans</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-white">{careSubscriptions.length}</p>
+          </div>
+          <div className="px-5 py-6">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Transactions</p>
+            <p className="mt-2 text-xl font-black tracking-tight text-white">{billing.length}</p>
+          </div>
+        </div>
       </div>
 
       {/* Build contracts */}
       {buildContracts.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Build contracts</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div className="border-b border-white/10">
+          <div className="px-2 pt-8 pb-4">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue">Build contracts</p>
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-white/10 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
             {buildContracts.map((contract) => {
               const isCompleted = contract.status === 'completed';
               return (
-                <div key={contract.id} className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 lg:p-10 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                    <Zap className="w-20 h-20" />
-                  </div>
-                  <div className="flex justify-between items-start mb-8">
-                    <div>
-                      <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">One-time contract</span>
-                      <h3 className="text-xl font-black uppercase tracking-tight text-white">{contract.name || 'Untitled project'}</h3>
+                <div key={contract.id} className="p-6 lg:p-8">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">One-time contract</p>
+                      <h3 className="mt-1 truncate text-lg font-black tracking-tight text-white">{contract.name || 'Untitled project'}</h3>
                     </div>
-                    <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
-                      isCompleted
-                        ? 'bg-expert-green/10 border-expert-green/20 text-expert-green'
-                        : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
-                    }`}>
-                      {contract.status.replace(/_/g, ' ')}
-                    </span>
+                    <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${isCompleted ? 'text-expert-green' : 'text-amber-300'}`}>{contract.status.replace(/_/g, ' ')}</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-8">
+                  <div className="mt-6 grid grid-cols-2 gap-6 border-t border-white/10 pt-5">
                     <div>
-                      <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Total agreed</p>
-                      <p className="text-xs font-black text-white uppercase">{contract.totalAgreedAmount ? `${contract.quoteCurrency || 'USD'} ${contract.totalAgreedAmount.toLocaleString()}` : 'Not yet quoted'}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Total agreed</p>
+                      <p className="mt-2 text-sm font-black text-white">{contract.totalAgreedAmount ? formatMajorUnits(contract.totalAgreedAmount, contract.quoteCurrency) : 'Not yet quoted'}</p>
                     </div>
                     <div>
-                      <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">{isCompleted ? 'Completed' : 'Status'}</p>
-                      <p className="text-xs font-black text-white uppercase">{isCompleted && contract.completedAt ? new Date(contract.completedAt).toLocaleDateString() : 'In progress'}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/28">{isCompleted ? 'Completed' : 'Status'}</p>
+                      <p className="mt-2 text-sm font-black text-white">{isCompleted && contract.completedAt ? new Date(contract.completedAt).toLocaleDateString() : 'In progress'}</p>
                     </div>
                   </div>
                 </div>
@@ -117,198 +136,140 @@ const BillingViewer: React.FC<BillingViewerProps> = ({ billing, paymentMethod, b
       )}
 
       {/* Care subscriptions */}
-      <div className="space-y-4">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Care subscriptions</h3>
+      <div className="border-b border-white/10">
+        <div className="px-2 pt-8 pb-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-expert-green">Care subscriptions</p>
+        </div>
         {careSubscriptions.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 divide-y divide-white/10 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
             {careSubscriptions.map((sub) => (
-              <div key={sub.id} className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 lg:p-10 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                  <Zap className="w-20 h-20" />
-                </div>
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-2">Active plan</span>
-                    <h3 className="text-xl font-black uppercase tracking-tight text-white">{sub.siteName || sub.customName || 'Untitled Project'}</h3>
+              <div key={sub.id} className="p-6 lg:p-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">Active plan</p>
+                    <h3 className="mt-1 truncate text-lg font-black tracking-tight text-white">{sub.siteName || sub.customName || 'Untitled Project'}</h3>
                   </div>
-                  <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${
-                    sub.status.toLowerCase() === 'active'
-                      ? 'bg-expert-green/10 border-expert-green/20 text-expert-green'
-                      : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
-                  }`}>
-                    {sub.status}
-                  </span>
+                  <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${statusTone[sub.status.toLowerCase()] || 'text-white/50'}`}>{sub.status}</span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-8">
+                <div className="mt-6 grid grid-cols-2 gap-6 border-t border-white/10 pt-5">
                   <div>
-                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Care level</p>
-                    <p className="text-xs font-black text-white uppercase">{(sub.planType || 'care_plan').replace(/_/g, ' ')}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Care level</p>
+                    <p className="mt-2 text-sm font-black text-white">{(sub.planType || 'care_plan').replace(/_/g, ' ')}</p>
                   </div>
                   <div>
-                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Renews</p>
-                    <p className="text-xs font-black text-white uppercase">{sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString() : '—'}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Renews</p>
+                    <p className="mt-2 text-sm font-black text-white">{sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString() : '—'}</p>
                   </div>
                 </div>
-
-                <div className="mt-10 pt-8 border-t border-white/5 flex justify-between items-center">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-ai-blue">
-                    {sub.price ? `$${sub.price.toFixed(2)} / period` : 'Plan active'}
-                  </div>
-                  <button onClick={() => onManageSubscription?.(sub.id)} className="text-[8px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">Manage Subscription →</button>
+                <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-ai-blue">{sub.price ? `${formatMajorUnits(sub.price, sub.currency)} / period` : 'Plan active'}</p>
+                  <button onClick={() => onManageSubscription?.(sub.id)} className="text-[9px] font-black uppercase tracking-[0.14em] text-white/44 transition hover:text-white">Manage →</button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="border border-dashed border-white/10 rounded-[32px] p-10 text-center">
+          <div className="px-6 py-10 text-center lg:px-8">
             <p className="text-sm font-semibold text-white/50">You don&apos;t have an active care subscription yet.</p>
             <p className="mt-2 text-xs text-white/30">Once you add ongoing care to a site, it&apos;ll show up here.</p>
           </div>
         )}
       </div>
 
-      <div className="space-y-6">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medium-gray px-2">Transaction History</h3>
-        {/* Mobile Billing Cards */}
-        <div className="block lg:hidden space-y-4">
-        {billing.length > 0 ? (
-          billing.map((item) => (
-            <div key={item.id} className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-[10px] font-black font-mono text-ai-blue uppercase">{item.reference}</p>
-                  <p className="text-xs font-black uppercase mt-1">{item.description}</p>
+      {/* Transaction history */}
+      <div className="border-b border-white/10">
+        <div className="px-2 pt-8 pb-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/34">Transaction history</p>
+        </div>
+
+        {/* Mobile */}
+        <div className="block lg:hidden divide-y divide-white/10">
+          {billing.length === 0 ? (
+            <p className="px-2 py-10 text-center text-sm text-white/34">No transactions yet.</p>
+          ) : billing.map((item) => (
+            <div key={item.id} className="px-2 py-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{item.description}</p>
+                  <p className="mt-1 font-mono text-[10px] text-white/34">{item.reference}</p>
                 </div>
-                <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded border ${
-                  item.status.toLowerCase() === 'completed' || item.status.toLowerCase() === 'success' 
-                    ? 'bg-expert-green/10 border-expert-green/20 text-expert-green' 
-                    : item.status.toLowerCase() === 'failed' 
-                    ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                    : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
-                }`}>
-                  {item.status}
-                </span>
+                <span className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${statusTone[item.status.toLowerCase()] || 'text-white/50'}`}>{item.status}</span>
               </div>
-              <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                <div className="flex items-center gap-2 text-medium-gray text-[10px] font-bold uppercase">
-                  <Clock className="w-3 h-3" />
-                  {new Date(item.createdAt).toLocaleDateString()}
+              <div className="mt-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
+                  {item.convertedAmount != null && <p className="text-xs text-white/34">≈ {formatMajorUnits(item.convertedAmount, item.preferredCurrency)}</p>}
                 </div>
-                <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
+                <p className="text-xs text-white/34">{new Date(item.createdAt).toLocaleDateString()}</p>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="p-10 text-center border border-dashed border-white/10 rounded-2xl opacity-30">
-            <p className="text-[10px] font-black uppercase">No transaction records</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
 
-      <div className="hidden lg:block bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden backdrop-blur-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        {/* Desktop */}
+        <div className="hidden lg:block">
+          <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-white/5 bg-white/[0.03]">
-                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-medium-gray">Reference</th>
-                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-medium-gray">Date</th>
-                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-medium-gray">Description</th>
-                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-medium-gray">Amount</th>
-                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-medium-gray">Status</th>
-                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-medium-gray">Action</th>
+              <tr className="border-b border-white/10 text-[9px] font-black uppercase tracking-[0.14em] text-white/28">
+                <th className="px-2 py-3 font-black">Description</th>
+                <th className="px-2 py-3 font-black">Reference</th>
+                <th className="px-2 py-3 font-black">Amount</th>
+                <th className="px-2 py-3 font-black">Status</th>
+                <th className="px-2 py-3 text-right font-black">Date</th>
+                <th className="px-2 py-3 text-right font-black">Receipt</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
-              {billing.length > 0 ? (
-                billing.map((item) => (
-                  <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="p-6">
-                      <p className="text-[10px] font-black font-mono text-ai-blue uppercase truncate w-32">
-                        {item.reference}
-                      </p>
-                    </td>
-                    <td className="p-6">
-                      <div className="flex items-center gap-2 text-medium-gray">
-                        <Clock className="w-3 h-3" />
-                        <span className="text-[10px] font-bold uppercase">{new Date(item.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </td>
-                    <td className="p-6">
-                      <p className="text-xs font-black uppercase tracking-tight">{item.description}</p>
-                    </td>
-                    <td className="p-6">
-                      <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
-                    </td>
-                    <td className="p-6">
-                      <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded border ${
-                        item.status.toLowerCase() === 'completed' || item.status.toLowerCase() === 'success' 
-                          ? 'bg-expert-green/10 border-expert-green/20 text-expert-green' 
-                          : item.status.toLowerCase() === 'failed' 
-                          ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                          : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="p-6">
-                      <button onClick={() => onDownloadReceipt?.(item.id)} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-ai-blue hover:text-white transition-colors">
-                        <Download className="w-3 h-3" />
-                        Receipt
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="p-20 text-center">
-                    <p className="text-[10px] font-black text-medium-gray uppercase tracking-widest">No transaction records found in database</p>
+            <tbody className="divide-y divide-white/10">
+              {billing.length === 0 ? (
+                <tr><td colSpan={6} className="px-2 py-10 text-center text-sm text-white/34">No transactions yet.</td></tr>
+              ) : billing.map((item) => (
+                <tr key={item.id} className="transition hover:bg-white/[0.02]">
+                  <td className="px-2 py-4 text-sm font-semibold text-white">{item.description}</td>
+                  <td className="px-2 py-4 font-mono text-xs text-white/40">{item.reference}</td>
+                  <td className="px-2 py-4">
+                    <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
+                    {item.convertedAmount != null && <p className="text-xs text-white/34">≈ {formatMajorUnits(item.convertedAmount, item.preferredCurrency)}</p>}
+                  </td>
+                  <td className={`px-2 py-4 text-[10px] font-black uppercase tracking-widest ${statusTone[item.status.toLowerCase()] || 'text-white/50'}`}>{item.status}</td>
+                  <td className="px-2 py-4 text-right text-xs text-white/40">{new Date(item.createdAt).toLocaleDateString()}</td>
+                  <td className="px-2 py-4 text-right">
+                    <button onClick={() => onDownloadReceipt?.(item.id)} className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-ai-blue transition hover:text-white"><Download className="h-3 w-3" />Get</button>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
-    </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 lg:p-8 bg-white/[0.02] border border-white/5 rounded-3xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none group-hover:scale-110 transition-transform">
-            <CreditCard className="w-12 h-12" />
+      {/* Payment method + billing contact */}
+      <div className="grid grid-cols-1 divide-y divide-white/10 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+        <div className="p-6 lg:p-8">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/34">Payment method</p>
+          <div className="mt-5 flex items-center gap-4">
+            <CreditCard className="h-5 w-5 shrink-0 text-white/30" />
+            {paymentMethod ? (
+              <p className="text-sm font-semibold text-white">{paymentMethod.brand} •••• {paymentMethod.last4}</p>
+            ) : (
+              <p className="text-sm text-white/44">No active payment method attached.</p>
+            )}
           </div>
-          <h3 className="text-sm font-black uppercase tracking-widest text-ai-blue mb-4">Payment Method</h3>
-          {paymentMethod ? (
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-8 bg-white/5 rounded border border-white/10 flex items-center justify-center">
-                <span className="text-[8px] font-black italic uppercase">{paymentMethod.brand || 'CARD'}</span>
-              </div>
-              <div>
-                <p className="text-xs font-black uppercase">Ending in {paymentMethod.last4}</p>
-                <p className="text-[10px] text-medium-gray font-bold uppercase">Expires {paymentMethod.expMonth}/{paymentMethod.expYear}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-ai-blue/5 border border-ai-blue/20 p-4 rounded-xl">
-              <p className="text-[10px] text-ai-blue font-black uppercase">No active payment method attached</p>
-            </div>
-          )}
-          <button onClick={onUpdatePaymentMethod} className="mt-8 text-[9px] font-black text-medium-gray hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2">
-            {paymentMethod ? 'Update payment method' : 'Add payment method'} <ExternalLink className="w-3 h-3" />
+          <button onClick={onUpdatePaymentMethod} className="mt-5 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white">
+            {paymentMethod ? 'Update' : 'Add payment method'} <ExternalLink className="h-3 w-3" />
           </button>
         </div>
-
-        <div className="p-6 lg:p-8 bg-white/[0.02] border border-white/5 rounded-3xl">
-          <h3 className="text-sm font-black uppercase tracking-widest text-tech-purple mb-4">Billing Contact</h3>
-          <p className="text-xs font-black uppercase mb-1">Accounts Payable</p>
-          <p className="text-[10px] text-medium-gray font-bold uppercase">billing@sitemendr.com</p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <button onClick={onChangeBillingEmail} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-              Change Email
-            </button>
-            <button onClick={onRequestAudit} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-              Request Audit
-            </button>
+        <div className="p-6 lg:p-8">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/34">Billing contact</p>
+          <div className="mt-5 flex items-center gap-4">
+            <Mail className="h-5 w-5 shrink-0 text-white/30" />
+            <div>
+              <p className="text-sm font-semibold text-white">Accounts Payable</p>
+              <p className="text-xs text-white/44">billing@sitemendr.com</p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-5">
+            <button onClick={onChangeBillingEmail} className="text-[9px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white">Change email</button>
+            <button onClick={onRequestAudit} className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-white/44 transition hover:text-white"><FileSearch className="h-3 w-3" />Request audit</button>
           </div>
         </div>
       </div>

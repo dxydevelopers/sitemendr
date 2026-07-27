@@ -7,7 +7,7 @@ import {
   Settings, MessageSquare, Folder, PenLine,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { ProjectRequest } from './AdminDashboard_types';
+import type { ProjectRequest } from './types';
 
 export const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Not set') => {
   if (!amount) return fallback;
@@ -94,6 +94,7 @@ export const adminTabs: AdminTab[] = [
   { id: 'leads', name: 'Leads', icon: <Folder className="w-4 h-4" /> },
   { id: 'assessments', name: 'Assessments', icon: <Activity className="w-4 h-4" /> },
   { id: 'subscriptions', name: 'Billing & Agreements', shortName: 'Billing', icon: <CreditCard className="w-4 h-4" /> },
+  { id: 'transactions', name: 'Transactions', icon: <CreditCard className="w-4 h-4" /> },
   { id: 'tickets', name: 'Tickets', icon: <MessageSquare className="w-4 h-4" /> },
   { id: 'live-support', name: 'Live Chat', icon: <MessageSquare className="w-4 h-4" /> },
   { id: 'comments', name: 'Comments', icon: <MessageSquare className="w-4 h-4" /> },
@@ -108,7 +109,7 @@ export const adminTabGroups: AdminTabGroup[] = [
   { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'review', 'milestones', 'health', 'bookings'] },
   { id: 'clients', label: 'Clients', accent: 'text-expert-green', icon: <Users className="w-4 h-4" />, tabs: ['users', 'leads', 'assessments'] },
   { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['tickets', 'live-support', 'comments'] },
-  { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'analytics'] },
+  { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'transactions', 'analytics'] },
   { id: 'content', label: 'Content', accent: 'text-ai-blue', icon: <PenLine className="w-4 h-4" />, tabs: ['media', 'blog'] },
   { id: 'system', label: 'System', accent: 'text-white/70', icon: <Settings className="w-4 h-4" />, tabs: ['system'] },
 ];

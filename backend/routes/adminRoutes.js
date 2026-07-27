@@ -121,4 +121,6 @@ router.get('/bookings', adminController.getAdminBookings);
 router.put('/bookings/:id/status', adminController.updateBookingStatus);
 router.delete('/bookings/:id', adminController.deleteBooking);
 
+router.get('/transactions', adminController.getAllTransactions);
+
 module.exports = router;

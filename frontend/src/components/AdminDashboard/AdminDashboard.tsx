@@ -14,11 +14,12 @@ import {
 import { apiClient } from '@/lib/api';
 import { useAdminDashboard } from './useAdminDashboard';
 import { adminTabs, adminTabGroups } from './utils';
-import type { AdminDashboardProps, SiteVitals } from './AdminDashboard_types';
+import type { AdminDashboardProps, SiteVitals } from './types';
 import AdminOverview from './AdminOverview';
 import AdminBuildPipeline from './AdminBuildPipeline';
 import AdminClients from './AdminClients';
 import AdminBilling from './AdminBilling';
+import AdminTransactions from './AdminTransactions';
 import AdminContent from './AdminContent';
 import AdminSystem from './AdminSystem';
 
@@ -186,6 +187,8 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
               onUpdateReview={handleUpdateReview} onCompleteReview={handleCompleteReview} onDeploySite={handleDeploySite}
             />
           )}
+
+          {activeTab === 'transactions' && <AdminTransactions />}
 
           {(activeTab === 'media' || activeTab === 'blog') && (
             <AdminContent view={activeTab} media={media} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onUploadMedia={handleUploadMedia} onDeleteMedia={handleDeleteMedia} />

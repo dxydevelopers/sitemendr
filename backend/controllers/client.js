@@ -4,6 +4,7 @@ const { notifyAdmins } = require('../services/socketService');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
 const logger = require('../config/logger');
+const { convertCurrencyAmount, normalizeCurrency } = require('../utils/currency');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -1040,17 +1041,31 @@ exports.getBilling = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        userId,
-        status: { notIn: ['pending', 'superseded'] }
-      },
-      orderBy: { createdAt: 'desc' }
+    const [payments, user] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          userId,
+          status: { notIn: ['pending', 'superseded'] }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.user.findUnique({ where: { id: userId }, select: { defaultCurrency: true } })
+    ]);
+
+    const preferredCurrency = user?.defaultCurrency || 'USD';
+    const billing = payments.map((payment) => {
+      const majorUnitAmount = (payment.amount || 0) / 100;
+      const showConverted = normalizeCurrency(payment.currency) !== normalizeCurrency(preferredCurrency);
+      return {
+        ...payment,
+        preferredCurrency,
+        convertedAmount: showConverted ? convertCurrencyAmount(majorUnitAmount, payment.currency, preferredCurrency) : null
+      };
     });
 
     res.json({
       success: true,
-      billing: payments
+      billing
     });
   } catch (error) {
     logger.error('Failed to get billing info', {

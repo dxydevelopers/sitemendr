@@ -17,11 +17,13 @@ interface ClientBillingProps {
 }
 
 export default function ClientBilling({ billing, projects }: ClientBillingProps) {
+  const buildContracts = projects.filter((project) => project.recordType === 'request');
+
   return (
     <div className="animate-fade-in">
       <BillingViewer
         billing={billing}
-        buildContracts={projects}
+        buildContracts={buildContracts}
         onManageSubscription={() => { window.location.href = '/payment'; }}
         onDownloadReceipt={() => alert('Receipt download coming soon. Contact billing@sitemendr.com for invoices.')}
         onUpdatePaymentMethod={() => { window.location.href = '/payment'; }}

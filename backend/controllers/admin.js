@@ -2368,3 +2368,83 @@ exports.deleteAssessment = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to delete assessment' });
   }
 };
+
+// Pulls the real card/channel detail Paystack actually returned out of the raw
+// gatewayResponse blob, since the paymentMethod column itself never gets updated
+// past its generic "card" default - the real detail only lives in the JSON dump.
+const extractChannelInfo = (payment) => {
+  const auth = payment.gatewayResponse?.data?.authorization || payment.gatewayResponse?.authorization || null;
+  if (!auth) {
+    return { channel: payment.paymentMethod || 'card', cardType: null, last4: null, bank: null };
+  }
+  return {
+    channel: auth.channel || payment.paymentMethod || 'card',
+    cardType: auth.card_type || null,
+    last4: auth.last4 || null,
+    bank: auth.bank || null
+  };
+};
+
+exports.getAllTransactions = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 25, 1), 100);
+    const { status, serviceType, search, startDate, endDate } = req.query;
+
+    const where = {};
+    if (status && status !== 'ALL') where.status = status;
+    if (serviceType && serviceType !== 'ALL') where.serviceType = serviceType;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+    if (search) {
+      where.OR = [
+        { reference: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    const [transactions, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      prisma.payment.count({ where })
+    ]);
+
+    const data = transactions.map((payment) => ({
+      id: payment.id,
+      reference: payment.reference,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      serviceType: payment.serviceType,
+      description: payment.description,
+      gateway: payment.gateway,
+      createdAt: payment.createdAt,
+      payer: payment.user ? { id: payment.user.id, name: payment.user.name, email: payment.user.email } : null,
+      ...extractChannelInfo(payment)
+    }));
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    logger.error('GET_ALL_TRANSACTIONS_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load transactions' });
+  }
+};
