@@ -1037,6 +1037,21 @@ exports.getActivities = async (req, res) => {
 };
 
 // Get client billing history
+// Pulls the real card/channel detail Paystack actually returned out of the raw
+// gatewayResponse blob - same helper as the admin transactions view uses.
+const extractChannelInfo = (payment) => {
+  const auth = payment.gatewayResponse?.data?.authorization || payment.gatewayResponse?.authorization || null;
+  if (!auth) {
+    return { channel: payment.paymentMethod || 'card', cardType: null, last4: null, bank: null };
+  }
+  return {
+    channel: auth.channel || payment.paymentMethod || 'card',
+    cardType: auth.card_type || null,
+    last4: auth.last4 || null,
+    bank: auth.bank || null
+  };
+};
+
 exports.getBilling = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -1059,7 +1074,8 @@ exports.getBilling = async (req, res) => {
       return {
         ...payment,
         preferredCurrency,
-        convertedAmount: showConverted ? convertCurrencyAmount(majorUnitAmount, payment.currency, preferredCurrency) : null
+        convertedAmount: showConverted ? convertCurrencyAmount(majorUnitAmount, payment.currency, preferredCurrency) : null,
+        ...extractChannelInfo(payment)
       };
     });
 
@@ -1882,6 +1898,49 @@ exports.getAssessments = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve assessments'
+    });
+  }
+};
+
+// Scoped payment history for a single Build contract - used by the billing page's
+// drill-down view so a client sees only that project's own deposit/final payments,
+// not the whole account's transaction list. Relies on metadata.projectRequestId,
+// which every Build payment already carries (see paymentController.js).
+exports.getContractBilling = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id } = req.params;
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, userId, serviceType: 'build' },
+      select: { id: true, title: true, businessName: true, status: true, totalAgreedAmount: true, quoteCurrency: true, completedAt: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: {
+        userId,
+        metadata: { path: ['projectRequestId'], equals: id }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      contract: request,
+      payments: payments.map((payment) => ({ ...payment, ...extractChannelInfo(payment) }))
+    });
+  } catch (error) {
+    logger.error('Failed to get contract billing', {
+      errorCode: 'GET_CONTRACT_BILLING_ERROR',
+      error: error.message
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve contract billing history'
     });
   }
 };

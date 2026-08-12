@@ -154,8 +154,14 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
             <div className="flex min-w-0 items-center gap-3">
               {activeTab !== 'dashboard' && (
                 <div className="min-w-0">
-                  <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${currentGroup.accent}`}>{currentGroup.label}</p>
-                  <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">{currentTab?.name || 'Admin'}</h1>
+                  {activeTab === 'subscriptions' || activeTab === 'review' ? (
+                    <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">{currentTab?.name || 'Billing & Agreements'}</h1>
+                  ) : (
+                    <>
+                      <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${currentGroup.accent}`}>{currentGroup.label}</p>
+                      <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">{currentTab?.name || 'Admin'}</h1>
+                    </>
+                  )}
                 </div>
               )}
             </div>

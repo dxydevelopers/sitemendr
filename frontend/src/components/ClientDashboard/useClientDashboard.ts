@@ -28,7 +28,7 @@ import type {
   ClientStats, ClientProject, ClientActivity, BillingItem, MessageItem,
   SupportTicket, ResourceItem, BookingItem, CustomDomain, UserData,
   ApiRecord, ClientAssessment, ReviewChatMessage, AnalysisResult,
-} from './types';
+} from './ClientDashboard_types';
 import type { SupporterTier } from '@/lib/api';
 import { mockTiers } from './utils';
 

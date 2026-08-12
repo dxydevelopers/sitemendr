@@ -19,7 +19,7 @@ import {
   ArrowLeft, ChevronRight, Sparkles, Clock, Check, TriangleAlert, MessageSquare,
   CircleDollarSign, ExternalLink, Send, Loader2, CreditCard, X, Globe,
 } from 'lucide-react';
-import type { ClientProject, ReviewChatMessage } from './types';
+import type { ClientProject, ReviewChatMessage } from './ClientDashboard_types';
 import {
   buildLifecycle, buildJourneyChapters, normalizeBuildStatus, requestStatuses,
   formatCurrencyAmount, getPaystackChannelsForCurrency, agreementPaymentMethods,

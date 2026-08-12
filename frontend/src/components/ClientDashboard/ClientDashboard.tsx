@@ -8,6 +8,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3, Rocket, MessageSquare, CreditCard, BookOpen, LifeBuoy, Terminal,
   Zap, Globe, ArrowLeft, ChevronRight, FileText, ShoppingBag, LogOut, User,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useClientDashboard } from './useClientDashboard';
 import { lockedClientTabs } from './utils';
-import type { DashboardNavItem } from './types';
+import type { DashboardNavItem } from './ClientDashboard_types';
 import ClientOverview from './ClientOverview';
 import ClientBuildJourney from './ClientBuildJourney';
 import ClientMerchant from './ClientMerchant';
@@ -42,6 +43,9 @@ interface ClientDashboardProps {
 }
 
 export default function ClientDashboard({ onLogout, initialTab }: ClientDashboardProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const dashboard = useClientDashboard(initialTab);
   const {
     activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen, isSidebarExpanded, setIsSidebarExpanded,
@@ -106,6 +110,14 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   ];
   const currentTab = allNavItems.find(item => item.id === activeTab);
   const activeTabLock = lockedClientTabs[activeTab];
+  const billingView = activeTab === 'billing' ? searchParams.get('view') : null;
+  const billingRecordId = activeTab === 'billing' ? searchParams.get('id') : null;
+  const goBackFromBillingDetail = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('view');
+    params.delete('id');
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   const navGroups: Record<string, string[]> = {
     workspaces: ['workspaces', 'projects', 'audit', 'business'],
@@ -194,7 +206,11 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
         <main className={`flex-1 min-h-screen transition-[margin,padding] duration-300 md:pl-0 ${isSidebarExpanded ? 'md:ml-64' : 'md:ml-20'}`}>
           <header className="min-h-20 flex items-center justify-between gap-5 px-5 sm:px-8 lg:px-10 sticky top-0 z-40">
             <div className="flex min-w-0 items-center gap-3">
-              {activeTab !== 'dashboard' && (
+              {activeTab === 'billing' && billingView ? (
+                <button type="button" onClick={goBackFromBillingDetail} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/74 transition hover:bg-white/[0.06] hover:text-white">
+                  <ArrowLeft className="h-6 w-6" />
+                </button>
+              ) : activeTab !== 'dashboard' && (
                 <button type="button" onClick={() => {
                   if (activeTab === 'projects' && selectedProjectId) { setSelectedProjectId(null); setActiveBuildChapter(null); }
                   else { setActiveTab('dashboard'); setSelectedProjectId(null); }
@@ -204,7 +220,17 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
               )}
               <div className="min-w-0">
                 <h1 className="truncate text-base font-black tracking-tight md:text-lg">
-                  {activeTab === 'dashboard' ? 'Overview' : activeTab === 'projects' && selectedProjectId ? (selectedProject?.name || 'Build project') : currentTab?.label || 'Workspace'}
+                  {activeTab === 'billing' && billingView
+                    ? billingView === 'contract'
+                      ? `Contract${billingRecordId ? '' : ''}`
+                      : billingView === 'transaction'
+                        ? 'Transaction'
+                        : 'Care subscription'
+                    : activeTab === 'dashboard'
+                      ? 'Overview'
+                      : activeTab === 'projects' && selectedProjectId
+                        ? (selectedProject?.name || 'Build project')
+                        : currentTab?.label || 'Workspace'}
                 </h1>
               </div>
             </div>

@@ -132,6 +132,14 @@ export interface BillingItem {
   description: string;
   createdAt: string;
   reference: string;
+  serviceType?: string;
+  preferredCurrency?: string;
+  convertedAmount?: number | null;
+  channel?: string;
+  cardType?: string | null;
+  last4?: string | null;
+  bank?: string | null;
+  metadata?: { projectRequestId?: string } | Record<string, unknown> | null;
 }
 
 export interface MessageItem {

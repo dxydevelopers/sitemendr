@@ -9,7 +9,7 @@
 'use client';
 
 import { ShoppingBag, Clock, Plus, CreditCard, ChevronRight } from 'lucide-react';
-import type { BookingItem, BillingItem } from './types';
+import type { BookingItem, BillingItem } from './ClientDashboard_types';
 
 interface ClientMerchantProps {
   bookings: BookingItem[];

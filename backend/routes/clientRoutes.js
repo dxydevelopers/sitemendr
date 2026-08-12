@@ -27,6 +27,7 @@ router.use(enforcePaymentForAPI);
 
 router.get('/vitals/:subscriptionId', clientController.getSiteVitals);
 router.get('/billing', clientController.getBilling);
+router.get('/billing/contract/:id', clientController.getContractBilling);
 router.get('/messages', clientController.getMessages);
 router.post('/messages', clientController.sendMessage);
 router.post('/messages/:id/read', clientController.markMessageRead);

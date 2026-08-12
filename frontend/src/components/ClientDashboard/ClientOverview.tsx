@@ -10,7 +10,7 @@ import {
   Rocket, Shield, ShoppingBag, ChevronRight, MousePointer2, BookOpen,
   MessageSquare, LifeBuoy, CreditCard, Zap, Globe,
 } from 'lucide-react';
-import type { ClientProject, ClientActivity, CustomDomain, BillingItem, SupportTicket, MessageItem } from './types';
+import type { ClientProject, ClientActivity, CustomDomain, BillingItem, SupportTicket, MessageItem } from './ClientDashboard_types';
 
 interface ClientOverviewProps {
   selectedProject?: ClientProject | null;

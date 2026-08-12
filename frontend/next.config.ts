@@ -83,11 +83,6 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['date-fns'],
   },
 
-  // Turbopack expects an absolute project root.
-  turbopack: {
-    root: process.cwd(),
-  },
-
   // Webpack configuration
   webpack: (config, { isServer, dev }) => {
     // Only optimize production client-side builds

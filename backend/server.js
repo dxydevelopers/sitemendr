@@ -232,6 +232,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Currency rates snapshot - public, no auth needed (exchange rates aren't sensitive).
+// Serves the client billing rates panel and the pricing page's currency display.
+app.get('/api/currency/rates', (req, res) => {
+  try {
+    const { getRateSnapshot } = require('./utils/currency');
+    res.json({ success: true, ...getRateSnapshot() });
+  } catch (error) {
+    logger.error('CURRENCY_RATES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load currency rates' });
+  }
+});
+
 // Site Rendering (Dynamic Sites)
 const siteRendererController = require("./controllers/siteRendererController");
 app.use((req, res, next) => {

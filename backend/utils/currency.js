@@ -15,7 +15,13 @@ const FALLBACK_USD_RATES = {
   AUD: 1.52
 };
 
-const TRACKED_CURRENCIES = ['usd', 'kes', 'ngn', 'ghs', 'zar', 'gbp', 'eur', 'cad', 'aud'];
+// Curated set shown by default in the rates panel / anywhere space is limited.
+// This is purely a display preference - conversion itself works for ANY currency
+// the live source returns, not just these. A client signing up with a currency
+// outside this list is still fully convertible; it just won't be one of the
+// handful shown before someone searches for it.
+const MAJOR_CURRENCIES = ['USD', 'EUR', 'GBP', 'KES', 'NGN', 'GHS', 'ZAR', 'CAD', 'AUD', 'INR', 'JPY', 'CNY'];
+
 const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000; // refresh twice a day - rates don't need to be more real-time than this for display/quoting purposes
 
 const rateCache = {
@@ -44,11 +50,13 @@ const fetchLiveRates = () => new Promise((resolve, reject) => {
           reject(new Error('Live rate response missing expected "usd" object'));
           return;
         }
+        // Cache every currency the source returns (200+), not just a curated subset -
+        // so any client's defaultCurrency, present or future, is always convertible.
         const nextRates = {};
-        TRACKED_CURRENCIES.forEach((code) => {
-          const value = Number(usdRates[code]);
-          if (Number.isFinite(value) && value > 0) {
-            nextRates[code.toUpperCase()] = value;
+        Object.entries(usdRates).forEach(([code, value]) => {
+          const numericValue = Number(value);
+          if (Number.isFinite(numericValue) && numericValue > 0) {
+            nextRates[code.toUpperCase()] = numericValue;
           }
         });
         if (!nextRates.USD) nextRates.USD = 1;
@@ -68,7 +76,7 @@ const refreshRateCache = async () => {
     rateCache.rates = liveRates;
     rateCache.source = 'live';
     rateCache.lastFetchedAt = Date.now();
-    logger.info('Currency rates refreshed from live source', { source: LIVE_RATES_URL });
+    logger.info('Currency rates refreshed from live source', { source: LIVE_RATES_URL, currencyCount: Object.keys(liveRates).length });
   } catch (err) {
     // Keep serving whatever is already cached (live or fallback) - a failed refresh
     // should never make pricing/quoting break, it should just serve slightly stale data.
@@ -99,6 +107,20 @@ const getUsdRates = () => ({
   ...rateCache.rates,
   ...parseConfiguredRates()
 });
+
+// Full snapshot for the rates panel / API endpoint - every cached currency, plus
+// which ones are the curated "majors" to show first, plus freshness info.
+const getRateSnapshot = () => {
+  const rates = getUsdRates();
+  return {
+    base: 'USD',
+    rates,
+    majors: MAJOR_CURRENCIES.filter((code) => rates[code] !== undefined),
+    currencyCount: Object.keys(rates).length,
+    source: rateCache.source,
+    lastFetchedAt: rateCache.lastFetchedAt || null
+  };
+};
 
 const normalizeCurrency = (currency) => (currency || 'USD').toUpperCase();
 
@@ -139,5 +161,6 @@ module.exports = {
   convertCurrencyAmount,
   normalizeCurrency,
   replaceCurrencyAmountInText,
-  roundCurrencyAmount
+  roundCurrencyAmount,
+  getRateSnapshot
 };

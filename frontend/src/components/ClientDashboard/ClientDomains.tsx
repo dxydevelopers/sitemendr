@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Terminal, Plus } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { CustomDomain, ClientProject } from './types';
+import type { CustomDomain, ClientProject } from './ClientDashboard_types';
 import type { UseClientDashboardReturn } from './useClientDashboard';
 
 export default function ClientDomains({

@@ -771,6 +771,14 @@ class ApiClient {
     return this.request<{ success: boolean; data: unknown[] }>('/client/billing');
   }
 
+  async getContractBilling(contractId: string) {
+    return this.request<{ success: boolean; contract: Record<string, unknown>; payments: unknown[] }>(`/client/billing/contract/${contractId}`);
+  }
+
+  async getCurrencyRates() {
+    return this.request<{ success: boolean; base: string; rates: Record<string, number>; majors: string[]; currencyCount: number; source: string; lastFetchedAt: number | null }>('/currency/rates');
+  }
+
   async getClientMessages() {
     return this.request<{ success: boolean; messages: Record<string, unknown>[] }>('/client/messages');
   }

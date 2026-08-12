@@ -5,7 +5,7 @@
 // safe to import from the hook, the shell, or any tab file.
 
 import type { SupporterTier } from '@/lib/api';
-import type { ApiRecord, ClientProject, BuildMilestone, StudioLink, StudioUpdate } from './types';
+import type { ApiRecord, ClientProject, BuildMilestone, StudioLink, StudioUpdate } from './ClientDashboard_types';
 
 export const normalizeDashboardTab = (tab?: string | null) => {
   const groupOnlyTabs: Record<string, string> = {

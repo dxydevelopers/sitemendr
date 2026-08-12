@@ -1,14 +1,10 @@
-// components/admin-dashboard/AdminBilling.tsx
-//
-// Covers "subscriptions" (site management) and "review" (human
-// enhancement queue) - both revolve around Subscription records and
-// both can open the same TemplateEditor, so they share this file.
-
 'use client';
 
 import dynamic from 'next/dynamic';
-import { ShoppingBag, Trash2, Layout, Eye } from 'lucide-react';
-import type { Subscription, Addon } from './types';
+import { useRouter } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { ChevronRight, Search } from 'lucide-react';
+import type { Subscription } from './types';
 
 const TemplateEditor = dynamic(() => import('../dashboard/TemplateEditor'), { ssr: false });
 
@@ -31,139 +27,310 @@ interface AdminBillingProps {
   onDeploySite: (id: string) => void;
 }
 
+const label = 'text-[9px] font-black uppercase tracking-[0.24em] text-white/34';
+const value = 'text-[14px] font-semibold tracking-tight text-white';
+const tierRank: Record<string, number> = {
+  ai_foundation: 1,
+  pro_enhancement: 2,
+  enterprise: 3,
+};
+
+function SectionHeader({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="border-b border-white/20 pb-6">
+      <p className="mt-3 text-[26px] font-black tracking-tight text-white">{title}</p>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-white/42">{detail}</p>
+    </div>
+  );
+}
+
+function TierPill({ valueText }: { valueText: string }) {
+  return (
+    <span className="inline-flex items-center border border-white/12 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em] text-white/68">
+      {valueText}
+    </span>
+  );
+}
+
+function MetaBlock({ title, valueText }: { title: string; valueText: string }) {
+  return (
+    <div>
+      <p className={label}>{title}</p>
+      <p className={value}>{valueText}</p>
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  onClick,
+  tone = 'default',
+  disabled,
+  title,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  tone?: 'default' | 'green' | 'blue' | 'danger';
+  disabled?: boolean;
+  title?: string;
+}) {
+  const toneClass =
+    tone === 'green'
+      ? 'text-expert-green hover:border-expert-green/35'
+      : tone === 'blue'
+        ? 'text-ai-blue hover:border-ai-blue/35'
+        : tone === 'danger'
+          ? 'text-red-300 hover:border-red-500/35'
+          : 'text-white/76 hover:border-white/30 hover:text-white';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex min-h-10 items-center gap-2 border-b border-white/12 px-0 text-[10px] font-black uppercase tracking-[0.16em] transition disabled:opacity-50 ${toneClass}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function AdminBilling({
-  view, subscriptions, reviewProjects, searchTerm, setSearchTerm, filterStatus, setFilterStatus,
-  selectedSubscriptionForEditor, setSelectedSubscriptionForEditor, isSystemWorking,
-  onTriggerAIGeneration, onSuspendSubscription, onDeleteSubscription, onUpdateReview, onCompleteReview, onDeploySite,
+  view,
+  subscriptions,
+  reviewProjects,
+  searchTerm,
+  setSearchTerm,
+  filterStatus,
+  setFilterStatus,
+  selectedSubscriptionForEditor,
+  setSelectedSubscriptionForEditor,
+  isSystemWorking,
+  onTriggerAIGeneration,
+  onSuspendSubscription,
+  onDeleteSubscription,
+  onUpdateReview,
+  onCompleteReview,
+  onDeploySite,
 }: AdminBillingProps) {
+  const router = useRouter();
+
   if (selectedSubscriptionForEditor) {
     return (
       <div className="animate-fade-in">
-        <button onClick={() => setSelectedSubscriptionForEditor(null)} className="mb-6 text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue transition hover:text-white">← Back to list</button>
+        <button
+          type="button"
+          onClick={() => setSelectedSubscriptionForEditor(null)}
+          className="mb-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/42 transition hover:text-white"
+        >
+          <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+          Back to list
+        </button>
         <TemplateEditor subscriptionId={selectedSubscriptionForEditor} onClose={() => setSelectedSubscriptionForEditor(null)} />
       </div>
     );
   }
 
   if (view === 'subscriptions') {
-    const filtered = subscriptions.filter(sub => (filterStatus === 'ALL' || sub.tier === filterStatus)
-      && ((sub.customName || sub.siteName || '').toLowerCase().includes(searchTerm.toLowerCase()) || (sub.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (sub.id || '').toLowerCase().includes(searchTerm.toLowerCase())));
+    const filtered = subscriptions
+      .filter((sub) =>
+        (filterStatus === 'ALL' || sub.tier === filterStatus)
+        && (
+          (sub.customName || sub.siteName || '').toLowerCase().includes(searchTerm.toLowerCase())
+          || (sub.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+          || (sub.id || '').toLowerCase().includes(searchTerm.toLowerCase())
+        ),
+      )
+      .sort((a, b) => (tierRank[a.tier] || 99) - (tierRank[b.tier] || 99) || (a.customName || a.siteName || '').localeCompare(b.customName || b.siteName || ''));
+
     return (
-      <div className="animate-fade-in">
-        <div className="flex flex-col gap-5 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-lg font-black uppercase tracking-tight text-white">Site Management</h2>
-            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/34">{subscriptions.filter(s => s.status === 'active').length} active / {subscriptions.length} total deployments</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <input type="text" placeholder="Search nodes..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="min-h-10 flex-1 border border-white/10 bg-white/[0.03] px-4 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue md:w-64" />
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="min-h-10 border border-white/10 bg-white/[0.03] px-4 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue">
-              <option value="ALL">All tiers</option><option value="ai_foundation">AI foundation</option><option value="pro_enhancement">Pro enhancement</option><option value="enterprise">Enterprise</option>
-            </select>
+      <div className="animate-fade-in space-y-7">
+        <SectionHeader
+          title="Site Management"
+          detail={`${subscriptions.filter((s) => s.status === 'active').length} active of ${subscriptions.length} deployments`}
+        />
+
+        <div className="border-b border-white/10 pb-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-4">
+            <label className="relative min-w-0 flex-1">
+              <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Search</span>
+              <Search className="pointer-events-none absolute left-0 top-[2.15rem] h-3.5 w-3.5 text-white/28" />
+              <input
+                type="text"
+                placeholder="Search deployments"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="min-h-11 w-full border border-white/12 bg-[#05070a] py-2.5 pl-6 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+              />
+            </label>
+
+            <label className="relative min-w-[12rem] lg:w-48">
+              <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Tier</span>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="min-h-11 w-full appearance-none border border-white/12 bg-[#05070a] px-3 py-2.5 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition focus:border-white/22 focus:ring-0"
+              >
+                <option value="ALL">All tiers</option>
+                <option value="ai_foundation">AI foundation</option>
+                <option value="pro_enhancement">Pro enhancement</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </label>
           </div>
         </div>
 
-        <div className="divide-y divide-white/10">
-          {filtered.length === 0 && (
-            <p className="py-16 text-center text-sm text-white/34">No sites match these filters.</p>
-          )}
-          {filtered.map((sub, i) => (
-            <div key={sub.id || i} className="flex flex-wrap items-center justify-between gap-8 py-6">
-              <div className="min-w-[280px] flex-1">
-                <div className="mb-2 flex items-center gap-3">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue">ID {(sub.id || '').slice(0, 8)}</span>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${sub.status === 'active' ? 'text-expert-green' : 'text-red-400'}`}>{sub.status}</span>
-                </div>
-                <h3 className="flex items-center gap-3 text-lg font-black tracking-tight text-white">
-                  {sub.customName || sub.siteName}
-                  {!sub.isCurrent && <span className="border border-white/15 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-white/34">Previous</span>}
-                </h3>
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/34">
-                  <span>Client: <span className="text-white/70">{sub.user?.name || 'Guest'}</span></span>
-                  <span className="text-white/15">|</span>
-                  <span>Plan: <span className="text-ai-blue">{sub.planType}</span></span>
-                  <span className="text-white/15">|</span>
-                  <span>Tier: <span className="text-tech-purple">{sub.tier?.replace(/_/g, ' ')}</span></span>
-                </div>
-                {sub.purchasedAddons && sub.purchasedAddons.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {sub.purchasedAddons.map((addon: Addon, idx: number) => (
-                      <span key={idx} className="inline-flex items-center gap-1.5 border border-expert-green/20 px-2 py-1 text-[8px] font-black uppercase text-expert-green"><ShoppingBag className="h-2.5 w-2.5" />{addon.name}</span>
-                    ))}
+        <div className="border-y border-white/20">
+          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-5 py-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
+            <div className="col-span-7">Deployment</div>
+            <div className="col-span-2">Billing</div>
+            <div className="col-span-3 text-right">View details</div>
+          </div>
+          {filtered.length === 0 ? (
+            <p className="py-16 text-center text-sm text-white/34">No deployments match these filters.</p>
+          ) : (
+            <div className="divide-y divide-white/20">
+              {filtered.map((sub, i) => {
+                const currentPaymentLabel = sub.paymentStatus || 'UNKNOWN';
+                const tierLabel = sub.tier?.replace(/_/g, ' ');
+                const tierNumber = tierRank[sub.tier] || i + 1;
+
+                return (
+                  <div key={sub.id || i} className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}
+                      className="grid w-full grid-cols-1 gap-5 text-left transition hover:bg-white/[0.02] xl:grid-cols-[minmax(0,1fr)_150px_220px] xl:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className={label}>ID {(sub.id || '').slice(0, 8)}</span>
+                          <span className={`text-[10px] font-black uppercase tracking-[0.18em] ${sub.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{sub.status}</span>
+                          {!sub.isCurrent && <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Previous</span>}
+                        </div>
+
+                        <h3 className="mt-2 truncate text-[17px] font-semibold tracking-tight text-white">{sub.customName || sub.siteName}</h3>
+                        <p className="mt-2 text-sm leading-6 text-white/42">Client {sub.user?.name || 'Guest'} · {tierLabel}</p>
+                      </div>
+
+                      <div className="min-h-full xl:border-l xl:border-white/20 xl:pl-5">
+                        <p className={label}>Billing</p>
+                        <p className={`mt-2 text-[15px] font-black tracking-tight ${currentPaymentLabel === 'PAID' ? 'text-expert-green' : 'text-amber-300'}`}>{currentPaymentLabel}</p>
+                        <p className="mt-2 text-sm leading-6 text-white/40">Latest commercial state for this deployment.</p>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 xl:pt-1">
+                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300/80">Open</span>
+                        <ChevronRight className="h-4 w-4 text-amber-300/80 transition group-hover:translate-x-0.5" />
+                      </div>
+                    </button>
                   </div>
-                )}
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/28">Billing state</p>
-                  <p className={`mt-1 text-[10px] font-black uppercase ${sub.paymentStatus === 'PAID' ? 'text-expert-green' : 'text-amber-300'}`}>{sub.paymentStatus}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => onTriggerAIGeneration(sub.id)} disabled={isSystemWorking} className="min-h-10 border border-ai-blue/30 px-4 text-[9px] font-black uppercase tracking-widest text-ai-blue transition hover:bg-ai-blue/10 disabled:opacity-50">{isSystemWorking ? 'Processing...' : 'Initialize AI'}</button>
-                  <button onClick={() => onSuspendSubscription(sub.id, sub.status)} className={`min-h-10 border px-4 text-[9px] font-black uppercase tracking-widest transition ${sub.status === 'suspended' ? 'border-expert-green/30 text-expert-green hover:bg-expert-green/10' : 'border-red-500/30 text-red-400 hover:bg-red-500/10'}`}>{sub.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
-                  <button onClick={() => onDeleteSubscription(sub.id)} className="grid h-10 w-10 place-items-center border border-white/10 text-white/50 transition hover:border-red-500/40 hover:text-red-400" title="Delete node"><Trash2 className="h-4 w-4" /></button>
-                  <button onClick={() => setSelectedSubscriptionForEditor(sub.id)} className="inline-flex min-h-10 items-center gap-2 border border-white/10 px-4 text-[9px] font-black uppercase tracking-widest text-white/70 transition hover:border-white/30 hover:text-white"><Layout className="h-3 w-3" />Refine</button>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
   }
 
-  // view === 'review'
-  const filteredReview = reviewProjects.filter(p => (p.customName || p.siteName || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.domain || '').toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredReview = reviewProjects.filter(
+    (p) =>
+      (p.customName || p.siteName || '').toLowerCase().includes(searchTerm.toLowerCase())
+      || (p.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+      || (p.domain || '').toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
   return (
-    <div className="animate-fade-in">
-      <div className="flex flex-col gap-5 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-lg font-black uppercase tracking-tight text-white">Human Enhancement Queue</h2>
-          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/34">{reviewProjects.length} pending review{reviewProjects.length === 1 ? '' : 's'}</p>
-        </div>
-        <input type="text" placeholder="Search projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="min-h-10 border border-white/10 bg-white/[0.03] px-4 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue md:w-64" />
+    <div className="animate-fade-in space-y-7">
+        <SectionHeader
+          title="Review Queue"
+          detail={`${reviewProjects.length} pending review${reviewProjects.length === 1 ? '' : 's'}`}
+        />
+
+      <div className="border-b border-white/10 pb-5">
+        <label className="relative block lg:w-[28rem]">
+          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Search</span>
+          <Search className="pointer-events-none absolute left-0 top-[2.15rem] h-3.5 w-3.5 text-white/28" />
+          <input
+            type="text"
+            placeholder="Search projects"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="min-h-11 w-full border border-white/12 bg-[#05070a] py-2.5 pl-6 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+          />
+        </label>
       </div>
 
-      {reviewProjects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center border border-dashed border-white/10 py-20 text-center">
-          <Eye className="mb-4 h-8 w-8 text-white/15" />
+      {filteredReview.length === 0 ? (
+        <div className="border-y border-white/10 py-20 text-center">
+          <Eye className="mx-auto mb-4 h-8 w-8 text-white/15" />
           <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No projects currently awaiting review</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 divide-y divide-white/10 md:grid-cols-2 md:divide-x md:divide-y-0 lg:grid-cols-3">
-          {filteredReview.map((project, i) => (
-            <div key={project.id || i} className="p-6">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-black uppercase tracking-tight text-white">{project.domain || 'no-domain.sitemendr.com'}</h3>
-                  <p className="mt-1 text-[10px] font-bold uppercase text-white/34">{project.tier?.replace(/_/g, ' ')}</p>
+        <div className="border-y border-white/20">
+          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-5 py-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
+            <div className="col-span-7">Project</div>
+            <div className="col-span-2">Review</div>
+            <div className="col-span-3 text-right">Actions</div>
+          </div>
+          <div className="divide-y divide-white/20">
+            {filteredReview.map((project, i) => (
+              <div key={project.id || i} className="px-5 py-5">
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_240px_220px] xl:items-stretch">
+                  <div className="min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-[16px] font-semibold tracking-tight text-white">{project.domain || 'no-domain.sitemendr.com'}</h3>
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/34">{project.tier?.replace(/_/g, ' ')}</p>
+                      </div>
+                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-[0.18em] ${project.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{project.status}</span>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 gap-3 border-t border-white/20 pt-4 sm:grid-cols-3">
+                      <MetaBlock title="Owner" valueText={project.user?.email || 'Unknown'} />
+                      <MetaBlock title="Requested" valueText={new Date(project.createdAt || Date.now()).toLocaleDateString()} />
+                      <MetaBlock title="Revisions" valueText={`${project.revisionCount ?? 0}`} />
+                    </div>
+                  </div>
+
+                  <div className="min-h-full xl:border-l xl:border-white/20 xl:pl-5">
+                    <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Review notes</label>
+                    <textarea
+                      defaultValue={project.reviewNotes || ''}
+                      onBlur={(e) => {
+                        if (e.target.value !== (project.reviewNotes || '')) onUpdateReview(project.id, e.target.value);
+                      }}
+                      className="h-20 w-full resize-none border border-white/12 bg-[#05070a] px-3 py-3 text-[10px] leading-5 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/40 focus:ring-0"
+                      placeholder="Leave concise feedback..."
+                    />
+                  </div>
+
+                  <div className="flex min-h-full flex-wrap gap-2 xl:justify-end xl:pt-1">
+                    <ActionButton
+                      onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/preview/${project.id}`, '_blank')}
+                    >
+                      <Eye size={12} />
+                      Preview
+                    </ActionButton>
+                    <ActionButton onClick={() => onCompleteReview(project.id)} tone="green">
+                      Complete review
+                    </ActionButton>
+                    <ActionButton onClick={() => setSelectedSubscriptionForEditor(project.id)}>
+                      Edit template
+                    </ActionButton>
+                    <ActionButton onClick={() => onDeploySite(project.id)} tone="blue">
+                      Deploy live
+                    </ActionButton>
+                  </div>
                 </div>
-                <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest ${project.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{project.status}</span>
               </div>
-
-              <div className="mb-5 space-y-2 border-t border-white/10 pt-4">
-                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-white/34"><span>Owner</span><span className="text-white/70">{project.user?.email || 'Unknown'}</span></div>
-                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-white/34"><span>Requested</span><span className="text-white/70">{new Date(project.createdAt || Date.now()).toLocaleDateString()}</span></div>
-                {(project.revisionCount ?? 0) > 0 && <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-ai-blue"><span>Revisions</span><span>{project.revisionCount}</span></div>}
-              </div>
-
-              <div className="mb-5">
-                <label className="mb-2 block text-[8px] font-black uppercase tracking-widest text-white/28">Review notes</label>
-                <textarea defaultValue={project.reviewNotes || ''} onBlur={(e) => { if (e.target.value !== (project.reviewNotes || '')) onUpdateReview(project.id, e.target.value); }} className="h-20 w-full resize-none border border-white/10 bg-white/[0.02] p-3 text-[10px] text-white outline-none transition focus:border-ai-blue/40" placeholder="Enter design feedback..."></textarea>
-              </div>
-
-              <div className="mb-3 flex gap-2">
-                <button onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/preview/${project.id}`, '_blank')} className="flex flex-1 items-center justify-center gap-2 border border-white/10 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/70 transition hover:border-white/30 hover:text-white"><Eye size={12} />Preview</button>
-                <button onClick={() => onCompleteReview(project.id)} className="flex-1 border border-expert-green/25 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-expert-green transition hover:bg-expert-green/10">Complete review</button>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setSelectedSubscriptionForEditor(project.id)} className="flex-1 border border-white/10 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/60 transition hover:border-white/30 hover:text-white">Edit template</button>
-                <button onClick={() => onDeploySite(project.id)} className="flex-1 border border-ai-blue/25 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-ai-blue transition hover:bg-ai-blue/10">Deploy live</button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
+

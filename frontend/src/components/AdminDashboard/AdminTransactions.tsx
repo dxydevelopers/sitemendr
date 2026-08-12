@@ -1,16 +1,7 @@
-// components/admin-dashboard/AdminTransactions.tsx
-//
-// Real, unified view of every Payment record across every client, regardless of
-// what it was for (Build contracts today; Care and Add-ons once those exist too -
-// this view needs no changes when they land, since serviceType already varies).
-// Self-contained: fetches and paginates its own data rather than routing through
-// the big shared useAdminDashboard hook, since pagination/filter state here is
-// only relevant to this one screen.
-
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, CreditCard, Search, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 interface Transaction {
@@ -41,12 +32,20 @@ const statusTone: Record<string, string> = {
   superseded: 'text-white/34',
 };
 
+const statusIcon = (status: string) => {
+  if (status === 'completed' || status === 'success') return <CheckCircle2 className="h-3.5 w-3.5" />;
+  if (status === 'pending') return <CircleDashed className="h-3.5 w-3.5" />;
+  if (status === 'failed') return <AlertTriangle className="h-3.5 w-3.5" />;
+  return <CreditCard className="h-3.5 w-3.5" />;
+};
+
 export default function AdminTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [serviceTypeFilter, setServiceTypeFilter] = useState('ALL');
+  const [openMenu, setOpenMenu] = useState<'status' | 'type' | null>(null);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 1 });
 
@@ -66,8 +65,9 @@ export default function AdminTransactions() {
       }
     } catch (err) {
       console.error('Failed to load transactions:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [page, statusFilter, serviceTypeFilter, searchTerm]);
 
   useEffect(() => {
@@ -75,80 +75,223 @@ export default function AdminTransactions() {
     return () => clearTimeout(timeout);
   }, [loadTransactions, searchTerm]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, serviceTypeFilter, searchTerm]);
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, serviceTypeFilter, searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenu(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   return (
-    <div className="animate-fade-in">
-      <div className="flex flex-col gap-5 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-lg font-black uppercase tracking-tight text-white">Transactions</h2>
-          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/34">{pagination.total} total records</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 md:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" />
-            <input type="text" placeholder="Search name, email, reference..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="min-h-10 w-full border border-white/10 bg-white/[0.03] pl-9 pr-4 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue" />
+    <div className="animate-fade-in space-y-5">
+      <section className="border-b border-white/10 pb-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="inline-flex items-center border border-white/10 bg-white/[0.02] px-3 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-white/42">
+            {pagination.total} total records
           </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-h-10 border border-white/10 bg-white/[0.03] px-4 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue">
-            <option value="ALL">All status</option><option value="completed">Completed</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="superseded">Superseded</option>
-          </select>
-          <select value={serviceTypeFilter} onChange={(e) => setServiceTypeFilter(e.target.value)} className="min-h-10 border border-white/10 bg-white/[0.03] px-4 text-[10px] font-black uppercase tracking-widest text-white outline-none transition focus:border-ai-blue">
-            <option value="ALL">All types</option><option value="build">Build</option><option value="care">Care</option><option value="addon">Add-on</option>
-          </select>
         </div>
-      </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-white/10 text-[9px] font-black uppercase tracking-[0.14em] text-white/28">
-              <th className="px-2 py-4 font-black">Payer</th>
-              <th className="px-2 py-4 font-black">Reference</th>
-              <th className="px-2 py-4 font-black">Type</th>
-              <th className="px-2 py-4 font-black">Channel</th>
-              <th className="px-2 py-4 font-black">Amount</th>
-              <th className="px-2 py-4 font-black">Status</th>
-              <th className="px-2 py-4 text-right font-black">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/10">
-            {loading ? (
-              <tr><td colSpan={7} className="py-16 text-center text-[10px] font-black uppercase tracking-[0.2em] text-white/34">Loading transactions...</td></tr>
-            ) : transactions.length === 0 ? (
-              <tr><td colSpan={7} className="py-16 text-center">
-                <CreditCard className="mx-auto mb-4 h-8 w-8 text-white/15" />
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No transactions match these filters</p>
-              </td></tr>
-            ) : transactions.map((tx) => (
-              <tr key={tx.id} className="transition hover:bg-white/[0.02]">
-                <td className="px-2 py-4">
-                  <p className="text-[11px] font-black uppercase tracking-tight text-white">{tx.payer?.name || 'Unknown'}</p>
-                  <p className="text-[9px] font-medium text-white/34">{tx.payer?.email || '—'}</p>
-                </td>
-                <td className="px-2 py-4"><p className="font-mono text-[9px] font-black text-ai-blue">{tx.reference}</p></td>
-                <td className="px-2 py-4"><span className="text-[8px] font-black uppercase tracking-widest text-tech-purple">{tx.serviceType?.replace(/_/g, ' ')}</span></td>
-                <td className="px-2 py-4">
-                  <p className="text-[9px] font-black uppercase text-white/70">{tx.cardType ? `${tx.cardType} •••• ${tx.last4 || ''}` : tx.channel?.replace(/_/g, ' ')}</p>
-                  {tx.bank && <p className="mt-0.5 text-[8px] uppercase text-white/30">{tx.bank}</p>}
-                </td>
-                <td className="px-2 py-4"><p className="text-[10px] font-black text-white">{formatAmount(tx.amount, tx.currency)}</p></td>
-                <td className="px-2 py-4"><span className={`text-[9px] font-black uppercase tracking-widest ${statusTone[tx.status] || 'text-white/50'}`}>{tx.status}</span></td>
-                <td className="px-2 py-4 text-right"><p className="text-[9px] font-black uppercase tracking-widest text-white/34">{new Date(tx.createdAt).toLocaleDateString()}</p></td>
-              </tr>
+        <div className="mt-4 grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[minmax(0,1fr)_11rem_11rem] lg:items-end">
+          <label className="relative">
+            <span className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-white/24">
+              <Search className="h-3 w-3" />
+              Search
+            </span>
+            <Search className="pointer-events-none absolute left-3 top-[2.4rem] h-3.5 w-3.5 text-white/28" />
+            <input
+              type="text"
+              placeholder="Search name, email, reference..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="min-h-11 w-full rounded-xl border border-white/12 bg-[#05070a] py-2.5 pl-9 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+            />
+          </label>
+
+          <div className="relative">
+            <span className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-white/24">
+              <SlidersHorizontal className="h-3 w-3" />
+              Status
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenu(openMenu === 'status' ? null : 'status');
+              }}
+              className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
+            >
+              <span>{statusFilter === 'ALL' ? 'All status' : statusFilter}</span>
+              <ChevronDown className="h-4 w-4 text-white/28" />
+            </button>
+            {openMenu === 'status' && (
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#05070a] shadow-2xl shadow-black/40">
+                {[
+                  ['ALL', 'All status'],
+                  ['completed', 'Completed'],
+                  ['pending', 'Pending'],
+                  ['failed', 'Failed'],
+                  ['superseded', 'Superseded'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusFilter(value);
+                      setOpenMenu(null);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-[11px] font-semibold tracking-[0.12em] text-white/72 transition hover:bg-white/[0.04] hover:text-white"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <span className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-white/24">
+              <SlidersHorizontal className="h-3 w-3" />
+              Type
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenMenu(openMenu === 'type' ? null : 'type');
+              }}
+              className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
+            >
+              <span>{serviceTypeFilter === 'ALL' ? 'All types' : serviceTypeFilter.replace(/_/g, ' ')}</span>
+              <ChevronDown className="h-4 w-4 text-white/28" />
+            </button>
+            {openMenu === 'type' && (
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#05070a] shadow-2xl shadow-black/40">
+                {[
+                  ['ALL', 'All types'],
+                  ['build', 'Build'],
+                  ['care', 'Care'],
+                  ['addon', 'Add-on'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setServiceTypeFilter(value);
+                      setOpenMenu(null);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-[11px] font-semibold tracking-[0.12em] text-white/72 transition hover:bg-white/[0.04] hover:text-white"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-white/30">
+        <div className="hidden grid-cols-12 gap-4 border-b border-white/30 px-4 py-3 text-[8px] font-black uppercase tracking-[0.22em] text-white/28 xl:grid">
+          <div className="col-span-3">Payer</div>
+          <div className="col-span-2">Reference</div>
+          <div className="col-span-1">Type</div>
+          <div className="col-span-2">Channel</div>
+          <div className="col-span-1">Amount</div>
+          <div className="col-span-1">Status</div>
+          <div className="col-span-2 text-right">Date</div>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center text-[10px] font-black uppercase tracking-[0.2em] text-white/34">Loading transactions...</div>
+        ) : transactions.length === 0 ? (
+          <div className="py-16 text-center">
+            <CreditCard className="mx-auto mb-4 h-8 w-8 text-white/15" />
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No transactions match these filters</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/30">
+            {transactions.map((tx) => (
+              <div key={tx.id} className="grid grid-cols-1 gap-4 border-b border-white/20 px-1 py-5 transition hover:bg-white/[0.02] xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_auto] xl:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-[11px] font-black uppercase tracking-tight text-white">{tx.payer?.name || 'Unknown'}</p>
+                    <span className={`inline-flex items-center gap-1 border border-white/12 px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] ${statusTone[tx.status] || 'text-white/50'}`}>
+                      {statusIcon(tx.status)}
+                      {tx.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-[9px] font-medium text-white/34">{tx.payer?.email || '—'}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60">
+                      {tx.serviceType?.replace(/_/g, ' ')}
+                    </span>
+                    <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60">
+                      {tx.cardType ? `${tx.cardType} •••• ${tx.last4 || ''}` : tx.channel?.replace(/_/g, ' ')}
+                    </span>
+                    {tx.bank && (
+                      <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        {tx.bank}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-1 xl:justify-items-start">
+                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Reference</p>
+                  <p className="font-mono text-[9px] font-black text-ai-blue">{tx.reference}</p>
+                </div>
+
+                <div className="grid gap-1 xl:justify-items-start">
+                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Amount</p>
+                  <p className="text-[10px] font-black text-white">{formatAmount(tx.amount, tx.currency)}</p>
+                </div>
+
+                <div className="flex items-center justify-between xl:justify-end">
+                  <div className="text-right">
+                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Date</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/34">
+                      {new Date(tx.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <ChevronRight className="ml-4 h-4 w-4 text-white/24" />
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        )}
+      </section>
 
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-white/10 pt-4">
-          <p className="text-[9px] font-black uppercase tracking-widest text-white/34">Page {pagination.page} of {pagination.totalPages}</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-white/34">
+            Page {pagination.page} of {pagination.totalPages}
+          </p>
           <div className="flex gap-2">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"><ChevronLeft className="h-3.5 w-3.5" /></button>
-            <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page >= pagination.totalPages} className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"><ChevronRight className="h-3.5 w-3.5" /></button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              disabled={page >= pagination.totalPages}
+              className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 }
+
