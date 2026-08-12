@@ -249,7 +249,7 @@ Run `npm run test-api` after making changes
 
 ### Option 2: Watch Mode (requires nodemon)
 ```bash
-npm run dev
+npm start
 ```
 Then in another terminal:
 ```bash

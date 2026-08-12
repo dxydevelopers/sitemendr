@@ -1,5 +1,7 @@
-require('dotenv').config({path: 'c:/monorepo/sitemendr/backend/.env'});
-const { sendEmail } = require('c:/monorepo/sitemendr/backend/config/email');
+const path = require('path');
+
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const { sendEmail } = require(path.join(__dirname, 'config/email'));
 
 async function test() {
   try {

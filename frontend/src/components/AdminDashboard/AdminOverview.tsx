@@ -2,7 +2,7 @@
 'use client';
 
 import { FileText, Users, CreditCard, MessageSquare, ChevronRight } from 'lucide-react';
-import type { DashboardStats } from './types';
+import type { DashboardStats } from './AdminDashboard_types';
 
 interface AdminOverviewProps {
   stats: DashboardStats | null;

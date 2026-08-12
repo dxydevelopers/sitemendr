@@ -7,7 +7,7 @@ import {
   Settings, MessageSquare, Folder, PenLine,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { ProjectRequest } from './types';
+import type { ProjectRequest } from './AdminDashboard_types';
 
 export const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Not set') => {
   if (!amount) return fallback;

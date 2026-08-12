@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import path from "path";
 
 // Bundle analyzer for performance monitoring
 const withBundleAnalyzer = bundleAnalyzer({
@@ -7,6 +8,8 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: path.join(process.cwd()),
+
   // Enable React strict mode for better development experience
   reactStrictMode: true,
   

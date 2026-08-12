@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ChevronRight, Search } from 'lucide-react';
-import type { Subscription } from './types';
+import { ChevronRight, Eye, Search } from 'lucide-react';
+import type { Subscription } from './AdminDashboard_types';
 
 const TemplateEditor = dynamic(() => import('../dashboard/TemplateEditor'), { ssr: false });
 
