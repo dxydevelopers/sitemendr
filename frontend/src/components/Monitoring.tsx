@@ -39,7 +39,8 @@ export default function Monitoring() {
   const [isMonitoring, setIsMonitoring] = useState(true);
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     uptime: 99.9,
-    lastCheck: new Date().toLocaleString(),
+    // Use a stable initial value so server and client render the same markup.
+    lastCheck: 'Initializing...',
     overall: 'operational',
     services: {
       api: true,
@@ -59,11 +60,20 @@ export default function Monitoring() {
   ]);
 
   useEffect(() => {
+    const formatCheckTime = () => new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(new Date());
+
     const interval = setInterval(() => {
       // Simulate real-time monitoring updates
       setSystemStatus(prev => ({
         ...prev,
-        lastCheck: new Date().toLocaleString(),
+        lastCheck: formatCheckTime(),
         uptime: Math.min(99.99, prev.uptime + Math.random() * 0.01)
       }));
 

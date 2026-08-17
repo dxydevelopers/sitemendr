@@ -149,7 +149,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
       </aside>
 
       <div className={`relative z-10 flex flex-1 flex-col overflow-hidden transition-[padding] duration-200 lg:pl-0 ${mobileRailGroup ? 'pl-64' : 'pl-10'}`}>
-        {activeTab !== 'project-requests' && (
+        {activeTab !== 'project-requests' && activeTab !== 'system' && (
           <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#05070a]/95 px-4 py-3 lg:px-6">
             <div className="flex min-w-0 items-center gap-3">
               {activeTab !== 'dashboard' && (

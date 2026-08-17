@@ -1,4 +1,4 @@
-// components/client-dashboard/BillingDetailViews.tsx
+﻿// components/client-dashboard/BillingDetailViews.tsx
 //
 // The three drill-down views the billing page navigates into.
 
@@ -75,7 +75,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
 
   return (
     <div className="animate-fade-in">
-      <div className="border-y border-white/10 py-6">
+      <div className="border-y border-white/12 py-6">
         <p className="text-[9px] font-black uppercase tracking-[0.14em] text-ai-blue">One-time contract</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-white">{contract.businessName || contract.title || 'Untitled project'}</h2>
         <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3">
@@ -96,7 +96,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
 
       <div className="py-6">
         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/34">Payment history</p>
-        <div className="mt-4 divide-y divide-white/10">
+        <div className="mt-4 divide-y divide-white/12">
           {payments.length === 0 ? (
             <p className="py-10 text-center text-sm text-white/34">No payments recorded for this contract yet.</p>
           ) : payments.map((payment) => (
@@ -126,7 +126,7 @@ interface SubscriptionDetailProps {
 export function SubscriptionDetail({}: SubscriptionDetailProps) {
   return (
     <div className="animate-fade-in">
-      <div className="border-y border-white/10 py-16 text-center">
+      <div className="border-y border-white/12 py-16 text-center">
         <RefreshCw className="mx-auto mb-4 h-6 w-6 text-white/15" />
         <p className="text-sm font-semibold text-white/50">Care subscriptions aren&apos;t available to purchase yet.</p>
         <p className="mx-auto mt-2 max-w-sm text-xs text-white/30">Once you have an active plan, its next charge date, next charge amount, and full invoice history will show up here.</p>
@@ -156,37 +156,37 @@ export function TransactionDetail({ transaction }: TransactionDetailProps) {
 
   return (
     <div className="animate-fade-in">
-      <div className="border-y border-white/10 py-6">
+      <div className="border-y border-white/12 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${statusTone[transaction.status] || 'text-white/50'}`}>{transaction.status.replace(/_/g, ' ')}</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-white">{transaction.description}</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/42">
+            <h2 className="mt-2 max-w-2xl text-[26px] font-black tracking-tight text-white sm:text-[28px]">{transaction.description}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/42">
               Payment record for this billing event.
             </p>
           </div>
-          <div className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right">
+          <div className="shrink-0 border border-white/12 bg-transparent px-3.5 py-3 text-right">
             <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Amount</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-white">{formatMoney(transaction.amount, transaction.currency)}</p>
+            <p className="mt-2 text-[26px] font-black tracking-tight text-white sm:text-[28px]">{formatMoney(transaction.amount, transaction.currency)}</p>
             {transaction.convertedAmount != null && <p className="mt-1 text-xs text-white/38">≈ {formatMajorUnits(transaction.convertedAmount, transaction.preferredCurrency)}</p>}
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="border border-white/12 bg-transparent px-3.5 py-3.5">
             <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Reference</p>
             <p className="mt-2 break-all font-mono text-xs font-semibold leading-5 text-white">{transaction.reference}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4">
+          <div className="border border-white/12 bg-transparent px-3.5 py-3.5">
             <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Channel</p>
             <p className="mt-2 text-xs font-semibold text-white">{transaction.cardType ? `${transaction.cardType} •••• ${transaction.last4 || ''}` : (transaction.channel || 'card').replace(/_/g, ' ')}</p>
             {transaction.bank && <p className="mt-1 text-[10px] text-white/34">{transaction.bank}</p>}
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4">
+          <div className="border border-white/12 bg-transparent px-3.5 py-3.5">
             <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Type</p>
             <p className="mt-2 text-xs font-semibold capitalize text-white">{(transaction.serviceType || '').replace(/_/g, ' ') || '—'}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4">
+          <div className="border border-white/12 bg-transparent px-3.5 py-3.5">
             <p className="text-[9px] font-black uppercase tracking-widest text-white/28">Date</p>
             <p className="mt-2 text-xs font-semibold text-white">{new Date(transaction.createdAt).toLocaleString()}</p>
           </div>
@@ -194,19 +194,19 @@ export function TransactionDetail({ transaction }: TransactionDetailProps) {
       </div>
 
       {relatedAttempts.length > 0 && (
-        <div className="py-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="py-5">
+          <div className="mb-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-white/30" />
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/34">Earlier attempts</p>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/40">
+            <span className="rounded-full border border-white/12 bg-transparent px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/40">
               {relatedAttempts.length} related
             </span>
           </div>
-          <div className="max-h-80 overflow-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+          <div className="max-h-80 overflow-auto border border-white/12 bg-transparent">
             {relatedAttempts.map((attempt) => (
-              <div key={attempt.id} className="grid grid-cols-1 gap-3 border-b border-white/8 px-4 py-4 last:border-b-0 sm:grid-cols-[1.2fr_auto_auto] sm:items-center">
+              <div key={attempt.id} className="grid grid-cols-1 gap-3 border-b border-white/12 px-3.5 py-3.5 last:border-b-0 sm:grid-cols-[1.5fr_auto_auto] sm:items-center">
                 <div className="min-w-0">
                   <p className="font-mono text-[10px] text-white/34">{attempt.reference}</p>
                   <p className="mt-1 truncate text-sm font-semibold text-white/80">{attempt.description}</p>
@@ -222,3 +222,7 @@ export function TransactionDetail({ transaction }: TransactionDetailProps) {
     </div>
   );
 }
+
+
+
+

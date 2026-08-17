@@ -138,7 +138,7 @@ const paymentProcessors = [
 ];
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
+  const currentYear = 2026;
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -214,7 +214,6 @@ export default function Footer() {
                 </ul>
               </div>
             ))}
-
           </div>
 
           <div className="lg:border-l lg:border-white/10 lg:pl-7">
@@ -223,7 +222,7 @@ export default function Footer() {
               Contact
             </h3>
             <ul className="mt-5 space-y-4">
-              {contactLinks.map((link, index) => {
+              {contactLinks.map((link) => {
                 const Icon = link.icon;
                 const isExternal = link.href.startsWith('http');
                 return (
@@ -234,7 +233,7 @@ export default function Footer() {
                       rel={isExternal ? 'noopener noreferrer' : undefined}
                       className="group grid grid-cols-[34px_1fr] items-start gap-3 text-sm leading-5 text-white/68 transition hover:text-white"
                     >
-                      <span className={`grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] transition group-hover:border-ai-blue/55 group-hover:bg-ai-blue/10 ${index === 0 ? 'text-ai-blue' : 'text-white/42'}`}>
+                      <span className="grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] text-white/42 transition group-hover:border-ai-blue/55 group-hover:bg-ai-blue/10">
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="pt-1">{link.name}</span>
@@ -294,7 +293,7 @@ export default function Footer() {
 
         <div className="flex flex-col gap-5 pt-6 text-xs text-white/42 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span>© {currentYear} Sitemendr Technologies. All rights reserved.</span>
+            <span>&copy; {currentYear} Sitemendr Technologies. All rights reserved.</span>
             {legalLinks.map((link) => (
               <Link key={link.name} href={link.href} className="transition hover:text-white">
                 {link.name}

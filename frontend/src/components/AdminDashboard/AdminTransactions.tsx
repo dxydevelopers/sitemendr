@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, CreditCard, Search, ChevronDown, SlidersHorizontal } from 'lucide-react';
@@ -106,7 +106,7 @@ export default function AdminTransactions() {
               placeholder="Search name, email, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="min-h-11 w-full rounded-xl border border-white/12 bg-[#05070a] py-2.5 pl-9 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+              className="min-h-10 w-full rounded-xl border border-white/12 bg-[#05070a] py-2.5 pl-9 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
             />
           </label>
 
@@ -121,7 +121,7 @@ export default function AdminTransactions() {
                 e.stopPropagation();
                 setOpenMenu(openMenu === 'status' ? null : 'status');
               }}
-              className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
+              className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
             >
               <span>{statusFilter === 'ALL' ? 'All status' : statusFilter}</span>
               <ChevronDown className="h-4 w-4 text-white/28" />
@@ -163,7 +163,7 @@ export default function AdminTransactions() {
                 e.stopPropagation();
                 setOpenMenu(openMenu === 'type' ? null : 'type');
               }}
-              className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
+              className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
             >
               <span>{serviceTypeFilter === 'ALL' ? 'All types' : serviceTypeFilter.replace(/_/g, ' ')}</span>
               <ChevronDown className="h-4 w-4 text-white/28" />
@@ -195,8 +195,8 @@ export default function AdminTransactions() {
         </div>
       </section>
 
-      <section className="border-t border-white/30">
-        <div className="hidden grid-cols-12 gap-4 border-b border-white/30 px-4 py-3 text-[8px] font-black uppercase tracking-[0.22em] text-white/28 xl:grid">
+      <section className="border-t border-white/20">
+        <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-4 py-3 text-[8px] font-black uppercase tracking-[0.22em] text-white/28 xl:grid">
           <div className="col-span-3">Payer</div>
           <div className="col-span-2">Reference</div>
           <div className="col-span-1">Type</div>
@@ -214,9 +214,9 @@ export default function AdminTransactions() {
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No transactions match these filters</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/30">
+          <div className="divide-y divide-white/20">
             {transactions.map((tx) => (
-              <div key={tx.id} className="grid grid-cols-1 gap-4 border-b border-white/20 px-1 py-5 transition hover:bg-white/[0.02] xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_auto] xl:items-center">
+              <div key={tx.id} className="grid grid-cols-1 gap-4 border-b border-white/20 px-1 py-4 transition hover:bg-white/[0.02] xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_auto] xl:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-[11px] font-black uppercase tracking-tight text-white">{tx.payer?.name || 'Unknown'}</p>
@@ -276,7 +276,7 @@ export default function AdminTransactions() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"
+              className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/20 hover:text-white disabled:opacity-30"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -284,7 +284,7 @@ export default function AdminTransactions() {
               type="button"
               onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
               disabled={page >= pagination.totalPages}
-              className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"
+              className="grid h-9 w-9 place-items-center border border-white/10 text-white/60 transition hover:border-white/20 hover:text-white disabled:opacity-30"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -294,4 +294,5 @@ export default function AdminTransactions() {
     </div>
   );
 }
+
 

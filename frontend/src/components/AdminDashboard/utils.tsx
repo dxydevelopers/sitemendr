@@ -101,7 +101,7 @@ export const adminTabs: AdminTab[] = [
   { id: 'media', name: 'Media Library', shortName: 'Media', icon: <Folder className="w-4 h-4" /> },
   { id: 'blog', name: 'Blog', icon: <PenLine className="w-4 h-4" /> },
   { id: 'analytics', name: 'Analytics', icon: <BarChart3 className="w-4 h-4" /> },
-  { id: 'system', name: 'System Controls', shortName: 'System', icon: <Settings className="w-4 h-4" /> },
+  { id: 'system', name: 'System', shortName: 'System', icon: <Settings className="w-4 h-4" /> },
 ];
 
 export const adminTabGroups: AdminTabGroup[] = [

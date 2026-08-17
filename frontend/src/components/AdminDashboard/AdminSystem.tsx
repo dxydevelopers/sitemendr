@@ -7,10 +7,48 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useState } from 'react';
+import type { ComponentType } from 'react';
+import { Settings2, Bell, Wrench, CreditCard, ArrowRight, ShieldCheck, FileClock, Sparkles, ChevronLeft } from 'lucide-react';
 import type { AnalyticsData, EnforcementSettings, SiteVitals, Recommendation, Subscription } from './AdminDashboard_types';
+import { notificationRules } from './notificationRegistry';
 
 const AdminSystemHealth = dynamic(() => import('../dashboard/AdminSystemHealth'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
+
+type SystemPage = 'settings' | 'notifications' | 'maintenance' | 'payments';
+
+const systemPages: Array<{
+  id: SystemPage;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  accent: string;
+}> = [
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: Settings2,
+    accent: 'text-ai-blue',
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    accent: 'text-tech-purple',
+  },
+  {
+    id: 'maintenance',
+    label: 'Maintenance',
+    icon: Wrench,
+    accent: 'text-expert-green',
+  },
+  {
+    id: 'payments',
+    label: 'Payments',
+    icon: CreditCard,
+    accent: 'text-amber-300',
+  },
+];
 
 interface AdminSystemProps {
   view: 'analytics' | 'system' | 'health';
@@ -37,6 +75,8 @@ export default function AdminSystem({
   isSystemWorking, onRunSuspensionCheck, onRunDNSVerification,
   subscriptions, selectedSiteForVitals, setSelectedSiteForVitals, siteVitals, setSiteVitals, loadingVitals, setLoadingVitals, fetchSiteVitals,
 }: AdminSystemProps) {
+  const [systemPage, setSystemPage] = useState<SystemPage | null>(null);
+
   if (view === 'health') {
     return (
       <div className="space-y-12 animate-fade-in">
@@ -71,17 +111,49 @@ export default function AdminSystem({
   }
 
   if (view === 'system') {
-    return (
-      <div className="space-y-10 animate-fade-in">
-        <div className="flex flex-col">
-          <span className="text-[8px] font-bold text-ai-blue uppercase tracking-[0.3em] mb-1">System_Orchestrator</span>
-          <h2 className="text-xl font-bold tracking-tight flex items-center gap-3 uppercase"><span className="w-1.5 h-8 bg-ai-blue rounded-full"></span>System Settings</h2>
+    const currentPage = systemPages.find(page => page.id === systemPage) || null;
+
+    if (!systemPage || !currentPage) {
+      return (
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <span className="text-ai-blue">
+              <Settings2 className="h-5 w-5" />
+            </span>
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/60">System</span>
+          </div>
+
+          <div className="flex flex-col gap-4 w-full">
+            {systemPages.map((page) => {
+              const Icon = page.icon;
+              return (
+                <button
+                  key={page.id}
+                  type="button"
+                  onClick={() => setSystemPage(page.id)}
+                  className="flex w-full items-center justify-between gap-3 border-b border-white/10 py-4 text-left text-white/70 transition-all hover:text-white"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={page.accent}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-[11px] font-black uppercase tracking-[0.24em] text-white">{page.label}</span>
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-white/25 transition-transform" />
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl">
-            <h3 className="font-black text-xs tracking-widest uppercase text-ai-blue mb-8">Payment Enforcement</h3>
+      );
+    }
+
+    return (
+      <div className="animate-fade-in">
+        {systemPage === 'settings' ? (
+          <SystemPageShell title="Settings" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
             {enforcementSettings ? (
-              <form onSubmit={onUpdateEnforcementSettings} className="space-y-6">
+              <form onSubmit={onUpdateEnforcementSettings} className="space-y-6 max-w-xl">
                 <div className="space-y-2">
                   <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Grace Period (Days)</label>
                   <input type="number" value={enforcementSettings.gracePeriodDays || 0} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, gracePeriodDays: parseInt(e.target.value) } : prev)} className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-widest focus:outline-none focus:border-ai-blue transition-colors" />
@@ -97,22 +169,115 @@ export default function AdminSystem({
                 <button type="submit" disabled={submitting} className="w-full py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">{submitting ? 'Saving...' : 'Save configuration'}</button>
               </form>
             ) : <div className="py-12 text-center"><p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">Loading settings...</p></div>}
-          </div>
+          </SystemPageShell>
+        ) : null}
 
-          <div className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl">
-            <h3 className="font-black text-xs tracking-widest uppercase text-ai-blue mb-8">System Maintenance</h3>
-            <div className="space-y-4">
-              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between group hover:border-white/10 transition-all">
-                <div><p className="font-black text-[11px] uppercase tracking-tight mb-1">Suspension Watchdog</p><p className="text-[8px] text-medium-gray font-bold uppercase tracking-tight opacity-70">Check for overdue subscriptions and apply suspensions.</p></div>
+        {systemPage === 'notifications' ? (
+          <SystemPageShell title="Notifications" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+            <div className="overflow-hidden">
+              <div className="grid grid-cols-12 gap-4 border-b border-white/10 pb-3 text-[9px] uppercase tracking-[0.24em] text-white/35">
+                <div className="col-span-3">Trigger</div>
+                <div className="col-span-3">Recipient</div>
+                <div className="col-span-2">Channels</div>
+                <div className="col-span-2">Purpose</div>
+                <div className="col-span-1">State</div>
+                <div className="col-span-1 text-right">Action</div>
+              </div>
+
+              <div className="space-y-0">
+                {notificationRules.map((rule) => {
+                  const Icon = rule.icon;
+                  return (
+                    <div key={rule.id} className="grid grid-cols-12 gap-4 border-b border-white/10 py-4 last:border-0">
+                      <div className="col-span-3 flex items-start gap-3">
+                        <span className="mt-1 text-tech-purple">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-[13px] font-medium tracking-[-0.02em] text-white">{rule.name}</p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/30">{rule.trigger}</p>
+                        </div>
+                      </div>
+                      <div className="col-span-3 text-[12px] tracking-[-0.01em] text-white/60">
+                        {rule.recipient}
+                      </div>
+                      <div className="col-span-2 text-[12px] tracking-[-0.01em] text-white/60">
+                        {rule.channels.join(' / ')}
+                      </div>
+                      <div className="col-span-2 text-[12px] tracking-[-0.01em] text-white/60">
+                        {rule.purpose}
+                      </div>
+                      <div className="col-span-1 text-[10px] uppercase tracking-[0.18em]">
+                        <span className={rule.status === 'active' ? 'text-expert-green' : rule.status === 'paused' ? 'text-amber-200' : 'text-white/35'}>
+                          {rule.status}
+                        </span>
+                      </div>
+                      <div className="col-span-1 text-right text-[10px] uppercase tracking-[0.18em] text-ai-blue/80">
+                        Edit
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </SystemPageShell>
+        ) : null}
+
+        {systemPage === 'maintenance' ? (
+          <SystemPageShell title="Maintenance" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+            <div className="space-y-4 max-w-2xl">
+              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="text-expert-green">
+                    <ShieldCheck className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-black text-[11px] uppercase tracking-tight mb-1">Suspension Watchdog</p>
+                    <p className="text-[8px] text-medium-gray font-bold uppercase tracking-tight opacity-70">Check for overdue subscriptions and apply suspensions.</p>
+                  </div>
+                </div>
                 <button onClick={onRunSuspensionCheck} disabled={isSystemWorking} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-500 transition-all disabled:opacity-50">EXECUTE</button>
               </div>
-              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between group hover:border-white/10 transition-all">
-                <div><p className="font-black text-[11px] uppercase tracking-tight mb-1">DNS Verify Worker</p><p className="text-[8px] text-medium-gray font-bold uppercase tracking-tight opacity-70">Validate custom domain records across global DNS.</p></div>
+              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="text-ai-blue">
+                    <FileClock className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-black text-[11px] uppercase tracking-tight mb-1">DNS Verify Worker</p>
+                    <p className="text-[8px] text-medium-gray font-bold uppercase tracking-tight opacity-70">Validate custom domain records across global DNS.</p>
+                  </div>
+                </div>
                 <button onClick={onRunDNSVerification} disabled={isSystemWorking} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-expert-green/20 hover:border-expert-green/30 hover:text-expert-green transition-all disabled:opacity-50">EXECUTE</button>
               </div>
             </div>
-          </div>
-        </div>
+          </SystemPageShell>
+        ) : null}
+
+        {systemPage === 'payments' ? (
+          <SystemPageShell title="Payments" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+            {enforcementSettings ? (
+              <div className="space-y-6 max-w-xl">
+                <div className="space-y-2">
+                  <p className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Grace Period (Days)</p>
+                  <p className="text-lg font-black uppercase tracking-widest">{enforcementSettings.gracePeriodDays || 0}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Overlay Threshold (%)</p>
+                  <p className="text-lg font-black uppercase tracking-widest">{enforcementSettings.overlayThreshold || 0}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Global Enforcement</p>
+                  <p className="text-sm font-black uppercase tracking-widest">{enforcementSettings.enforceOverlays ? 'Enabled' : 'Disabled'}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center">
+                <p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">Loading billing controls...</p>
+              </div>
+            )}
+          </SystemPageShell>
+        ) : null}
       </div>
     );
   }
@@ -174,6 +339,40 @@ export default function AdminSystem({
           )) : <div className="col-span-2 p-6 bg-white/[0.02] border border-white/5 rounded-2xl"><p className="text-[9px] text-medium-gray font-black uppercase tracking-widest text-center">Analyzing...</p></div>}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SystemPageShell({
+  title,
+  icon: Icon,
+  onBack,
+  children,
+}: {
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center justify-center text-white/60 transition hover:text-white"
+          aria-label="Back"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-3">
+          <span className="text-ai-blue">
+            <Icon className="h-5 w-5" />
+          </span>
+          <h3 className="text-sm font-black uppercase tracking-[0.2em]">{title}</h3>
+        </div>
+      </div>
+      {children}
     </div>
   );
 }

@@ -348,7 +348,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
           <div className="mx-auto mt-8 grid max-w-md grid-cols-1 gap-3 border-y border-white/10 py-5 sm:grid-cols-3">
             <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Total paid</p><p className="mt-2 text-lg font-black tracking-tight text-expert-green">{agreementTotalLabel}</p></div>
-            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Completed</p><p className="mt-2 text-lg font-black tracking-tight text-white">{currentBuildRecord.completedAt ? new Date(currentBuildRecord.completedAt).toLocaleDateString() : new Date().toLocaleDateString()}</p></div>
+            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Completed</p><p className="mt-2 text-lg font-black tracking-tight text-white">{currentBuildRecord.completedAt ? new Date(currentBuildRecord.completedAt).toLocaleDateString() : 'Pending'}</p></div>
             <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Plan</p><p className="mt-2 truncate text-lg font-black capitalize tracking-tight text-white">{currentBuildPlanLabel}</p></div>
           </div>
 

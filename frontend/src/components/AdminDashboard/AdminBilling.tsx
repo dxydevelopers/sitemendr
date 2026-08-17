@@ -37,8 +37,8 @@ const tierRank: Record<string, number> = {
 
 function SectionHeader({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="border-b border-white/20 pb-6">
-      <p className="mt-3 text-[26px] font-black tracking-tight text-white">{title}</p>
+    <div className="border-b border-white/12 pb-4">
+      <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/42">{title}</p>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-white/42">{detail}</p>
     </div>
   );
@@ -89,7 +89,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex min-h-10 items-center gap-2 border-b border-white/12 px-0 text-[10px] font-black uppercase tracking-[0.16em] transition disabled:opacity-50 ${toneClass}`}
+      className={`inline-flex min-h-9 items-center gap-2 border border-white/12 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] transition disabled:opacity-50 ${toneClass}`}
     >
       {children}
     </button>
@@ -151,7 +151,7 @@ export default function AdminBilling({
           detail={`${subscriptions.filter((s) => s.status === 'active').length} active of ${subscriptions.length} deployments`}
         />
 
-        <div className="border-b border-white/10 pb-5">
+        <div className="border-b border-white/10 pb-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-4">
             <label className="relative min-w-0 flex-1">
               <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Search</span>
@@ -182,7 +182,7 @@ export default function AdminBilling({
         </div>
 
         <div className="border-y border-white/20">
-          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-5 py-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
+          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
             <div className="col-span-7">Deployment</div>
             <div className="col-span-2">Billing</div>
             <div className="col-span-3 text-right">View details</div>
@@ -197,11 +197,11 @@ export default function AdminBilling({
                 const tierNumber = tierRank[sub.tier] || i + 1;
 
                 return (
-                  <div key={sub.id || i} className="px-5 py-4">
+                  <div key={sub.id || i} className="px-4 py-4">
                     <button
                       type="button"
                       onClick={() => router.push(`/admin/subscriptions/${sub.id}`)}
-                      className="grid w-full grid-cols-1 gap-5 text-left transition hover:bg-white/[0.02] xl:grid-cols-[minmax(0,1fr)_150px_220px] xl:items-center"
+                      className="grid w-full grid-cols-1 gap-4 text-left transition hover:bg-white/[0.01] xl:grid-cols-[minmax(0,1fr)_170px_170px] xl:items-center"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-3">
@@ -210,17 +210,23 @@ export default function AdminBilling({
                           {!sub.isCurrent && <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Previous</span>}
                         </div>
 
-                        <h3 className="mt-2 truncate text-[17px] font-semibold tracking-tight text-white">{sub.customName || sub.siteName}</h3>
-                        <p className="mt-2 text-sm leading-6 text-white/42">Client {sub.user?.name || 'Guest'} · {tierLabel}</p>
+                        <h3 className="mt-1.5 truncate text-[17px] font-semibold tracking-tight text-white">{sub.customName || sub.siteName}</h3>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm leading-6 text-white/42">
+                          <span>Client {sub.user?.name || 'Guest'}</span>
+                          <span className="text-white/24">&middot;</span>
+                          <span>{tierLabel}</span>
+                          <span className="text-white/24">&middot;</span>
+                          <span>Tier {tierNumber}</span>
+                        </div>
                       </div>
 
-                      <div className="min-h-full xl:border-l xl:border-white/20 xl:pl-5">
+                      <div className="min-h-full xl:border-l xl:border-white/20 xl:pl-4">
                         <p className={label}>Billing</p>
                         <p className={`mt-2 text-[15px] font-black tracking-tight ${currentPaymentLabel === 'PAID' ? 'text-expert-green' : 'text-amber-300'}`}>{currentPaymentLabel}</p>
                         <p className="mt-2 text-sm leading-6 text-white/40">Latest commercial state for this deployment.</p>
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 xl:pt-1">
+                      <div className="flex items-center justify-end gap-2 self-stretch xl:border-l xl:border-white/20 xl:pl-4">
                         <span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300/80">Open</span>
                         <ChevronRight className="h-4 w-4 text-amber-300/80 transition group-hover:translate-x-0.5" />
                       </div>
@@ -243,13 +249,13 @@ export default function AdminBilling({
   );
 
   return (
-    <div className="animate-fade-in space-y-7">
+    <div className="animate-fade-in space-y-6">
         <SectionHeader
           title="Review Queue"
           detail={`${reviewProjects.length} pending review${reviewProjects.length === 1 ? '' : 's'}`}
         />
 
-      <div className="border-b border-white/10 pb-5">
+      <div className="border-b border-white/10 pb-4">
         <label className="relative block lg:w-[28rem]">
           <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Search</span>
           <Search className="pointer-events-none absolute left-0 top-[2.15rem] h-3.5 w-3.5 text-white/28" />
@@ -269,15 +275,15 @@ export default function AdminBilling({
           <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No projects currently awaiting review</p>
         </div>
       ) : (
-        <div className="border-y border-white/20">
-          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-5 py-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
+        <div className="border-y border-white/30">
+          <div className="hidden grid-cols-12 gap-4 border-b border-white/30 px-5 py-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
             <div className="col-span-7">Project</div>
             <div className="col-span-2">Review</div>
             <div className="col-span-3 text-right">Actions</div>
           </div>
-          <div className="divide-y divide-white/20">
+          <div className="divide-y divide-white/30">
             {filteredReview.map((project, i) => (
-              <div key={project.id || i} className="px-5 py-5">
+              <div key={project.id || i} className="px-5 py-6">
                 <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_240px_220px] xl:items-stretch">
                   <div className="min-w-0">
                     <div className="flex items-start justify-between gap-3">
@@ -288,14 +294,14 @@ export default function AdminBilling({
                       <span className={`shrink-0 text-[9px] font-black uppercase tracking-[0.18em] ${project.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{project.status}</span>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-1 gap-3 border-t border-white/20 pt-4 sm:grid-cols-3">
+                    <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-white/30 pt-3.5 sm:grid-cols-3">
                       <MetaBlock title="Owner" valueText={project.user?.email || 'Unknown'} />
                       <MetaBlock title="Requested" valueText={new Date(project.createdAt || Date.now()).toLocaleDateString()} />
                       <MetaBlock title="Revisions" valueText={`${project.revisionCount ?? 0}`} />
                     </div>
                   </div>
 
-                  <div className="min-h-full xl:border-l xl:border-white/20 xl:pl-5">
+                  <div className="min-h-full xl:border-l xl:border-white/30 xl:pl-5">
                     <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Review notes</label>
                     <textarea
                       defaultValue={project.reviewNotes || ''}
@@ -307,7 +313,7 @@ export default function AdminBilling({
                     />
                   </div>
 
-                  <div className="flex min-h-full flex-wrap gap-2 xl:justify-end xl:pt-1">
+                  <div className="flex min-h-full flex-wrap gap-2 xl:justify-end xl:pt-1 xl:border-l xl:border-white/30 xl:pl-5">
                     <ActionButton
                       onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/preview/${project.id}`, '_blank')}
                     >
@@ -333,4 +339,5 @@ export default function AdminBilling({
     </div>
   );
 }
+
 
