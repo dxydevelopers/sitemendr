@@ -18,6 +18,27 @@ export interface User {
   createdAt?: string;
 }
 
+export interface NotificationRule {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  trigger: string;
+  recipientType: 'user' | 'admin' | 'all_admins' | 'specific_email';
+  recipientOverride?: string | null;
+  senderName?: string | null;
+  senderEmail?: string | null;
+  replyTo?: string | null;
+  subject: string;
+  htmlTemplate: string;
+  availableVariables: string[];
+  channels: string[];
+  status: 'active' | 'paused' | 'removed';
+  sourceFile?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AssessmentResultsData {
   recommendedPackage: string;
   confidence: number;
@@ -1408,6 +1429,33 @@ class ApiClient {
 
   async healthCheck() {
     return this.request('/api/health');
+  }
+
+  // Notification Rules API
+  async getNotificationRules() {
+    return this.request<{ success: boolean; data: NotificationRule[] }>('/admin/notification-rules');
+  }
+
+  async getNotificationRule(id: string) {
+    return this.request<{ success: boolean; data: NotificationRule }>(`/admin/notification-rules/${id}`);
+  }
+
+  async updateNotificationRule(id: string, data: Partial<NotificationRule>) {
+    return this.request<{ success: boolean; data: NotificationRule; message?: string }>(`/admin/notification-rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getEmailConfig() {
+    return this.request<{ success: boolean; data: { transport: string } }>('/admin/notification-rules/email-config');
+  }
+
+  async updateEmailConfig(transport: string) {
+    return this.request<{ success: boolean; data: { transport: string }; message?: string }>('/admin/notification-rules/email-config', {
+      method: 'PATCH',
+      body: JSON.stringify({ transport }),
+    });
   }
 
   // Supporter API methods

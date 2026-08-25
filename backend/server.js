@@ -18,6 +18,7 @@ const { initAutomation } = require("./services/automationService");
 const { verifyConnection: verifyEmailConnection } = require("./config/email");
 const logger = require("./config/logger");
 
+
 const normalizeOrigin = (value) => {
   if (typeof value !== 'string') return value;
   return value.replace(/\/$/, '');
@@ -163,6 +164,7 @@ const ecommerceRoutes = require("./routes/ecommerceRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const swaggerRoutes = require("./routes/swaggerRoutes");
 const pageEditorRoutes = require("./routes/pageEditorRoutes");
+const notificationRulesRoutes = require("./routes/notificationRulesRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/assessment", assessmentRoutes);
@@ -183,6 +185,7 @@ app.use("/api/editor", pageEditorRoutes);
 app.use("/api/ecommerce", ecommerceRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api-docs", swaggerRoutes);
+app.use("/api/admin/notification-rules", notificationRulesRoutes);
 
 const authMiddleware = require("./middleware/auth");
 

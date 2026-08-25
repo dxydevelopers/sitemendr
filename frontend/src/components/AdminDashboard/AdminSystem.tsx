@@ -9,9 +9,9 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
-import { Settings2, Bell, Wrench, CreditCard, ArrowRight, ShieldCheck, FileClock, Sparkles, ChevronLeft } from 'lucide-react';
+import { Settings2, Bell, Wrench, CreditCard, ArrowRight, ShieldCheck, FileClock, ChevronLeft } from 'lucide-react';
 import type { AnalyticsData, EnforcementSettings, SiteVitals, Recommendation, Subscription } from './AdminDashboard_types';
-import { notificationRules } from './notificationRegistry';
+import AdminNotifications from './AdminNotifications';
 
 const AdminSystemHealth = dynamic(() => import('../dashboard/AdminSystemHealth'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
@@ -174,52 +174,7 @@ export default function AdminSystem({
 
         {systemPage === 'notifications' ? (
           <SystemPageShell title="Notifications" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
-            <div className="overflow-hidden">
-              <div className="grid grid-cols-12 gap-4 border-b border-white/10 pb-3 text-[9px] uppercase tracking-[0.24em] text-white/35">
-                <div className="col-span-3">Trigger</div>
-                <div className="col-span-3">Recipient</div>
-                <div className="col-span-2">Channels</div>
-                <div className="col-span-2">Purpose</div>
-                <div className="col-span-1">State</div>
-                <div className="col-span-1 text-right">Action</div>
-              </div>
-
-              <div className="space-y-0">
-                {notificationRules.map((rule) => {
-                  const Icon = rule.icon;
-                  return (
-                    <div key={rule.id} className="grid grid-cols-12 gap-4 border-b border-white/10 py-4 last:border-0">
-                      <div className="col-span-3 flex items-start gap-3">
-                        <span className="mt-1 text-tech-purple">
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="text-[13px] font-medium tracking-[-0.02em] text-white">{rule.name}</p>
-                          <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/30">{rule.trigger}</p>
-                        </div>
-                      </div>
-                      <div className="col-span-3 text-[12px] tracking-[-0.01em] text-white/60">
-                        {rule.recipient}
-                      </div>
-                      <div className="col-span-2 text-[12px] tracking-[-0.01em] text-white/60">
-                        {rule.channels.join(' / ')}
-                      </div>
-                      <div className="col-span-2 text-[12px] tracking-[-0.01em] text-white/60">
-                        {rule.purpose}
-                      </div>
-                      <div className="col-span-1 text-[10px] uppercase tracking-[0.18em]">
-                        <span className={rule.status === 'active' ? 'text-expert-green' : rule.status === 'paused' ? 'text-amber-200' : 'text-white/35'}>
-                          {rule.status}
-                        </span>
-                      </div>
-                      <div className="col-span-1 text-right text-[10px] uppercase tracking-[0.18em] text-ai-blue/80">
-                        Edit
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <AdminNotifications />
           </SystemPageShell>
         ) : null}
 

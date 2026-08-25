@@ -1,5 +1,5 @@
 'use client';
-
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -275,11 +275,9 @@ export default function Navigation() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between gap-4">
             <Link href="/" onClick={closeMenus} className="group flex min-w-0 items-center gap-3">
-              <span className="grid h-8 w-8 shrink-0 place-items-center bg-white/[0.06] ring-1 ring-white/10">
-                <Globe className="h-4 w-4 text-ai-blue" />
-              </span>
-              <span className="text-lg font-bold tracking-tight text-white">Sitemendr</span>
-            </Link>
+  <Image src="/Sitemendr_Tech_Logo.png" alt="Sitemendr" width={50} height={40} className="h-7 w-auto object-contain" />
+  <span className="text-lg font-bold tracking-tight text-white">Sitemendr</span>
+</Link>
 
             <div className="hidden items-center gap-0.5 lg:flex">
               {megaMenus.map((menu) => (

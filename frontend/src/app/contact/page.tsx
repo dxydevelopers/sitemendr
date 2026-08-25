@@ -38,50 +38,44 @@ const contactRoutes = [
   },
 ];
 
-const directContacts = [
+const contactGroups = [
   {
-    label: 'Email',
-    value: 'dxydevelopers@gmail.com',
-    href: 'mailto:dxydevelopers@gmail.com',
+    title: 'Email',
     icon: Mail,
     tone: 'text-ai-blue',
+    items: [
+      { value: 'sitemendr@gmail.com', href: 'mailto:sitemendr@gmail.com' },
+      { value: 'dxydevelopers@gmail.com', href: 'mailto:dxydevelopers@gmail.com' },
+      { value: 'info.sitemendr@gmail.com', href: 'mailto:info.sitemendr@gmail.com' },
+    ],
   },
   {
-    label: 'Phone',
-    value: '+254 790 057 596',
-    href: 'tel:+254790057596',
+    title: 'Phone',
     icon: Phone,
     tone: 'text-expert-green',
+    items: [
+      { value: '+254 140 112 399', href: 'tel:+254140112399' },
+      { value: '+254 140 122 685', href: 'tel:+254140122685' },
+      { value: '+1 618 215 2617', href: 'tel:+16182152617' },
+    ],
   },
   {
-    label: 'Phone',
-    value: '+254 140 122 685',
-    href: 'tel:+254140122685',
-    icon: Phone,
-    tone: 'text-expert-yellow',
-  },
-
-    {
-    label: 'WhatsApp',
-    value: '+254 790 057 596',
-    href: 'https://wa.me/254790057596',
+    title: 'WhatsApp',
     icon: MessageSquare,
     tone: 'text-amber-300',
+    items: [
+      { value: '+254 140 112 399', href: 'https://wa.me/254140112399' },
+      { value: '+254 140 122 685', href: 'https://wa.me/254140122685' },
+      { value: '+1 618 215 2617', href: 'https://wa.me/16182152617' },
+    ],
   },
   {
-    label: 'WhatsApp',
-    value: '+254 140 122 685',
-    href: 'https://wa.me/254140122685',
-    icon: MessagesSquare,
-    tone: 'text-amber-300',
-
-  },
-  {
-    label: 'Operating center',
-    value: 'Nairobi, Kenya',
-    href: 'https://www.google.com/maps/search/Nairobi+Kenya',
+    title: 'Operating center',
     icon: MapPin,
     tone: 'text-tech-purple',
+    items: [
+      { value: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya' },
+    ],
   },
 ];
 
@@ -256,24 +250,34 @@ export default function Contact() {
               Use the form for project context. Use the direct channels when the matter is immediate or already attached to an existing account.
             </p>
 
-            <div className="mt-10 divide-y divide-white/10 border-y border-white/10">
-              {directContacts.map((item) => {
-                const Icon = item.icon;
+            <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2">
+              {contactGroups.map((group) => {
+                const GroupIcon = group.icon;
                 return (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    target={item.href.startsWith('http') ? '_blank' : undefined}
-                    rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className="group grid gap-4 py-6 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-                  >
-                    <Icon className={`h-5 w-5 ${item.tone}`} />
-                    <span>
-                      <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{item.label}</span>
-                      <span className="mt-2 block text-lg font-semibold text-white/84">{item.value}</span>
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-white/34 transition group-hover:translate-x-1 group-hover:text-white" />
-                  </a>
+                  <div key={group.title}>
+                    <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-[0.2em] text-white/28 mb-4">
+                      <GroupIcon className={`h-4 w-4 ${group.tone}`} />
+                      {group.title}
+                    </div>
+                    <div className="space-y-2.5">
+                      {group.items.map((item) => {
+                        const isExternal = item.href.startsWith('http');
+                        return (
+                          <a
+                            key={item.value}
+                            href={item.href}
+                            target={isExternal ? '_blank' : undefined}
+                            rel={isExternal ? 'noopener noreferrer' : undefined}
+                            className="group flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3.5 text-sm font-medium text-white/64 transition hover:border-white/16 hover:bg-white/[0.055] hover:text-white"
+                          >
+                            <GroupIcon className={`h-4 w-4 ${group.tone} opacity-70 transition group-hover:opacity-100`} />
+                            <span className="flex-1">{item.value}</span>
+                            <ArrowRight className="h-4 w-4 text-white/28 transition group-hover:translate-x-1 group-hover:text-white" />
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>

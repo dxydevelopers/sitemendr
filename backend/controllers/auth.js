@@ -1,11 +1,11 @@
 const { prisma } = require('../config/db');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendEmail } = require('../config/email');
 const bcrypt = require('bcryptjs');
 const logger = require('../config/logger');
 const { withTimeout } = require('../utils/promise');
 const { convertCurrencyAmount, replaceCurrencyAmountInText } = require('../utils/currency');
+const { notify } = require('../services/notify');
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -31,15 +31,9 @@ const isPrismaUnknownBillingFieldError = (error) => (
 const sendVerificationEmail = async (email, token) => {
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
 
-  await sendEmail({
+  return notify('verify-email', {
     to: email,
-    subject: 'Verify Your Sitemendr Account',
-    html: `
-      <h2>Welcome to Sitemendr!</h2>
-      <p>Please verify your email address by clicking the link below:</p>
-      <a href="${verificationUrl}" style="background:#007bff;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Verify Email</a>
-      <p>This link will expire in 24 hours.</p>
-    `,
+    verificationUrl,
   });
 };
 
@@ -47,16 +41,9 @@ const sendVerificationEmail = async (email, token) => {
 const sendPasswordResetEmail = async (email, token) => {
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-  await sendEmail({
+  return notify('reset-password', {
     to: email,
-    subject: 'Reset Your Sitemendr Password',
-    html: `
-      <h2>Password Reset Request</h2>
-      <p>You requested a password reset. Click the link below to reset your password:</p>
-      <a href="${resetUrl}" style="background:#dc3545;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Reset Password</a>
-      <p>This link will expire in 1 hour.</p>
-      <p>If you didn't request this, please ignore this email.</p>
-    `,
+    resetUrl,
   });
 };
 

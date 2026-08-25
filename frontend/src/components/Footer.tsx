@@ -48,12 +48,41 @@ const legalLinks = [
   { name: 'Cookies', href: '/cookie-policy' },
 ];
 
-const contactLinks = [
-  { name: 'dxydevelopers@gmail.com', href: 'mailto:dxydevelopers@gmail.com', icon: Mail },
-  { name: '+254 790 057 596', href: 'tel:+254790057596', icon: Phone },
-  { name: '+254 140 122 685', href: 'tel:+254140122685', icon: Phone },
-  { name: '+1 424 445 4461', href: 'https://wa.me/%2B14244454461', icon: MessagesSquare },
-  { name: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya', icon: MapPin },
+const contactGroups = [
+  {
+    title: 'Email',
+    icon: Mail,
+    items: [
+      { value: 'sitemendr@gmail.com', href: 'mailto:sitemendr@gmail.com' },
+      { value: 'dxydevelopers@gmail.com', href: 'mailto:dxydevelopers@gmail.com' },
+      { value: 'info.sitemendr@gmail.com', href: 'mailto:info.sitemendr@gmail.com' },
+    ],
+  },
+  {
+    title: 'Phone',
+    icon: Phone,
+    items: [
+      { value: '+254 140 112 399', href: 'tel:+254140112399' },
+      { value: '+254 140 122 685', href: 'tel:+254140122685' },
+      { value: '+1 618 215 2617', href: 'tel:+16182152617' },
+    ],
+  },
+  {
+    title: 'WhatsApp',
+    icon: MessagesSquare,
+    items: [
+      { value: '+254 140 112 399', href: 'https://wa.me/254140112399' },
+      { value: '+254 140 122 685', href: 'https://wa.me/254140122685' },
+      { value: '+1 618 215 2617', href: 'https://wa.me/16182152617' },
+    ],
+  },
+  {
+    title: 'Operating center',
+    icon: MapPin,
+    items: [
+      { value: 'Sitemendr Tech, Nairobi, Kenya', href: 'https://www.google.com/maps/search/Nairobi+Kenya' },
+    ],
+  },
 ];
 
 const XIcon = () => (
@@ -150,14 +179,12 @@ export default function Footer() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(0,102,255,0.1),transparent_28%),radial-gradient(circle_at_85%_8%,rgba(245,158,11,0.07),transparent_26%)]" />
 
       <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-6 md:py-14 lg:px-8">
-        <div className="grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[1fr_1.55fr_0.82fr]">
+        <div className="grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[1fr_1.6fr]">
           <div className="max-w-xl">
-            <Link href="/" className="inline-flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center border border-white/10 bg-white/[0.04]">
-                <Globe className="h-5 w-5 text-ai-blue" />
-              </span>
-              <span className="text-2xl font-semibold tracking-tight">Sitemendr</span>
-            </Link>
+           <Link href="/" className="inline-flex items-center gap-3">
+  <Image src="/Sitemendr_Tech_Logo.png" alt="Sitemendr" width={56} height={36} className="h-9 w-auto object-contain" />
+  <span className="text-2xl font-semibold tracking-tight">Sitemendr</span>
+</Link>
 
             <p className="mt-6 max-w-lg text-[15px] leading-7 text-white/66">
               Digital work should leave a record: what was requested, what was approved, what was paid for, what was delivered, and what continues after launch.
@@ -215,34 +242,37 @@ export default function Footer() {
               </div>
             ))}
           </div>
+        </div>
 
-          <div className="lg:border-l lg:border-white/10 lg:pl-7">
-            <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-white/40">
-              <span className="h-px w-5 bg-ai-blue/70" />
-              Contact
-            </h3>
-            <ul className="mt-5 space-y-4">
-              {contactLinks.map((link) => {
-                const Icon = link.icon;
-                const isExternal = link.href.startsWith('http');
-                return (
-                  <li key={link.name}>
-                    <a
-                      href={link.href}
-                      target={isExternal ? '_blank' : undefined}
-                      rel={isExternal ? 'noopener noreferrer' : undefined}
-                      className="group grid grid-cols-[34px_1fr] items-start gap-3 text-sm leading-5 text-white/68 transition hover:text-white"
-                    >
-                      <span className="grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] text-white/42 transition group-hover:border-ai-blue/55 group-hover:bg-ai-blue/10">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="pt-1">{link.name}</span>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+        <div className="grid gap-8 border-b border-white/10 py-10 sm:grid-cols-2 lg:grid-cols-4">
+          {contactGroups.map((group) => {
+            const GroupIcon = group.icon;
+            return (
+              <div key={group.title}>
+                <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-[0.2em] text-white/28">
+                  <GroupIcon className="h-4 w-4" />
+                  {group.title}
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {group.items.map((item) => {
+                    const isExternal = item.href.startsWith('http');
+                    return (
+                      <li key={item.value}>
+                        <a
+                          href={item.href}
+                          target={isExternal ? '_blank' : undefined}
+                          rel={isExternal ? 'noopener noreferrer' : undefined}
+                          className="text-[13px] text-white/56 transition hover:text-white hover:translate-x-1 inline-block"
+                        >
+                          {item.value}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid gap-8 border-b border-white/10 py-8 lg:grid-cols-[1fr_1.1fr] lg:items-center">

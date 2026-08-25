@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 const Navigation = dynamic(() => import("@/components/Navigation"), { ssr: true });
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: true });
 const ChatSupport = dynamic(() => import("@/components/ChatSupport"), { ssr: false });
 const PaymentEnforcer = dynamic(() => import("@/components/PaymentEnforcer"), { ssr: true });
 
@@ -50,6 +51,7 @@ export default function LayoutWrapper({
     <PaymentEnforcer>
       {!isDashboardRoute && <Navigation />}
       {children}
+      {!isDashboardRoute && <Footer />}
       {!isAdminRoute && !isAuthRoute && <ChatSupport />}
     </PaymentEnforcer>
   );

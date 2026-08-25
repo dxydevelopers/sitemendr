@@ -454,6 +454,29 @@ model Setting {
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+} 
+
+model NotificationRule {
+  id                 String   @id @default(uuid())
+  slug               String   @unique // e.g. "verify-email"
+  name               String   // human label for admin UI
+  category           String   // auth, leads, billing, support, etc.
+  trigger            String   // plain description of what fires it
+  recipientType      String   @default("user") // user, admin, all_admins, specific_email
+  recipientOverride  String?  // used only when recipientType = specific_email
+  senderName         String?
+  senderEmail        String?
+  replyTo            String?
+  subject            String   @default("")
+  htmlTemplate       String   @default("") @db.Text
+  availableVariables String[] @default([]) // e.g. ["name", "verificationUrl"]
+  channels           String[] @default(["email"])
+  status             String   @default("active") // active, paused, removed
+  sourceFile         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([category, status])
 }
 
 model Message {
