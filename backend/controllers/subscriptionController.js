@@ -1,6 +1,5 @@
 const { prisma } = require('../config/db');
 const { getEnforcementConfig } = require('../middleware/paymentEnforcement');
-const { sendEmail } = require('../config/email');
 const { processSuccessfulPayment } = require('../services/paymentService');
 const { deployTemplate } = require('../services/deploymentService');
 const logger = require('../config/logger');
@@ -227,24 +226,8 @@ exports.suspendSubscription = async (req, res) => {
       });
     }
 
-    // Send suspension notification email
-    if (updatedSubscription.user) {
-      try {
-        await sendEmail({
-          to: updatedSubscription.user.email,
-          subject: '🚨 Website Suspended: Action Required',
-          html: `
-            <h2>Hello ${updatedSubscription.user.name},</h2>
-            <p>Your website subscription for <strong>${updatedSubscription.siteName || updatedSubscription.customName || 'your site'}</strong> has been suspended.</p>
-            <p>Reason: ${reason || 'Payment overdue'}</p>
-            <p>To reactivate your site, please log in to your dashboard and update your payment method.</p>
-            <a href="${process.env.FRONTEND_URL}/dashboard" style="background:#dc3545;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Go to Dashboard</a>
-          `
-        });
-      } catch (emailError) {
-        logger.error('SUSPENSION_EMAIL_ERROR:', emailError);
-      }
-    }
+    // NOTE: suspension notification email removed as part of notification cleanup.
+    // If this needs an email again later, wire it via notify() and the registry.
 
     res.json({
       success: true,

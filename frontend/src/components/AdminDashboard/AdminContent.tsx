@@ -1,7 +1,9 @@
 // components/admin-dashboard/AdminContent.tsx
 //
-// Covers "media" and "blog". Blog is mostly just BlogEditor (already
-// its own component) with a small header, so it's a one-liner here.
+// Covers "media", "blog", and "portfolio". Blog is mostly just BlogEditor
+// (already its own component) with a small header, so it's a one-liner
+// here. Portfolio follows the same pattern — AdminPortfolio is fully
+// self-contained.
 
 'use client';
 
@@ -11,9 +13,10 @@ import Image from 'next/image';
 import type { MediaAsset } from './AdminDashboard_types';
 
 const BlogEditor = dynamic(() => import('../BlogEditor'), { ssr: false });
+const AdminPortfolio = dynamic(() => import('./AdminPortfolio'), { ssr: false });
 
 interface AdminContentProps {
-  view: 'media' | 'blog';
+  view: 'media' | 'blog' | 'portfolio';
   media: MediaAsset[];
   searchTerm: string;
   setSearchTerm: (v: string) => void;
@@ -22,6 +25,14 @@ interface AdminContentProps {
 }
 
 export default function AdminContent({ view, media, searchTerm, setSearchTerm, onUploadMedia, onDeleteMedia }: AdminContentProps) {
+  if (view === 'portfolio') {
+    return (
+      <div className="animate-fade-in h-full overflow-y-auto">
+        <AdminPortfolio />
+      </div>
+    );
+  }
+
   if (view === 'blog') {
     return (
       <div className="animate-fade-in h-full">

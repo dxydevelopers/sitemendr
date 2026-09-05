@@ -1,52 +1,6 @@
 const { prisma } = require('../config/db');
 const { getEnforcementConfig } = require('../middleware/paymentEnforcement');
-const { sendEmail } = require('../config/email');
 const logger = require('../config/logger');
-
-// Email template helpers
-const sendSuspensionEmail = async (email, name, daysOverdue) => {
-  await sendEmail({
-    to: email,
-    subject: '🚨 Website Suspended: Action Required',
-    html: `
-      <h2>Hello ${name},</h2>
-      <p>Your website has been temporarily suspended because your hosting payment is ${daysOverdue} days overdue.</p>
-      <p>To reactivate your site immediately, please click the link below to update your payment method:</p>
-      <a href="${process.env.FRONTEND_URL}/payment/reactivate" style="background:#dc3545;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Reactivate My Website</a>
-      <p>Once payment is processed, your site will be live again instantly.</p>
-      <p>If you have any questions, please contact our support team.</p>
-    `
-  });
-};
-
-const sendPaymentReminderEmail = async (email, name, daysOverdue, maxGrace) => {
-  const daysRemaining = maxGrace - daysOverdue;
-  await sendEmail({
-    to: email,
-    subject: `🔔 Payment Reminder: ${daysRemaining} Days Left`,
-    html: `
-      <h2>Hello ${name},</h2>
-      <p>This is a reminder that your website hosting payment is overdue by ${daysOverdue} days.</p>
-      <p><strong>Your site will be suspended in ${daysRemaining} days</strong> if payment is not received.</p>
-      <p>Please update your payment information to avoid any service interruption:</p>
-      <a href="${process.env.FRONTEND_URL}/payment/billing" style="background:#ffc107;color:black;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Update Payment Information</a>
-      <p>Thank you for your business!</p>
-    `
-  });
-};
-
-const sendReactivationEmail = async (email, name) => {
-  await sendEmail({
-    to: email,
-    subject: '✅ Website Reactivated!',
-    html: `
-      <h2>Great news, ${name}!</h2>
-      <p>Your payment was successful and your website has been fully reactivated.</p>
-      <p>You can now access your site as usual. Thank you for your prompt payment!</p>
-      <a href="${process.env.FRONTEND_URL}" style="background:#28a745;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Visit My Website</a>
-    `
-  });
-};
 
 // Automated suspension script - run daily via cron job
 const runSuspensionAutomation = async () => {
@@ -95,17 +49,9 @@ const runSuspensionAutomation = async () => {
           select: { id: true }
         });
 
-        // Send suspension email notification
-        try {
-          await sendSuspensionEmail(subscription.user.email, subscription.user.name, daysOverdue);
-        } catch (e) {
-          logger.error('Failed to send suspension email', {
-            errorCode: 'AUTOMATION_SUSPENSION_EMAIL_ERROR',
-            user: subscription.user.email,
-            error: e.message
-          });
-        }
-        
+        // NOTE: suspension email removed as part of notification cleanup.
+        // If this needs an email again later, wire it via notify() and the registry.
+
         logger.info('Suspended subscription', {
           errorCode: 'AUTOMATION_SUBSCRIPTION_SUSPENDED',
           user: subscription.user.email,
@@ -114,23 +60,10 @@ const runSuspensionAutomation = async () => {
 
         suspendedCount++;
       } else if (daysOverdue >= enforcementConfig.overlayThreshold) {
-        // Send payment reminder
-        try {
-          await sendPaymentReminderEmail(
-            subscription.user.email, 
-            subscription.user.name, 
-            daysOverdue, 
-            enforcementConfig.maxGracePeriod
-          );
-        } catch (e) {
-          logger.error('Failed to send reminder email', {
-            errorCode: 'AUTOMATION_REMINDER_EMAIL_ERROR',
-            user: subscription.user.email,
-            error: e.message
-          });
-        }
-        
-        logger.info('Payment reminder sent', {
+        // NOTE: payment reminder email removed as part of notification cleanup.
+        // If this needs an email again later, wire it via notify() and the registry.
+
+        logger.info('Payment reminder threshold reached (email disabled)', {
           errorCode: 'AUTOMATION_REMINDER_SENT',
           user: subscription.user.email,
           daysOverdue
@@ -191,16 +124,8 @@ const suspendSubscription = async (subscriptionId, reason = 'Payment overdue') =
       select: { id: true }
     });
 
-    // Send suspension notification email
-    try {
-      await sendSuspensionEmail(subscription.user.email, subscription.user.name, 'multiple');
-    } catch (e) {
-      logger.error('Failed to send manual suspension email', {
-        errorCode: 'MANUAL_SUSPENSION_EMAIL_ERROR',
-        user: subscription.user.email,
-        error: e.message
-      });
-    }
+    // NOTE: manual suspension email removed as part of notification cleanup.
+    // If this needs an email again later, wire it via notify() and the registry.
 
     logger.info('Manually suspended subscription', {
       errorCode: 'MANUAL_SUBSCRIPTION_SUSPENDED',
@@ -282,16 +207,8 @@ const checkForReactivation = async (userId) => {
         select: { id: true }
       });
 
-      // Send reactivation confirmation email
-      try {
-        await sendReactivationEmail(subscription.user.email, subscription.user.name);
-      } catch (e) {
-        logger.error('Failed to send reactivation email', {
-          errorCode: 'REACTIVATION_EMAIL_ERROR',
-          user: subscription.user.email,
-          error: e.message
-        });
-      }
+      // NOTE: reactivation confirmation email removed as part of notification cleanup.
+      // If this needs an email again later, wire it via notify() and the registry.
 
       logger.info('Reactivated subscription', {
         errorCode: 'SUBSCRIPTION_REACTIVATED',

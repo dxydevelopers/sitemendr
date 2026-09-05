@@ -1,5 +1,5 @@
 const { prisma } = require('../config/db');
-const { sendEmail, verifyConnection } = require('../config/email');
+const { verifyConnection } = require('../config/email');
 const { notifyUser, notifyAdmins } = require('../services/socketService');
 const { runSuspensionAutomation, suspendSubscription } = require('../scripts/suspensionAutomation');
 const { verifyDomains } = require('../scripts/dnsWorker');
@@ -1690,7 +1690,7 @@ exports.addSupportTicketMessage = async (req, res) => {
       }
     });
 
-    // Notify the user of the new support message
+    // Notify the user of the new support message (in-app only — email removed as part of notification cleanup)
     try {
       const ticket = await prisma.supportTicket.findUnique({
         where: { id },
@@ -1703,37 +1703,8 @@ exports.addSupportTicketMessage = async (req, res) => {
           messageId: message.id,
           timestamp: message.createdAt
         });
-
-        // Also notify via email
-        const user = await prisma.user.findUnique({
-          where: { id: ticket.userId },
-          select: { email: true, name: true }
-        });
-
-        if (user && user.email) {
-          try {
-            await sendEmail({
-              to: user.email,
-              subject: `New Response: Support Ticket #${id.slice(0, 8)}`,
-              html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                  <h2 style="color: #0066FF;">Support Response Received</h2>
-                  <p>Hello <strong>${user.name}</strong>,</p>
-                  <p>An expert has responded to your support request:</p>
-                  <blockquote style="background: #f4f4f4; padding: 15px; border-left: 5px solid #0066ff; margin: 20px 0;">
-                    ${content}
-                  </blockquote>
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.FRONTEND_URL}/dashboard?tab=support" style="background: #0066FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View in Dashboard</a>
-                  </div>
-                  <p style="color: #666; font-size: 12px;">This is an automated notification. Please log in to your dashboard to reply.</p>
-                </div>
-              `
-            });
-          } catch (eEmail) {
-            logger.error('Failed to send support response email', eEmail);
-          }
-        }
+        // NOTE: support response email removed as part of notification cleanup.
+        // If this needs an email again later, wire it via notify() and the registry.
       }
     } catch (err) {
       logger.error('Error notifying user of support message', err);
@@ -2044,40 +2015,9 @@ exports.updateSubscriptionReview = async (req, res) => {
       }
     });
 
-    // Notify user if notes were added or review completed
-    if (subscription.user && subscription.user.email) {
-      if (reviewNotes) {
-        try {
-          await sendEmail({
-            to: subscription.user.email,
-            subject: 'Design Review Update: Sitemendr',
-            html: `
-              <h2>Hello ${subscription.user.name},</h2>
-              <p>Our team has updated the design review notes for your project.</p>
-              <p><strong>Notes:</strong> ${reviewNotes}</p>
-              <p>Log in to your dashboard to view the progress or request further changes.</p>
-            `
-          });
-        } catch (e) {
-          logger.error('REVIEW_NOTIFY_EMAIL_ERROR:', e);
-        }
-      } else if (reviewRequested === false) {
-        try {
-          await sendEmail({
-            to: subscription.user.email,
-            subject: 'Design Review Completed: Sitemendr',
-            html: `
-              <h2>Hello ${subscription.user.name},</h2>
-              <p>Great news! Our team has completed the human review and refinement of your project.</p>
-              <p>Your site has been optimized for peak performance and aesthetics.</p>
-              <p>Log in to your dashboard to see the latest version!</p>
-            `
-          });
-        } catch (e) {
-          logger.error('REVIEW_COMPLETE_EMAIL_ERROR:', e);
-        }
-      }
-    }
+    // NOTE: review-notes-updated and review-completed emails removed as part
+    // of notification cleanup. If these need to send again later, wire them
+    // via notify() and the registry.
 
     return res.json({
       success: true,
@@ -2106,32 +2046,9 @@ exports.deployTemplate = async (req, res) => {
       });
     }
 
-    // Fetch updated subscription for notification
-    const subscription = await prisma.subscription.findUnique({
-      where: { id },
-      include: { user: true }
-    });
-
-    // Notify user that their site is live
-    if (subscription.user && subscription.user.email) {
-      try {
-        await sendEmail({
-          to: subscription.user.email,
-          subject: 'Your Sitemendr Website is Live! 🚀',
-          html: `
-            <h2>Great news, ${subscription.user.name || 'valued client'}!</h2>
-            <p>Your website has been professionally refined and is now officially live.</p>
-            <p>You can view your site at <strong>${subscription.domain}</strong> or through your dashboard.</p>
-            <div style="margin: 20px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background:#28a745;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;font-weight:bold;">View My Dashboard</a>
-            </div>
-            <p>Thank you for choosing Sitemendr to power your digital presence!</p>
-          `
-        });
-      } catch (emailError) {
-        logger.error('DEPLOYMENT_NOTIFICATION_EMAIL_FAILED:', emailError);
-      }
-    }
+    // NOTE: site-deployed-live notification email removed as part of
+    // notification cleanup. If this needs an email again later, wire it
+    // via notify() and the registry.
 
     res.json({
       success: true,
@@ -2248,7 +2165,6 @@ exports.getSystemHealth = async (req, res) => {
     }
 
     // Check Email SMTP
-    const { verifyConnection } = require('../config/email');
     const isEmailHealthy = await verifyConnection();
     health.services.email.status = isEmailHealthy ? 'healthy' : 'unhealthy';
 
@@ -2288,22 +2204,9 @@ exports.updateBookingStatus = async (req, res) => {
       include: { user: { select: { name: true, email: true } } }
     });
 
-    // Notify user of status change
-    if (booking.user && booking.user.email) {
-      try {
-        await sendEmail({
-          to: booking.user.email,
-          subject: `Consultation Status Update: ${status}`,
-          html: `
-            <h2>Hello ${booking.user.name},</h2>
-            <p>The status of your consultation booking has been updated to <strong>${status}</strong>.</p>
-            <p>Log in to your dashboard for more details.</p>
-          `
-        });
-      } catch (e) {
-        logger.error('BOOKING_NOTIFY_EMAIL_ERROR:', e);
-      }
-    }
+    // NOTE: booking-status-updated notification email removed as part of
+    // notification cleanup. If this needs an email again later, wire it
+    // via notify() and the registry.
 
     res.json({ success: true, data: booking, message: 'Booking status updated' });
   } catch (error) {

@@ -1,7 +1,6 @@
 const { prisma } = require('../config/db');
 const axios = require('axios');
 const crypto = require('crypto');
-const { sendEmail } = require('../config/email');
 const { processSuccessfulPayment } = require('../services/paymentService');
 const logger = require('../config/logger');
 
@@ -10,50 +9,6 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY;
 const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-
-// Helper to send welcome email to guest users
-const sendGuestWelcomeEmail = async (email, token, tempPassword) => {
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}&setup=true`;
-
-  logger.info('Attempting to send guest welcome email', { email });
-  try {
-    const emailInfo = await sendEmail({
-      to: email,
-      subject: 'Welcome to Sitemendr - Your Account is Ready',
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #0066FF; margin: 0;">Sitemendr AI</h1>
-          </div>
-          <h2 style="color: #333;">Welcome to Sitemendr!</h2>
-          <p>Thank you for your payment. We've created a secure account for you to access your dashboard and track your project.</p>
-          
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 25px 0; border: 1px solid #e9ecef;">
-            <h3 style="margin-top: 0; font-size: 16px; color: #333;">Login Credentials</h3>
-            <p style="margin: 8px 0; font-family: monospace;"><strong>Email:</strong> ${email}</p>
-            ${tempPassword ? `<p style="margin: 8px 0; font-family: monospace;"><strong>Temporary Password:</strong> ${tempPassword}</p>` : ''}
-          </div>
-
-          <p>You can use the credentials above to log in, or click the button below to set a custom password immediately:</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background: #0066FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Set Your Password</a>
-          </div>
-          
-          <p style="font-size: 14px; color: #666;">This setup link will expire in 24 hours.</p>
-          <p>Best regards,<br>The Sitemendr Team</p>
-        </div>
-      `,
-    });
-    logger.info('Guest welcome email sent successfully', { messageId: emailInfo.messageId, to: email });
-  } catch (error) {
-    logger.error('Failed to send guest welcome email', {
-      errorCode: 'GUEST_WELCOME_EMAIL_ERROR',
-      email,
-      error: error.message
-    });
-  }
-};
 
 // Verify webhook signature
 const verifyWebhookSignature = (req) => {
@@ -187,7 +142,8 @@ exports.initializePayment = async (req, res) => {
           }
         });
 
-        // Add the raw token and temp password to metadata for the welcome email later
+        // Add the raw token and temp password to metadata in case a future
+        // notification needs them (e.g. a rebuilt "guest-welcome" flow via notify())
         finalMetadata.isNewGuest = true;
         finalMetadata.setupToken = resetToken;
         finalMetadata.tempPassword = randomPassword;
@@ -421,14 +377,8 @@ exports.verifyPayment = async (req, res) => {
     if (data.status === 'success') {
       try {
         await processSuccessfulPayment(payment.id);
-        
-        // Send welcome email if guest user
-        if (payment.metadata && payment.metadata.isNewGuest && payment.metadata.setupToken) {
-          const user = await prisma.user.findUnique({ where: { id: payment.userId } });
-          if (user) {
-            await sendGuestWelcomeEmail(user.email, payment.metadata.setupToken, payment.metadata.tempPassword);
-          }
-        }
+        // NOTE: guest welcome email removed as part of notification cleanup.
+        // If this needs an email again later, wire it via notify() and the registry.
       } catch (processingError) {
         logger.error('Post-payment processing failed after verification', {
           errorCode: 'POST_PAYMENT_PROCESSING_ERROR',
@@ -500,14 +450,8 @@ exports.handleWebhook = async (req, res) => {
       // Trigger post-payment processing
       try {
         await processSuccessfulPayment(payment.id);
-
-        // Send welcome email if guest user
-        if (payment.metadata && payment.metadata.isNewGuest && payment.metadata.setupToken) {
-          const user = await prisma.user.findUnique({ where: { id: payment.userId } });
-          if (user) {
-            await sendGuestWelcomeEmail(user.email, payment.metadata.setupToken, payment.metadata.tempPassword);
-          }
-        }
+        // NOTE: guest welcome email removed as part of notification cleanup.
+        // If this needs an email again later, wire it via notify() and the registry.
       } catch (processingError) {
         logger.error('Webhook post-payment processing failed', {
           errorCode: 'WEBHOOK_PROCESSING_ERROR',

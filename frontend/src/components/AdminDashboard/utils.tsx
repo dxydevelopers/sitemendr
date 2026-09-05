@@ -4,7 +4,7 @@
 
 import {
   Layout, FileText, Eye, Activity, Clock, Users, BarChart3, CreditCard,
-  Settings, MessageSquare, Folder, PenLine,
+  Settings, MessageSquare, Folder, PenLine, Briefcase,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ProjectRequest } from './AdminDashboard_types';
@@ -100,6 +100,7 @@ export const adminTabs: AdminTab[] = [
   { id: 'comments', name: 'Comments', icon: <MessageSquare className="w-4 h-4" /> },
   { id: 'media', name: 'Media Library', shortName: 'Media', icon: <Folder className="w-4 h-4" /> },
   { id: 'blog', name: 'Blog', icon: <PenLine className="w-4 h-4" /> },
+  { id: 'portfolio', name: 'Portfolio', icon: <Briefcase className="w-4 h-4" /> },
   { id: 'analytics', name: 'Analytics', icon: <BarChart3 className="w-4 h-4" /> },
   { id: 'system', name: 'System', shortName: 'System', icon: <Settings className="w-4 h-4" /> },
 ];
@@ -110,6 +111,6 @@ export const adminTabGroups: AdminTabGroup[] = [
   { id: 'clients', label: 'Clients', accent: 'text-expert-green', icon: <Users className="w-4 h-4" />, tabs: ['users', 'leads', 'assessments'] },
   { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['tickets', 'live-support', 'comments'] },
   { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'transactions', 'analytics'] },
-  { id: 'content', label: 'Content', accent: 'text-ai-blue', icon: <PenLine className="w-4 h-4" />, tabs: ['media', 'blog'] },
+  { id: 'content', label: 'Content', accent: 'text-ai-blue', icon: <PenLine className="w-4 h-4" />, tabs: ['media', 'blog', 'portfolio'] },
   { id: 'system', label: 'System', accent: 'text-white/70', icon: <Settings className="w-4 h-4" />, tabs: ['system'] },
 ];

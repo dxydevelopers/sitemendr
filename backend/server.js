@@ -165,6 +165,8 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const swaggerRoutes = require("./routes/swaggerRoutes");
 const pageEditorRoutes = require("./routes/pageEditorRoutes");
 const notificationRulesRoutes = require("./routes/notificationRulesRoutes");
+const portfolioRoutes = require("./routes/portfolioRoutes");
+const portfolioAdminRoutes = require("./routes/portfolioAdminRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/assessment", assessmentRoutes);
@@ -186,6 +188,9 @@ app.use("/api/ecommerce", ecommerceRoutes);
 app.use("/api/booking", bookingRoutes);
 app.use("/api-docs", swaggerRoutes);
 app.use("/api/admin/notification-rules", notificationRulesRoutes);
+app.use("/api/portfolio", portfolioRoutes);
+app.use("/api/admin/portfolio", portfolioAdminRoutes);
+
 
 const authMiddleware = require("./middleware/auth");
 

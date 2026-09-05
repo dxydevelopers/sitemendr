@@ -196,7 +196,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
           {activeTab === 'transactions' && <AdminTransactions />}
 
-          {(activeTab === 'media' || activeTab === 'blog') && (
+          {(activeTab === 'media' || activeTab === 'blog' || activeTab === 'portfolio') && (
             <AdminContent view={activeTab} media={media} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onUploadMedia={handleUploadMedia} onDeleteMedia={handleDeleteMedia} />
           )}
 

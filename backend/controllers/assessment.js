@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const logger = require('../config/logger');
-const { sendEmail } = require('../config/email');
 
 // OpenAI client for AI processing
 const OpenAI = require('openai');
@@ -1199,79 +1198,8 @@ exports.convertToLead = async (req, res) => {
           }
         });
       }
-
-      // Send welcome email with credentials
-      logger.info('Attempting to send welcome email with credentials', { email, name, isNewUser });
-      try {
-        await sendEmail({
-          to: email,
-          subject: 'Welcome to Sitemendr - Your Technical Blueprint is Ready',
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h1 style="color: #0066FF; margin: 0;">Sitemendr AI</h1>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">Modern Digital Infrastructure</p>
-              </div>
-              <h2 style="color: #333;">Protocol Initiated.</h2>
-              <p>Welcome to Sitemendr, <strong>${name}</strong>!</p>
-              <p>Your technical assessment is complete and your secure dashboard access has been provisioned.</p>
-              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 25px 0; border: 1px solid #e9ecef;">
-                <h3 style="margin-top: 0; font-size: 16px; color: #333;">Login Credentials</h3>
-                <p style="margin: 8px 0; font-family: monospace;"><strong>Email:</strong> ${email}</p>
-                <p style="margin: 8px 0; font-family: monospace;"><strong>Password:</strong> ${tempPassword}</p>
-              </div>
-              <p>Please log in to your dashboard to view your personalized architecture details, AI-generated template, and next steps.</p>
-              <div style="text-align: center; margin: 35px 0;">
-                <a href="${process.env.FRONTEND_URL}/login" style="background: #0066FF; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Your Dashboard</a>
-              </div>
-              <p style="color: #666; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
-                For security reasons, we recommend changing your password after your first login.<br>
-                If you did not request this, please ignore this email.
-              </p>
-              <p style="font-size: 14px;">Best regards,<br><strong>The Sitemendr AI Team</strong></p>
-            </div>
-          `
-        });
-        logger.info('Welcome email sent successfully', { to: email });
-      } catch (emailError) {
-        logger.error('Failed to send welcome email', {
-          errorCode: 'WELCOME_EMAIL_ERROR',
-          userId: user.id,
-          error: emailError.message
-        });
-      }
-    } else {
-      // Send notification email to existing user who HAS logged in before
-      logger.info('Attempting to send update email to existing active user', { email, name });
-      try {
-        const emailInfo = await sendEmail({
-          to: email,
-          subject: 'Protocol Updated - Your New Sitemendr Assessment is Ready',
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h1 style="color: #0066FF; margin: 0;">Sitemendr AI</h1>
-              </div>
-              <h2 style="color: #333;">Protocol Updated.</h2>
-              <p>Hello <strong>${name}</strong>,</p>
-              <p>We've updated your profile with your latest technical assessment results.</p>
-              <p><strong>Note:</strong> Your previous blueprint has been archived as "Historical" in your dashboard to make room for this new configuration.</p>
-              <p>Your new personalized architecture blueprint and AI-generated template are now available in your dashboard.</p>
-              <div style="text-align: center; margin: 35px 0;">
-                <a href="${process.env.FRONTEND_URL}/login" style="background: #0066FF; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Updated Dashboard</a>
-              </div>
-              <p>Best regards,<br><strong>The Sitemendr AI Team</strong></p>
-            </div>
-          `
-        });
-        logger.info('Update email sent successfully', { messageId: emailInfo.messageId, to: email });
-      } catch (emailError) {
-        logger.error('Failed to send update email to existing user', {
-          errorCode: 'UPDATE_EMAIL_ERROR',
-          userId: user.id,
-          error: emailError.message
-        });
-      }
+      // NOTE: credentials email sending removed as part of notification cleanup.
+      // If this needs an email again later, wire it via notify() and the registry.
     }
 
     // 2. Handle Lead creation/update
@@ -1406,29 +1334,8 @@ exports.convertToLead = async (req, res) => {
     // 6. Generate auth token for immediate access
     const authToken = generateAuthToken(user.id);
 
-    // 7. Notify Admin of new lead
-    try {
-      await sendEmail({
-        to: process.env.ADMIN_EMAIL || 'admin@sitemendr.com',
-        subject: `📬 New High-Value Lead: ${name} (Package: ${finalPackage})`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #0066FF;">New Assessment Completed</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Company:</strong> ${company || 'N/A'}</p>
-            <p><strong>Selected Package:</strong> ${finalPackage}</p>
-            <p><strong>Estimated Price:</strong> $${estimatedPrice}</p>
-            <p><strong>Lead Score:</strong> ${lead.qualification.score}/100</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/admin/dashboard" style="background: #0066FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View in Admin Panel</a>
-            </div>
-          </div>
-        `
-      });
-    } catch (adminEmailError) {
-      logger.error('Failed to notify admin of new lead', { error: adminEmailError.message });
-    }
+    // NOTE: admin lead notification email removed as part of notification cleanup.
+    // If this needs an email again later, wire it via notify() and the registry.
 
     res.status(201).json({
       success: true,
@@ -1518,6 +1425,3 @@ exports.getStats = async (_req, res) => {
     });
   }
 };
-
-
-

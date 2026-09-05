@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const { sendEmail } = require('../config/email');
 const { prisma } = require('../config/db');
 const logger = require('../config/logger');
 
@@ -26,36 +25,12 @@ router.post("/", async (req, res) => {
       }
     });
 
-    // 2. Email the user
-    await sendEmail({
-      from: `"Sitemendr Domains" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: `We received your domain interest: ${domainInterest}`,
-      html: `
-        <h2>Hi there 👋</h2>
-        <p>We’ve received your interest in <strong>${domainInterest}</strong>.</p>
-        <p>Our team will handle the purchase and setup for you.</p>
-        <p>You’ll receive a subscription invoice shortly to finalize the domain.</p>
-        <br/>
-        <p>Thanks for choosing Sitemendr!</p>
-      `
-    });
-
-    // 3. Notify the Admin
-    await sendEmail({
-      from: `"Sitemendr Domains" <${process.env.EMAIL_USER}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: `📬 New Managed Domain Request: ${domainInterest}`,
-      html: `
-        <h2>New Domain Purchase Request</h2>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Requested Domain:</strong> ${domainInterest}</p>
-        <p>Check the admin panel for follow-up.</p>
-      `
-    });
+    // NOTE: user confirmation and admin alert emails removed as part of
+    // notification cleanup. If these need to send again later, wire them
+    // via notify() and the registry.
 
     logger.info(`DOMAIN_REQUEST_SUCCESS: Request for ${domainInterest} by ${email}`);
-    return res.status(200).json({ message: "Request recorded and emails sent." });
+    return res.status(200).json({ message: "Request recorded." });
 
   } catch (error) {
     logger.error("DOMAIN_REQUEST_FAILED", { error, email, domainInterest });
