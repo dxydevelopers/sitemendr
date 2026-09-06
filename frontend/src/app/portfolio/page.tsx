@@ -121,6 +121,7 @@ export default function PortfolioPage() {
                         src={project.images[0].url}
                         alt=""
                         fill
+                        unoptimized={process.env.NODE_ENV === 'development'}
                         sizes="(min-width: 640px) 50vw, 100vw"
                         className="object-cover transition duration-500 group-hover:scale-[1.02]"
                       />

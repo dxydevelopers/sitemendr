@@ -1036,7 +1036,7 @@ class ApiClient {
       headers.Authorization = `Bearer ${sessionToken}`;
     }
 
-    const response = await fetch(`${this.baseURL}/media/upload`, {
+    const response = await fetch(`${this.baseURL}/api/media/upload`, {
       method: 'POST',
       headers,
       body: formData,

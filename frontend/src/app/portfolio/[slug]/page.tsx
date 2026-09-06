@@ -109,6 +109,7 @@ export default function ProjectDetailPage() {
                   alt=""
                   fill
                   priority={i === 0}
+                  unoptimized={process.env.NODE_ENV === 'development'}
                   sizes="(min-width: 768px) 720px, 100vw"
                   className="object-cover"
                 />

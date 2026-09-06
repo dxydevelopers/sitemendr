@@ -50,6 +50,15 @@ const EMPTY_FORM = {
   images: [] as ProjectImageDraft[],
 };
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 export default function AdminPortfolio() {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -155,6 +164,10 @@ export default function AdminPortfolio() {
   };
 
   const handleSave = async () => {
+    if (!form.title.trim() || !form.slug.trim()) {
+      alert('Title and slug are both required — the slug is what the project\'s URL is built from.');
+      return;
+    }
     setSaving(true);
     const payload = {
       ...form,
@@ -196,7 +209,20 @@ export default function AdminPortfolio() {
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Title</label>
-              <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <input
+                className={inputClass}
+                value={form.title}
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setForm((f) => ({
+                    ...f,
+                    title,
+                    // Only auto-fill slug if it still matches what the title would
+                    // generate — so a manually customized slug is never overwritten.
+                    slug: f.slug === slugify(f.title) || f.slug === '' ? slugify(title) : f.slug,
+                  }));
+                }}
+              />
             </div>
             <div>
               <label className={labelClass}>Slug</label>
@@ -257,7 +283,7 @@ export default function AdminPortfolio() {
                   </div>
                   <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-xl bg-white/5">
                     {img.url ? (
-                      <Image src={img.url} alt="" fill className="object-cover" />
+                      <Image src={img.url} alt="" fill unoptimized={process.env.NODE_ENV === 'development'} className="object-cover" />
                     ) : (
                       <label className="flex h-full w-full cursor-pointer items-center justify-center text-white/30 hover:text-white/60 transition">
                         {uploadingIndex === i ? '...' : <Upload size={18} />}
@@ -337,7 +363,7 @@ export default function AdminPortfolio() {
             <div key={project.id} className="bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden group">
               <div className="relative aspect-video bg-white/5">
                 {project.images[0]?.url && (
-                  <Image src={project.images[0].url} alt="" fill className="object-cover" />
+                  <Image src={project.images[0].url} alt="" fill unoptimized={process.env.NODE_ENV === 'development'} className="object-cover" />
                 )}
                 <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${project.published ? 'bg-green-500 text-black' : 'bg-white/20 text-white'}`}>
                   {project.published ? 'Published' : 'Draft'}
