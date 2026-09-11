@@ -43,7 +43,6 @@ model User {
   media                   Media[]
   orders                  Order[]
   bookings                Booking[]
-  supporters              Supporter[]
   assessments             Assessment[]
   projectRequests         ProjectRequest[]
 
@@ -211,8 +210,6 @@ model Payment {
   serviceType     String
   description     String
   invoiceId       String?
-  supporterId     String?
-  supporter       Supporter?  @relation(fields: [supporterId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -686,7 +683,6 @@ model Order {
   status         String       @default("pending")
   totalAmount    Float
   discountCodeId String?
-  discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
   items          OrderItem[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -733,240 +729,7 @@ model Booking {
 }
 
 // =============================================================================
-// Supporter Models
-// =============================================================================
-
-model SupporterTier {
-  id                String          @id @default(uuid())
-  name              String
-  slug              String          @unique
-  description       String?
-  monthlyPrice      Float
-  yearlyPrice       Float?
-  discountPercent   Int
-  displayOrder      Int             @default(0)
-  isActive          Boolean         @default(true)
-
-  perks             String[]
-
-  supporters        Supporter[]
-  discountCodes     DiscountCode[]
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-model Supporter {
-  id                String          @id @default(uuid())
-  userId            String
-  user              User            @relation(fields: [userId], references: [id])
-  tierId            String
-  tier              SupporterTier   @relation(fields: [tierId], references: [id])
-
-  status            SupporterStatus @default(active)
-  reference         String          @unique
-
-  monthlyAmount     Float
-  currency          String          @default("USD")
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  lastPaymentDate   DateTime?
-  cancelAtPeriodEnd Boolean         @default(false)
-
-  showOnWall        Boolean         @default(true)
-  spotlightTier     Int             @default(0)
-
-  discountCodes     DiscountCode[]
-  redeemedPerks     RedeemedPerk[]
-  payments          Payment[]
-  spotlights        SupporterSpotlight[]
-  eventRegistrations EventRegistration[]
-  votes             VoteChoice[]
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-enum SupporterStatus {
-  active
-  paused
-  cancelled
-  expired
-}
-
-model DiscountCode {
-  id                String          @id @default(uuid())
-  code              String          @unique
-
-  supporterId       String?
-  supporter         Supporter?      @relation(fields: [supporterId], references: [id])
-  tierId            String?
-  tier              SupporterTier?  @relation(fields: [tierId], references: [id])
-
-  discountType      DiscountType    @default(percentage)
-  discountValue     Float
-  minPurchaseAmount Float?
-  maxUses           Int?
-  currentUses       Int             @default(0)
-
-  isActive          Boolean         @default(true)
-  validFrom         DateTime        @default(now())
-  expiresAt         DateTime?
-
-  orders            Order[]
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-enum DiscountType {
-  percentage
-  fixed
-}
-
-model Perk {
-  id                String          @id @default(uuid())
-  name              String
-  slug              String          @unique
-  description       String?
-  icon              String?
-  tierRequired      String[]
-
-  isRedeemable      Boolean         @default(true)
-  maxRedemptions    Int?
-
-  redemptionUrl     String?
-  redemptionCode    String?
-
-  redeemedPerks     RedeemedPerk[]
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-model RedeemedPerk {
-  id                String          @id @default(uuid())
-  supporterId       String
-  supporter         Supporter       @relation(fields: [supporterId], references: [id])
-  perkId            String
-  perk              Perk            @relation(fields: [perkId], references: [id])
-
-  redeemedAt        DateTime        @default(now())
-  redemptionCode    String?
-
-  @@unique([supporterId, perkId])
-}
-
-model SupporterSpotlight {
-  id                String          @id @default(uuid())
-  supporterId       String
-  supporter         Supporter       @relation(fields: [supporterId], references: [id])
-
-  message           String?
-  displayName       String?
-  tierLevel         Int
-
-  isActive          Boolean         @default(true)
-  displayOrder      Int             @default(0)
-
-  createdAt         DateTime        @default(now())
-}
-
-model CommunityEvent {
-  id                String          @id @default(uuid())
-  title              String
-  slug              String          @unique
-  description       String
-  eventType         EventType
-
-  scheduledAt       DateTime
-  durationMinutes   Int             @default(60)
-  timezone          String          @default("UTC")
-
-  tierRequired      String[]
-  maxParticipants   Int?
-  currentParticipants Int           @default(0)
-
-  meetingLink       String?
-  recordingUrl      String?
-
-  status            EventStatus     @default(scheduled)
-
-  registrations     EventRegistration[]
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-enum EventType {
-  roundtable
-  ama
-  poll
-}
-
-enum EventStatus {
-  scheduled
-  live
-  completed
-  cancelled
-}
-
-model EventRegistration {
-  id                String          @id @default(uuid())
-  eventId           String
-  event             CommunityEvent  @relation(fields: [eventId], references: [id])
-  supporterId       String
-  supporter         Supporter       @relation(fields: [supporterId], references: [id])
-
-  status            String          @default("registered")
-
-  registeredAt      DateTime        @default(now())
-
-  @@unique([eventId, supporterId])
-}
-
-model ProductVote {
-  id                String          @id @default(uuid())
-  title             String
-  description       String
-  options           String[]
-
-  tierRequired      String[]
-
-  startsAt          DateTime
-  endsAt            DateTime
-
-  status            VoteStatus      @default(draft)
-
-  votes             VoteChoice[]
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-}
-
-enum VoteStatus {
-  draft
-  active
-  closed
-  results
-}
-
-model VoteChoice {
-  id                String          @id @default(uuid())
-  voteId            String
-  vote              ProductVote     @relation(fields: [voteId], references: [id])
-  supporterId       String
-  supporter         Supporter       @relation(fields: [supporterId], references: [id])
-
-  optionIndex       Int
-
-  votedAt           DateTime        @default(now())
-
-  @@unique([voteId, supporterId])
-}
-
-// =============================================================================
-// Portfolio Models — added for the public /portfolio pages
+// Portfolio Models
 // =============================================================================
 
 enum ProjectCategory {

@@ -12,8 +12,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3, Rocket, MessageSquare, CreditCard, BookOpen, LifeBuoy, Terminal,
   Zap, Globe, ArrowLeft, ChevronRight, FileText, ShoppingBag, LogOut, User,
-  Key, Users, Bell, Settings, Plus, Clock, PanelLeftClose, PanelLeftOpen, Gift,
-  Sparkles, Check,
+  Key, Bell, Settings, Plus, Clock, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useClientDashboard } from './useClientDashboard';
 import { lockedClientTabs } from './utils';
@@ -33,7 +32,6 @@ const PageEditor = dynamic(() => import('../dashboard/PageEditor'), { ssr: false
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
 const EcommerceManager = dynamic(() => import('../dashboard/EcommerceManager'), { ssr: false });
 const BookingManager = dynamic(() => import('../dashboard/BookingManager'), { ssr: false });
-const SupporterDashboard = dynamic(() => import('../SupporterDashboard'), { ssr: false });
 const AssessmentQuestionnaire = dynamic(() => import('../AssessmentQuestionnaire'), { ssr: false });
 const AssessmentModal = dynamic(() => import('../AssessmentModal'), { ssr: false });
 
@@ -54,7 +52,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
     loading, user, fetchError, fetchData, selectedProjectId, setSelectedProjectId,
     setActiveBuildChapter, isAnalyzing, analysisResult, handleAnalyzeSite, exportingId,
     handleExportCodebase, showAssessmentModal, setShowAssessmentModal, selectedAssessment,
-    showProjectRequestModal, setShowProjectRequestModal, revealTier, isRevealing, setIsRevealing,
+    showProjectRequestModal, setShowProjectRequestModal,
     profileData, setProfileData, profileMessage, handleUpdateProfile,
     passwordData, setPasswordData, passwordMessage, handleChangePassword,
     handleLogoutAction,
@@ -93,7 +91,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
     { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" />, count: tickets.length + unreadMessages, children: [{ id: 'messages', label: 'Messages', count: unreadMessages }, { id: 'tickets', label: 'Tickets', count: openTickets }, { id: 'resources', label: 'Resources', count: resources.length }] },
   ];
   const accountNav: DashboardNavItem[] = [
-    { id: 'account', label: 'Account', icon: <User className="w-5 h-5" />, children: [{ id: 'supporter', label: 'Community' }, { id: 'settings', label: 'Settings' }] },
+    { id: 'account', label: 'Account', icon: <User className="w-5 h-5" />, children: [{ id: 'settings', label: 'Settings' }] },
   ];
   const allNavItems = [...mainNav, ...manageNav, ...accountNav,
     { id: 'editor', label: 'Editor', icon: <Zap className="w-5 h-5" /> },
@@ -105,7 +103,6 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
     { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
     { id: 'tickets', label: 'Tickets', icon: <LifeBuoy className="w-5 h-5" /> },
     { id: 'resources', label: 'Resources', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'supporter', label: 'Community', icon: <Users className="w-5 h-5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
   const currentTab = allNavItems.find(item => item.id === activeTab);
@@ -125,7 +122,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
     business: ['business', 'ecommerce', 'booking'],
     billing: ['billing', 'addons'],
     support: ['support', 'messages', 'tickets', 'resources'],
-    account: ['account', 'supporter', 'settings'],
+    account: ['account', 'settings'],
   };
   const isNavActive = (id: string) => (navGroups[id] || [id]).includes(activeTab);
   const openTab = (tabId: string) => {
@@ -295,8 +292,6 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
                 {activeTab === 'billing' && <ClientBilling billing={billing} projects={projects} />}
 
-                {activeTab === 'supporter' && <div className="animate-fade-in h-full -m-6 lg:-m-10 overflow-x-hidden"><SupporterDashboard onLogout={() => handleLogoutAction(onLogout)} isNested={true} /></div>}
-
                 {activeTab === 'addons' && <div className="animate-fade-in"><AddonMarketplace subscription={projects[0] || null} onRequestCustom={() => setActiveTab('tickets')} /></div>}
 
                 {activeTab === 'editor' && (
@@ -340,39 +335,6 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
       {showAssessmentModal && selectedAssessment && (
         <AssessmentModal isOpen={showAssessmentModal} onClose={() => setShowAssessmentModal(false)} assessment={selectedAssessment} />
-      )}
-
-      {isRevealing && revealTier && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black">
-          <div className="text-center space-y-12 max-w-2xl px-8 py-16 rounded-[40px] border border-white/5 bg-white/[0.01] backdrop-blur-3xl">
-            <div className="relative">
-              <div className="absolute inset-0 bg-ai-blue/40 blur-[100px] animate-pulse rounded-full"></div>
-              <div className="relative w-24 h-24 lg:w-32 lg:h-32 bg-ai-blue rounded-[32px] flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(0,102,255,0.6)]"><Gift className="w-12 h-12 lg:w-16 lg:h-16 text-white" /></div>
-            </div>
-            <div className="space-y-4">
-              <h2 className="text-[10px] font-black text-ai-blue uppercase tracking-[0.5em]">Community access updated</h2>
-              <h1 className="text-4xl lg:text-6xl font-black uppercase tracking-tighter leading-none">{revealTier.name}</h1>
-              <p className="text-medium-gray text-xs font-mono uppercase tracking-widest opacity-60 max-w-sm mx-auto">Your Sitemendr account now carries this community level and its connected benefits.</p>
-            </div>
-            <div className="pt-8 space-y-6">
-              <div className="p-6 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-sm">
-                <div className="flex justify-between items-center mb-6"><span className="text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Member benefits</span><Sparkles className="w-4 h-4 text-ai-blue" /></div>
-                <ul className="space-y-2">
-                  {revealTier.perks.slice(0, 3).map((perk, i) => (
-                    <li key={i} className="flex items-center gap-3 text-[10px] font-mono text-medium-gray uppercase tracking-tighter"><Check className="w-3 h-3 text-ai-blue" />{perk.replace(/-/g, ' ')}</li>
-                  ))}
-                </ul>
-              </div>
-              <button onClick={() => {
-                setIsRevealing(false);
-                const newUrl = window.location.pathname + window.location.search.replace(/[?&]reveal=[^&]+/, '');
-                window.history.replaceState({}, '', newUrl);
-              }} className="w-full py-5 bg-ai-blue text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-2xl shadow-ai-blue/40 active:scale-95 duration-300">
-                Open community access
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

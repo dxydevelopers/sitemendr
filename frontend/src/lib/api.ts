@@ -99,43 +99,6 @@ export interface Milestone {
   order: number;
 }
 
-export interface SupporterTier {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  monthlyPrice: number;
-  yearlyPrice?: number;
-  discountPercent: number;
-  displayOrder: number;
-  isActive: boolean;
-  perks: string[];
-}
-
-export interface Supporter {
-  id: string;
-  userId: string;
-  tierId: string;
-  status: 'active' | 'paused' | 'cancelled' | 'expired';
-  reference: string;
-  monthlyAmount: number;
-  currency: string;
-  currentPeriodStart?: string;
-  currentPeriodEnd?: string;
-  lastPaymentDate?: string;
-  cancelAtPeriodEnd: boolean;
-  showOnWall: boolean;
-  spotlightTier: number;
-  tier?: SupporterTier;
-  discountCodes?: Array<{
-    id: string;
-    code: string;
-    discountType: string;
-    discountValue: number;
-    isActive: boolean;
-  }>;
-}
-
 // Client Dashboard Types
 export interface ClientProject {
   id: string;
@@ -394,10 +357,6 @@ class ApiClient {
   // Generic HTTP methods
   async get(endpoint: string, options: RequestInit = {}) {
     return this.request(endpoint, { ...options, method: 'GET' });
-  }
-
-  async fetchAllSupporterTiers() {
-    return this.request<{ success: boolean; tiers: SupporterTier[] }>('/supporters/tiers');
   }
 
   async post<T = unknown>(endpoint: string, body: unknown, options: RequestInit = {}) {
@@ -1455,23 +1414,6 @@ class ApiClient {
     return this.request<{ success: boolean; data: { transport: string }; message?: string }>('/admin/notification-rules/email-config', {
       method: 'PATCH',
       body: JSON.stringify({ transport }),
-    });
-  }
-
-  // Supporter API methods
-  async getMySupporterStatus() {
-    return this.request<{ success: boolean; isSupporter: boolean; supporter: Supporter | null }>('/supporters/me');
-  }
-
-  async initializeSupporterSubscription(tierId: string) {
-    return this.request<{ success: boolean; data?: { publicKey?: string; paystack?: { authorization_url: string; access_code?: string; reference?: string } }; message?: string }>('/payments/initialize', {
-      method: 'POST',
-      body: JSON.stringify({
-        amount: 0, // Backend will determine based on tier
-        serviceType: 'supporter',
-        description: 'Supporter Tier Subscription',
-        metadata: { tierId }
-      }),
     });
   }
 }

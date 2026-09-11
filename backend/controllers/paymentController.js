@@ -56,31 +56,6 @@ exports.initializePayment = async (req, res) => {
     let finalAmount = amount;
     let finalDescription = description;
 
-    // Handle Supporter Tier Initialization (Backend determines amount)
-    if (serviceType === 'supporter' && metadata?.tierId) {
-      if (!prisma.supporterTier) {
-        logger.error('PRISMA_MODEL_MISSING', { model: 'supporterTier' });
-        return res.status(500).json({
-          success: false,
-          message: 'Supporter features are not initialized in the database client. Please run "npx prisma generate" on the server.'
-        });
-      }
-
-      const tier = await prisma.supporterTier.findUnique({
-        where: { id: metadata.tierId }
-      });
-      
-      if (!tier) {
-        return res.status(404).json({
-          success: false,
-          message: 'Supporter tier not found'
-        });
-      }
-      
-      finalAmount = tier.monthlyPrice;
-      finalDescription = `Sitemendr Supporter: ${tier.name}`;
-    }
-
     const missing = [];
     if (finalAmount === undefined || finalAmount === null) missing.push('amount');
     if (!email) missing.push('email');
@@ -88,15 +63,6 @@ exports.initializePayment = async (req, res) => {
     if (!finalDescription) missing.push('description');
 
     if (missing.length) {
-      // Specialized error for supporter tier if not logged in
-      if (serviceType === 'supporter' && !email && !req.user?.userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Please log in to become a supporter. We need your account to track your rewards and discounts.',
-          requiresAuth: true
-        });
-      }
-
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missing.join(", ")}`
@@ -458,25 +424,6 @@ exports.handleWebhook = async (req, res) => {
           error: processingError.message
         });
       }
-    } else if (event.event === 'subscription.create') {
-      const { customer, plan, subscription_code } = event.data;
-      logger.info('Subscription created webhook received', { customer: customer.email, plan: plan.name, code: subscription_code });
-      
-      // Update supporter record status if exists
-      const { prisma } = require('../config/db');
-      await prisma.supporter.updateMany({
-        where: { reference: subscription_code },
-        data: { status: 'active' }
-      });
-    } else if (event.event === 'subscription.disable' || event.event === 'subscription.not_renew') {
-      const { subscription_code } = event.data;
-      logger.info('Subscription disabled/cancelled webhook received', { code: subscription_code });
-      
-      const { prisma } = require('../config/db');
-      await prisma.supporter.updateMany({
-        where: { reference: subscription_code },
-        data: { status: 'cancelled' }
-      });
     }
 
     res.json({ received: true });
