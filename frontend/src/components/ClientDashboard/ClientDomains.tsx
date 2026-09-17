@@ -2,15 +2,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Terminal, Plus } from 'lucide-react';
+import { Terminal, Plus, CircleCheck, CircleAlert, X } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import type { CustomDomain, ClientProject } from './ClientDashboard_types';
 import type { UseClientDashboardReturn } from './useClientDashboard';
 
 export default function ClientDomains({
-  dashboard, projects,
-}: { dashboard: UseClientDashboardReturn; projects: ClientProject[] }) {
-  const { domains, fetchData, handleVerifyDomain, handleDeleteDomain } = dashboard;
+  dashboard, projects, domains: domainsOverride,
+}: { dashboard: UseClientDashboardReturn; projects: ClientProject[]; domains?: CustomDomain[] }) {
+  const { domains: allDomains, fetchData, handleVerifyDomain, handleDeleteDomain } = dashboard;
+  const domains = domainsOverride ?? allDomains;
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [isManagedDomainModalOpen, setIsManagedDomainModalOpen] = useState(false);
   const [newDomain, setNewDomain] = useState({ domain: '', siteId: '', setup: 'self' });
@@ -19,95 +20,128 @@ export default function ClientDomains({
   const [verifyingDomainId, setVerifyingDomainId] = useState<string | null>(null);
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-lg font-bold uppercase tracking-tight">Custom Domains</h2>
-        <div className="flex flex-wrap gap-2 lg:gap-4 w-full sm:w-auto">
-          <button onClick={() => setIsManagedDomainModalOpen(true)} className="flex-1 sm:flex-none px-4 lg:px-6 py-2 bg-ai-blue/10 border border-ai-blue/20 text-ai-blue font-black text-[9px] lg:text-[10px] uppercase tracking-widest rounded-lg hover:bg-ai-blue hover:text-white transition-all">Request Managed</button>
-          <button onClick={() => setIsDomainModalOpen(true)} className="flex-1 sm:flex-none px-4 lg:px-6 py-2 bg-expert-green text-dark-bg font-black text-[9px] lg:text-[10px] uppercase tracking-widest rounded-lg">Attach New</button>
+    <div className="animate-fade-in space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-black tracking-tight text-white">Custom Domains</h2>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setIsManagedDomainModalOpen(true)} className="flex-1 border border-white/10 bg-white/[0.02] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white/70 transition hover:border-ai-blue/30 hover:text-white sm:flex-none">
+            Request managed
+          </button>
+          <button onClick={() => setIsDomainModalOpen(true)} className="flex-1 bg-ai-blue px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white hover:text-black sm:flex-none">
+            Attach new
+          </button>
         </div>
       </div>
 
-      <div className="bg-ai-blue/10 border border-ai-blue/20 p-4 lg:p-6 rounded-2xl">
-        <h3 className="text-[10px] font-black uppercase text-ai-blue mb-2 flex items-center gap-2"><Terminal className="w-4 h-4" /> DNS Configuration</h3>
-        <p className="text-[10px] text-white/70 uppercase leading-relaxed">
-          To activate your custom domain, point your A records to the Sitemendr hosting address: <span className="text-white font-black">{process.env.NEXT_PUBLIC_INFRA_IP || '102.0.21.24'}</span>
-          {' '}or use a CNAME record pointing to: <span className="text-white font-black">{process.env.NEXT_PUBLIC_INFRA_CNAME || 'nodes.sitemendr.com'}</span>. Once updated, run verification to prepare your certificate.
+      <div className="flex items-start gap-3 border border-white/[0.08] bg-white/[0.02] p-5">
+        <Terminal className="mt-0.5 h-4 w-4 shrink-0 text-ai-blue" />
+        <p className="text-xs font-medium leading-relaxed text-white/60">
+          To activate your custom domain, point your A record to{' '}
+          <span className="font-black text-white">{process.env.NEXT_PUBLIC_INFRA_IP || '102.0.21.24'}</span>
+          {' '}or a CNAME record to{' '}
+          <span className="font-black text-white">{process.env.NEXT_PUBLIC_INFRA_CNAME || 'nodes.sitemendr.com'}</span>.
+          {' '}Once updated, run verification to prepare your certificate.
         </p>
       </div>
 
-      <div className="hidden lg:block bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
+      <div className="hidden border border-white/[0.08] bg-white/[0.02] lg:block">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-white/5 bg-white/[0.03] text-[9px] font-black uppercase text-medium-gray">
-              <th className="p-6">Domain</th><th className="p-6">Project</th><th className="p-6">Type</th><th className="p-6">Status</th><th className="p-6 text-right">Actions</th>
+            <tr className="border-b border-white/[0.08] text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+              <th className="px-6 py-4">Domain</th>
+              <th className="px-6 py-4">Project</th>
+              <th className="px-6 py-4">Type</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
-            {domains.map((d: CustomDomain) => (
-              <tr key={d.id} className="text-[10px] font-bold uppercase hover:bg-white/[0.01] transition-colors group">
-                <td className="p-6 text-white group-hover:text-ai-blue transition-colors">{d.domain}</td>
-                <td className="p-6 text-white/60">{d.subscription?.siteName || d.subscription?.customName || 'Untitled'}</td>
-                <td className="p-6"><span className="px-2 py-0.5 bg-white/5 rounded text-[8px] text-white/40">{d.setup}</span></td>
-                <td className="p-6"><span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${d.status?.toLowerCase() === 'verified' ? 'bg-expert-green/10 text-expert-green' : 'bg-orange-500/10 text-orange-500'}`}>{d.status || 'Pending'}</span></td>
-                <td className="p-6 text-right">
-                  <div className="flex justify-end gap-3">
-                    {d.status?.toLowerCase() !== 'verified' && (
-                      <button onClick={() => handleVerifyDomain(d.id, setVerifyingDomainId)} disabled={verifyingDomainId === d.id} className="px-3 py-1 bg-ai-blue text-black text-[8px] font-black uppercase tracking-widest rounded hover:bg-white transition-all disabled:opacity-50">
-                        {verifyingDomainId === d.id ? '...' : 'Verify'}
+          <tbody className="divide-y divide-white/[0.06]">
+            {domains.map((d: CustomDomain) => {
+              const verified = d.status?.toLowerCase() === 'verified';
+              return (
+                <tr key={d.id} className="text-sm font-semibold transition hover:bg-white/[0.02]">
+                  <td className="px-6 py-4 text-white">{d.domain}</td>
+                  <td className="px-6 py-4 text-white/60">{d.subscription?.siteName || d.subscription?.customName || 'Untitled'}</td>
+                  <td className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white/40">{d.setup}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${verified ? 'text-expert-green' : 'text-amber-300'}`}>
+                      {verified ? <CircleCheck className="h-3.5 w-3.5" /> : <CircleAlert className="h-3.5 w-3.5" />}
+                      {d.status || 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      {!verified && (
+                        <button onClick={() => handleVerifyDomain(d.id, setVerifyingDomainId)} disabled={verifyingDomainId === d.id} className="border border-ai-blue/30 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-ai-blue transition hover:bg-ai-blue hover:text-white disabled:opacity-50">
+                          {verifyingDomainId === d.id ? '...' : 'Verify'}
+                        </button>
+                      )}
+                      <button onClick={() => handleDeleteDomain(d.id)} className="border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-400 transition hover:border-red-400/40 hover:bg-red-500/10">
+                        Remove
                       </button>
-                    )}
-                    <button onClick={() => handleDeleteDomain(d.id)} className="px-3 py-1 bg-white/5 border border-white/10 text-red-400 text-[8px] font-black uppercase tracking-widest rounded hover:bg-red-500/10 transition-all">Remove</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        {domains.length === 0 && <div className="p-20 text-center opacity-20 uppercase tracking-widest font-mono text-xs italic">Primary DNS records return null</div>}
+        {domains.length === 0 && (
+          <div className="p-14 text-center text-xs font-semibold uppercase tracking-widest text-white/24">No domains attached yet</div>
+        )}
       </div>
 
-      <div className="block lg:hidden space-y-4">
-        {domains.map((d: CustomDomain) => (
-          <div key={d.id} className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-black uppercase text-white">{d.domain}</p>
-                <p className="text-[8px] text-medium-gray uppercase mt-1">Project: {d.subscription?.siteName || d.subscription?.customName || 'Untitled'}</p>
+      <div className="space-y-3 lg:hidden">
+        {domains.map((d: CustomDomain) => {
+          const verified = d.status?.toLowerCase() === 'verified';
+          return (
+            <div key={d.id} className="space-y-4 border border-white/[0.08] bg-white/[0.02] p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-white">{d.domain}</p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-white/40">
+                    {d.subscription?.siteName || d.subscription?.customName || 'Untitled'}
+                  </p>
+                </div>
+                <span className={`inline-flex shrink-0 items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${verified ? 'text-expert-green' : 'text-amber-300'}`}>
+                  {verified ? <CircleCheck className="h-3.5 w-3.5" /> : <CircleAlert className="h-3.5 w-3.5" />}
+                  {d.status || 'Pending'}
+                </span>
               </div>
-              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${d.status?.toLowerCase() === 'verified' ? 'bg-expert-green/10 text-expert-green' : 'bg-orange-500/10 text-orange-500'}`}>{d.status || 'Pending'}</span>
+              <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Setup: {d.setup}</span>
+                {!verified && (
+                  <button onClick={() => handleVerifyDomain(d.id, setVerifyingDomainId)} disabled={verifyingDomainId === d.id} className="border border-ai-blue/30 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-ai-blue transition disabled:opacity-50">
+                    {verifyingDomainId === d.id ? '...' : 'Verify'}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex justify-between items-center pt-4 border-t border-white/5">
-              <span className="text-[8px] text-medium-gray uppercase tracking-widest">Setup: {d.setup}</span>
-              {d.status?.toLowerCase() !== 'verified' && (
-                <button onClick={() => handleVerifyDomain(d.id, setVerifyingDomainId)} disabled={verifyingDomainId === d.id} className="px-4 py-2 bg-ai-blue text-black text-[9px] font-black uppercase tracking-widest rounded-lg disabled:opacity-50">
-                  {verifyingDomainId === d.id ? '...' : 'VERIFY'}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-        {domains.length === 0 && <div className="p-10 text-center border border-dashed border-white/10 rounded-2xl opacity-30"><p className="text-[10px] font-black uppercase">No domains attached</p></div>}
+          );
+        })}
+        {domains.length === 0 && (
+          <div className="border border-dashed border-white/10 p-10 text-center text-xs font-semibold uppercase tracking-widest text-white/24">No domains attached</div>
+        )}
       </div>
 
       {isDomainModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-darker-bg border border-white/10 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-white/5 flex justify-between items-center">
-              <h3 className="text-lg font-black uppercase tracking-tight text-white">Attach System Domain</h3>
-              <button onClick={() => setIsDomainModalOpen(false)} className="p-2 text-white/40 hover:text-white transition-colors"><Plus className="w-6 h-6 rotate-45" /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg border border-white/10 bg-[#05070a]">
+            <div className="flex items-center justify-between border-b border-white/[0.08] px-7 py-5">
+              <h3 className="text-base font-black tracking-tight text-white">Attach domain</h3>
+              <button onClick={() => setIsDomainModalOpen(false)} className="text-white/40 transition hover:text-white"><X className="h-5 w-5" /></button>
             </div>
-            <div className="p-8 space-y-6">
-              <div className="space-y-3">
-                <label className="text-[9px] font-black uppercase text-white/40 tracking-[0.2em]">Target Project</label>
-                <select className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-ai-blue" value={newDomain.siteId} onChange={(e) => setNewDomain({ ...newDomain, siteId: e.target.value })}>
-                  <option value="">Select Operational Project</option>
+            <div className="space-y-5 p-7">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Target project</label>
+                <select className="w-full border border-white/10 bg-white/[0.02] p-3 text-sm text-white outline-none focus:border-ai-blue" value={newDomain.siteId} onChange={(e) => setNewDomain({ ...newDomain, siteId: e.target.value })}>
+                  <option value="">Select a project</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              <div className="space-y-3">
-                <label className="text-[9px] font-black uppercase text-white/40 tracking-[0.2em]">Domain Endpoint</label>
-                <input type="text" placeholder="domain.tld" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-ai-blue font-mono" value={newDomain.domain} onChange={(e) => setNewDomain({ ...newDomain, domain: e.target.value })} />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Domain</label>
+                <input type="text" placeholder="domain.tld" className="w-full border border-white/10 bg-white/[0.02] p-3 font-mono text-sm text-white outline-none focus:border-ai-blue" value={newDomain.domain} onChange={(e) => setNewDomain({ ...newDomain, domain: e.target.value })} />
               </div>
               <button onClick={async () => {
                 if (!newDomain.domain || !newDomain.siteId) return;
@@ -118,7 +152,7 @@ export default function ClientDomains({
                   fetchData();
                   setIsDomainModalOpen(false);
                 } catch { alert('Link failed.'); } finally { setIsSubmittingDomain(false); }
-              }} disabled={isSubmittingDomain} className="w-full py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-lg shadow-ai-blue/20 disabled:opacity-50">
+              }} disabled={isSubmittingDomain} className="w-full bg-ai-blue py-3.5 text-[11px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black disabled:opacity-50">
                 {isSubmittingDomain ? 'Adding domain...' : 'Add domain'}
               </button>
             </div>
@@ -127,17 +161,17 @@ export default function ClientDomains({
       )}
 
       {isManagedDomainModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-darker-bg border border-white/10 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-white/5 flex justify-between items-center">
-              <h3 className="text-lg font-black uppercase tracking-tight text-white">Request Managed DNS</h3>
-              <button onClick={() => setIsManagedDomainModalOpen(false)} className="p-2 text-white/40 hover:text-white transition-colors"><Plus className="w-6 h-6 rotate-45" /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg border border-white/10 bg-[#05070a]">
+            <div className="flex items-center justify-between border-b border-white/[0.08] px-7 py-5">
+              <h3 className="text-base font-black tracking-tight text-white">Request managed DNS</h3>
+              <button onClick={() => setIsManagedDomainModalOpen(false)} className="text-white/40 transition hover:text-white"><X className="h-5 w-5" /></button>
             </div>
-            <div className="p-8 space-y-6">
-              <p className="text-xs text-white/60 leading-relaxed uppercase font-mono tracking-tighter">Our team will handle DNS guidance, SSL certificates, and hosting setup for your project.</p>
-              <div className="space-y-3">
-                <label className="text-[9px] font-black uppercase text-white/40 tracking-[0.2em]">Desired Domain</label>
-                <input type="text" placeholder="yourbrand.com" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-ai-blue font-mono" value={managedDomain.domainInterest} onChange={(e) => setManagedDomain({ ...managedDomain, domainInterest: e.target.value })} />
+            <div className="space-y-5 p-7">
+              <p className="text-xs font-medium leading-relaxed text-white/60">Our team will handle DNS guidance, SSL certificates, and hosting setup for your project.</p>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Desired domain</label>
+                <input type="text" placeholder="yourbrand.com" className="w-full border border-white/10 bg-white/[0.02] p-3 font-mono text-sm text-white outline-none focus:border-ai-blue" value={managedDomain.domainInterest} onChange={(e) => setManagedDomain({ ...managedDomain, domainInterest: e.target.value })} />
               </div>
               <button onClick={async () => {
                 if (!managedDomain.domainInterest) return;
@@ -147,7 +181,7 @@ export default function ClientDomains({
                   alert('Deployment request received. A technician will contact you.');
                   setIsManagedDomainModalOpen(false);
                 } catch { alert('Request failed.'); } finally { setIsSubmittingDomain(false); }
-              }} disabled={isSubmittingDomain} className="w-full py-4 bg-tech-purple text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-white hover:text-black transition-all shadow-lg shadow-tech-purple/20 disabled:opacity-50">
+              }} disabled={isSubmittingDomain} className="w-full bg-ai-blue py-3.5 text-[11px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black disabled:opacity-50">
                 {isSubmittingDomain ? 'Sending request...' : 'Request managed setup'}
               </button>
             </div>
