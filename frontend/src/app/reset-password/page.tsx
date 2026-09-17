@@ -61,7 +61,7 @@ function ResetPasswordForm() {
 
       <div className="max-w-md w-full space-y-8 relative z-20">
         <div className="text-center relative">
-          <h2 className="text-4xl font-black text-white mb-2 tracking-tighter">
+          <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">
             {isSetup ? 'ACCOUNT' : 'PASSWORD'} <span className="italic bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent">{isSetup ? 'SETUP' : 'RESET'}</span>
           </h2>
           <p className="text-medium-gray text-xs uppercase tracking-widest">
@@ -83,14 +83,14 @@ function ResetPasswordForm() {
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
               {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest text-center">
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-center">
                   ERROR: {error}
                 </div>
               )}
 
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-medium-gray uppercase tracking-[0.2em]">New Password</label>
+                  <label className="text-xs font-bold text-medium-gray uppercase tracking-[0.1em]">New Password</label>
                   <input
                     type="password"
                     required
@@ -102,7 +102,7 @@ function ResetPasswordForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-medium-gray uppercase tracking-[0.2em]">Confirm Password</label>
+                  <label className="text-xs font-bold text-medium-gray uppercase tracking-[0.1em]">Confirm Password</label>
                   <input
                     type="password"
                     required
@@ -117,7 +117,7 @@ function ResetPasswordForm() {
               <button
                 type="submit"
                 disabled={loading || !token}
-                className="w-full bg-ai-blue text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                className="w-full bg-ai-blue text-white py-5 rounded-2xl font-bold text-sm uppercase tracking-[0.1em] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
               >
                 {loading ? 'PROCESSING...' : (isSetup ? 'FINALIZE SETUP' : 'RESET PASSWORD')}
               </button>

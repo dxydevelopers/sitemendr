@@ -4,7 +4,6 @@
 // original ClientDashboard.tsx. Nothing here holds state -
 // safe to import from the hook, the shell, or any tab file.
 
-import type { SupporterTier } from '@/lib/api';
 import type { ApiRecord, ClientProject, BuildMilestone, StudioLink, StudioUpdate } from './ClientDashboard_types';
 
 export const normalizeDashboardTab = (tab?: string | null) => {
@@ -26,7 +25,6 @@ export const lockedClientTabs: Record<string, { label: string; area: string }> =
   domains: { label: 'Domains', area: 'project' },
   addons: { label: 'Add-ons', area: 'billing' },
   resources: { label: 'Resources', area: 'support' },
-  supporter: { label: 'Community', area: 'account' },
 };
 
 export const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Pending') => {
@@ -181,12 +179,4 @@ export const agreementPaymentMethods = [
   { id: 'paypal', label: 'PayPal', detail: 'Wallet', icon: '/payment-icons/paypal.svg', gateway: 'external', channels: [] as string[] },
   { id: 'bank_transfer', label: 'Bank transfer', detail: 'Bank', icon: '/payment-icons/bank-transfer.svg', gateway: 'paystack', channels: ['bank_transfer', 'bank'] },
   { id: 'ussd_qr', label: 'USSD / QR', detail: 'Code', icon: '/payment-icons/ussd-qr.svg', gateway: 'paystack', channels: ['ussd', 'qr'] },
-];
-
-export const mockTiers: SupporterTier[] = [
-  { id: 'starter-id', name: 'Starter Member', slug: 'starter', monthlyPrice: 5, discountPercent: 5, displayOrder: 1, isActive: true, perks: ['member-badge', 'community-updates', 'community-access'] },
-  { id: 'standard-id', name: 'Standard Member', slug: 'standard', monthlyPrice: 15, discountPercent: 10, displayOrder: 2, isActive: true, perks: ['early-access', 'voting-rights', 'starter-perks'] },
-  { id: 'plus-id', name: 'Plus Member', slug: 'plus', monthlyPrice: 30, discountPercent: 15, displayOrder: 3, isActive: true, perks: ['roundtable-invites', 'product-council', 'standard-perks'] },
-  { id: 'premium-id', name: 'Premium Member', slug: 'premium', monthlyPrice: 60, discountPercent: 20, displayOrder: 4, isActive: true, perks: ['ama-access', 'spotlight-status', 'plus-perks'] },
-  { id: 'founders-id', name: 'Founders Circle', slug: 'founders-circle', monthlyPrice: 100, discountPercent: 25, displayOrder: 5, isActive: true, perks: ['private-sessions', 'vip-support', 'premium-perks'] },
 ];

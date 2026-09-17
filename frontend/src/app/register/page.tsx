@@ -189,10 +189,10 @@ export default function RegisterPage() {
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-5 py-14 sm:px-8 lg:px-10">
           <section className="border-y border-white/10 py-10">
             <div className="mb-8 h-1 w-24 bg-ai-blue" />
-            <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl">Email sent.</h1>
-            <p className="mt-5 break-all text-lg font-black text-white">{registeredEmail}</p>
+            <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">Email sent.</h1>
+            <p className="mt-5 break-all text-lg font-bold text-white">{registeredEmail}</p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 bg-white px-5 text-sm font-black text-black transition hover:bg-ai-blue hover:text-white">
+              <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
                 Open dashboard
               </button>
             </div>
@@ -207,8 +207,8 @@ export default function RegisterPage() {
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-5 sm:px-8 lg:px-10">
         <section className="grid flex-1 items-center gap-12 py-14 lg:grid-cols-[0.8fr_1fr] lg:gap-20">
           <div className="max-w-xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-ai-blue">Create workspace</p>
-            <h1 className="mt-5 text-5xl font-black leading-[0.98] tracking-tight sm:text-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">Create workspace</p>
+            <h1 className="mt-5 text-2xl font-bold leading-[0.98] tracking-tight sm:text-3xl">
               Start with a clean account.
             </h1>
           </div>
@@ -229,7 +229,7 @@ export default function RegisterPage() {
                 {step === 0 && (
                   <div className="space-y-6">
                     <div>
-                      <h2 className="text-2xl font-black tracking-tight">Create account</h2>
+                      <h2 className="text-2xl font-bold tracking-tight">Create account</h2>
                       <div className="mt-6 flex flex-wrap items-center gap-5">
                         {socialOptions.map((option) => {
                           const Icon = option.Icon;
@@ -241,11 +241,11 @@ export default function RegisterPage() {
                           );
                         })}
                       </div>
-                      {inactiveSocial && <p className="mt-3 text-xs font-black text-red-300">Inactive</p>}
+                      {inactiveSocial && <p className="mt-3 text-xs font-bold text-red-300">Inactive</p>}
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Account type</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Account type</label>
                       <select
                         value={formData.accountType}
                         onChange={(e) => {
@@ -262,20 +262,20 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Name</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Name</label>
                       <input ref={nameRef} type="text" value={formData.name} onFocus={clearFieldFeedback} onChange={(e) => {
                         clearFieldFeedback();
                         setFormData({ ...formData, name: e.target.value });
                       }} className={fieldClass} placeholder="Your name" />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Email</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Email</label>
                       <input type="email" value={formData.email} onFocus={clearFieldFeedback} onBlur={() => setFormData({ ...formData, email: normalizeEmail(formData.email) })} onChange={(e) => {
                         clearFieldFeedback();
                         setFormData({ ...formData, email: e.target.value });
                       }} className={fieldClass} placeholder="name@company.com" />
                       {emailStatus && (
-                        <p className={`mt-2 text-xs font-black ${emailStatus.className}`}>
+                        <p className={`mt-2 text-xs font-bold ${emailStatus.className}`}>
                           {emailStatus.label}
                         </p>
                       )}
@@ -285,9 +285,9 @@ export default function RegisterPage() {
 
                 {step === 1 && (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-black tracking-tight">Region</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">Region</h2>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Country</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Country</label>
                       <select
                         value={formData.country}
                         onChange={(e) => {
@@ -301,9 +301,9 @@ export default function RegisterPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Phone</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Phone</label>
                       <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
-                        <span className="shrink-0 py-4 pr-3 text-base font-semibold text-white/38">{selectedCountry?.dialCode || '+'}</span>
+                        <span className="shrink-0 py-4 pr-3 text-base font-semibold text-white/36">{selectedCountry?.dialCode || '+'}</span>
                         <input type="tel" value={formData.phone} onFocus={clearFieldFeedback} onChange={(e) => {
                           clearFieldFeedback();
                           setFormData({ ...formData, phone: e.target.value });
@@ -311,7 +311,7 @@ export default function RegisterPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Currency</label>
+                      <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Currency</label>
                       <select value={formData.defaultCurrency} onChange={(e) => {
                         clearFieldFeedback();
                         setFormData({ ...formData, defaultCurrency: e.target.value });
@@ -324,7 +324,7 @@ export default function RegisterPage() {
 
                 {step === 2 && (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-black tracking-tight">Secure account</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">Secure account</h2>
                     <div className="divide-y divide-white/10 border-y border-white/10">
                       {[
                         ['Name', formData.name],
@@ -334,32 +334,32 @@ export default function RegisterPage() {
                         ['Account type', accountTypes.find(type => type.value === formData.accountType)?.label || formData.accountType],
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between gap-5 py-3 text-sm">
-                          <span className="font-semibold text-white/42">{label}</span>
-                          <span className="text-right font-black text-white">{value}</span>
+                          <span className="font-semibold text-white/36">{label}</span>
+                          <span className="text-right font-bold text-white">{value}</span>
                         </div>
                       ))}
                     </div>
                     <div className="grid gap-5 sm:grid-cols-2">
                       <div>
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Password</label>
+                        <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Password</label>
                         <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
                           <input type={showPassword ? 'text' : 'password'} value={formData.password} onFocus={clearFieldFeedback} onChange={(e) => {
                             clearFieldFeedback();
                             setFormData({ ...formData, password: e.target.value });
                           }} className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24" placeholder="Password" />
-                          <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/42 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                          <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/36 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </div>
                       <div>
-                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Confirm</label>
+                        <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Confirm</label>
                         <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
                           <input type={showConfirmPassword ? 'text' : 'password'} value={formData.confirmPassword} onFocus={clearFieldFeedback} onChange={(e) => {
                             clearFieldFeedback();
                             setFormData({ ...formData, confirmPassword: e.target.value });
                           }} className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24" placeholder="Password" />
-                          <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="grid w-10 place-items-center text-white/42 transition hover:text-white" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}>
+                          <button type="button" onClick={() => setShowConfirmPassword(value => !value)} className="grid w-10 place-items-center text-white/36 transition hover:text-white" aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}>
                             {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
@@ -370,7 +370,7 @@ export default function RegisterPage() {
                         <div className="h-1 flex-1 bg-white/10">
                           <div className={`h-1 transition-all ${passwordStrength.color}`} style={{ width: `${Math.max(25, passwordScore * 25)}%` }} />
                         </div>
-                        <span className={`text-xs font-black ${passwordStrength.text}`}>{passwordStrength.label}</span>
+                        <span className={`text-xs font-bold ${passwordStrength.text}`}>{passwordStrength.label}</span>
                       </div>
                     )}
                   </div>
@@ -380,21 +380,21 @@ export default function RegisterPage() {
 
             <div className="mt-8 flex items-center justify-between gap-4">
               {step > 0 ? (
-                <button type="button" onClick={() => goToStep(step - 1, 'back')} className="inline-flex min-h-11 items-center gap-2 text-sm font-black text-white/62 transition hover:text-white">
+                <button type="button" onClick={() => goToStep(step - 1, 'back')} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-white/64 transition hover:text-white">
                   <ChevronLeft className="h-4 w-4" />
                   Back
                 </button>
               ) : (
-                <Link href="/login" className="text-sm font-semibold text-white/42 transition hover:text-white">Sign in</Link>
+                <Link href="/login" className="text-sm font-semibold text-white/36 transition hover:text-white">Sign in</Link>
               )}
 
               {step < 2 ? (
-                <button type="button" onClick={handleNext} className="inline-flex min-h-11 items-center gap-2 bg-white px-5 text-sm font-black text-black transition hover:bg-ai-blue hover:text-white">
+                <button type="button" onClick={handleNext} className="inline-flex min-h-11 items-center gap-2 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
                   Continue
                   <ChevronRight className="h-4 w-4" />
                 </button>
               ) : (
-                <button type="button" disabled={loading} onClick={handleSubmit} className="min-h-11 bg-white px-5 text-sm font-black text-black transition hover:bg-ai-blue hover:text-white disabled:opacity-50">
+                <button type="button" disabled={loading} onClick={handleSubmit} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white disabled:opacity-50">
                   {loading ? 'Creating...' : 'Create account'}
                 </button>
               )}

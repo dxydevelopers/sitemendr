@@ -11,7 +11,6 @@ import {
   Briefcase,
   Building2,
   ChevronDown,
-  CircleDollarSign,
   Code2,
   Cookie,
   CreditCard,
@@ -35,7 +34,6 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   Store,
   Undo2,
   UserPlus,
@@ -126,7 +124,7 @@ const megaMenus: MegaMenu[] = [
           { name: 'Support Center', href: '/help', icon: Headphones, description: 'Help articles and support.', accent: 'text-tech-purple' },
           { name: 'Support Tickets', href: '/dashboard?tab=support', icon: MessageSquare, description: 'Dashboard support requests.', accent: 'text-expert-green' },
           { name: 'Resources', href: '/dashboard?tab=resources', icon: BookOpen, description: 'Client resources.', accent: 'text-ai-blue' },
-          { name: 'Account Settings', href: '/dashboard?tab=settings', icon: Settings, description: 'Profile and account controls.', accent: 'text-white/70' },
+          { name: 'Account Settings', href: '/dashboard?tab=settings', icon: Settings, description: 'Profile and account controls.', accent: 'text-white/64' },
         ],
       },
     ],
@@ -149,16 +147,14 @@ const megaMenus: MegaMenu[] = [
         links: [
           { name: 'Contact', href: '/contact', icon: Mail, description: 'Speak with the team.', accent: 'text-expert-green' },
           { name: 'Contact Sales', href: '/contact?intent=sales', icon: MessageSquare, description: 'Discuss a new project.', accent: 'text-expert-green' },
-          { name: 'Community', href: '/community', icon: Sparkles, description: 'Membership, learning, and opportunity.', accent: 'text-amber-300' },
-          { name: 'Community Dashboard', href: '/dashboard/supporter', icon: CircleDollarSign, description: 'Community access and account perks.', accent: 'text-amber-300' },
         ],
       },
       {
         title: 'Policy',
         links: [
-          { name: 'Legal', href: '/legal', icon: Scale, accent: 'text-white/70' },
+          { name: 'Legal', href: '/legal', icon: Scale, accent: 'text-white/64' },
           { name: 'Privacy Policy', href: '/privacy', icon: ShieldCheck, accent: 'text-ai-blue' },
-          { name: 'Terms Of Service', href: '/terms', icon: Scale, accent: 'text-white/70' },
+          { name: 'Terms Of Service', href: '/terms', icon: Scale, accent: 'text-white/64' },
           { name: 'Refund Policy', href: '/refund', icon: Undo2, accent: 'text-amber-300' },
           { name: 'Cookie Policy', href: '/cookie-policy', icon: Cookie, accent: 'text-tech-purple' },
         ],
@@ -179,17 +175,16 @@ const clientNavItems: NavLink[] = [
   { name: 'Billing', href: '/dashboard?tab=billing', icon: CreditCard },
   { name: 'Support', href: '/dashboard?tab=support', icon: Headphones },
   { name: 'Resources', href: '/dashboard?tab=resources', icon: FileText },
-  { name: 'Community', href: '/dashboard/supporter', icon: Sparkles },
 ];
 
 function NavItem({ item, onClick }: { item: NavLink; onClick: () => void }) {
   const Icon = item.icon;
   const content = (
     <>
-      {Icon && <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${item.disabled ? 'text-white/24' : item.accent || 'text-white/40'}`} />}
+      {Icon && <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${item.disabled ? 'text-white/24' : item.accent || 'text-white/36'}`} />}
       <span className="min-w-0">
-        <span className={`block font-semibold leading-5 ${item.disabled ? 'text-white/42' : 'text-white/86 group-hover:text-white'}`}>{item.name}</span>
-        {item.description && <span className="mt-0.5 block text-xs leading-5 text-white/42">{item.description}</span>}
+        <span className={`block font-semibold leading-5 ${item.disabled ? 'text-white/36' : 'text-white/80 group-hover:text-white'}`}>{item.name}</span>
+        {item.description && <span className="mt-0.5 block text-xs leading-5 text-white/36">{item.description}</span>}
       </span>
     </>
   );
@@ -288,11 +283,11 @@ export default function Navigation() {
                   onFocus={() => setActiveMenu(menu.label)}
                   onClick={() => setActiveMenu(activeMenu === menu.label ? null : menu.label)}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    activeMenu === menu.label ? 'text-white' : 'text-white/66 hover:text-white'
+                    activeMenu === menu.label ? 'text-white' : 'text-white/64 hover:text-white'
                   }`}
                 >
                   {menu.label}
-                  <ChevronDown className={`h-3.5 w-3.5 transition ${activeMenu === menu.label ? 'rotate-180 text-white/60' : 'text-white/34'}`} />
+                  <ChevronDown className={`h-3.5 w-3.5 transition ${activeMenu === menu.label ? 'rotate-180 text-white/64' : 'text-white/36'}`} />
                 </button>
               ))}
               {directLinks.map((link) => (
@@ -300,7 +295,7 @@ export default function Navigation() {
                   key={link.name}
                   href={link.href}
                   onClick={closeMenus}
-                  className="px-3 py-2 text-sm font-medium text-white/66 transition hover:text-white"
+                  className="px-3 py-2 text-sm font-medium text-white/64 transition hover:text-white"
                 >
                   {link.name}
                 </Link>
@@ -316,20 +311,20 @@ export default function Navigation() {
                       setIsProfileOpen(!isProfileOpen);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 px-2 py-1.5 text-sm font-medium text-white/76 transition hover:text-white"
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm font-medium text-white/80 transition hover:text-white"
                   >
                     <span className="grid h-7 w-7 place-items-center bg-ai-blue text-xs font-bold text-white">
                       {user.name?.charAt(0).toUpperCase() || 'U'}
                     </span>
                     <span className="hidden max-w-[110px] truncate xl:block">{user.name?.split(' ')[0]}</span>
-                    <ChevronDown className={`h-3.5 w-3.5 text-white/42 transition ${isProfileOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-3.5 w-3.5 text-white/36 transition ${isProfileOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isProfileOpen && (
                     <div className="absolute right-0 top-full mt-3 w-64 bg-[#071019] p-2 shadow-2xl ring-1 ring-white/10">
                       <div className="border-b border-white/10 px-3 py-2.5">
                         <p className="truncate text-sm font-semibold text-white">{user.name}</p>
-                        <p className="truncate text-xs text-white/42">{user.email}</p>
+                        <p className="truncate text-xs text-white/36">{user.email}</p>
                       </div>
                       {clientNavItems.slice(0, 5).map((item) => {
                         const Icon = item.icon;
@@ -338,7 +333,7 @@ export default function Navigation() {
                             key={item.name}
                             href={item.href}
                             onClick={closeMenus}
-                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-white/68 transition hover:bg-white/[0.06] hover:text-white"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-white/64 transition hover:bg-white/[0.06] hover:text-white"
                           >
                             {Icon && <Icon className="h-4 w-4 text-ai-blue" />}
                             {item.name}
@@ -358,7 +353,7 @@ export default function Navigation() {
                 </div>
               ) : (
                 <>
-                  <Link href="/login" onClick={closeMenus} className="text-sm font-medium text-white/66 transition hover:text-white">
+                  <Link href="/login" onClick={closeMenus} className="text-sm font-medium text-white/64 transition hover:text-white">
                     Sign in
                   </Link>
                   <Link
@@ -392,7 +387,7 @@ export default function Navigation() {
                 <div className="grid gap-6 lg:grid-cols-[1fr_1fr_1fr_220px]">
                   {activeMegaMenu.sections.map((section) => (
                     <div key={section.title}>
-                      <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/36">{section.title}</div>
+                      <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.1em] text-white/36">{section.title}</div>
                       <div className="space-y-0.5">
                         {section.links.map((item) => (
                           <NavItem key={`${section.title}-${item.name}`} item={item} onClick={closeMenus} />
@@ -413,10 +408,10 @@ export default function Navigation() {
                         )}
                         <span className="mt-4 block text-sm font-semibold text-white">{activeMegaMenu.feature.name}</span>
                         {activeMegaMenu.feature.description && (
-                          <span className="mt-2 block text-xs leading-5 text-white/44">{activeMegaMenu.feature.description}</span>
+                          <span className="mt-2 block text-xs leading-5 text-white/48">{activeMegaMenu.feature.description}</span>
                         )}
                       </span>
-                      <ArrowRight className="mt-5 h-4 w-4 text-white/28 transition group-hover:translate-x-0.5 group-hover:text-ai-blue" />
+                      <ArrowRight className="mt-5 h-4 w-4 text-white/24 transition group-hover:translate-x-0.5 group-hover:text-ai-blue" />
                     </Link>
                   )}
                 </div>
@@ -441,14 +436,14 @@ export default function Navigation() {
                   className="flex w-full items-center justify-between text-left"
                 >
                   <span className="text-base font-semibold">{menu.label}</span>
-                  <ChevronDown className={`h-4 w-4 text-white/42 transition ${activeMenu === menu.label ? 'rotate-180 text-ai-blue' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-white/36 transition ${activeMenu === menu.label ? 'rotate-180 text-ai-blue' : ''}`} />
                 </button>
 
                 {activeMenu === menu.label && (
                   <div className="mt-4 space-y-5 pb-1">
                     {menu.sections.map((section) => (
                       <div key={`${menu.label}-${section.title}`}>
-                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/34">{section.title}</div>
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-white/36">{section.title}</div>
                         <div className="grid gap-1">
                           {section.links.map((item) => {
                             const Icon = item.icon;
@@ -457,12 +452,12 @@ export default function Navigation() {
                                 <div
                                   key={`${section.title}-mobile-${item.name}`}
                                   aria-disabled="true"
-                                  className="flex cursor-default items-start gap-3 py-2.5 text-sm text-white/46 opacity-75"
+                                  className="flex cursor-default items-start gap-3 py-2.5 text-sm text-white/48 opacity-75"
                                 >
                                   {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-white/24" />}
                                   <span className="min-w-0">
-                                    <span className="block font-medium leading-5 text-white/46">{item.name}</span>
-                                    {item.description && <span className="mt-0.5 block text-xs leading-5 text-white/34">{item.description}</span>}
+                                    <span className="block font-medium leading-5 text-white/48">{item.name}</span>
+                                    {item.description && <span className="mt-0.5 block text-xs leading-5 text-white/36">{item.description}</span>}
                                   </span>
                                 </div>
                               );
@@ -472,12 +467,12 @@ export default function Navigation() {
                                 key={`${section.title}-mobile-${item.name}`}
                                 href={item.href}
                                 onClick={closeMenus}
-                                className="flex items-start gap-3 py-2.5 text-sm text-white/72"
+                                className="flex items-start gap-3 py-2.5 text-sm text-white/64"
                               >
                                 {Icon && <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${item.accent || 'text-ai-blue'}`} />}
                                 <span className="min-w-0">
-                                  <span className="block font-medium leading-5 text-white/86">{item.name}</span>
-                                  {item.description && <span className="mt-0.5 block text-xs leading-5 text-white/42">{item.description}</span>}
+                                  <span className="block font-medium leading-5 text-white/80">{item.name}</span>
+                                  {item.description && <span className="mt-0.5 block text-xs leading-5 text-white/36">{item.description}</span>}
                                 </span>
                               </Link>
                             );

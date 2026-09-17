@@ -90,15 +90,15 @@ function LoginForm() {
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-5 sm:px-8 lg:px-10">
         <section className="grid flex-1 items-center gap-12 py-14 lg:grid-cols-[0.9fr_1fr] lg:gap-20">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-ai-blue">Client workspace</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-black leading-[0.98] tracking-tight sm:text-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">Client workspace</p>
+            <h1 className="mt-5 max-w-3xl text-2xl font-bold leading-[0.98] tracking-tight sm:text-3xl">
               Sign in and continue where the work lives.
             </h1>
           </div>
 
           <div className="w-full max-w-md lg:ml-auto">
             <div className="border-y border-white/10 py-7">
-              <h2 className="text-2xl font-black tracking-tight">Return to workspace</h2>
+              <h2 className="text-2xl font-bold tracking-tight">Return to workspace</h2>
 
               <div className="mt-6 flex flex-wrap items-center gap-5">
                 {socialOptions.map((option) => {
@@ -116,7 +116,7 @@ function LoginForm() {
                   );
                 })}
               </div>
-              {inactiveSocial && <p className="mt-3 text-xs font-black text-red-300">Inactive</p>}
+              {inactiveSocial && <p className="mt-3 text-xs font-bold text-red-300">Inactive</p>}
 
               <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
                 {error && (
@@ -126,7 +126,7 @@ function LoginForm() {
                 )}
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Email address</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Email address</label>
                   <input
                     type="email"
                     required
@@ -144,8 +144,8 @@ function LoginForm() {
 
                 <div>
                   <div className="flex items-center justify-between gap-4">
-                    <label className="text-[10px] font-black uppercase tracking-[0.18em] text-white/36">Password</label>
-                    <Link href="/forgot-password" className="text-xs font-semibold text-white/44 transition hover:text-white">
+                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Password</label>
+                    <Link href="/forgot-password" className="text-xs font-semibold text-white/48 transition hover:text-white">
                       Forgot password?
                     </Link>
                   </div>
@@ -162,7 +162,7 @@ function LoginForm() {
                         setPassword(e.target.value);
                       }}
                     />
-                    <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/42 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/36 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -171,7 +171,7 @@ function LoginForm() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="min-h-13 w-full bg-white px-5 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-ai-blue hover:text-white disabled:opacity-50"
+                  className="min-h-13 w-full bg-white px-5 text-sm font-bold uppercase tracking-[0.1em] text-black transition hover:bg-ai-blue hover:text-white disabled:opacity-50"
                 >
                   {loading ? 'Signing in...' : 'Sign in'}
                 </button>

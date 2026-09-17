@@ -25,9 +25,7 @@ const PUBLIC_ROUTES = [
   '/services',
   '/about',
   '/portfolio',
-  '/community',
   '/support',
-  '/supporter/dashboard',
   '/',
 ];
 

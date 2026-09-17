@@ -88,25 +88,25 @@ export default function Home() {
         <div className="relative z-10 flex min-h-[calc(600px-5rem)] flex-col md:min-h-[calc(640px-5rem)] lg:min-h-[calc(680px-5rem)]">
           <div className="grid min-w-0 flex-1 lg:grid-cols-[46fr_54fr]">
             <div className="w-screen max-w-full min-w-0 overflow-hidden border-r border-white/10 px-6 py-8 md:px-10 lg:flex lg:w-auto lg:flex-col lg:justify-center lg:px-14 xl:px-20">
-              <h1 className="w-full max-w-[342px] break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.03] tracking-[-0.03em] md:max-w-[700px] md:text-5xl lg:text-[3.9rem]">
+              <h1 className="w-full max-w-[342px] break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-[1.03] tracking-[-0.03em] md:max-w-[700px] md:text-3xl lg:text-4xl">
                 Sitemendr builds the digital systems businesses rely on.
               </h1>
 
-              <p className="mt-6 w-full max-w-[342px] break-words font-[var(--font-space-grotesk)] text-[15px] leading-8 text-white/68 md:max-w-[640px] md:text-lg">
+              <p className="mt-6 w-full max-w-[342px] break-words font-[var(--font-space-grotesk)] text-base leading-8 text-white/64 md:max-w-[640px] md:text-lg">
                 Custom websites, technical recovery, managed care, dropshipping programs, and affiliate commerce are organized through a private client workspace before execution begins.
               </p>
 
               <div className="mt-8 flex w-full max-w-[342px] flex-col items-stretch gap-px border border-white/12 bg-white/[0.06] sm:w-fit sm:max-w-none sm:flex-row">
                 <Link
                   href="/register"
-                  className="inline-flex items-center justify-center gap-3 bg-white/[0.10] px-6 py-4 text-[12px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-white/[0.16]"
+                  className="inline-flex items-center justify-center gap-3 bg-white/[0.10] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white transition hover:bg-white/[0.16]"
                 >
                   Enter Workspace
                   <ArrowRight className="h-4 w-4 text-ai-blue" />
                 </Link>
                 <Link
                   href="/services"
-                  className="inline-flex items-center justify-center bg-black/24 px-6 py-4 text-[12px] font-black uppercase tracking-[0.16em] text-white/72 transition hover:bg-white/[0.08] hover:text-white"
+                  className="inline-flex items-center justify-center bg-black/24 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white/64 transition hover:bg-white/[0.08] hover:text-white"
                 >
                   View Services
                 </Link>
@@ -199,12 +199,12 @@ export default function Home() {
         <div className="px-6 py-10 md:px-10 md:py-12 lg:px-14 xl:px-20">
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
-              <h2 className="mt-5 max-w-2xl break-words font-[var(--font-space-grotesk)] text-[1.85rem] font-semibold leading-[1.08] tracking-[-0.03em] md:text-[2.75rem] lg:text-5xl">
+              <h2 className="mt-5 max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.08] tracking-[-0.03em] sm:text-2xl md:text-3xl">
                 Build the site. Repair the system. Grow the channel.
               </h2>
             </div>
 
-            <p className="max-w-3xl text-base leading-7 text-white/58 md:text-lg md:leading-8 lg:ml-auto">
+            <p className="max-w-3xl text-base leading-7 text-white/64 md:text-lg md:leading-8 lg:ml-auto">
               Sitemendr starts with the business need, then opens the right private workspace. Each path has its own assessment, expert review, approval flow, and delivery room inside the dashboard.
             </p>
           </div>
@@ -231,15 +231,15 @@ export default function Home() {
                       <div className="grid h-12 w-12 place-items-center bg-black/18 backdrop-blur-sm">
                         <Icon className={`h-6 w-6 ${path.accent}`} />
                       </div>
-                      <span className="text-[11px] font-black uppercase tracking-[0.24em] text-white/40">{path.key}</span>
+                      <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">{path.key}</span>
                     </div>
 
                     <div>
-                      <h3 className="max-w-sm break-words font-[var(--font-space-grotesk)] text-[1.65rem] font-semibold leading-tight tracking-[-0.02em] md:text-3xl">{path.title}</h3>
+                      <h3 className="max-w-sm break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-tight tracking-[-0.02em] md:text-3xl">{path.title}</h3>
                       <p className="mt-4 max-w-sm text-sm leading-6 text-white/64">{path.intro}</p>
                       <div className="mt-7 space-y-3">
                         {path.signals.map((signal) => (
-                          <div key={signal} className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">
+                          <div key={signal} className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.1em] text-white/48">
                             <span className={`h-1.5 w-1.5 ${path.key === 'Build' ? 'bg-ai-blue' : path.key === 'Repair' ? 'bg-expert-green' : 'bg-amber-300'}`} />
                             {signal}
                           </div>
@@ -258,17 +258,17 @@ export default function Home() {
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div>
-              <h2 className="max-w-xl break-words font-[var(--font-space-grotesk)] text-[1.9rem] font-semibold leading-[1.06] tracking-[-0.035em] md:text-5xl">
+              <h2 className="max-w-xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.035em] sm:text-2xl md:text-3xl">
                 The public site opens the door. The workspace runs the work.
               </h2>
-              <p className="mt-6 max-w-xl text-base leading-7 text-white/62 md:text-lg md:leading-8">
+              <p className="mt-6 max-w-xl text-base leading-7 text-white/64 md:text-lg md:leading-8">
                 Clients do not expose the full brief on the homepage. They create an account, choose Build, Repair, or Grow, then Sitemendr turns that path into assessments, approvals, files, billing, and expert updates.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link href="/register" className="inline-flex items-center justify-center gap-2 bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-black">
+                <Link href="/register" className="inline-flex items-center justify-center gap-2 bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-black">
                   Create Workspace <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link href="/login" className="inline-flex items-center justify-center gap-2 bg-white/8 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-white/78">
+                <Link href="/login" className="inline-flex items-center justify-center gap-2 bg-white/8 px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-white/80">
                   Client Login
                 </Link>
               </div>
@@ -280,22 +280,22 @@ export default function Home() {
                 <div className="flex items-center justify-between px-5 py-5 md:px-7">
                   <div className="flex items-center gap-3">
                     <LockKeyhole className="h-5 w-5 text-expert-green" />
-                    <span className="text-xs font-black uppercase tracking-[0.2em] text-white/70">Private workspace</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/64">Private workspace</span>
                   </div>
-                  <span className="hidden text-xs text-white/40 sm:inline">Assessment, delivery, support</span>
+                  <span className="hidden text-xs text-white/36 sm:inline">Assessment, delivery, support</span>
                 </div>
 
                 <div className="grid flex-1 md:grid-cols-[88px_1fr]">
                   <div className="hidden flex-col items-center gap-7 bg-black/18 py-8 md:flex">
                     {[Code2, Wrench, ShoppingBag, Gauge].map((Icon, index) => (
-                      <div key={index} className={`grid h-11 w-11 place-items-center ${index === 0 ? 'bg-ai-blue/18 text-ai-blue' : 'text-white/34'}`}>
+                      <div key={index} className={`grid h-11 w-11 place-items-center ${index === 0 ? 'bg-ai-blue/18 text-ai-blue' : 'text-white/36'}`}>
                         <Icon className="h-5 w-5" />
                       </div>
                     ))}
                   </div>
 
                   <div className="px-5 pb-6 md:px-7 md:pb-8">
-                    <div className="flex flex-wrap gap-3 text-[11px] font-black uppercase tracking-[0.15em] text-white/42">
+                    <div className="flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.1em] text-white/36">
                       <span className="text-ai-blue">Build</span>
                       <span>Repair</span>
                       <span>Grow</span>
@@ -305,7 +305,7 @@ export default function Home() {
                       <div>
                         <div className="flex items-start justify-between gap-5">
                           <div>
-                            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-ai-blue">Website roadmap</div>
+                            <div className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">Website roadmap</div>
                             <h3 className="mt-3 font-[var(--font-space-grotesk)] text-3xl font-semibold tracking-[-0.03em] md:text-4xl">A guided build room</h3>
                           </div>
                           <BadgeCheck className="h-7 w-7 shrink-0 text-expert-green" />
@@ -320,8 +320,8 @@ export default function Home() {
                           ].map(([name, status], index) => (
                             <div key={name} className="grid grid-cols-[24px_1fr_auto] items-center gap-4">
                               <span className={`h-2.5 w-2.5 ${index < 2 ? 'bg-ai-blue' : 'bg-white/18'}`} />
-                              <span className="text-sm font-semibold text-white/82">{name}</span>
-                              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/40">{status}</span>
+                              <span className="text-sm font-semibold text-white/80">{name}</span>
+                              <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">{status}</span>
                             </div>
                           ))}
                         </div>
@@ -329,10 +329,10 @@ export default function Home() {
 
                       <div className="space-y-5 bg-white/[0.035] p-5">
                         <MonitorCheck className="h-7 w-7 text-expert-green" />
-                        <p className="text-sm leading-6 text-white/62">
+                        <p className="text-sm leading-6 text-white/64">
                           Every service path gets its own questions, checkpoints, messages, uploads, and payments in one controlled client space.
                         </p>
-                        <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white/42">
+                        <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.1em] text-white/36">
                           <span>Files</span>
                           <span>Approvals</span>
                           <span>Billing</span>
@@ -352,10 +352,10 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_20%,rgba(245,158,11,0.13),transparent_28%),radial-gradient(circle_at_86%_74%,rgba(0,102,255,0.12),transparent_32%)]" />
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-[1.9rem] font-semibold leading-[1.06] tracking-[-0.035em] md:text-5xl">
+            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.035em] sm:text-2xl md:text-3xl">
               A controlled route from account entry to delivery.
             </h2>
-            <p className="max-w-2xl text-base leading-7 text-white/60 md:text-lg md:leading-8 lg:ml-auto">
+            <p className="max-w-2xl text-base leading-7 text-white/64 md:text-lg md:leading-8 lg:ml-auto">
               The homepage introduces the company. The dashboard collects the right information, lets experts review it, then keeps approvals, payment, updates, and delivery in one place.
             </p>
           </div>
@@ -367,11 +367,11 @@ export default function Home() {
                 <div key={step} className="relative min-h-[140px]">
                   <div className="flex items-center gap-4 lg:block">
                     <div className={`relative z-10 grid h-10 w-10 shrink-0 place-items-center ${index === flow.length - 1 ? 'bg-expert-green text-black' : 'bg-white/8 text-white'}`}>
-                      {index === flow.length - 1 ? <CheckCircle2 className="h-5 w-5" /> : <span className="text-xs font-black">0{index + 1}</span>}
+                      {index === flow.length - 1 ? <CheckCircle2 className="h-5 w-5" /> : <span className="text-xs font-bold">0{index + 1}</span>}
                     </div>
                     <div className="lg:mt-8">
                       <div className="font-[var(--font-space-grotesk)] text-xl font-semibold tracking-[-0.02em] text-white">{step}</div>
-                      <p className="mt-3 max-w-[220px] text-sm leading-6 text-white/50">
+                      <p className="mt-3 max-w-[220px] text-sm leading-6 text-white/48">
                         {index === 0 && 'The client enters through a private workspace.'}
                         {index === 1 && 'Build, Repair, or Grow sets the correct route.'}
                         {index === 2 && 'The questions match the service needed.'}
@@ -381,7 +381,7 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
-                  {index < flow.length - 1 && <ArrowRight className="absolute right-5 top-3 hidden h-4 w-4 text-white/18 lg:block" />}
+                  {index < flow.length - 1 && <ArrowRight className="absolute right-5 top-3 hidden h-4 w-4 text-white/24 lg:block" />}
                 </div>
               ))}
             </div>
@@ -394,10 +394,10 @@ export default function Home() {
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
-              <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-[1.9rem] font-semibold leading-[1.06] tracking-[-0.035em] md:text-5xl">
+              <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.035em] sm:text-2xl md:text-3xl">
                 Built for businesses that need their digital work handled properly.
               </h2>
-              <p className="mt-5 max-w-xl text-base leading-7 text-white/60 md:text-lg md:leading-8">
+              <p className="mt-5 max-w-xl text-base leading-7 text-white/64 md:text-lg md:leading-8">
                 Sitemendr gives clients one place to request work, review direction, approve decisions, and keep their online operation moving with expert support behind the dashboard.
               </p>
             </div>
@@ -417,9 +417,9 @@ export default function Home() {
                 const Icon = item.icon;
                 return (
                     <div key={item.label} className="space-y-8">
-                    <Icon className="h-7 w-7 text-white/58" />
+                    <Icon className="h-7 w-7 text-white/64" />
                     <div>
-                        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-white/42">{item.label}</div>
+                        <div className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">{item.label}</div>
                         <div className="mt-3 font-[var(--font-space-grotesk)] text-2xl font-semibold leading-tight tracking-[-0.02em]">{item.value}</div>
                     </div>
                   </div>
@@ -442,23 +442,23 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,16,25,0.82)_0%,rgba(7,16,25,0.55)_34%,rgba(7,16,25,0.12)_58%,rgba(7,16,25,0)_100%)]" />
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#071019] to-transparent" />
-        <div className="pointer-events-none absolute right-[30%] top-12 hidden text-[10px] font-black uppercase tracking-[0.24em] text-ai-blue lg:block">Build</div>
-        <div className="pointer-events-none absolute right-[13%] top-24 hidden text-[10px] font-black uppercase tracking-[0.24em] text-expert-green lg:block">Repair</div>
-        <div className="pointer-events-none absolute bottom-16 right-[18%] hidden text-[10px] font-black uppercase tracking-[0.24em] text-amber-200 md:block">Grow</div>
-        <div className="pointer-events-none absolute bottom-12 right-[38%] hidden text-[10px] font-black uppercase tracking-[0.24em] text-white/70 xl:block">Client workspace</div>
+        <div className="pointer-events-none absolute right-[30%] top-12 hidden text-xs font-bold uppercase tracking-[0.1em] text-ai-blue lg:block">Build</div>
+        <div className="pointer-events-none absolute right-[13%] top-24 hidden text-xs font-bold uppercase tracking-[0.1em] text-expert-green lg:block">Repair</div>
+        <div className="pointer-events-none absolute bottom-16 right-[18%] hidden text-xs font-bold uppercase tracking-[0.1em] text-amber-200 md:block">Grow</div>
+        <div className="pointer-events-none absolute bottom-12 right-[38%] hidden text-xs font-bold uppercase tracking-[0.1em] text-white/64 xl:block">Client workspace</div>
 
         <div className="relative mx-auto flex min-h-[560px] max-w-7xl items-end px-6 py-14 md:min-h-[620px] md:py-20 lg:items-center">
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-[2rem] font-semibold leading-[1.04] tracking-[-0.035em] md:text-5xl">
+              <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.04] tracking-[-0.035em] sm:text-2xl md:text-3xl">
                 Start with the right workspace, then let the system guide the work.
               </h2>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-white/62 md:text-lg md:leading-8">
+              <p className="mt-5 max-w-2xl text-base leading-7 text-white/64 md:text-lg md:leading-8">
                 Create an account to open the route for your website build, repair request, maintenance support, or commerce program.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-              <Link href="/register" className="inline-flex items-center justify-center gap-3 bg-white px-6 py-4 text-xs font-black uppercase tracking-[0.14em] text-black">
+              <Link href="/register" className="inline-flex items-center justify-center gap-3 bg-white px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-black">
                 Create Workspace <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

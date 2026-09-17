@@ -15,9 +15,11 @@ import {
   Key, Bell, Settings, Plus, Clock, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useClientDashboard } from './useClientDashboard';
-import { lockedClientTabs } from './utils';
+import { lockedClientTabs, normalizeBuildStatus } from './utils';
 import type { DashboardNavItem } from './ClientDashboard_types';
 import ClientOverview from './ClientOverview';
+import MySites from './MySites';
+import SiteRoom, { type RoomView } from './SiteRoom';
 import ClientBuildJourney from './ClientBuildJourney';
 import ClientMerchant from './ClientMerchant';
 import ClientBilling from './ClientBilling';
@@ -79,11 +81,13 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   const unreadMessages = messages.filter(m => !m.isRead).length;
   const averageProgress = projects.length ? Math.round(projects.reduce((s, p) => s + (p.progress || 0), 0) / projects.length) : 0;
   const selectedProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : projects.find(p => p.isCurrent) || projects[0];
+  const liveSites = projects.filter(p => ['launched', 'handoff', 'completed'].includes(normalizeBuildStatus(p.status)));
 
   const mainNav: DashboardNavItem[] = [
     { id: 'dashboard', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
     { id: 'workspaces', label: 'Workspaces', icon: <Rocket className="w-5 h-5" />, children: [{ id: 'projects', label: 'Build' }, { id: 'audit', label: 'Repair' }, { id: 'business', label: 'Merchant' }] },
     { id: 'projects', label: 'Projects', icon: <FileText className="w-5 h-5" />, count: projects.length, children: [{ id: 'projects', label: 'Project records', count: projects.length }, { id: 'editor', label: 'Editor' }, { id: 'audit', label: 'Performance' }, { id: 'domains', label: 'Domains', count: domains.length }] },
+    { id: 'mysites', label: 'My Sites', icon: <Globe className="w-5 h-5" />, count: liveSites.length },
   ];
   const manageNav: DashboardNavItem[] = [
     { id: 'business', label: 'Merchant', icon: <ShoppingBag className="w-5 h-5" />, children: [{ id: 'ecommerce', label: 'Commerce' }, { id: 'booking', label: 'Bookings', count: bookings.length }] },
@@ -113,6 +117,26 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
     const params = new URLSearchParams(searchParams.toString());
     params.delete('view');
     params.delete('id');
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const mySiteId = activeTab === 'mysites' ? searchParams.get('site') : null;
+  const mySiteView = ((activeTab === 'mysites' ? searchParams.get('view') : null) as RoomView | null) || 'overview';
+  const openSite = (siteId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('site', siteId);
+    params.set('view', 'overview');
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+  const changeSiteView = (view: RoomView) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('view', view);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+  const closeSite = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('site');
+    params.delete('view');
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -207,6 +231,10 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                 <button type="button" onClick={goBackFromBillingDetail} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/74 transition hover:bg-white/[0.06] hover:text-white">
                   <ArrowLeft className="h-6 w-6" />
                 </button>
+              ) : activeTab === 'mysites' && mySiteId ? (
+                <button type="button" onClick={closeSite} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/74 transition hover:bg-white/[0.06] hover:text-white">
+                  <ArrowLeft className="h-6 w-6" />
+                </button>
               ) : activeTab !== 'dashboard' && (
                 <button type="button" onClick={() => {
                   if (activeTab === 'projects' && selectedProjectId) { setSelectedProjectId(null); setActiveBuildChapter(null); }
@@ -223,11 +251,13 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                       : billingView === 'transaction'
                         ? 'Transaction'
                         : 'Care subscription'
-                    : activeTab === 'dashboard'
-                      ? 'Overview'
-                      : activeTab === 'projects' && selectedProjectId
-                        ? (selectedProject?.name || 'Build project')
-                        : currentTab?.label || 'Workspace'}
+                    : activeTab === 'mysites' && mySiteId
+                      ? (projects.find(p => p.id === mySiteId)?.name || 'Site')
+                      : activeTab === 'dashboard'
+                        ? 'Overview'
+                        : activeTab === 'projects' && selectedProjectId
+                          ? (selectedProject?.name || 'Build project')
+                          : currentTab?.label || 'Workspace'}
                 </h1>
               </div>
             </div>
@@ -274,6 +304,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                     tickets={tickets}
                     unreadMessages={unreadMessages}
                     activities={activities}
+                    liveSitesCount={liveSites.length}
                     onOpenTab={setActiveTab}
                   />
                 )}
@@ -281,6 +312,24 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                 {activeTab === 'business' && <ClientMerchant bookings={bookings} billing={billing} onOpenTab={setActiveTab} />}
 
                 {activeTab === 'projects' && <ClientBuildJourney dashboard={dashboard} onStartRequest={() => setShowProjectRequestModal(true)} />}
+
+                {activeTab === 'mysites' && (
+                  mySiteId ? (
+                    projects.find(p => p.id === mySiteId) ? (
+                      <SiteRoom
+                        site={projects.find(p => p.id === mySiteId)!}
+                        dashboard={dashboard}
+                        view={mySiteView}
+                        onChangeView={changeSiteView}
+                        onBack={closeSite}
+                      />
+                    ) : (
+                      <div className="animate-fade-in text-sm font-semibold text-white/50">Site not found.</div>
+                    )
+                  ) : (
+                    <MySites projects={projects} onOpenSite={openSite} />
+                  )
+                )}
 
                 {activeTab === 'domains' && <ClientDomains dashboard={dashboard} projects={projects} />}
 

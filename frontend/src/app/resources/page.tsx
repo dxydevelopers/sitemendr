@@ -100,26 +100,26 @@ export default function ResourcesPage() {
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.94),rgba(5,7,10,0.54)_55%,rgba(5,7,10,0.84))]" />
         <div className="relative z-10 mx-auto grid min-h-[620px] max-w-7xl content-end gap-10 px-4 pb-12 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-white/46">Resources</p>
-            <h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/48">Resources</p>
+            <h1 className="mt-5 max-w-3xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
               A working library for clearer digital decisions.
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-white/62">
+            <p className="mt-6 max-w-2xl text-base leading-8 text-white/64">
               Sitemendr resources help clients, sellers, founders, and builders prepare better before opening a workspace, requesting a quote, asking for repair, launching a store, or joining a commerce flow.
             </p>
           </div>
 
           <div className="border-y border-white/14 py-5">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-white/34" />
-              <p className="border-b border-white/12 pb-4 pl-8 text-sm text-white/44">
+              <Search className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-white/36" />
+              <p className="border-b border-white/12 pb-4 pl-8 text-sm text-white/48">
                 Search and downloadable files will live inside the dashboard library. Public resources below explain what to prepare first.
               </p>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
               {['Prepare', 'Understand', 'Track'].map((item) => (
                 <div key={item} className="border-t border-white/10 pt-4">
-                  <p className="text-lg font-black">{item}</p>
+                  <p className="text-lg font-bold">{item}</p>
                   <p className="mt-2 text-sm leading-6 text-white/48">Use the right context before the work begins.</p>
                 </div>
               ))}
@@ -132,8 +132,8 @@ export default function ResourcesPage() {
         <div className="grid gap-10 lg:grid-cols-[320px_1fr]">
           <div>
             <BookOpen className="h-8 w-8 text-ai-blue" />
-            <h2 className="mt-6 text-3xl font-black leading-tight sm:text-4xl">Resource shelves</h2>
-            <p className="mt-5 text-base leading-8 text-white/58">
+            <h2 className="mt-6 text-3xl font-bold leading-tight sm:text-4xl">Resource shelves</h2>
+            <p className="mt-5 text-base leading-8 text-white/64">
               The public page shows the structure. The private workspace holds client-specific files, support documents, billing notes, project updates, and downloadable resources.
             </p>
           </div>
@@ -145,14 +145,14 @@ export default function ResourcesPage() {
                 <div key={shelf.name} className="grid gap-5 border-b border-white/10 py-7 last:border-b-0 md:grid-cols-[180px_1fr]">
                   <div>
                     <Icon className="h-6 w-6 text-ai-blue" />
-                    <p className="mt-4 text-xl font-black">{shelf.name}</p>
-                    <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-white/36">{shelf.purpose}</p>
+                    <p className="mt-4 text-xl font-bold">{shelf.name}</p>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-[0.1em] text-white/36">{shelf.purpose}</p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {shelf.items.map((item) => (
                       <div key={item} className="flex gap-3 border-t border-white/10 pt-3">
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-expert-green" />
-                        <p className="text-sm leading-6 text-white/58">{item}</p>
+                        <p className="text-sm leading-6 text-white/64">{item}</p>
                       </div>
                     ))}
                   </div>
@@ -170,8 +170,8 @@ export default function ResourcesPage() {
               <Image src={item.image} alt="" fill className="object-cover transition duration-700 group-hover:scale-[1.04]" sizes="(max-width: 1024px) 100vw, 33vw" />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,10,0.18),rgba(5,7,10,0.88))]" />
               <div className="absolute inset-x-0 bottom-0 p-6">
-                <p className="text-xl font-black leading-tight">{item.title}</p>
-                <p className="mt-3 text-sm leading-7 text-white/62">{item.text}</p>
+                <p className="text-xl font-bold leading-tight">{item.title}</p>
+                <p className="mt-3 text-sm leading-7 text-white/64">{item.text}</p>
                 <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white">
                   Open path
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
@@ -188,18 +188,18 @@ export default function ResourcesPage() {
         <div className="relative z-10 mx-auto grid min-h-[680px] max-w-7xl content-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
             <MonitorCheck className="h-8 w-8 text-expert-green" />
-            <h2 className="mt-6 text-3xl font-black leading-tight sm:text-4xl">How resources move into the workspace</h2>
-            <p className="mt-5 text-base leading-8 text-white/60">
+            <h2 className="mt-6 text-3xl font-bold leading-tight sm:text-4xl">How resources move into the workspace</h2>
+            <p className="mt-5 text-base leading-8 text-white/64">
               Public resources help someone prepare. Private resources are attached to the account, project, store, support ticket, or billing record so the work remains traceable.
             </p>
           </div>
           <div className="border-y border-white/14 py-3">
             {learningPath.map(([step, title, text]) => (
               <div key={step} className="grid gap-4 border-b border-white/10 py-5 last:border-b-0 sm:grid-cols-[72px_1fr]">
-                <p className="text-sm font-black text-ai-blue">{step}</p>
+                <p className="text-sm font-bold text-ai-blue">{step}</p>
                 <div>
                   <p className="font-bold">{title}</p>
-                  <p className="mt-2 text-sm leading-7 text-white/56">{text}</p>
+                  <p className="mt-2 text-sm leading-7 text-white/48">{text}</p>
                 </div>
               </div>
             ))}
@@ -211,7 +211,7 @@ export default function ResourcesPage() {
         <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
           <div>
             <Boxes className="h-8 w-8 text-amber-300" />
-            <h2 className="mt-6 text-3xl font-black leading-tight sm:text-4xl">What belongs in the private library</h2>
+            <h2 className="mt-6 text-3xl font-bold leading-tight sm:text-4xl">What belongs in the private library</h2>
           </div>
           <div className="border-y border-white/12 py-4">
             {[
@@ -224,7 +224,7 @@ export default function ResourcesPage() {
                 <FileText className="mt-1 h-5 w-5 shrink-0 text-white/48" />
                 <div>
                   <p className="font-bold">{title}</p>
-                  <p className="mt-2 text-sm leading-7 text-white/56">{text}</p>
+                  <p className="mt-2 text-sm leading-7 text-white/48">{text}</p>
                 </div>
               </div>
             ))}
@@ -236,11 +236,11 @@ export default function ResourcesPage() {
             View workspace model
             <ArrowRight className="h-4 w-4" />
           </Link>
-          <Link href="/help" className="inline-flex items-center gap-2 border border-white/14 px-5 py-3 text-sm font-bold text-white/76 transition hover:border-white/34 hover:text-white">
+          <Link href="/help" className="inline-flex items-center gap-2 border border-white/14 px-5 py-3 text-sm font-bold text-white/80 transition hover:border-white/34 hover:text-white">
             <LifeBuoy className="h-4 w-4" />
             Support center
           </Link>
-          <Link href="/register" className="inline-flex items-center gap-2 border border-white/14 px-5 py-3 text-sm font-bold text-white/76 transition hover:border-white/34 hover:text-white">
+          <Link href="/register" className="inline-flex items-center gap-2 border border-white/14 px-5 py-3 text-sm font-bold text-white/80 transition hover:border-white/34 hover:text-white">
             Create workspace
           </Link>
         </div>

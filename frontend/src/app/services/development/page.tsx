@@ -130,16 +130,16 @@ export default function DevelopmentServices() {
 
         <div className="relative mx-auto grid min-h-[640px] max-w-7xl items-center gap-12 px-5 py-12 sm:px-6 md:min-h-[720px] md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
           <div>
-            <div className="mb-7 flex flex-wrap gap-3 text-[11px] font-black uppercase tracking-[0.14em] text-white/52">
+            <div className="mb-7 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.1em] text-white/48">
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Custom development</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Websites</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Repair</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Care</span>
             </div>
-            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-[2.45rem] font-semibold leading-[1.02] tracking-[-0.025em] sm:text-[3rem] md:text-6xl lg:text-7xl lg:tracking-[-0.035em]">
+            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-3xl md:text-4xl lg:text-5xl lg:tracking-[-0.035em]">
               Development work for businesses that need the digital side to become dependable.
             </h1>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-white/68 md:text-lg">
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               This page is for the work behind serious business presence: new websites, custom systems, broken platforms, maintenance requests, and the kind of handoff that lets a client understand what they now own.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -168,14 +168,14 @@ export default function DevelopmentServices() {
 
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-          <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+          <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             A technical request usually carries a business problem inside it.
           </h2>
           <div className="grid gap-8 md:grid-cols-2">
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               A company may ask for a website when the real issue is unclear positioning. A founder may ask for an app when the deeper need is operational control. A team may ask for a repair when the true risk is that nobody can trust the system anymore.
             </p>
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               Sitemendr treats development as business infrastructure. The design, code, content structure, ownership, and maintenance route all have to serve the same purpose: make the digital asset easier to use, easier to trust, and easier to carry forward.
             </p>
           </div>
@@ -185,7 +185,7 @@ export default function DevelopmentServices() {
       <section id="build" className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-            <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               When the business needs something new, the build has to begin before the code.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
@@ -209,7 +209,7 @@ export default function DevelopmentServices() {
                     <h3 className="mt-6 font-[var(--font-space-grotesk)] text-2xl font-semibold leading-tight tracking-[-0.02em] text-white md:text-4xl">
                       {service.title}
                     </h3>
-                    <p className="mt-6 text-base leading-8 text-white/62">{service.body}</p>
+                    <p className="mt-6 text-base leading-8 text-white/64">{service.body}</p>
                   </div>
                 </article>
               );
@@ -231,7 +231,7 @@ export default function DevelopmentServices() {
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
             <div className="max-w-2xl">
               <Wrench className="h-6 w-6 text-expert-green" />
-              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Repair is diagnosis before action.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64 md:text-lg">
@@ -241,7 +241,7 @@ export default function DevelopmentServices() {
                 {repairSignals.map((signal) => (
                   <div key={signal} className="flex items-start gap-4 py-5">
                     <SearchCheck className="mt-1 h-5 w-5 shrink-0 text-expert-green" />
-                    <p className="text-sm font-semibold leading-7 text-white/72">{signal}</p>
+                    <p className="text-sm font-semibold leading-7 text-white/64">{signal}</p>
                   </div>
                 ))}
               </div>
@@ -254,7 +254,7 @@ export default function DevelopmentServices() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <RefreshCw className="h-6 w-6 text-ai-blue" />
-            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Maintenance is the quiet work that keeps the business from returning to emergency mode.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -264,7 +264,7 @@ export default function DevelopmentServices() {
               {careSignals.map((signal) => (
                 <div key={signal} className="border-t border-white/12 pt-5">
                   <ShieldCheck className="h-5 w-5 text-expert-green" />
-                  <p className="mt-5 text-sm font-semibold leading-7 text-white/70">{signal}</p>
+                  <p className="mt-5 text-sm font-semibold leading-7 text-white/64">{signal}</p>
                 </div>
               ))}
             </div>
@@ -286,7 +286,7 @@ export default function DevelopmentServices() {
           <div className="grid gap-12 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
             <div>
               <ServerCog className="h-6 w-6 text-ai-blue" />
-              <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Delivery should leave the client with control, not confusion.
               </h2>
               <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -302,7 +302,7 @@ export default function DevelopmentServices() {
                   <div key={row.title} className="min-h-[220px] bg-[#05070a] p-6 ring-1 ring-white/10 md:p-7">
                     <Icon className="h-5 w-5 text-expert-green" />
                     <h3 className="mt-8 text-xl font-semibold tracking-[-0.02em] text-white">{row.title}</h3>
-                    <p className="mt-4 text-sm leading-7 text-white/58">{row.copy}</p>
+                    <p className="mt-4 text-sm leading-7 text-white/64">{row.copy}</p>
                   </div>
                 );
               })}
@@ -324,7 +324,7 @@ export default function DevelopmentServices() {
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
             <div className="max-w-2xl">
               <Globe2 className="h-6 w-6 text-ai-blue" />
-              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 The workspace keeps the whole request from scattering.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64 md:text-lg">
@@ -339,7 +339,7 @@ export default function DevelopmentServices() {
                       <Icon className="h-5 w-5 text-expert-green" />
                       <div>
                         <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-                        <p className="mt-2 text-sm leading-7 text-white/58">{item.copy}</p>
+                        <p className="mt-2 text-sm leading-7 text-white/64">{item.copy}</p>
                       </div>
                     </div>
                   );
@@ -353,7 +353,7 @@ export default function DevelopmentServices() {
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
-            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The process is simple because the responsibility is not.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
@@ -365,10 +365,10 @@ export default function DevelopmentServices() {
             {process.map((step, index) => (
               <div key={step} className="border-t border-white/12 pt-5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/32">0{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">0{index + 1}</span>
                   {index === process.length - 1 ? <BadgeCheck className="h-4 w-4 text-expert-green" /> : <Gauge className="h-4 w-4 text-ai-blue" />}
                 </div>
-                <p className="mt-8 text-lg font-semibold leading-7 text-white/82">{step}</p>
+                <p className="mt-8 text-lg font-semibold leading-7 text-white/80">{step}</p>
               </div>
             ))}
           </div>
@@ -387,10 +387,10 @@ export default function DevelopmentServices() {
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.94)_0%,rgba(5,7,10,0.76)_48%,rgba(5,7,10,0.28)_100%)]" />
         <div className="relative mx-auto flex min-h-[500px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[600px] md:px-10 md:py-20">
           <div className="max-w-3xl">
-            <h2 className="break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Start with the request. Let the correct technical shape become clear.
             </h2>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+            <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               The private workspace is where Sitemendr can review the business, the existing material, the technical condition, the desired outcome, and the level of care the project needs after launch.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -425,7 +425,7 @@ function DevelopmentAction({
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.14em] ${classes}`}
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.1em] ${classes}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4" />

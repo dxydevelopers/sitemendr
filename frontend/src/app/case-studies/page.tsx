@@ -143,7 +143,7 @@ export default function CaseStudiesPage() {
       <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 md:px-10">
         <section className={`grid min-h-[620px] items-end gap-12 pb-16 transition duration-700 lg:grid-cols-[1.02fr_0.98fr] ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div>
-            <h1 className="max-w-5xl text-5xl font-black leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
+            <h1 className="max-w-5xl text-2xl font-bold leading-[0.95] tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
               Outcome stories, told inside the work.
             </h1>
           </div>
@@ -182,7 +182,7 @@ export default function CaseStudiesPage() {
                   <div className={`flex items-center gap-3 ${study.tone}`}>
                     {study.icon}
                   </div>
-                  <h2 className="mt-7 text-3xl font-black leading-tight tracking-tight md:text-5xl">{study.title}</h2>
+                  <h2 className="mt-7 text-xl font-bold leading-tight tracking-tight md:text-2xl">{study.title}</h2>
 
                   <div className="mt-8 grid gap-6">
                     <CaseText label="Problem" text={study.problem} />
@@ -194,7 +194,7 @@ export default function CaseStudiesPage() {
                     {study.details.map((detail) => (
                       <div key={detail} className="flex items-start gap-2 border-t border-white/10 pt-3">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-expert-green" />
-                        <span className="text-xs font-semibold leading-5 text-white/72">{detail}</span>
+                        <span className="text-xs font-semibold leading-5 text-white/64">{detail}</span>
                       </div>
                     ))}
                   </div>
@@ -206,10 +206,10 @@ export default function CaseStudiesPage() {
 
         <section className="mb-24 grid gap-10 border-y border-white/10 py-14 md:py-20 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <h2 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
+            <h2 className="text-xl font-bold leading-tight tracking-tight md:text-3xl">
               The story is judged by what changed.
             </h2>
-            <p className="mt-7 max-w-xl text-base leading-8 text-white/58">
+            <p className="mt-7 max-w-xl text-base leading-8 text-white/64">
               A strong case study does not stop at the image. It explains why the work mattered, how the decision was made, and what the business can now do with less confusion.
             </p>
           </div>
@@ -217,8 +217,8 @@ export default function CaseStudiesPage() {
             {readingModel.map((item) => (
               <div key={item.title} className="border-l border-white/10 pl-6">
                 <div className={item.tone}>{item.icon}</div>
-                <h3 className="mt-7 text-2xl font-black tracking-tight">{item.title}</h3>
-                <p className="mt-4 text-sm leading-7 text-white/56">{item.copy}</p>
+                <h3 className="mt-7 text-2xl font-bold tracking-tight">{item.title}</h3>
+                <p className="mt-4 text-sm leading-7 text-white/48">{item.copy}</p>
               </div>
             ))}
           </div>
@@ -236,7 +236,7 @@ export default function CaseStudiesPage() {
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.9),rgba(5,7,10,0.48),rgba(5,7,10,0.78))]" />
           <div className="absolute inset-0 flex items-end p-6 sm:p-10 md:p-14">
             <div className="max-w-3xl">
-              <h2 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
+              <h2 className="text-xl font-bold leading-tight tracking-tight md:text-3xl">
                 Bring the next story into a private workspace.
               </h2>
               <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -261,8 +261,8 @@ export default function CaseStudiesPage() {
 function CaseText({ label, text }: { label: string; text: string }) {
   return (
     <div className="border-t border-white/10 pt-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{label}</p>
-      <p className="mt-2 text-sm leading-7 text-white/68 md:text-base md:leading-8">{text}</p>
+      <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">{label}</p>
+      <p className="mt-2 text-sm leading-7 text-white/64 md:text-base md:leading-8">{text}</p>
     </div>
   );
 }
@@ -271,7 +271,7 @@ function CaseButton({ href, children, tone = 'dark' }: { href: string; children:
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs ${
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs ${
         tone === 'light' ? 'bg-white text-black hover:bg-expert-green hover:text-white' : 'bg-white/[0.06] text-white ring-1 ring-white/12 hover:bg-white/[0.1]'
       }`}
     >

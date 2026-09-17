@@ -57,26 +57,26 @@ function VerifyEmailContent() {
             {status === 'error' && <TriangleAlert className="h-7 w-7" />}
           </div>
 
-          <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl">
+          <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
             {status === 'loading' && 'Checking email.'}
             {status === 'success' && 'Email verified.'}
             {status === 'error' && 'Link failed.'}
           </h1>
 
-          {message && <p className="mt-5 text-base font-semibold text-white/62">{message}</p>}
+          {message && <p className="mt-5 text-base font-semibold text-white/64">{message}</p>}
 
           <div className="mt-9 flex flex-wrap gap-3">
             {status === 'success' ? (
-              <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 bg-white px-5 text-sm font-black text-black transition hover:bg-ai-blue hover:text-white">
+              <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
                 Open dashboard
               </button>
             ) : (
-              <Link href="/login" className="inline-flex min-h-11 items-center bg-white px-5 text-sm font-black text-black transition hover:bg-ai-blue hover:text-white">
+              <Link href="/login" className="inline-flex min-h-11 items-center bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
                 Sign in
               </Link>
             )}
             {status === 'error' && (
-              <Link href="/contact" className="inline-flex min-h-11 items-center border border-white/16 px-5 text-sm font-black text-white transition hover:border-white/34 hover:bg-white/8">
+              <Link href="/contact" className="inline-flex min-h-11 items-center border border-white/16 px-5 text-sm font-bold text-white transition hover:border-white/34 hover:bg-white/8">
                 Support
               </Link>
             )}

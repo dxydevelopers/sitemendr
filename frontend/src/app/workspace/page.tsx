@@ -106,16 +106,16 @@ export default function WorkspacePage() {
 
         <div className="relative mx-auto grid min-h-[640px] max-w-7xl items-center gap-12 px-5 py-12 sm:px-6 md:min-h-[720px] md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
           <div>
-            <div className="mb-7 flex flex-wrap gap-3 text-[11px] font-black uppercase tracking-[0.14em] text-white/52">
+            <div className="mb-7 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.1em] text-white/48">
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Private requests</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Messages</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Billing</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Delivery</span>
             </div>
-            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-[2.45rem] font-semibold leading-[1.02] tracking-[-0.025em] sm:text-[3rem] md:text-6xl lg:text-7xl lg:tracking-[-0.035em]">
+            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-3xl md:text-4xl lg:text-5xl lg:tracking-[-0.035em]">
               A private workspace for work that should not live in scattered messages.
             </h1>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-white/68 md:text-lg">
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               The Sitemendr workspace is where a client request becomes organized: service path, files, messages, approvals, payments, delivery notes, and support all stay connected to the same relationship.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -144,14 +144,14 @@ export default function WorkspacePage() {
 
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-          <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+          <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             The workspace is not decoration. It is how Sitemendr protects the shape of the work.
           </h2>
           <div className="grid gap-8 md:grid-cols-2">
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               Serious digital work carries private details: business goals, files, invoices, login notes, decisions, technical findings, support requests, and payment records. When those details are scattered, the client relationship becomes harder to trust.
             </p>
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               The workspace gives that relationship a controlled place to live. It lets Sitemendr understand the request, connect it to the correct service path, and keep the delivery history readable after the first task is complete.
             </p>
           </div>
@@ -161,7 +161,7 @@ export default function WorkspacePage() {
       <section id="workspace-preview" className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
           <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
-            <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Before the dashboard is a feature, it is a promise of order.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
@@ -180,7 +180,7 @@ export default function WorkspacePage() {
                     <ArrowUpRight className="h-4 w-4 text-white/24 transition group-hover:text-expert-green" />
                   </div>
                   <h3 className="mt-10 text-2xl font-semibold tracking-[-0.02em] text-white">{area.title}</h3>
-                  <p className="mt-5 text-sm leading-7 text-white/56">{area.copy}</p>
+                  <p className="mt-5 text-sm leading-7 text-white/48">{area.copy}</p>
                 </Link>
               );
             })}
@@ -201,7 +201,7 @@ export default function WorkspacePage() {
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
             <div className="max-w-2xl">
               <ShieldCheck className="h-6 w-6 text-expert-green" />
-              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Privacy matters because the request often contains the business itself.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64 md:text-lg">
@@ -216,7 +216,7 @@ export default function WorkspacePage() {
                       <Icon className="h-5 w-5 text-expert-green" />
                       <div>
                         <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
-                        <p className="mt-2 text-sm leading-7 text-white/58">{pillar.copy}</p>
+                        <p className="mt-2 text-sm leading-7 text-white/64">{pillar.copy}</p>
                       </div>
                     </div>
                   );
@@ -230,7 +230,7 @@ export default function WorkspacePage() {
       <section id="operating-flow" className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
-            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The request enters once, then everything important stays connected.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
@@ -242,10 +242,10 @@ export default function WorkspacePage() {
             {connectedFlow.map((step, index) => (
               <div key={step} className="border-t border-white/12 pt-5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/32">0{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">0{index + 1}</span>
                   {index === connectedFlow.length - 1 ? <BadgeCheck className="h-4 w-4 text-expert-green" /> : <MonitorCheck className="h-4 w-4 text-ai-blue" />}
                 </div>
-                <p className="mt-8 text-lg font-semibold leading-7 text-white/82">{step}</p>
+                <p className="mt-8 text-lg font-semibold leading-7 text-white/80">{step}</p>
               </div>
             ))}
           </div>
@@ -256,7 +256,7 @@ export default function WorkspacePage() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
           <div>
             <LayoutDashboard className="h-6 w-6 text-ai-blue" />
-            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The client sees organization. Sitemendr sees the full context.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -266,7 +266,7 @@ export default function WorkspacePage() {
               {proofPoints.map((point) => (
                 <div key={point} className="border-t border-white/12 pt-5">
                   <ClipboardCheck className="h-5 w-5 text-expert-green" />
-                  <p className="mt-5 text-sm font-semibold leading-7 text-white/70">{point}</p>
+                  <p className="mt-5 text-sm font-semibold leading-7 text-white/64">{point}</p>
                 </div>
               ))}
             </div>
@@ -296,10 +296,10 @@ export default function WorkspacePage() {
         <div className="relative mx-auto flex min-h-[500px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[600px] md:px-10 md:py-20">
           <div className="max-w-3xl">
             <CreditCard className="h-6 w-6 text-ai-blue" />
-            <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Create the workspace first, then let the right service path become clear.
             </h2>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+            <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               A workspace gives the request a private beginning. From there, Sitemendr can understand the work, organize the next step, and keep the relationship connected from review to support.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -334,7 +334,7 @@ function WorkspaceAction({
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.14em] ${classes}`}
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.1em] ${classes}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4" />

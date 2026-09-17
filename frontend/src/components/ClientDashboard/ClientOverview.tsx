@@ -21,12 +21,13 @@ interface ClientOverviewProps {
   tickets: SupportTicket[];
   unreadMessages: number;
   activities: ClientActivity[];
+  liveSitesCount: number;
   onOpenTab: (tab: string) => void;
 }
 
 export default function ClientOverview({
   selectedProject, averageProgress, projectsCount, domains, billing, tickets,
-  unreadMessages, activities, onOpenTab,
+  unreadMessages, activities, liveSitesCount, onOpenTab,
 }: ClientOverviewProps) {
   const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
 
@@ -77,6 +78,7 @@ export default function ClientOverview({
             </div>
             {[
               { label: 'Projects', value: projectsCount, status: projectsCount ? 'Active' : 'Ready', tab: 'projects', icon: <Rocket className="h-4 w-4 text-ai-blue" /> },
+              { label: 'My Sites', value: liveSitesCount, status: liveSitesCount ? 'Live' : 'None yet', tab: 'mysites', icon: <Globe className="h-4 w-4 text-expert-green" /> },
               { label: 'Domains', value: domains.length, status: domains.length ? 'Connected' : 'Setup', tab: 'domains', icon: <Globe className="h-4 w-4 text-ai-blue" /> },
               { label: 'Messages', value: unreadMessages, status: unreadMessages ? 'Unread' : 'Clear', tab: 'messages', icon: <MessageSquare className="h-4 w-4 text-tech-purple" /> },
               { label: 'Tickets', value: openTickets, status: openTickets ? 'Open' : 'Clear', tab: 'tickets', icon: <LifeBuoy className="h-4 w-4 text-expert-green" /> },
@@ -99,7 +101,7 @@ export default function ClientOverview({
               <div className="grid grid-cols-3 divide-x divide-white/10">
                 {[
                   { label: 'Projects', value: projectsCount },
-                  { label: 'Domains', value: domains.length },
+                  { label: 'My Sites', value: liveSitesCount },
                   { label: 'Tickets', value: openTickets },
                 ].map((metric) => (
                   <div key={metric.label} className="px-4 py-5">

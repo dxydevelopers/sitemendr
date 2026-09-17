@@ -153,7 +153,7 @@ export default function BlogPage() {
               <Sparkles className="h-4 w-4 text-blue-300" />
               <span className="text-sm font-semibold uppercase tracking-wide text-blue-200">Insights & Perspectives</span>
             </div>
-            <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+            <h1 className="mb-6 text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
               <span className="bg-gradient-to-r from-white via-blue-100 to-emerald-100 bg-clip-text text-transparent">
                 Sitemendr Insights
               </span>
@@ -169,22 +169,22 @@ export default function BlogPage() {
         <div className="mb-8 space-y-4 lg:hidden">
           <div className="border-y border-white/10 py-4">
             <form onSubmit={handleSearch} className="relative">
-              <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
+              <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-white/36" />
               <input
                 type="text"
                 placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 w-full border-0 bg-transparent pl-7 pr-10 text-sm text-white outline-none placeholder:text-white/30"
+                className="h-12 w-full border-0 bg-transparent pl-7 pr-10 text-sm text-white outline-none placeholder:text-white/24"
               />
-              <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/44 transition-colors hover:text-blue-300" aria-label="Search articles">
+              <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/48 transition-colors hover:text-blue-300" aria-label="Search articles">
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>
           </div>
 
           <div className="border-b border-white/10 pb-2">
-            <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white/42">
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-white/36">
               <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
               Browse
             </h3>
@@ -218,7 +218,7 @@ export default function BlogPage() {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex w-full items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/70 transition-all hover:border-white/30 hover:text-white"
+              className="flex w-full items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/64 transition-all hover:border-white/30 hover:text-white"
             >
               <span>Clear All Filters</span>
               <X className="h-4 w-4" />
@@ -229,24 +229,24 @@ export default function BlogPage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-4 lg:gap-12">
           <aside className="hidden space-y-5 lg:col-span-1 lg:block">
             <div className="border-y border-white/10 py-6">
-              <p className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-white/38">Find a note</p>
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.1em] text-white/36">Find a note</p>
               <form onSubmit={handleSearch} className="relative">
-                <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-white/34" />
+                <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-white/36" />
                 <input
                   type="text"
                   placeholder="Search articles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 w-full border-0 border-b border-white/10 bg-transparent pl-7 pr-10 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-blue-400"
+                  className="h-12 w-full border-0 border-b border-white/10 bg-transparent pl-7 pr-10 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-blue-400"
                 />
-                <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/44 transition-colors hover:text-blue-300" aria-label="Search articles">
+                <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/48 transition-colors hover:text-blue-300" aria-label="Search articles">
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </form>
             </div>
 
             <div className="border-b border-white/10 pb-2">
-              <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-white/38">
+              <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-white/36">
                 <TrendingUp className="h-4 w-4 text-emerald-300" />
                 Browse by subject
               </h3>
@@ -280,7 +280,7 @@ export default function BlogPage() {
             {hasFilters && (
               <button
                 onClick={clearFilters}
-                className="flex w-full items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/70 transition-all hover:border-white/30 hover:text-white"
+                className="flex w-full items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/64 transition-all hover:border-white/30 hover:text-white"
               >
                 <span>Clear All Filters</span>
                 <X className="h-4 w-4" />

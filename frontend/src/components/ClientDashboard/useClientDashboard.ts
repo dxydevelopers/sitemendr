@@ -29,8 +29,6 @@ import type {
   SupportTicket, ResourceItem, BookingItem, CustomDomain, UserData,
   ApiRecord, ClientAssessment, ReviewChatMessage, AnalysisResult,
 } from './ClientDashboard_types';
-import type { SupporterTier } from '@/lib/api';
-import { mockTiers } from './utils';
 
 export function useClientDashboard(initialTab?: string) {
   const router = useRouter();
@@ -86,8 +84,6 @@ export function useClientDashboard(initialTab?: string) {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>(null);
   const [mobileRailGroup, setMobileRailGroup] = useState<string | null>(null);
-  const [revealTier, setRevealTier] = useState<SupporterTier | null>(null);
-  const [isRevealing, setIsRevealing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     name: '', phone: '', country: 'US', defaultCurrency: 'USD',
@@ -106,31 +102,10 @@ export function useClientDashboard(initialTab?: string) {
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    const revealId = searchParams.get('reveal');
-    if (revealId) handleReveal(revealId);
     const tabParam = searchParams.get('tab');
     if (tabParam) setActiveTab(normalizeDashboardTab(tabParam));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleReveal = async (tierId: string) => {
-    try {
-      setIsRevealing(true);
-      const res = await apiClient.fetchAllSupporterTiers();
-      let tier = null;
-      if (res.success) tier = res.tiers.find(t => t.id === tierId);
-      if (!tier) tier = mockTiers.find(t => t.id === tierId);
-      if (tier) {
-        setRevealTier(tier);
-        setTimeout(() => setIsRevealing(false), 3000);
-      } else {
-        setIsRevealing(false);
-      }
-    } catch (err) {
-      console.error('Reveal failed', err);
-      setIsRevealing(false);
-    }
-  };
 
   const fetchData = useCallback(async (projectId?: string) => {
     try {
@@ -895,8 +870,6 @@ export function useClientDashboard(initialTab?: string) {
     handoffChatStarted, handoffChatMessages, handoffChatDraft, setHandoffChatDraft,
     handoffChatLoading, handoffChatSending, handleOpenHandoffChat, handleSendClientHandoffChat,
     finalPaymentSubmitting, handleFinalBalancePayment,
-    // community reveal
-    revealTier, isRevealing, setIsRevealing,
     // settings
     profileData, setProfileData, profileMessage, handleUpdateProfile,
     passwordData, setPasswordData, passwordMessage, handleChangePassword,

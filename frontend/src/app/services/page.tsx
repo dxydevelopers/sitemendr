@@ -106,10 +106,10 @@ export default function Services() {
 
         <div className="relative mx-auto grid min-h-[640px] max-w-7xl items-center gap-10 px-5 py-12 sm:px-6 md:px-10 md:py-16 lg:min-h-[720px] lg:grid-cols-[0.96fr_1.04fr] lg:gap-14">
           <div>
-            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-[2.35rem] font-semibold leading-[1.03] tracking-[-0.025em] sm:text-[2.75rem] md:text-6xl lg:text-7xl lg:tracking-[-0.035em]">
+            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-[1.03] tracking-[-0.025em] sm:text-3xl md:text-4xl lg:text-5xl lg:tracking-[-0.035em]">
               Digital services for businesses that need the work to hold together.
             </h1>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-white/68 md:text-lg">
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               Sitemendr helps businesses establish, repair, maintain, and prepare the digital systems they rely on. The work may begin as a website, a platform, a store, a recovery request, or a maintenance concern; the goal is always the same: make the digital side of the business clearer, stronger, and easier to own.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:mt-10 md:gap-4">
@@ -160,15 +160,15 @@ export default function Services() {
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:grid-cols-[0.82fr_1.18fr] lg:py-20">
           <div>
-            <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The request is never treated as a small isolated task.
             </h2>
           </div>
           <div className="grid gap-8 md:grid-cols-2">
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               A business rarely comes with a perfectly named problem. Sometimes the issue is a broken layout, but the deeper concern is trust. Sometimes the request is a new website, but the real need is a better explanation of the business. Sometimes commerce looks like a store, when what is missing is structure around products, checkout, and delivery.
             </p>
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               The service page exists to make that landscape readable. It shows the paths Sitemendr can take, the type of work each path contains, and the way delivery is organized once the client is ready to move from public information into a private workspace.
             </p>
           </div>
@@ -191,7 +191,7 @@ export default function Services() {
             </div>
 
             <div>
-              <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Start with what is actually happening in the business.
               </h2>
               <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -202,8 +202,8 @@ export default function Services() {
                 {corePaths.map((path) => (
                   <Link key={path.title} href={path.href} className="group grid gap-3 py-5 sm:gap-4 sm:py-6 md:grid-cols-[1fr_1.25fr_auto] md:items-start">
                     <h3 className="text-lg font-semibold leading-6 text-white">{path.title}</h3>
-                    <p className="text-sm leading-7 text-white/58">{path.copy}</p>
-                    <ArrowUpRight className="h-4 w-4 text-white/28 transition group-hover:text-ai-blue" />
+                    <p className="text-sm leading-7 text-white/64">{path.copy}</p>
+                    <ArrowUpRight className="h-4 w-4 text-white/24 transition group-hover:text-ai-blue" />
                   </Link>
                 ))}
               </div>
@@ -216,7 +216,7 @@ export default function Services() {
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:py-20">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
-              <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 What Sitemendr is usually asked to make clear.
               </h2>
               <p className="mt-7 max-w-2xl text-base leading-8 text-white/64">
@@ -247,10 +247,10 @@ export default function Services() {
                     <div className="grid h-10 w-10 place-items-center bg-white/[0.06] text-ai-blue ring-1 ring-white/10">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <ArrowUpRight className="h-4 w-4 text-white/28 transition group-hover:text-expert-green" />
+                    <ArrowUpRight className="h-4 w-4 text-white/24 transition group-hover:text-expert-green" />
                   </div>
                   <h3 className="mt-7 text-xl font-semibold tracking-[-0.02em] text-white md:mt-8 md:text-2xl">{service.title}</h3>
-                  <p className="mt-5 text-sm leading-7 text-white/58">{service.copy}</p>
+                  <p className="mt-5 text-sm leading-7 text-white/64">{service.copy}</p>
                 </Link>
               );
             })}
@@ -266,7 +266,7 @@ export default function Services() {
           />
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:px-16">
             <div className="max-w-2xl">
-              <h2 className="break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 When the business needs something built, recovered, or kept alive with care.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64">
@@ -287,7 +287,7 @@ export default function Services() {
         <div className="grid lg:grid-cols-2">
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:px-16">
             <div className="max-w-2xl">
-              <h2 className="break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Online selling needs more than a store that happens to load.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64">
@@ -311,7 +311,7 @@ export default function Services() {
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:grid-cols-[0.95fr_1.05fr] lg:py-20">
           <div>
-            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Completion is not enough. The client must understand what they now own.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64">
@@ -333,14 +333,14 @@ export default function Services() {
               <div className="bg-white/[0.035] p-6">
                 <PackageCheck className="h-5 w-5 text-expert-green" />
                 <h3 className="mt-6 text-xl font-semibold text-white">Self-Hosted Delivery</h3>
-                <p className="mt-4 text-sm leading-7 text-white/58">
+                <p className="mt-4 text-sm leading-7 text-white/64">
                   Code handoff and ownership for clients who need to control where the work lives and how it can be maintained.
                 </p>
               </div>
               <div className="bg-white/[0.035] p-6">
                 <ShieldCheck className="h-5 w-5 text-ai-blue" />
                 <h3 className="mt-6 text-xl font-semibold text-white">Workspace Delivery</h3>
-                <p className="mt-4 text-sm leading-7 text-white/58">
+                <p className="mt-4 text-sm leading-7 text-white/64">
                   Files, approvals, messages, invoices, and delivery notes remain organized around the actual service request.
                 </p>
               </div>
@@ -353,7 +353,7 @@ export default function Services() {
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:py-20">
           <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
             <div>
-              <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Pricing follows the nature of the responsibility.
               </h2>
             </div>
@@ -370,7 +370,7 @@ export default function Services() {
                 <div key={path.title} className="bg-white/[0.025] p-6 ring-1 ring-white/10 md:p-7">
                   <Icon className="h-5 w-5 text-ai-blue" />
                   <h3 className="mt-7 text-xl font-semibold tracking-[-0.02em] text-white md:text-2xl">{path.title}</h3>
-                  <p className="mt-5 text-sm leading-7 text-white/58">{path.copy}</p>
+                  <p className="mt-5 text-sm leading-7 text-white/64">{path.copy}</p>
                 </div>
               );
             })}
@@ -390,10 +390,10 @@ export default function Services() {
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.94)_0%,rgba(5,7,10,0.72)_45%,rgba(5,7,10,0.24)_100%)]" />
         <div className="relative mx-auto flex min-h-[480px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[560px] md:px-10 md:py-16">
           <div className="max-w-3xl">
-            <h2 className="break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Start privately, then let the right service path become clear.
             </h2>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+            <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               The workspace is where the request stops being a loose idea and becomes something that can be reviewed in context. Goals, references, access notes, files, questions, scope, and delivery decisions can sit in one place before the work begins.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:mt-10 md:gap-4">
@@ -428,7 +428,7 @@ function ServiceAction({
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.14em] ${classes}`}
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.1em] ${classes}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4" />

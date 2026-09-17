@@ -49,11 +49,11 @@ export default function PortfolioPage() {
       <div className="mx-auto max-w-6xl px-5 sm:px-6 md:px-10">
         {/* Hero — one statement, one action */}
         <section className="mb-16 max-w-2xl">
-          <p className="text-sm font-medium text-white/50">Portfolio</p>
-          <h1 className="mt-5 text-4xl font-black leading-[1.05] tracking-tight md:text-6xl">
+          <p className="text-sm font-medium text-white/48">Portfolio</p>
+          <h1 className="mt-5 text-2xl font-bold leading-[1.05] tracking-tight sm:text-3xl">
             Real work, browsable by the kind of problem it solved.
           </h1>
-          <p className="mt-6 text-base leading-8 text-white/62">
+          <p className="mt-6 text-base leading-8 text-white/64">
             Each project below is a live piece of client work — the situation it started from, the
             decisions made, and what changed.
           </p>
@@ -78,7 +78,7 @@ export default function PortfolioPage() {
                   key={cat.value}
                   onClick={() => setActiveCategory(cat.value)}
                   className={`relative pb-2 text-base transition-colors ${
-                    isActive ? 'font-semibold text-white' : 'font-medium text-white/45 hover:text-white/70'
+                    isActive ? 'font-semibold text-white' : 'font-medium text-white/48 hover:text-white/64'
                   }`}
                 >
                   {cat.label}
@@ -94,10 +94,10 @@ export default function PortfolioPage() {
         {/* Project grid */}
         <section>
           {loading ? (
-            <p className="text-sm text-white/40">Loading work…</p>
+            <p className="text-sm text-white/36">Loading work…</p>
           ) : projects.length === 0 ? (
             <div className="border border-dashed border-white/15 p-14 text-center">
-              <p className="mx-auto max-w-md text-sm leading-7 text-white/50">
+              <p className="mx-auto max-w-md text-sm leading-7 text-white/48">
                 {activeCategory === 'ALL'
                   ? 'Projects will appear here as they ship.'
                   : 'No work in this category yet — check back soon, or browse all work.'}
@@ -126,19 +126,19 @@ export default function PortfolioPage() {
                         className="object-cover transition duration-500 group-hover:scale-[1.02]"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-white/20">
+                      <div className="flex h-full items-center justify-center text-white/24">
                         <ImageOff className="h-6 w-6" />
                       </div>
                     )}
                   </div>
                   <div className="mt-5">
-                    <p className="text-xs font-medium text-white/40">
+                    <p className="text-xs font-medium text-white/36">
                       {CATEGORIES.find((c) => c.value === project.category)?.label}
                     </p>
                     <h3 className="mt-2 text-xl font-semibold tracking-tight transition group-hover:text-ai-blue">
                       {project.title}
                     </h3>
-                    <p className="mt-2 text-sm leading-7 text-white/56">{project.summary}</p>
+                    <p className="mt-2 text-sm leading-7 text-white/48">{project.summary}</p>
                   </div>
                 </Link>
               ))}

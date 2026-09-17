@@ -89,7 +89,7 @@ const projectTypes = [
 ];
 
 const inputClass =
-  'w-full border-0 border-b border-white/12 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/28 focus:border-ai-blue';
+  'w-full border-0 border-b border-white/12 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue';
 
 interface ContactResponse {
   success: boolean;
@@ -180,10 +180,10 @@ export default function Contact() {
       <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 md:px-10">
         <section className={`grid min-h-[690px] items-center gap-12 transition duration-700 lg:grid-cols-[0.9fr_1.1fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div>
-            <h1 className="max-w-5xl text-5xl font-black leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
+            <h1 className="max-w-5xl text-2xl font-bold leading-[0.95] tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
               Start the conversation with the right context.
             </h1>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-white/62 md:text-xl">
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-xl">
               Contact is not a waiting room. It is where the work begins to take shape: what you need, what already exists, what is broken, what must be built, and how the next decision should be handled.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -208,10 +208,10 @@ export default function Contact() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.78),rgba(5,7,10,0.08)_50%,rgba(5,7,10,0.45))]" />
             <div className="absolute bottom-8 left-6 max-w-lg pr-6 sm:left-10">
-              <p className="text-2xl font-black leading-tight tracking-tight md:text-4xl">
+              <p className="text-xl font-bold leading-tight tracking-tight md:text-3xl">
                 The best first message is not long. It is clear.
               </p>
-              <p className="mt-4 text-sm leading-7 text-white/66 md:text-base">
+              <p className="mt-4 text-sm leading-7 text-white/64 md:text-base">
                 Tell us what exists, what you want changed, and what cannot be allowed to fail.
               </p>
             </div>
@@ -220,10 +220,10 @@ export default function Contact() {
 
         <section className="mb-24 grid gap-10 border-y border-white/10 py-14 md:py-20 lg:grid-cols-[0.72fr_1.28fr]">
           <div>
-            <h2 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
+            <h2 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
               Choose the kind of conversation you need.
             </h2>
-            <p className="mt-6 max-w-xl text-base leading-8 text-white/58">
+            <p className="mt-6 max-w-xl text-base leading-8 text-white/64">
               A good contact page should route the message before it becomes noise. These are the three practical reasons people usually reach Sitemendr.
             </p>
           </div>
@@ -233,8 +233,8 @@ export default function Contact() {
               return (
                 <div key={route.label} className="border-t border-white/10 pt-7">
                   <Icon className={`h-7 w-7 ${route.tone}`} />
-                  <h3 className="mt-7 text-2xl font-black tracking-tight">{route.label}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/58">{route.detail}</p>
+                  <h3 className="mt-7 text-2xl font-bold tracking-tight">{route.label}</h3>
+                  <p className="mt-4 text-sm leading-7 text-white/64">{route.detail}</p>
                 </div>
               );
             })}
@@ -243,10 +243,10 @@ export default function Contact() {
 
         <section className="grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
           <aside>
-            <h2 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
+            <h2 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
               Direct channels.
             </h2>
-            <p className="mt-6 text-base leading-8 text-white/58">
+            <p className="mt-6 text-base leading-8 text-white/64">
               Use the form for project context. Use the direct channels when the matter is immediate or already attached to an existing account.
             </p>
 
@@ -255,7 +255,7 @@ export default function Contact() {
                 const GroupIcon = group.icon;
                 return (
                   <div key={group.title}>
-                    <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-[0.2em] text-white/28 mb-4">
+                    <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.1em] text-white/24 mb-4">
                       <GroupIcon className={`h-4 w-4 ${group.tone}`} />
                       {group.title}
                     </div>
@@ -272,7 +272,7 @@ export default function Contact() {
                           >
                             <GroupIcon className={`h-4 w-4 ${group.tone} opacity-70 transition group-hover:opacity-100`} />
                             <span className="flex-1">{item.value}</span>
-                            <ArrowRight className="h-4 w-4 text-white/28 transition group-hover:translate-x-1 group-hover:text-white" />
+                            <ArrowRight className="h-4 w-4 text-white/24 transition group-hover:translate-x-1 group-hover:text-white" />
                           </a>
                         );
                       })}
@@ -363,12 +363,12 @@ export default function Contact() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex min-h-[52px] items-center justify-center gap-3 bg-white px-6 py-4 text-center text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-[52px] items-center justify-center gap-3 bg-white px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? 'Sending message' : 'Send message'}
                 <Send className="h-4 w-4" />
               </button>
-              <p className="flex max-w-md items-start gap-3 text-sm leading-7 text-white/50">
+              <p className="flex max-w-md items-start gap-3 text-sm leading-7 text-white/48">
                 <Check className="mt-1 h-4 w-4 shrink-0 text-expert-green" />
                 We use the message to route the request, prepare the first response, and decide whether it belongs in a private workspace.
               </p>
@@ -383,7 +383,7 @@ export default function Contact() {
 function Field({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={`block ${className}`}>
-      <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/38">{label}</span>
+      <span className="block text-xs font-bold uppercase tracking-[0.1em] text-white/36">{label}</span>
       <div className="mt-3">{children}</div>
     </label>
   );
@@ -393,7 +393,7 @@ function ContactButton({ href, children, tone = 'dark' }: { href: string; childr
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs ${
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs ${
         tone === 'light' ? 'bg-white text-black hover:bg-ai-blue hover:text-white' : 'bg-white/[0.06] text-white ring-1 ring-white/12 hover:bg-white/[0.1]'
       }`}
     >

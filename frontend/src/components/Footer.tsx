@@ -158,7 +158,7 @@ const socials = [
 const paymentProcessors = [
   { name: 'Visa', src: 'https://cdn.simpleicons.org/visa/1434CB?viewbox=auto', className: 'h-5 max-w-[58px]' },
   { name: 'Mastercard', src: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg', className: 'h-8 max-w-[42px]' },
-  { name: 'Stripe', wordmark: 'stripe', accent: 'text-[#635BFF]', className: 'text-[21px] font-black tracking-[-0.04em]' },
+  { name: 'Stripe', wordmark: 'stripe', accent: 'text-[#635BFF]', className: 'text-[21px] font-bold tracking-[-0.04em]' },
   { name: 'PayPal', src: 'https://cdn.simpleicons.org/paypal/009CDE?viewbox=auto', className: 'h-5 max-w-[72px]' },
   { name: 'Apple Pay', src: 'https://cdn.simpleicons.org/apple/FFFFFF?viewbox=auto', className: 'h-5 max-w-[22px]' },
   { name: 'Google Pay', icon: <GoogleGIcon /> },
@@ -186,7 +186,7 @@ export default function Footer() {
   <span className="text-2xl font-semibold tracking-tight">Sitemendr</span>
 </Link>
 
-            <p className="mt-6 max-w-lg text-[15px] leading-7 text-white/66">
+            <p className="mt-6 max-w-lg text-base leading-7 text-white/64">
               Digital work should leave a record: what was requested, what was approved, what was paid for, what was delivered, and what continues after launch.
             </p>
 
@@ -200,7 +200,7 @@ export default function Footer() {
               </Link>
               <Link
                 href="/contact"
-                className="group inline-flex items-center gap-2 border-b border-white/18 pb-1 text-sm font-semibold text-white/62 transition hover:border-white hover:text-white"
+                className="group inline-flex items-center gap-2 border-b border-white/18 pb-1 text-sm font-semibold text-white/64 transition hover:border-white hover:text-white"
               >
                 Speak with the team
                 <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -226,7 +226,7 @@ export default function Footer() {
           <div className="grid gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">
             {Object.entries(footerLinks).map(([title, links]) => (
               <div key={title}>
-                <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-white/40">
+                <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-white/36">
                   <span className="h-px w-5 bg-white/18" />
                   {title}
                 </h3>
@@ -249,7 +249,7 @@ export default function Footer() {
             const GroupIcon = group.icon;
             return (
               <div key={group.title}>
-                <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-[0.2em] text-white/28">
+                <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.1em] text-white/24">
                   <GroupIcon className="h-4 w-4" />
                   {group.title}
                 </div>
@@ -262,7 +262,7 @@ export default function Footer() {
                           href={item.href}
                           target={isExternal ? '_blank' : undefined}
                           rel={isExternal ? 'noopener noreferrer' : undefined}
-                          className="text-[13px] text-white/56 transition hover:text-white hover:translate-x-1 inline-block"
+                          className="text-sm text-white/48 transition hover:text-white hover:translate-x-1 inline-block"
                         >
                           {item.value}
                         </a>
@@ -277,15 +277,15 @@ export default function Footer() {
 
         <div className="grid gap-8 border-b border-white/10 py-8 lg:grid-cols-[1fr_1.1fr] lg:items-center">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Link href="/legal" className="group flex items-center gap-2.5 text-xs text-white/50 transition hover:text-white">
+            <Link href="/legal" className="group flex items-center gap-2.5 text-xs text-white/48 transition hover:text-white">
               <Scale className="h-3.5 w-3.5 text-amber-300/70 transition group-hover:text-amber-300" />
               Policy center
             </Link>
-            <Link href="/resources" className="group flex items-center gap-2.5 text-xs text-white/50 transition hover:text-white">
+            <Link href="/resources" className="group flex items-center gap-2.5 text-xs text-white/48 transition hover:text-white">
               <BookOpen className="h-3.5 w-3.5 text-ai-blue/75 transition group-hover:text-ai-blue" />
               Public resources
             </Link>
-            <Link href="/portfolio" className="group flex items-center gap-2.5 text-xs text-white/50 transition hover:text-white">
+            <Link href="/portfolio" className="group flex items-center gap-2.5 text-xs text-white/48 transition hover:text-white">
               <FolderKanban className="h-3.5 w-3.5 text-expert-green/75 transition group-hover:text-expert-green" />
               Work record
             </Link>
@@ -296,7 +296,7 @@ export default function Footer() {
               {paymentProcessors.map((processor) => (
                 <span
                   key={processor.name}
-                  className="inline-flex h-7 items-center text-white/46 transition hover:text-white"
+                  className="inline-flex h-7 items-center text-white/48 transition hover:text-white"
                   title={processor.name}
                 >
                   {processor.icon ? (
@@ -311,7 +311,7 @@ export default function Footer() {
                       className={`w-auto object-contain opacity-90 transition hover:opacity-100 ${processor.className}`}
                     />
                   ) : (
-                    <span className={`${processor.className || 'text-[12px] font-black tracking-[0.16em]'} ${processor.accent}`}>
+                    <span className={`${processor.className || 'text-xs font-bold tracking-[0.1em]'} ${processor.accent}`}>
                       {processor.wordmark}
                     </span>
                   )}
@@ -321,7 +321,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 pt-6 text-xs text-white/42 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-5 pt-6 text-xs text-white/36 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span>&copy; {currentYear} Sitemendr Technologies. All rights reserved.</span>
             {legalLinks.map((link) => (

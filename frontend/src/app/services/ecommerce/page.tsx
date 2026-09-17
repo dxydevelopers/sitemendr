@@ -118,16 +118,16 @@ export default function EcommerceServices() {
 
         <div className="relative mx-auto grid min-h-[640px] max-w-7xl items-center gap-12 px-5 py-12 sm:px-6 md:min-h-[720px] md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
           <div>
-            <div className="mb-7 flex flex-wrap gap-3 text-[11px] font-black uppercase tracking-[0.14em] text-white/52">
+            <div className="mb-7 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.1em] text-white/48">
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Storefront</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Dropshipping</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Checkout</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Launch</span>
             </div>
-            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-[2.45rem] font-semibold leading-[1.02] tracking-[-0.025em] sm:text-[3rem] md:text-6xl lg:text-7xl lg:tracking-[-0.035em]">
+            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-3xl md:text-4xl lg:text-5xl lg:tracking-[-0.035em]">
               Commerce pages for businesses that need selling online to feel organized.
             </h1>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-white/68 md:text-lg">
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               This path covers storefronts, product presentation, dropshipping setup, checkout confidence, order movement, and the operating details that turn a store from a display into a business system.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -156,14 +156,14 @@ export default function EcommerceServices() {
 
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-          <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+          <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             A store is only convincing when the whole buying condition feels complete.
           </h2>
           <div className="grid gap-8 md:grid-cols-2">
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               Customers do not judge commerce in separate pieces. They feel the product page, the brand, the price, the delivery promise, the payment route, and the support expectation as one experience. If one part feels careless, trust starts to leak.
             </p>
-            <p className="text-base leading-8 text-white/66">
+            <p className="text-base leading-8 text-white/64">
               Sitemendr treats commerce as a practical system. The storefront should look polished, but the deeper work is to organize the path from interest to purchase, from purchase to fulfillment, and from launch to improvement.
             </p>
           </div>
@@ -173,7 +173,7 @@ export default function EcommerceServices() {
       <section id="storefront-setup" className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-            <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The storefront and the operation have to be designed together.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
@@ -196,7 +196,7 @@ export default function EcommerceServices() {
                     <h3 className="mt-6 font-[var(--font-space-grotesk)] text-2xl font-semibold leading-tight tracking-[-0.02em] text-white md:text-4xl">
                       {service.title}
                     </h3>
-                    <p className="mt-6 text-base leading-8 text-white/62">{service.body}</p>
+                    <p className="mt-6 text-base leading-8 text-white/64">{service.body}</p>
                   </div>
                 </article>
               );
@@ -218,7 +218,7 @@ export default function EcommerceServices() {
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
             <div className="max-w-2xl">
               <CreditCard className="h-6 w-6 text-amber-300" />
-              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Checkout is where confidence is either confirmed or lost.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64 md:text-lg">
@@ -228,7 +228,7 @@ export default function EcommerceServices() {
                 {checkoutSignals.map((signal) => (
                   <div key={signal} className="flex items-start gap-4 py-5">
                     <SearchCheck className="mt-1 h-5 w-5 shrink-0 text-amber-300" />
-                    <p className="text-sm font-semibold leading-7 text-white/72">{signal}</p>
+                    <p className="text-sm font-semibold leading-7 text-white/64">{signal}</p>
                   </div>
                 ))}
               </div>
@@ -242,7 +242,7 @@ export default function EcommerceServices() {
           <div className="grid gap-12 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
             <div>
               <Truck className="h-6 w-6 text-amber-300" />
-              <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 After the purchase, the store still has to behave like a business.
               </h2>
               <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -258,7 +258,7 @@ export default function EcommerceServices() {
                   <div key={item.title} className="min-h-[220px] bg-[#05070a] p-6 ring-1 ring-white/10 md:p-7">
                     <Icon className="h-5 w-5 text-amber-300" />
                     <h3 className="mt-8 text-xl font-semibold tracking-[-0.02em] text-white">{item.title}</h3>
-                    <p className="mt-4 text-sm leading-7 text-white/58">{item.copy}</p>
+                    <p className="mt-4 text-sm leading-7 text-white/64">{item.copy}</p>
                   </div>
                 );
               })}
@@ -271,7 +271,7 @@ export default function EcommerceServices() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <Megaphone className="h-6 w-6 text-ai-blue" />
-            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Growth needs a launch surface that can be tested, measured, and improved.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -281,7 +281,7 @@ export default function EcommerceServices() {
               {growthItems.map((item) => (
                 <div key={item} className="border-t border-white/12 pt-5">
                   <ChartNoAxesCombined className="h-5 w-5 text-ai-blue" />
-                  <p className="mt-5 text-sm font-semibold leading-7 text-white/70">{item}</p>
+                  <p className="mt-5 text-sm font-semibold leading-7 text-white/64">{item}</p>
                 </div>
               ))}
             </div>
@@ -311,7 +311,7 @@ export default function EcommerceServices() {
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
             <div className="max-w-2xl">
               <ReceiptText className="h-6 w-6 text-amber-300" />
-              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 The workspace becomes the commercial record.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64 md:text-lg">
@@ -321,10 +321,10 @@ export default function EcommerceServices() {
                 {deliverables.map((item, index) => (
                   <div key={item} className="min-h-[130px] bg-[#05070a] p-5 ring-1 ring-white/10">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/32">C0{index + 1}</span>
+                      <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">C0{index + 1}</span>
                       <PackageCheck className="h-4 w-4 text-amber-300" />
                     </div>
-                    <p className="mt-7 text-sm font-semibold leading-6 text-white/76">{item}</p>
+                    <p className="mt-7 text-sm font-semibold leading-6 text-white/80">{item}</p>
                   </div>
                 ))}
               </div>
@@ -336,7 +336,7 @@ export default function EcommerceServices() {
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
-            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The path is direct, but it respects the weight of selling online.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
@@ -348,10 +348,10 @@ export default function EcommerceServices() {
             {process.map((step, index) => (
               <div key={step} className="border-t border-white/12 pt-5">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/32">0{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">0{index + 1}</span>
                   {index === process.length - 1 ? <BadgeCheck className="h-4 w-4 text-amber-300" /> : <ShieldCheck className="h-4 w-4 text-ai-blue" />}
                 </div>
-                <p className="mt-8 text-lg font-semibold leading-7 text-white/82">{step}</p>
+                <p className="mt-8 text-lg font-semibold leading-7 text-white/80">{step}</p>
               </div>
             ))}
           </div>
@@ -371,10 +371,10 @@ export default function EcommerceServices() {
         <div className="relative mx-auto flex min-h-[500px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[600px] md:px-10 md:py-20">
           <div className="max-w-3xl">
             <ShoppingBag className="h-6 w-6 text-amber-300" />
-            <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Start with the store idea. Let the commercial system become clear.
             </h2>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+            <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               The private workspace gives Sitemendr the room to review the products, customer promise, checkout needs, dropshipping route, operational risks, and launch direction before the store is treated as ready.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -409,7 +409,7 @@ function CommerceAction({
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.14em] ${classes}`}
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.1em] ${classes}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4" />

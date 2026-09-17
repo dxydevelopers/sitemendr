@@ -24,7 +24,7 @@ const policyPages = [
     href: '/terms',
     summary: 'The rules for using Sitemendr, opening an account, ordering services, making payments, and working through the platform.',
     icon: Scale,
-    tone: 'text-white/78',
+    tone: 'text-white/80',
   },
   {
     title: 'Refund Policy',
@@ -71,7 +71,7 @@ export default function LegalPage() {
         <section className={`grid min-h-[620px] items-end gap-12 pb-16 transition duration-700 lg:grid-cols-[1fr_0.9fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div>
             <Scale className="h-10 w-10 text-ai-blue" />
-            <h1 className="mt-8 max-w-5xl text-5xl font-black leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
+            <h1 className="mt-8 max-w-5xl text-2xl font-bold leading-[0.95] tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
               Sitemendr legal register.
             </h1>
           </div>
@@ -84,10 +84,10 @@ export default function LegalPage() {
 
         <section className="mb-24 grid gap-10 lg:grid-cols-[0.74fr_1.26fr] lg:items-start">
           <div className="lg:sticky lg:top-28">
-            <h2 className="text-4xl font-black leading-tight tracking-tight md:text-5xl">
+            <h2 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
               Policy documents.
             </h2>
-            <p className="mt-6 max-w-xl text-base leading-8 text-white/58">
+            <p className="mt-6 max-w-xl text-base leading-8 text-white/64">
               These documents apply across public pages, workspaces, services, payments, accounts, and community membership.
             </p>
           </div>
@@ -103,10 +103,10 @@ export default function LegalPage() {
                 >
                   <Icon className={`h-7 w-7 ${policy.tone}`} />
                   <span>
-                    <span className="block text-2xl font-black tracking-tight text-white">{policy.title}</span>
-                    <span className="mt-3 block max-w-2xl text-sm leading-7 text-white/56">{policy.summary}</span>
+                    <span className="block text-2xl font-bold tracking-tight text-white">{policy.title}</span>
+                    <span className="mt-3 block max-w-2xl text-sm leading-7 text-white/48">{policy.summary}</span>
                   </span>
-                  <ArrowRight className="h-5 w-5 text-white/34 transition group-hover:translate-x-1 group-hover:text-white" />
+                  <ArrowRight className="h-5 w-5 text-white/36 transition group-hover:translate-x-1 group-hover:text-white" />
                 </Link>
               );
             })}
@@ -117,14 +117,14 @@ export default function LegalPage() {
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
               <FileText className="h-9 w-9 text-expert-green" />
-              <h2 className="mt-8 text-4xl font-black leading-tight tracking-tight md:text-5xl">
+              <h2 className="mt-8 text-xl font-bold leading-tight tracking-tight md:text-2xl">
                 Operating notes.
               </h2>
             </div>
             <div className="divide-y divide-white/10 border-y border-white/10">
               {legalNotes.map((note, index) => (
                 <div key={note} className="grid grid-cols-[auto_1fr] gap-5 py-6">
-                  <span className="text-sm font-black text-ai-blue">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="text-sm font-bold text-ai-blue">{String(index + 1).padStart(2, '0')}</span>
                   <p className="text-base leading-8 text-white/64">{note}</p>
                 </div>
               ))}
@@ -133,15 +133,15 @@ export default function LegalPage() {
         </section>
 
         <section className="text-center">
-          <h2 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
+          <h2 className="text-xl font-bold leading-tight tracking-tight md:text-3xl">
             Policy questions need context.
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/58">
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/64">
             For account or project-specific questions, contact the team with the relevant workspace, payment, or service context.
           </p>
           <Link
             href="/contact"
-            className="mt-9 inline-flex min-h-[52px] items-center justify-center gap-3 bg-white px-6 py-4 text-center text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-ai-blue hover:text-white"
+            className="mt-9 inline-flex min-h-[52px] items-center justify-center gap-3 bg-white px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-black transition hover:bg-ai-blue hover:text-white"
           >
             Contact Sitemendr
             <ArrowRight className="h-4 w-4" />

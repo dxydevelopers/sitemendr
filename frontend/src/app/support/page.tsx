@@ -11,8 +11,8 @@ export default function SupportRedirectPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#05070a] px-6 text-center text-white">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/38">Redirecting</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight">Opening Sitemendr Community</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Redirecting</p>
+        <h1 className="mt-4 text-2xl font-bold tracking-tight">Opening Sitemendr Community</h1>
       </div>
     </main>
   );

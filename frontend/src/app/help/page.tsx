@@ -123,14 +123,14 @@ export default function HelpCenter() {
 
         <div className="relative mx-auto grid min-h-[680px] max-w-7xl items-center gap-12 px-5 py-14 sm:px-6 md:px-10 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <div className="mb-8 inline-flex items-center gap-3 border border-white/12 bg-white/[0.04] px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-white/58">
+            <div className="mb-8 inline-flex items-center gap-3 border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/64">
               <Headphones className="h-4 w-4 text-tech-purple" />
               Support Center
             </div>
-            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-[2.55rem] font-semibold leading-[1.02] tracking-[-0.025em] sm:text-[3.15rem] md:text-6xl lg:text-7xl lg:tracking-[-0.035em]">
+            <h1 className="max-w-5xl break-words font-[var(--font-space-grotesk)] text-2xl font-semibold leading-[1.02] tracking-[-0.025em] sm:text-3xl md:text-4xl lg:text-5xl lg:tracking-[-0.035em]">
               Help should point the client to the right place, not create another mess.
             </h1>
-            <p className="mt-8 max-w-2xl text-base leading-8 text-white/70 md:text-lg">
+            <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               Sitemendr support separates public guidance from private client issues. Simple questions can begin here. Work-specific problems belong inside the workspace, where project history, billing, files, and delivery notes can stay connected.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -148,7 +148,7 @@ export default function HelpCenter() {
               <div className="border-b border-white/10 pb-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/36">Support routing</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Support routing</p>
                     <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-white">Where should this issue live?</h2>
                   </div>
                   <LifeBuoy className="h-6 w-6 text-tech-purple" />
@@ -164,7 +164,7 @@ export default function HelpCenter() {
                       <Icon className="h-5 w-5 text-tech-purple" />
                       <span>
                         <span className="block text-base font-semibold text-white">{path.title}</span>
-                        <span className="mt-2 block text-sm leading-6 text-white/52">{path.copy}</span>
+                        <span className="mt-2 block text-sm leading-6 text-white/48">{path.copy}</span>
                       </span>
                       <ArrowUpRight className="h-4 w-4 text-white/24 transition group-hover:text-expert-green" />
                     </Link>
@@ -180,7 +180,7 @@ export default function HelpCenter() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.78fr_1.22fr]">
           <div className="lg:sticky lg:top-28 lg:self-start">
             <CircleHelp className="h-6 w-6 text-tech-purple" />
-            <h2 className="mt-7 max-w-2xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Support begins by identifying the kind of help.
             </h2>
             <p className="mt-7 max-w-xl text-base leading-8 text-white/64 md:text-lg">
@@ -195,14 +195,14 @@ export default function HelpCenter() {
               return (
                 <div key={item.title} className="grid gap-6 border-t border-white/12 pt-8 md:grid-cols-[120px_1fr]">
                   <div className="flex items-center gap-4 md:block">
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/30">0{index + 1}</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/24">0{index + 1}</span>
                     <Icon className="h-6 w-6 text-tech-purple md:mt-8" />
                   </div>
                   <div>
                     <h3 className="font-[var(--font-space-grotesk)] text-3xl font-semibold leading-tight tracking-[-0.02em] text-white md:text-5xl">
                       {item.title}
                     </h3>
-                    <p className="mt-6 max-w-2xl text-base leading-8 text-white/62">{item.copy}</p>
+                    <p className="mt-6 max-w-2xl text-base leading-8 text-white/64">{item.copy}</p>
                   </div>
                 </div>
               );
@@ -225,7 +225,7 @@ export default function HelpCenter() {
           <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
             <div className="max-w-2xl">
               <LockKeyhole className="h-6 w-6 text-expert-green" />
-              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Private tickets are for issues that need the record around them.
               </h2>
               <p className="mt-7 text-base leading-8 text-white/64 md:text-lg">
@@ -234,8 +234,8 @@ export default function HelpCenter() {
               <div className="mt-10 grid gap-px overflow-hidden bg-white/10">
                 {ticketDetails.map((detail, index) => (
                   <div key={detail} className="grid gap-5 bg-[#05070a] p-5 ring-1 ring-white/10 sm:grid-cols-[auto_1fr]">
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/32">T0{index + 1}</span>
-                    <p className="text-sm font-semibold leading-7 text-white/72">{detail}</p>
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">T0{index + 1}</span>
+                    <p className="text-sm font-semibold leading-7 text-white/64">{detail}</p>
                   </div>
                 ))}
               </div>
@@ -249,7 +249,7 @@ export default function HelpCenter() {
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
               <Wrench className="h-6 w-6 text-tech-purple" />
-              <h2 className="mt-7 max-w-4xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Technical help needs the condition, not only the complaint.
               </h2>
             </div>
@@ -273,7 +273,7 @@ export default function HelpCenter() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
           <div>
             <ReceiptText className="h-6 w-6 text-ai-blue" />
-            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Billing support should stay attached to the work it paid for.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
@@ -283,7 +283,7 @@ export default function HelpCenter() {
               {['Invoice or receipt request', 'Payment confirmation', 'Subscription or care plan question', 'Refund or cancellation context'].map((item) => (
                 <div key={item} className="flex items-start gap-4 py-5">
                   <CreditCard className="mt-1 h-5 w-5 shrink-0 text-ai-blue" />
-                  <p className="text-sm font-semibold leading-7 text-white/72">{item}</p>
+                  <p className="text-sm font-semibold leading-7 text-white/64">{item}</p>
                 </div>
               ))}
             </div>
@@ -305,7 +305,7 @@ export default function HelpCenter() {
           <div className="grid gap-10 lg:grid-cols-[0.76fr_1.24fr] lg:items-start">
             <div>
               <ShieldCheck className="h-6 w-6 text-expert-green" />
-              <h2 className="mt-7 max-w-2xl break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+              <h2 className="mt-7 max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 A clear support answer leaves a trail.
               </h2>
             </div>
@@ -317,8 +317,8 @@ export default function HelpCenter() {
                   <Link key={method.title} href={method.href} className="group min-h-[250px] bg-[#05070a] p-6 ring-1 ring-white/10 transition hover:bg-white/[0.045]">
                     <Icon className="h-5 w-5 text-tech-purple" />
                     <h3 className="mt-10 text-2xl font-semibold tracking-[-0.02em] text-white">{method.title}</h3>
-                    <p className="mt-5 text-sm font-black uppercase tracking-[0.12em] text-white/48">{method.value}</p>
-                    <ArrowUpRight className="mt-10 h-4 w-4 text-white/28 transition group-hover:text-expert-green" />
+                    <p className="mt-5 text-sm font-bold uppercase tracking-[0.1em] text-white/48">{method.value}</p>
+                    <ArrowUpRight className="mt-10 h-4 w-4 text-white/24 transition group-hover:text-expert-green" />
                   </Link>
                 );
               })}
@@ -340,10 +340,10 @@ export default function HelpCenter() {
         <div className="relative mx-auto flex min-h-[520px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[620px] md:px-10 md:py-20">
           <div className="max-w-3xl">
             <BadgeCheck className="h-6 w-6 text-tech-purple" />
-            <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-3xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-4xl md:text-6xl md:tracking-[-0.03em]">
+            <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               If it belongs to your project, keep it inside your workspace.
             </h2>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-white/66 md:text-lg">
+            <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
               That is how support stays private, useful, and connected to the work Sitemendr is responsible for.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -378,7 +378,7 @@ function SupportAction({
   return (
     <Link
       href={href}
-      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-[11px] font-black uppercase tracking-[0.12em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.14em] ${classes}`}
+      className={`inline-flex min-h-[48px] items-center justify-center gap-3 px-5 py-3.5 text-center text-xs font-bold uppercase tracking-[0.1em] transition sm:px-6 sm:py-4 sm:text-xs sm:tracking-[0.1em] ${classes}`}
     >
       {children}
       <ArrowUpRight className="h-4 w-4" />
