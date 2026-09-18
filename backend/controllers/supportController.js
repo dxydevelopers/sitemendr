@@ -17,7 +17,7 @@ const groq = new Groq({
  */
 exports.createTicket = async (req, res) => {
   try {
-    const { subject, message, priority = 'medium' } = req.body;
+    const { subject, message, priority = 'medium', subscriptionId } = req.body;
     const userId = req.user.userId;
 
     if (!message) {
@@ -102,6 +102,7 @@ exports.createTicket = async (req, res) => {
     const ticket = await prisma.supportTicket.create({
       data: {
         userId,
+        subscriptionId,
         subject: subject || `Support Request: ${classification.category}`,
         message,
         status: 'open',

@@ -153,6 +153,7 @@ export default function SiteRoom({
             onRefresh={() => {
               if (site.siteUrl) handleAnalyzeSite(site.id, site.siteUrl);
             }}
+            onRequestOptimization={() => onChangeView('support')}
           />
         )}
 

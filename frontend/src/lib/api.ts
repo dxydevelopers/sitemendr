@@ -972,10 +972,10 @@ class ApiClient {
     return this.request<{ success: boolean; data: unknown }>('/monitoring/uptime');
   }
 
-  async analyzePerformance(url: string) {
+  async analyzePerformance(url: string, subscriptionId?: string) {
     return this.request<{ success: boolean; data: Record<string, unknown> }>('/monitoring/analyze', {
       method: 'POST',
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, subscriptionId }),
     });
   }
 

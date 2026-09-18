@@ -359,7 +359,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                       const project = projects.find(p => p.id === selectedProjectId) || projects[0];
                       if (project?.siteUrl) handleAnalyzeSite(project.id, project.siteUrl);
                       else alert('No active deployment found to audit.');
-                    }} />
+                    }} onRequestOptimization={() => setActiveTab('tickets')} />
                   </div>
                 )}
 

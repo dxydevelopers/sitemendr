@@ -386,7 +386,7 @@ export function useClientDashboard(initialTab?: string) {
   const handleAnalyzeSite = async (projectId: string, url: string) => {
     setIsAnalyzing(true);
     try {
-      const res = await apiClient.analyzePerformance(url);
+      const res = await apiClient.analyzePerformance(url, projectId);
       setAnalysisResult(res.data as unknown as AnalysisResult);
       setActiveTab('audit');
     } catch {

@@ -196,6 +196,7 @@ export interface BookingItem {
 
 export interface AnalysisResult {
   insights: string;
+  timestamp?: string;
   metrics?: {
     latency?: number;
     performanceScore?: number;
