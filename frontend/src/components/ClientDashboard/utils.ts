@@ -17,12 +17,9 @@ export const normalizeDashboardTab = (tab?: string | null) => {
 };
 
 export const lockedClientTabs: Record<string, { label: string; area: string }> = {
-  audit: { label: 'Repair and performance', area: 'workspace' },
-  business: { label: 'Merchant tools', area: 'workspace' },
   ecommerce: { label: 'Commerce', area: 'merchant' },
   booking: { label: 'Bookings', area: 'merchant' },
   editor: { label: 'Editor', area: 'project' },
-  domains: { label: 'Domains', area: 'project' },
   addons: { label: 'Add-ons', area: 'billing' },
   resources: { label: 'Resources', area: 'support' },
 };

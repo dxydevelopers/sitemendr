@@ -4,9 +4,20 @@
 // project (domain, billing, performance, support) filtered down instead
 // of the account-wide versions. Opens on Overview by default.
 //
+// Domain and Billing are both fully dedicated components (SiteDomain.tsx,
+// SiteBilling.tsx) rather than reuses of ClientDomains.tsx/ClientBilling.tsx.
+// Billing needed this because both used to share the same `?view=`/`?id=`
+// URL keys as the room's own tab-switching, which meant clicking into a
+// transaction inside the room silently broke the room's own navigation —
+// SiteBilling uses local component state for its drill-down instead, so
+// this class of collision can't happen again. Domain didn't have that
+// specific bug (ClientDomains.tsx never touched the URL), but was split
+// out anyway for consistency, and it's simpler as a result — no "target
+// project" selector needed when there's only ever one possible target.
+//
 // NOTE on scoping:
-// - Billing already carries `metadata.projectRequestId` per BillingItem's
-//   type, so filtering on that is a straight match against existing data.
+// - Billing carries `metadata.projectRequestId` per BillingItem's type,
+//   so filtering on that is a straight match against existing data.
 // - Domain scoping assumes CustomDomain rows carry `siteId` (confirmed in
 //   prisma/schema.prisma as the FK to Subscription/project) even though
 //   the frontend CustomDomain type doesn't expose it yet — worth a quick
@@ -18,8 +29,8 @@ import dynamic from 'next/dynamic';
 import { ArrowLeft, LifeBuoy, Globe as GlobeIcon, ExternalLink } from 'lucide-react';
 import type { ClientProject, CustomDomain, BillingItem } from './ClientDashboard_types';
 import type { UseClientDashboardReturn } from './useClientDashboard';
-import ClientDomains from './ClientDomains';
-import ClientBilling from './ClientBilling';
+import SiteDomain from './SiteDomain';
+import SiteBilling from './SiteBilling';
 
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
 const SupportTickets = dynamic(() => import('../dashboard/SupportTickets'), { ssr: false });
@@ -100,7 +111,7 @@ export default function SiteRoom({
   onChangeView: (v: RoomView) => void;
   onBack: () => void;
 }) {
-  const { domains, billing, projects, analysisResult, isAnalyzing, handleAnalyzeSite } = dashboard;
+  const { domains, billing, analysisResult, isAnalyzing, handleAnalyzeSite } = dashboard;
 
   const siteDomains = domains.filter(
     (d: CustomDomain) => (d as unknown as { siteId?: string }).siteId === site.id
@@ -141,10 +152,10 @@ export default function SiteRoom({
         {view === 'overview' && <OverviewTab site={site} />}
 
         {view === 'domain' && (
-          <ClientDomains dashboard={dashboard} projects={[site]} domains={siteDomains} />
+          <SiteDomain site={site} domains={siteDomains} dashboard={dashboard} />
         )}
 
-        {view === 'billing' && <ClientBilling billing={siteBilling} projects={projects} />}
+        {view === 'billing' && <SiteBilling site={site} billing={siteBilling} />}
 
         {view === 'performance' && (
           <PerformanceAudit

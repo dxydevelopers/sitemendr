@@ -304,7 +304,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                     tickets={tickets}
                     unreadMessages={unreadMessages}
                     activities={activities}
-                    liveSitesCount={liveSites.length}
+                    liveSites={liveSites}
                     onOpenTab={setActiveTab}
                   />
                 )}

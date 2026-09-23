@@ -287,7 +287,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
       <div className="animate-fade-in">
         <BuildSummaryHeader averageProgress={averageProgress} projects={projects} onStartRequest={onStartRequest} />
         <section className="mt-6 border-y border-white/10">
-          <div className="grid grid-cols-[1fr_6rem_2rem] gap-3 border-b border-white/10 px-4 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white/28 sm:grid-cols-[1fr_8rem_7rem_2rem] sm:px-6">
+          <div className="grid grid-cols-[1fr_6rem_2rem] gap-3 border-b border-white/10 px-4 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-white/28 sm:grid-cols-[1fr_8rem_7rem_2rem] sm:px-6">
             <span>Project</span><span className="hidden text-right sm:block">Progress</span><span className="text-right">Resume</span><span></span>
           </div>
           <div className="divide-y divide-white/10">
@@ -334,7 +334,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
             </button>
             <div className="grid h-12 w-12 shrink-0 place-items-center text-expert-green"><Check className="h-6 w-6" /></div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{currentBuildPlanLabel}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/30">{currentBuildPlanLabel}</p>
               <p className="mt-1 truncate text-sm font-black tracking-tight text-white">{currentBuildRecord.businessName || currentBuildRecord.name || 'Your build'}</p>
             </div>
           </div>
@@ -342,14 +342,14 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
         <div className="border-y border-expert-green/25 px-5 py-10 text-center sm:px-8 sm:py-14 lg:px-10">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-expert-green/10 text-expert-green"><Check className="h-7 w-7" /></div>
-          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.2em] text-expert-green">Project complete</p>
+          <p className="mt-5 text-[10px] font-black uppercase tracking-[0.2em] text-expert-green">Project complete</p>
           <h4 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">{currentBuildRecord.businessName || currentBuildRecord.name || 'Your project'} is live and fully paid</h4>
           <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-7 text-white/60">{currentBuildRecord.completionNotes || 'This build is fully paid, handed off, and complete.'}</p>
 
           <div className="mx-auto mt-8 grid max-w-md grid-cols-1 gap-3 border-y border-white/10 py-5 sm:grid-cols-3">
-            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Total paid</p><p className="mt-2 text-lg font-black tracking-tight text-expert-green">{agreementTotalLabel}</p></div>
-            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Completed</p><p className="mt-2 text-lg font-black tracking-tight text-white">{currentBuildRecord.completedAt ? new Date(currentBuildRecord.completedAt).toLocaleDateString() : 'Pending'}</p></div>
-            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Plan</p><p className="mt-2 truncate text-lg font-black capitalize tracking-tight text-white">{currentBuildPlanLabel}</p></div>
+            <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Total paid</p><p className="mt-2 text-lg font-black tracking-tight text-expert-green">{agreementTotalLabel}</p></div>
+            <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Completed</p><p className="mt-2 text-lg font-black tracking-tight text-white">{currentBuildRecord.completedAt ? new Date(currentBuildRecord.completedAt).toLocaleDateString() : 'Pending'}</p></div>
+            <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Plan</p><p className="mt-2 truncate text-lg font-black capitalize tracking-tight text-white">{currentBuildPlanLabel}</p></div>
           </div>
 
           {currentBuildRecord.launchUrl && (
@@ -358,7 +358,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
         </div>
 
         <div className="px-5 py-8 sm:px-8 lg:px-10">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Need something else?</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Need something else?</p>
           <p className="mt-2 max-w-xl text-sm leading-6 text-white/50">This project is closed, so work continues in a new place depending on what you need.</p>
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <button type="button" onClick={onStartRequest} className="flex items-start justify-between gap-3 border border-ai-blue/25 bg-ai-blue/[0.04] p-5 text-left transition hover:bg-ai-blue/10">
@@ -391,14 +391,14 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
             </button>
             <div className="grid h-12 w-12 shrink-0 place-items-center text-ai-blue"><Sparkles className="h-6 w-6" /></div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Plan / Package</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/30">Plan / Package</p>
               <p className="mt-1 truncate text-sm font-black capitalize tracking-tight text-white">{currentBuildPlanLabel}</p>
-              <p className="mt-1 truncate text-[11px] font-semibold text-yellow-300">Submitted {currentBuildSubmittedLabel}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-yellow-300">Submitted {currentBuildSubmittedLabel}</p>
             </div>
           </div>
           {selectedBuildChapter.id !== 'brief' && (
             <div className="min-w-40 border-l border-white/10 pl-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Journey</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/28">Journey</p>
               <p className="mt-1 text-2xl font-black text-white">{buildPageProgress}%</p>
               <div className="mt-3 h-1.5 w-full bg-white/10"><div className="h-full bg-ai-blue transition-all" style={{ width: `${buildPageProgress}%` }} /></div>
             </div>
@@ -410,7 +410,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
         <div className="border-b border-white/10 px-5 pb-4 pt-3 sm:px-8 lg:px-10">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ai-blue/70">Step {selectedBuildChapterIndex + 1} of {buildJourneyChapters.length}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ai-blue/70">Step {selectedBuildChapterIndex + 1} of {buildJourneyChapters.length}</p>
               <h4 className="mt-1 text-3xl font-black tracking-tight text-white">{selectedBuildChapter.label}</h4>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">{selectedBuildChapterDetail}</p>
             </div>
@@ -443,7 +443,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
               <div className="border-y border-white/10 py-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div className="min-w-0">
-                    <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${clientBriefState.tone === 'open' ? 'text-expert-green' : clientBriefState.tone === 'action' ? 'text-yellow-300' : 'text-ai-blue'}`}>{clientBriefState.label}</p>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${clientBriefState.tone === 'open' ? 'text-expert-green' : clientBriefState.tone === 'action' ? 'text-yellow-300' : 'text-ai-blue'}`}>{clientBriefState.label}</p>
                     {!hasBriefClarification && <h5 className="mt-2 max-w-3xl text-2xl font-black tracking-tight text-white">{clientBriefState.detail}</h5>}
                   </div>
                   {(hasBriefClarification || hasSentBriefClarification) && (
@@ -493,11 +493,11 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
               {!hasBriefClarification && (
                 <div className="border-y border-white/10">
-                  <div className="border-b border-white/10 py-3"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Current brief</p></div>
+                  <div className="border-b border-white/10 py-3"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/28">Current brief</p></div>
                   <div className="grid grid-cols-2 border-b border-white/10 md:grid-cols-3 xl:grid-cols-4">
                     {clientBriefRows.map(item => (
                       <div key={item.label} className="min-w-0 border-b border-r border-white/10 px-4 py-4">
-                        <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
+                        <p className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
                         <p className={`mt-2 truncate text-sm font-semibold ${['Not answered', 'Not specified'].includes(item.value) ? 'text-white/30' : 'text-white/68'}`}>{item.value}</p>
                       </div>
                     ))}
@@ -517,12 +517,12 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                 <div className="border-y border-white/10">
                   <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_17rem] xl:divide-x xl:divide-white/10">
                     <div className="py-6 xl:pr-8">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">Scope review</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/34">Scope review</p>
                       <h5 className="mt-2 text-2xl font-black tracking-tight text-white">{briefType}</h5>
                       <p className="mt-4 max-w-3xl text-sm leading-7 text-white/62">Review the offer, price, and delivery boundaries before Agreement opens.</p>
                     </div>
                     <div className="border-t border-white/10 py-5 xl:border-t-0 xl:pl-6">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Price</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Price</p>
                       <p className="mt-2 text-3xl font-black tracking-tight text-white">{currentBuildRecord.quotedAmount ? `${agreementCurrency} ${currentBuildRecord.quotedAmount}` : 'Pending'}</p>
                       <div className="mt-5 flex items-center gap-3">
                         <span className={`h-2.5 w-2.5 rounded-full ${scopeDecisionLabel === 'Scope approved' ? 'bg-expert-green' : 'bg-amber-300'}`} />
@@ -533,13 +533,13 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
                   {isScopeApproved ? (
                     <div className="border-t border-expert-green/25 py-5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Accepted</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-expert-green">Accepted</p>
                       <p className="mt-2 max-w-2xl text-sm font-semibold leading-7 text-white/68">Scope is approved. The team will prepare Agreement, payment terms, and production start details next.</p>
                     </div>
                   ) : (
                     <>
                       <div className="border-t border-white/10 py-4">
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{hasScopeDiscussion ? 'Update message' : 'Message to team'}</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">{hasScopeDiscussion ? 'Update message' : 'Message to team'}</p>
                         <textarea value={quoteMessage} onChange={(e) => setQuoteMessage(e.target.value)} rows={3} className="mt-3 w-full resize-none border-0 bg-transparent text-sm leading-6 text-white outline-none placeholder:text-white/24" placeholder={hasScopeDiscussion ? 'Add what should change...' : 'Tell the team what you want adjusted or clarified...'} />
                       </div>
                       <div className="grid border-t border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-white/10">
@@ -555,7 +555,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                 </div>
               ) : (
                 <div className="border-y border-white/10 py-6">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Scope in preparation</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/28">Scope in preparation</p>
                   <h5 className="mt-2 text-xl font-black tracking-tight text-white">Quote not ready yet</h5>
                   <p className="mt-3 max-w-2xl text-sm leading-7 text-white/54">The team is using the brief to prepare the scope, timeline, and final quote.</p>
                 </div>
@@ -588,7 +588,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                     <div className="mt-7 grid gap-4 border-y border-white/10 py-5 md:grid-cols-4">
                       {[{ label: 'Total', value: agreementTotalLabel }, { label: 'Deposit', value: agreementDueNowLabel }, { label: 'Balance', value: agreementBalanceLabel }, { label: 'Due', value: paymentDueDateLabel }].map(item => (
                         <div key={item.label} className="min-w-0">
-                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p>
                           <p className="mt-1 truncate text-sm font-black capitalize text-white/76">{item.value}</p>
                         </div>
                       ))}
@@ -614,7 +614,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                                     <div className="flex min-h-7 items-center"><Image src={method.icon} alt="" width={112} height={31} unoptimized className="h-7 max-w-28 object-contain object-left" /></div>
                                     <div className="mt-2 flex items-end justify-between gap-3">
                                       <p className="truncate text-xs font-black text-white">{method.label}</p>
-                                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-[0.14em] ${isSelected ? 'text-amber-300' : 'text-white/34'}`}>{method.detail}</span>
+                                      <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.14em] ${isSelected ? 'text-amber-300' : 'text-white/34'}`}>{method.detail}</span>
                                     </div>
                                   </button>
                                 );
@@ -632,7 +632,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                 </div>
               ) : (
                 <div className="border-y border-white/10 py-5">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">Agreement status</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/28">Agreement status</p>
                   <p className="mt-2 text-sm leading-7 text-white/54">Payment terms will appear here after the quote is approved.</p>
                 </div>
               )}
@@ -645,8 +645,8 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className={`inline-flex h-2.5 w-2.5 rounded-full ${blockedBuildMilestones.length ? 'bg-amber-300' : 'bg-expert-green'}`} />
-                    <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${blockedBuildMilestones.length ? 'text-amber-300' : 'text-expert-green'}`}>{clientBuildStateLabel}</p>
-                    <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/32">{buildMilestoneProgress}% complete</span>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${blockedBuildMilestones.length ? 'text-amber-300' : 'text-expert-green'}`}>{clientBuildStateLabel}</p>
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/32">{buildMilestoneProgress}% complete</span>
                   </div>
                   <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{clientProductionHeadline}</h4>
                   <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-white/74">{clientProductionUpdate}</p>
@@ -657,7 +657,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                       {blockedBuildMilestones.length ? <TriangleAlert className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/42">Your part</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/42">Your part</p>
                       <p className="mt-1 text-lg font-black tracking-tight text-white">{blockedBuildMilestones.length ? 'Input needed' : 'Nothing needed'}</p>
                       <p className="mt-1 text-sm leading-6 text-white/58">{clientActionMessage}</p>
                     </div>
@@ -667,14 +667,14 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
               <section className="mt-6 grid gap-6 border-b border-white/10 py-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(18rem,0.48fr)]">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/46">Project shape</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/46">Project shape</p>
                   <div className="mt-3 divide-y divide-white/10">
                     {clientPreparedItems.length ? clientPreparedItems.map(item => <p key={item} className="py-3 text-sm font-semibold leading-6 text-white/72">{item}</p>)
                       : <p className="py-3 text-sm font-semibold leading-6 text-white/62">The approved scope is being prepared for production.</p>}
                   </div>
                 </div>
                 <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/46">Preview checkpoint</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/46">Preview checkpoint</p>
                   <p className="mt-3 text-xl font-black tracking-tight text-white">{clientPreviewIsReal ? 'Open preview' : 'Not ready yet'}</p>
                   <p className="mt-2 text-sm leading-6 text-white/62">{clientPreviewIsReal ? 'The preview is available for inspection.' : 'A preview link will appear here when the build is ready to inspect.'}</p>
                   <div className="mt-4 flex flex-wrap gap-4">
@@ -686,14 +686,14 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
               <section className="pt-5">
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/46">Team updates</p>
-                  {clientStudioUpdates.length > 0 && <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/40">{clientStudioUpdates.length}</span>}
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/46">Team updates</p>
+                  {clientStudioUpdates.length > 0 && <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">{clientStudioUpdates.length}</span>}
                 </div>
                 <div className="mt-3 divide-y divide-white/10">
                   {clientStudioUpdates.length ? clientStudioUpdates.slice(0, 3).map(update => (
                     <div key={update.id} className="py-3">
                       <p className="text-sm font-semibold leading-6 text-white/72">{update.message}</p>
-                      {update.createdAt && <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-white/40">{new Date(update.createdAt).toLocaleDateString()}</p>}
+                      {update.createdAt && <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">{new Date(update.createdAt).toLocaleDateString()}</p>}
                     </div>
                   )) : <p className="py-3 text-sm font-semibold leading-6 text-white/56">The team has not published a production update yet.</p>}
                 </div>
@@ -709,8 +709,8 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                     <div className="min-w-0 border-y border-white/10 py-5">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className={`inline-flex h-2.5 w-2.5 rounded-full ${clientReviewStatus === 'approved' ? 'bg-expert-green' : clientReviewStatus === 'changes_requested' ? 'bg-amber-300' : 'bg-ai-blue'}`} />
-                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
-                        <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${clientReviewStatusTone}`}>{clientReviewStatusLabel}</span>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
+                        <span className={`text-[10px] font-black uppercase tracking-[0.14em] ${clientReviewStatusTone}`}>{clientReviewStatusLabel}</span>
                       </div>
                       <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                         <div className="min-w-0">
@@ -726,7 +726,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                       <div className="mt-6 grid gap-3 sm:grid-cols-3">
                         {clientReviewFlow.map(item => (
                           <div key={item.label} className="border-b border-white/10 pb-3">
-                            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">{item.label}</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">{item.label}</p>
                             <p className={`mt-2 text-sm font-black uppercase tracking-[0.12em] ${item.tone}`}>{item.value}</p>
                           </div>
                         ))}
@@ -749,11 +749,11 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                   </section>
 
                   <section className="mt-6 border-y border-white/10 py-5">
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Review focus</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Review focus</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {clientReviewChecklist.map((item, i) => (
                         <div key={item.label} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 border-b border-white/10 pb-3">
-                          <span className="text-[9px] font-black uppercase tracking-[0.12em] text-white/28">{String(i + 1).padStart(2, '0')}</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/28">{String(i + 1).padStart(2, '0')}</span>
                           <span className="min-w-0"><span className="block text-sm font-black tracking-tight text-white/78">{item.label}</span><span className="mt-1 block text-xs font-semibold leading-5 text-white/42">{item.detail}</span></span>
                         </div>
                       ))}
@@ -763,7 +763,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                   <section className="mt-6 border-t border-white/10 pt-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                       <div className="min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">{clientReviewStatus === 'changes_requested' ? 'Decision sent' : clientReviewStatus === 'approved' ? 'Approval recorded' : 'Ready for your decision'}</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/34">{clientReviewStatus === 'changes_requested' ? 'Decision sent' : clientReviewStatus === 'approved' ? 'Approval recorded' : 'Ready for your decision'}</p>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">{clientReviewStatus === 'sent' ? 'Approve the preview if it is ready. If something should change, open the discussion and send one clear note.' : clientReviewDecisionText}</p>
                       </div>
                       <div className={`grid gap-3 ${clientReviewStatus === 'sent' ? 'sm:grid-cols-2 lg:min-w-[28rem]' : 'lg:min-w-[18rem]'}`}>
@@ -802,12 +802,12 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                               <div className={`max-w-[84%] ${isClientMessage ? 'text-right' : 'text-left'}`}>
                                 <div className={`inline-block rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${isClientMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
                                   <p className="whitespace-pre-line">{message.message}</p>
-                                  <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
+                                  <p className={`mt-1 text-[10px] font-black uppercase tracking-[0.12em] ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
                                 </div>
                                 {!isClientMessage && Array.isArray(message.choices) && message.choices.length > 0 && (
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     {message.choices.map(choice => (
-                                      <button key={choice} type="button" onClick={() => handleSendClientReviewChat(currentBuildRecord.id, choice)} disabled={reviewChatSending} className="rounded-full border border-ai-blue/25 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">{choice}</button>
+                                      <button key={choice} type="button" onClick={() => handleSendClientReviewChat(currentBuildRecord.id, choice)} disabled={reviewChatSending} className="rounded-full border border-ai-blue/25 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">{choice}</button>
                                     ))}
                                   </div>
                                 )}
@@ -831,7 +831,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                 </>
               ) : (
                 <>
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue">Preview review</p>
                   <p className="mt-2 text-sm leading-7 text-white/60">The preview and approval controls will appear here when the project is ready for review.</p>
                 </>
               )}
@@ -845,12 +845,12 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                   {/* Hero row */}
                   <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-3"><span className="inline-flex h-2.5 w-2.5 rounded-full bg-expert-green" /><p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p></div>
+                      <div className="flex flex-wrap items-center gap-3"><span className="inline-flex h-2.5 w-2.5 rounded-full bg-expert-green" /><p className="text-[10px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p></div>
                       <h4 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">{currentBuildStatus === 'completed' ? 'Your build is complete' : currentBuildStatus === 'handoff' ? 'Confirm handoff' : 'Your build is live'}</h4>
                       <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-white/60">{currentBuildStatus === 'handoff' ? 'Review the live build and handoff details. Accept delivery if everything is okay, or report what is missing.' : currentBuildRecord.launchNotes || 'The live build and handoff details are ready here.'}</p>
                     </div>
                     <div className="border border-white/10 bg-white/[0.02] p-5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/34">Delivery state</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Delivery state</p>
                       <p className="mt-2 text-lg font-black tracking-tight text-expert-green">{currentBuildStatus === 'completed' ? 'Completed' : currentBuildStatus === 'handoff' ? 'Waiting confirmation' : 'Live'}</p>
                     </div>
                   </div>
@@ -858,13 +858,13 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                   {/* Delivery details card */}
                   <div className="mt-6 grid grid-cols-1 divide-y divide-white/10 border border-white/10 bg-white/[0.02] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
                     <div className="p-5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Live build</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Live build</p>
                       {currentBuildRecord.launchUrl ? (
                         <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.14em] text-expert-green transition hover:bg-expert-green/10 hover:text-white">Open live build <ExternalLink className="h-4 w-4 shrink-0" /></a>
                       ) : <p className="mt-3 text-sm font-semibold text-white/52">Live link pending</p>}
                     </div>
                     <div className="p-5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">Handoff details</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Handoff details</p>
                       <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-white/64">{currentBuildRecord.handoffNotes || 'Access details and final next steps will appear here.'}</p>
                     </div>
                   </div>
@@ -876,7 +876,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                         <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
                           {[{ label: 'Total', value: agreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: agreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Final balance', value: agreementBalanceLabel, tone: agreementBalanceAmount ? 'text-amber-300' : 'text-expert-green' }].map(item => (
                             <div key={item.label} className="p-5">
-                              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
+                              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/28">{item.label}</p>
                               <p className={`mt-2 text-sm font-black uppercase tracking-[0.1em] ${item.tone}`}>{item.value}</p>
                             </div>
                           ))}
@@ -897,7 +897,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                       <div className="border border-ai-blue/20 bg-white/[0.02]">
                         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 p-5">
                           <div className="min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-ai-blue">Handoff discussion</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue">Handoff discussion</p>
                             <p className="mt-1 text-xs leading-5 text-white/44">{currentBuildRecord.completionAcknowledgedAt ? "You've already accepted handoff. Flag anything you spot before or during final payment." : "Tell the team what's missing. You can accept handoff here once it's sorted."}</p>
                           </div>
                           <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">{handoffChatLoading ? 'Loading' : `${handoffChatMessages.length} message${handoffChatMessages.length === 1 ? '' : 's'}`}</span>
@@ -909,7 +909,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                               <div key={message.id} className={`flex ${isClientMessage ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[84%] rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${isClientMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
                                   <p className="whitespace-pre-line">{message.message}</p>
-                                  <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.12em] ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
+                                  <p className={`mt-1 text-[10px] font-black uppercase tracking-[0.12em] ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
                                 </div>
                               </div>
                             );
@@ -935,8 +935,8 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                     {currentBuildStatus === 'handoff' && currentBuildRecord.completionAcknowledgedAt && !currentBuildRecord.handoffIssuesReportedAt && !handoffChatStarted && (
                       <div className="border border-expert-green/20 bg-white/[0.02] p-5 sm:p-6">
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-3"><Check className="h-4 w-4 shrink-0 text-expert-green" /><p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Handoff accepted</p></div>
-                          <button type="button" onClick={() => handleOpenHandoffChat(currentBuildRecord)} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/40 transition hover:text-ai-blue">
+                          <div className="flex items-center gap-3"><Check className="h-4 w-4 shrink-0 text-expert-green" /><p className="text-[10px] font-black uppercase tracking-[0.18em] text-expert-green">Handoff accepted</p></div>
+                          <button type="button" onClick={() => handleOpenHandoffChat(currentBuildRecord)} className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/40 transition hover:text-ai-blue">
                             <MessageSquare className="h-3.5 w-3.5 shrink-0" /> Something not right?
                           </button>
                         </div>
@@ -945,7 +945,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
                         <div className="mt-6 grid grid-cols-1 gap-4 border-y border-white/10 py-5 sm:grid-cols-3">
                           {[{ label: 'Total', value: agreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: agreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Final balance', value: agreementBalanceLabel, tone: agreementBalanceAmount ? 'text-amber-300' : 'text-expert-green' }].map(item => (
-                            <div key={item.label} className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p><p className={`mt-2 text-lg font-black tracking-tight ${item.tone}`}>{item.value}</p></div>
+                            <div key={item.label} className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">{item.label}</p><p className={`mt-2 text-lg font-black tracking-tight ${item.tone}`}>{item.value}</p></div>
                           ))}
                         </div>
 
@@ -960,7 +960,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                               ].map(step => (
                                 <div key={step.label} className="min-w-0">
                                   <div className={`h-1 w-full ${step.done ? 'bg-expert-green' : 'bg-white/10'}`} />
-                                  <p className={`mt-2 truncate text-[8px] font-black uppercase tracking-[0.1em] ${step.done ? 'text-expert-green' : 'text-white/30'}`}>{step.label}</p>
+                                  <p className={`mt-2 truncate text-[10px] font-black uppercase tracking-[0.1em] ${step.done ? 'text-expert-green' : 'text-white/30'}`}>{step.label}</p>
                                 </div>
                               ))}
                             </div>
@@ -985,7 +985,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
                 </>
               ) : (
                 <>
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-expert-green">Launch</p>
                   <p className="mt-2 text-sm leading-7 text-white/60">Launch details will appear here after review is approved.</p>
                 </>
               )}
@@ -996,7 +996,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
         {selectedBuildChapter.id !== 'brief' && (
           <aside className="border-t border-white/10 px-5 py-6 sm:px-8 xl:border-t-0 xl:px-6">
             <div className="px-1 py-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/28">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/28">
                 {selectedBuildChapter.id === 'launch' ? 'Delivery' : 'Status'}
               </p>
               <p className="mt-2 text-xs leading-6 text-white/50">
@@ -1015,7 +1015,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 function BuildSummaryHeader({ averageProgress, projects, onStartRequest }: { averageProgress: number; projects: ClientProject[]; onStartRequest: () => void }) {
   return (
     <div className="border-y border-white/10">
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_24rem] lg:divide-x lg:divide-white/10">
+      <div>
         <div className="px-5 py-7 sm:px-8 lg:px-10">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-ai-blue/70">Build workspace</p>
@@ -1030,7 +1030,7 @@ function BuildSummaryHeader({ averageProgress, projects, onStartRequest }: { ave
               { label: 'Waiting', value: projects.filter(p => ['submitted', 'in_review', 'quote_ready', 'approved', 'payment_agreement'].includes(normalizeBuildStatus(p.status))).length, detail: 'Needs action' },
             ].map(metric => (
               <div key={metric.label} className="bg-[#05070a] px-4 py-4">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/28">{metric.label}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">{metric.label}</p>
                 <div className="mt-2 flex items-end justify-between gap-4">
                   <p className="text-2xl font-black tracking-tight text-white">{metric.value}</p>
                   <p className="truncate text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">{metric.detail}</p>

@@ -70,7 +70,7 @@ function CurrencyRatesPanel({ defaultTarget }: { defaultTarget: string }) {
             className="w-full border-b border-white/14 bg-transparent py-2 pl-6 text-sm text-white outline-none transition focus:border-ai-blue"
           />
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/44">
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
           <ArrowLeftRight className="h-3.5 w-3.5" />
           Compare against
           <select value={target} onChange={(e) => setTarget(e.target.value)} className="border-b border-white/14 bg-transparent px-1 py-1 text-ai-blue outline-none">
@@ -86,7 +86,7 @@ function CurrencyRatesPanel({ defaultTarget }: { defaultTarget: string }) {
           const rate = convert(code);
           return (
             <div key={code} className="border-t border-white/8 px-2 py-3 sm:px-4">
-              <p className="text-[13px] leading-6 text-white/72">
+              <p className="text-sm leading-6 text-white/72">
                 <span className="font-medium text-white">{code}</span>
                 <span className="mx-2 text-white/25">→</span>
                 <span className="font-semibold text-white">{rate != null ? rate.toFixed(rate < 1 ? 4 : 2) : '—'}</span>
@@ -116,7 +116,6 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
   }, [router, pathname, searchParams]);
 
   const buildContracts = useMemo(() => projects.filter((p) => p.recordType === 'request'), [projects]);
-  const careSubscriptions: ClientProject[] = [];
   const preferredCurrency = billing[0]?.preferredCurrency || 'USD';
   const mostRecentChannelItem = billing.find((item) => item.channel);
   const selectedTransaction = view === 'transaction' && recordId ? billing.find((item) => item.id === recordId) : null;
@@ -131,8 +130,8 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
         <header className="border-b border-white/12 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4 px-2">
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/42">Business / Billing &amp; agreements</p>
-              <h1 className="mt-2 text-[22px] font-black tracking-tight text-white sm:text-[24px]">Billing &amp; agreements</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Business / Billing &amp; agreements</p>
+              <h1 className="mt-2 text-lg font-black tracking-tight text-white sm:text-xl">Billing &amp; agreements</h1>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-white/34">
                 Payments, contracts, and billing status.
               </p>
@@ -141,7 +140,7 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
               <button
                 type="button"
                 onClick={() => navigateTo(null)}
-                className="inline-flex min-h-10 items-center gap-2 border border-white/12 bg-transparent px-3.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/58 transition hover:border-white/20 hover:bg-white/[0.03] hover:text-white"
+                className="inline-flex min-h-10 items-center gap-2 border border-white/12 bg-transparent px-3.5 text-[10px] font-black uppercase tracking-widest text-white/58 transition hover:border-white/20 hover:bg-white/[0.03] hover:text-white"
               >
                 <ChevronRight className="h-4 w-4 rotate-180" />
                 Back
@@ -153,14 +152,14 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
         {buildContracts.length > 0 && (
           <section className="border-b border-white/12 pb-6">
             <div className="px-2 pb-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-ai-blue/80">Contracts</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-ai-blue/80">Contracts</p>
             </div>
             <div className="divide-y divide-white/12">
               {buildContracts.map((contract) => (
                 <button key={contract.id} type="button" onClick={() => navigateTo('contract', contract.id)} className="group flex w-full items-center justify-between gap-4 px-2 py-3.5 text-left transition hover:bg-white/[0.01]">
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold tracking-tight text-white">{contract.businessName || contract.name || 'Untitled project'}</p>
-                    <p className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] ${contract.status === 'completed' ? 'text-expert-green' : 'text-amber-300/90'}`}>{contract.status?.replace(/_/g, ' ')}</p>
+                    <p className="truncate text-sm font-semibold tracking-tight text-white">{contract.businessName || contract.name || 'Untitled project'}</p>
+                    <p className={`mt-1 text-[10px] font-black uppercase tracking-widest ${contract.status === 'completed' ? 'text-expert-green' : 'text-amber-300/90'}`}>{contract.status?.replace(/_/g, ' ')}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/18 transition group-hover:translate-x-1 group-hover:text-white/55" />
                 </button>
@@ -171,25 +170,7 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
 
         <section className="border-b border-white/12 pb-6">
           <div className="px-2 pb-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-expert-green/80">Care subscriptions</p>
-          </div>
-          {careSubscriptions.length === 0 ? (
-            <p className="px-2 text-sm leading-6 text-white/34">No active care subscriptions.</p>
-          ) : (
-            <div className="divide-y divide-white/12">
-              {careSubscriptions.map((sub) => (
-                <button key={sub.id} type="button" onClick={() => navigateTo('subscription', sub.id)} className="group flex w-full items-center justify-between gap-4 px-2 py-3.5 text-left transition hover:bg-white/[0.01]">
-                  <p className="truncate text-[15px] font-semibold tracking-tight text-white">{sub.name}</p>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-white/18 transition group-hover:translate-x-1 group-hover:text-white/55" />
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="border-b border-white/12 pb-6">
-          <div className="px-2 pb-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/34">Transactions</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Transactions</p>
           </div>
           {billing.length === 0 ? (
             <p className="px-2 text-sm leading-6 text-white/34">No transactions yet.</p>
@@ -198,13 +179,13 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
               {billing.map((item) => (
                 <button key={item.id} type="button" onClick={() => navigateTo('transaction', item.id)} className="group flex w-full items-center justify-between gap-4 px-2 py-3.5 text-left transition hover:bg-white/[0.01]">
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold tracking-tight text-white">{item.description}</p>
+                    <p className="truncate text-sm font-semibold tracking-tight text-white">{item.description}</p>
                     <p className="mt-1 font-mono text-[10px] text-white/28">{new Date(item.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-4">
                     <div className="text-right">
-                      <p className="text-[15px] font-black tracking-tight text-white">{formatMoney(item.amount, item.currency)}</p>
-                      <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${statusTone[item.status] || 'text-white/50'}`}>{item.status}</p>
+                      <p className="text-sm font-black tracking-tight text-white">{formatMoney(item.amount, item.currency)}</p>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${statusTone[item.status] || 'text-white/50'}`}>{item.status}</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-white/18 transition group-hover:translate-x-1 group-hover:text-white/55" />
                   </div>
@@ -216,7 +197,7 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
 
         <section className="border-b border-white/12 pb-6">
           <div className="px-2 pb-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/34">Currency rates</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Currency rates</p>
           </div>
           <div className="px-2">
             <CurrencyRatesPanel defaultTarget={preferredCurrency} />
@@ -224,15 +205,15 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
         </section>
 
         <section className="pt-0.5">
-          <p className="px-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/34">Payment method</p>
+          <p className="px-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">Payment method</p>
           <div className="mt-4 flex items-center gap-4 px-2">
             <CreditCard className="h-5 w-5 shrink-0 text-white/24" />
             {mostRecentChannelItem ? (
-              <p className="text-[15px] font-semibold tracking-tight text-white">
+              <p className="text-sm font-semibold tracking-tight text-white">
                 Last used: {mostRecentChannelItem.cardType ? `${mostRecentChannelItem.cardType} •••• ${mostRecentChannelItem.last4 || ''}` : (mostRecentChannelItem.channel || 'card').replace(/_/g, ' ')}
               </p>
             ) : (
-              <p className="text-[15px] text-white/40">No payment history yet.</p>
+              <p className="text-sm text-white/40">No payment history yet.</p>
             )}
           </div>
         </section>
@@ -240,4 +221,3 @@ export default function ClientBilling({ billing, projects }: ClientBillingProps)
     </div>
   );
 }
-

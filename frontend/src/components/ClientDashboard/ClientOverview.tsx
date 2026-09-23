@@ -21,42 +21,54 @@ interface ClientOverviewProps {
   tickets: SupportTicket[];
   unreadMessages: number;
   activities: ClientActivity[];
-  liveSitesCount: number;
+  liveSites: ClientProject[];
   onOpenTab: (tab: string) => void;
 }
 
 export default function ClientOverview({
   selectedProject, averageProgress, projectsCount, domains, billing, tickets,
-  unreadMessages, activities, liveSitesCount, onOpenTab,
+  unreadMessages, activities, liveSites, onOpenTab,
 }: ClientOverviewProps) {
   const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
+  const liveSitesCount = liveSites.length;
+  const hasActiveBuild = projectsCount > liveSitesCount;
+  const heroSite = !hasActiveBuild ? liveSites[0] : null;
+  const heroLaunchDate = heroSite?.completedAt || heroSite?.launchApprovedAt;
 
   return (
     <div className="animate-fade-in">
       <section className="border-y border-white/10">
         <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] xl:grid-cols-[minmax(300px,0.72fr)_minmax(420px,1fr)_minmax(280px,0.48fr)]">
           <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
-            <button type="button" onClick={() => onOpenTab('projects')} className="group flex min-h-[160px] w-full items-end justify-between gap-6 px-5 py-6 text-left transition hover:bg-white/[0.025] sm:px-7 xl:min-h-[210px]">
+            <button type="button" onClick={() => onOpenTab(hasActiveBuild ? 'projects' : heroSite ? 'mysites' : 'projects')} className="group flex min-h-[160px] w-full items-end justify-between gap-6 px-5 py-6 text-left transition hover:bg-white/[0.025] sm:px-7 xl:min-h-[210px]">
               <span className="min-w-0">
-                <span className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-ai-blue">
-                  <Rocket className="h-4 w-4" /> Build
+                <span className={`flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.14em] ${heroSite ? 'text-expert-green' : 'text-ai-blue'}`}>
+                  {heroSite ? <Globe className="h-4 w-4" /> : <Rocket className="h-4 w-4" />} {heroSite ? 'Live' : 'Build'}
                 </span>
                 <span className="mt-4 block truncate text-2xl font-black tracking-tight text-white sm:text-3xl">
-                  {selectedProject?.name || 'No active project'}
+                  {heroSite ? heroSite.name : (selectedProject?.name || 'No active project')}
                 </span>
                 <span className="mt-3 block truncate text-sm font-semibold text-white/42">
-                  {selectedProject?.planType?.replace(/_/g, ' ') || 'Start from a private workspace'}
+                  {heroSite
+                    ? (liveSitesCount > 1 ? `${liveSitesCount} sites live` : (heroSite.siteUrl?.replace(/^https?:\/\//, '') || 'Live and operating'))
+                    : (selectedProject?.planType?.replace(/_/g, ' ') || 'Start from a private workspace')}
                 </span>
               </span>
               <ChevronRight className="mb-1 h-5 w-5 shrink-0 text-white/22 transition group-hover:translate-x-1 group-hover:text-white/70" />
             </button>
 
-            <div className="border-t border-white/10 px-5 py-5 sm:px-7">
-              <div className="mb-3 flex items-center justify-between text-xs font-semibold text-white/48">
-                <span>Progress</span><span>{averageProgress}%</span>
+            {hasActiveBuild ? (
+              <div className="border-t border-white/10 px-5 py-5 sm:px-7">
+                <div className="mb-3 flex items-center justify-between text-xs font-semibold text-white/48">
+                  <span>Progress</span><span>{averageProgress}%</span>
+                </div>
+                <div className="h-1 bg-white/10"><div className="h-1 bg-expert-green" style={{ width: `${averageProgress}%` }} /></div>
               </div>
-              <div className="h-1 bg-white/10"><div className="h-1 bg-expert-green" style={{ width: `${averageProgress}%` }} /></div>
-            </div>
+            ) : heroSite ? (
+              <div className="border-t border-white/10 px-5 py-5 text-xs font-semibold text-white/42 sm:px-7">
+                {heroLaunchDate ? `Live since ${new Date(heroLaunchDate).toLocaleDateString()}` : 'Live and operating'}
+              </div>
+            ) : null}
 
             <div className="grid grid-cols-3 border-t border-white/10 divide-x divide-white/10">
               {[
@@ -96,27 +108,15 @@ export default function ClientOverview({
             ))}
           </div>
 
-          <div className="grid lg:grid-cols-2 xl:block">
+          <div className="grid lg:col-span-2 lg:grid-cols-2 xl:col-span-1 xl:block">
             <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10 xl:border-r-0 xl:border-b">
               <div className="grid grid-cols-3 divide-x divide-white/10">
-                {[
-                  { label: 'Projects', value: projectsCount },
-                  { label: 'My Sites', value: liveSitesCount },
-                  { label: 'Tickets', value: openTickets },
-                ].map((metric) => (
-                  <div key={metric.label} className="px-4 py-5">
-                    <div className="text-2xl font-black tracking-tight text-white">{metric.value}</div>
-                    <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/28">{metric.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 border-t border-white/10 divide-x divide-white/10">
                 {[
                   { label: 'Edit', icon: <MousePointer2 className="h-4 w-4" />, tab: 'editor' },
                   { label: 'Store', icon: <ShoppingBag className="h-4 w-4" />, tab: 'ecommerce' },
                   { label: 'Files', icon: <BookOpen className="h-4 w-4" />, tab: 'resources' },
                 ].map((tool) => (
-                  <button key={tool.label} type="button" onClick={() => onOpenTab(tool.tab)} className="group flex min-h-20 flex-col items-start justify-between px-4 py-4 text-left text-white/48 transition hover:bg-white/[0.025] hover:text-white">
+                  <button key={tool.label} type="button" onClick={() => onOpenTab(tool.tab)} className="group flex min-h-24 flex-col items-start justify-between px-4 py-5 text-left text-white/48 transition hover:bg-white/[0.025] hover:text-white">
                     {tool.icon}<span className="text-xs font-black">{tool.label}</span>
                   </button>
                 ))}

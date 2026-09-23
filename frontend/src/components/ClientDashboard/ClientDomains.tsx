@@ -8,10 +8,9 @@ import type { CustomDomain, ClientProject } from './ClientDashboard_types';
 import type { UseClientDashboardReturn } from './useClientDashboard';
 
 export default function ClientDomains({
-  dashboard, projects, domains: domainsOverride,
-}: { dashboard: UseClientDashboardReturn; projects: ClientProject[]; domains?: CustomDomain[] }) {
-  const { domains: allDomains, fetchData, handleVerifyDomain, handleDeleteDomain } = dashboard;
-  const domains = domainsOverride ?? allDomains;
+  dashboard, projects,
+}: { dashboard: UseClientDashboardReturn; projects: ClientProject[] }) {
+  const { domains, fetchData, handleVerifyDomain, handleDeleteDomain } = dashboard;
   const [isDomainModalOpen, setIsDomainModalOpen] = useState(false);
   const [isManagedDomainModalOpen, setIsManagedDomainModalOpen] = useState(false);
   const [newDomain, setNewDomain] = useState({ domain: '', siteId: '', setup: 'self' });
