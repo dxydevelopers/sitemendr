@@ -47,7 +47,7 @@ const MilestoneViewer: React.FC<MilestoneViewerProps> = ({ subscriptionId }) => 
 
   if (milestones.length === 0) return (
     <div className="p-10 text-center opacity-50 border border-dashed border-white/10 rounded-3xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.3em]">No project milestones defined yet</p>
+      <p className="text-[10px] font-medium">No project milestones defined yet</p>
     </div>
   );
 
@@ -86,10 +86,10 @@ const MilestoneViewer: React.FC<MilestoneViewerProps> = ({ subscriptionId }) => 
               
               <div className="flex-1 min-w-0">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-                  <h4 className="text-base font-black uppercase tracking-tight text-white group-hover:text-ai-blue transition-colors">
+                  <h4 className="text-base font-medium text-white group-hover:text-ai-blue transition-colors">
                     {ms.title}
                   </h4>
-                  <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                  <div className={`px-3 py-1 rounded-lg text-[8px] font-medium border ${
                     ms.status.toUpperCase() === 'COMPLETED' 
                       ? 'bg-expert-green/10 text-expert-green border-expert-green/20' 
                       : ms.status.toUpperCase() === 'IN_PROGRESS' 
@@ -107,7 +107,7 @@ const MilestoneViewer: React.FC<MilestoneViewerProps> = ({ subscriptionId }) => 
             
             {/* Background HUD Decor */}
             <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
-              <span className="text-[40px] font-black italic">{idx + 1}</span>
+              <span className="text-[40px] font-semibold italic">{idx + 1}</span>
             </div>
           </div>
         </div>

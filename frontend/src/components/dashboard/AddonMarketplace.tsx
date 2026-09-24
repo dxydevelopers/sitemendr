@@ -166,11 +166,11 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
             <div className="w-10 h-10 bg-ai-blue/10 border border-ai-blue/20 rounded-xl flex items-center justify-center">
               <Boxes className="w-5 h-5 text-ai-blue" />
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-white">
+            <h2 className="text-xl font-medium text-white">
               Add-on Marketplace
             </h2>
           </div>
-          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Add useful services to your workspace</p>
+          <p className="text-[10px] text-medium-gray font-medium mt-1 opacity-60">Add useful services to your workspace</p>
         </div>
         
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
@@ -178,7 +178,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
             <button 
               key={cat} 
               onClick={() => setActiveFilter(cat)}
-              className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-lg text-[9px] font-medium transition-all whitespace-nowrap ${
                 activeCategory === cat ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
               }`}
             >
@@ -206,13 +206,13 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
                     {addon.icon}
                   </div>
                   <div className="text-right">
-                    <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] block mb-1">{addon.category}</span>
-                    <p className="text-2xl font-black text-white tracking-tighter">${addon.price}</p>
+                    <span className="text-[8px] font-semibold text-ai-blue uppercase tracking-[0.3em] block mb-1">{addon.category}</span>
+                    <p className="text-2xl font-semibold text-white tracking-tighter">${addon.price}</p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-base lg:text-lg font-black uppercase tracking-widest text-white leading-tight">
+                  <h3 className="text-base lg:text-lg font-medium text-white leading-tight">
                     {addon.name}
                   </h3>
                   <p className="text-[11px] text-white/40 font-medium uppercase leading-relaxed h-12 overflow-hidden line-clamp-2">
@@ -221,7 +221,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-white/5">
-                  <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Included</p>
+                  <p className="text-[8px] font-semibold text-white/20 uppercase tracking-[0.3em]">Included</p>
                   {addon.features.map((feature, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <ShieldCheck className="w-3.5 h-3.5 text-expert-green opacity-40" />
@@ -235,7 +235,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
                 <button
                   onClick={() => handlePurchase(addon)}
                   disabled={loading === addon.id || isPurchased}
-                  className={`w-full flex items-center justify-center gap-4 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all duration-300 shadow-xl ${
+                  className={`w-full flex items-center justify-center gap-4 py-5 rounded-2xl font-semibold text-[10px] uppercase tracking-[0.2em] transition-all duration-300 shadow-xl ${
                     isPurchased 
                       ? 'bg-expert-green/10 border border-expert-green/20 text-expert-green cursor-default' 
                       : 'bg-white/5 border border-white/10 text-white hover:bg-ai-blue hover:border-ai-blue hover:scale-[1.02] active:scale-95 shadow-ai-blue/5'
@@ -270,19 +270,19 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
           <div className="max-w-2xl space-y-6">
             <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-tech-purple animate-pulse"></div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-tech-purple">Custom Architecture Support</span>
+              <span className="text-[9px] font-medium text-tech-purple">Custom Architecture Support</span>
             </div>
-            <h3 className="text-2xl lg:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+            <h3 className="text-2xl lg:text-4xl font-medium text-white leading-tight">
               Require Custom <span className="text-ai-blue italic">Infrastructure?</span>
             </h3>
-            <p className="text-xs lg:text-sm text-white/40 leading-relaxed font-bold uppercase tracking-wide">
+            <p className="text-xs lg:text-sm text-white/40 leading-relaxed font-medium">
               Our engineering team can architect bespoke modules tailored specifically to your enterprise operational requirements. From specialized neural models to complex legacy migrations.
             </p>
           </div>
           
           <button 
             onClick={onRequestCustom}
-            className="flex-shrink-0 flex items-center gap-4 px-12 py-6 bg-white text-black rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-white/10"
+            className="flex-shrink-0 flex items-center gap-4 px-12 py-6 bg-white text-black rounded-[24px] font-semibold text-xs uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-white/10"
           >
             Consult Architect
             <ArrowRight className="w-5 h-5" />

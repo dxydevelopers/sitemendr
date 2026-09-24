@@ -21,8 +21,8 @@ export default function ClientMerchant({ bookings, billing, onOpenTab }: ClientM
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="max-w-3xl space-y-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-ai-blue/70">Business tools</p>
-        <h1 className="text-3xl font-black tracking-tight text-white lg:text-5xl">Commerce and service operations.</h1>
+        <p className="text-[10px] font-medium text-ai-blue/70">Business tools</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-white lg:text-5xl">Commerce and service operations.</h1>
         <p className="text-sm leading-7 text-white/56">Products, orders, bookings, and add-ons stay grouped here so the sidebar stays calm.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -37,7 +37,7 @@ export default function ClientMerchant({ bookings, billing, onOpenTab }: ClientM
               {item.icon}
               <ChevronRight className="w-4 h-4 text-white/22 transition group-hover:translate-x-1 group-hover:text-white" />
             </div>
-            <h2 className="text-lg font-black tracking-tight text-white">{item.title}</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-white">{item.title}</h2>
             <p className="mt-2 text-xs text-white/44">{item.count}</p>
           </button>
         ))}

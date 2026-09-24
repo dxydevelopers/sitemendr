@@ -204,7 +204,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
           <button
             onClick={() => setActiveTab('appointments')}
-            className={`px-4 lg:px-6 py-2 rounded-lg font-black text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
+            className={`px-4 lg:px-6 py-2 rounded-lg font-semibold text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
               activeTab === 'appointments' ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
             }`}
           >
@@ -212,7 +212,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
           </button>
           <button
             onClick={() => setActiveTab('services')}
-            className={`px-4 lg:px-6 py-2 rounded-lg font-black text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
+            className={`px-4 lg:px-6 py-2 rounded-lg font-semibold text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
               activeTab === 'services' ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
             }`}
           >
@@ -226,12 +226,12 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
             placeholder="Search sessions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-ai-blue transition-colors flex-1 md:w-48"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-medium focus:outline-none focus:border-ai-blue transition-colors flex-1 md:w-48"
           />
           <select 
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-ai-blue transition-colors"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-medium focus:outline-none focus:border-ai-blue transition-colors"
           >
             <option value="ALL">ALL_STATUS</option>
             <option value="PENDING">PENDING</option>
@@ -247,7 +247,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 setNewService({ name: '', description: '', duration: '', price: '' });
                 setShowAddService(true);
               }}
-              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-expert-green text-dark-bg rounded-xl hover:scale-105 transition-all text-[10px] font-black uppercase tracking-widest"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-expert-green text-dark-bg rounded-xl hover:scale-105 transition-all text-[10px] font-medium"
             >
               <Plus className="w-4 h-4" />
               Define Module
@@ -270,12 +270,12 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center justify-center flex-shrink-0">
-                    <span className="text-[9px] font-black text-white/40 uppercase">{new Date(booking.startTime).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="text-2xl font-black text-white">{new Date(booking.startTime).getDate()}</span>
+                    <span className="text-[9px] font-semibold text-white/40 uppercase">{new Date(booking.startTime).toLocaleString('default', { month: 'short' })}</span>
+                    <span className="text-2xl font-semibold text-white">{new Date(booking.startTime).getDate()}</span>
                   </div>
                   <div>
-                    <h3 className="font-black text-white text-lg uppercase tracking-tight mb-1">{booking.service?.name}</h3>
-                    <div className="flex flex-wrap items-center gap-4 text-[9px] font-black text-white/40 uppercase tracking-widest">
+                    <h3 className="font-semibold text-white text-lg uppercase tracking-tight mb-1">{booking.service?.name}</h3>
+                    <div className="flex flex-wrap items-center gap-4 text-[9px] font-semibold text-white/40 uppercase tracking-widest">
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-ai-blue" />
                         {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -294,7 +294,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                       <select 
                         value={booking.status}
                         onChange={(e) => handleUpdateStatus(booking.id, e.target.value)}
-                        className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest text-white/60 focus:ring-0 cursor-pointer p-0"
+                        className="bg-transparent border-none text-[9px] font-medium text-white/60 focus:ring-0 cursor-pointer p-0"
                       >
                         <option value="PENDING" className="bg-darker-bg">PENDING</option>
                         <option value="CONFIRMED" className="bg-darker-bg">CONFIRMED</option>
@@ -302,7 +302,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                         <option value="COMPLETED" className="bg-darker-bg">COMPLETED</option>
                       </select>
                     ) : (
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white/60">{booking.status}</span>
+                      <span className="text-[9px] font-medium text-white/60">{booking.status}</span>
                     )}
                   </div>
                   {isAdmin ? (
@@ -324,10 +324,10 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
           {bookings.length === 0 && (
             <div className="py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px] flex flex-col items-center">
               <Calendar className="w-16 h-16 text-white/5 mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em] mb-8">Chronos ledger empty - no sessions scheduled</p>
+              <p className="text-white/20 font-semibold text-[10px] uppercase tracking-[0.4em] mb-8">Chronos ledger empty - no sessions scheduled</p>
               <button 
                 onClick={() => setActiveTab('services')}
-                className="px-10 py-5 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-2xl hover:scale-105 transition-all"
+                className="px-10 py-5 bg-ai-blue text-white font-semibold text-[10px] uppercase tracking-widest rounded-2xl hover:scale-105 transition-all"
               >
                 Schedule First Consultation
               </button>
@@ -372,21 +372,21 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                   )}
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tighter">{service.name}</h3>
+                  <h3 className="text-xl font-semibold text-white mb-2 uppercase tracking-tighter">{service.name}</h3>
                   <p className="text-white/40 text-[11px] lg:text-xs line-clamp-2 leading-relaxed uppercase font-medium">{service.description}</p>
                 </div>
                 <div className="flex gap-4">
-                  <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/60 uppercase tracking-widest">
+                  <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-[9px] font-semibold text-white/60 uppercase tracking-widest">
                     {service.duration} MINS
                   </div>
-                  <div className="px-4 py-1.5 bg-ai-blue/10 border border-ai-blue/20 rounded-full text-[9px] font-black text-ai-blue uppercase tracking-widest">
+                  <div className="px-4 py-1.5 bg-ai-blue/10 border border-ai-blue/20 rounded-full text-[9px] font-semibold text-ai-blue uppercase tracking-widest">
                     ${service.price}
                   </div>
                 </div>
               </div>
               {!isAdmin && (
                 <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[9px] font-black text-ai-blue opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.2em]">Book session</span>
+                  <span className="text-[9px] font-semibold text-ai-blue opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-[0.2em]">Book session</span>
                   <ChevronRight className="w-6 h-6 text-white/10 group-hover:text-ai-blue group-hover:translate-x-1 transition-all" />
                 </div>
               )}
@@ -395,7 +395,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
           {services.length === 0 && (
             <div className="col-span-full py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
               <Briefcase className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No services available yet</p>
+              <p className="text-white/20 font-semibold text-[10px] uppercase tracking-[0.4em]">No services available yet</p>
             </div>
           )}
         </div>
@@ -406,14 +406,14 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 lg:p-10 bg-black/90 backdrop-blur-2xl">
           <div className="absolute inset-0" onClick={() => setShowAddService(false)}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl p-8 lg:p-12 relative z-10 animate-in zoom-in-95 duration-300 shadow-2xl">
-            <h2 className="text-2xl lg:text-3xl font-black mb-8 lg:mb-10 tracking-tighter uppercase">
+            <h2 className="text-2xl lg:text-3xl font-semibold mb-8 lg:mb-10 tracking-tighter uppercase">
               {editingService ? 'Update' : 'Add'} <span className="text-ai-blue italic">Service</span>
             </h2>
             <form onSubmit={handleAddService} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Service name</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Service name</label>
                     <input
                       type="text"
                       required
@@ -425,7 +425,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Duration (min)</label>
+                      <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Duration (min)</label>
                       <input
                         type="number"
                         required
@@ -436,7 +436,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Fee ($)</label>
+                      <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Fee ($)</label>
                       <input
                         type="number"
                         required
@@ -450,7 +450,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 </div>
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Description</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Description</label>
                     <textarea
                       required
                       value={newService.description}
@@ -465,14 +465,14 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 <button
                   type="button"
                   onClick={() => setShowAddService(false)}
-                  className="order-2 sm:order-1 flex-1 px-8 py-5 border border-white/10 rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
+                  className="order-2 sm:order-1 flex-1 px-8 py-5 border border-white/10 rounded-2xl font-semibold text-[10px] lg:text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="order-1 sm:order-2 flex-[2] px-8 py-5 bg-ai-blue text-white rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
+                  className="order-1 sm:order-2 flex-[2] px-8 py-5 bg-ai-blue text-white rounded-2xl font-semibold text-[10px] lg:text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
                 >
                   {isSubmitting ? 'Saving...' : editingService ? 'Save changes' : 'Add service'}
                 </button>
@@ -488,15 +488,15 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
           <div className="absolute inset-0" onClick={() => setShowBookModal(false)}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-lg p-8 lg:p-12 relative z-10 animate-in zoom-in-95 duration-300 shadow-2xl">
             <div className="mb-10">
-              <span className="text-[9px] font-black text-ai-blue uppercase tracking-[0.3em] mb-2 block">New Booking</span>
-              <h2 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase">
+              <span className="text-[9px] font-semibold text-ai-blue uppercase tracking-[0.3em] mb-2 block">New Booking</span>
+              <h2 className="text-2xl lg:text-3xl font-semibold tracking-tighter uppercase">
                 Reserve <span className="text-white italic">{selectedService.name}</span>
               </h2>
             </div>
             
             <form onSubmit={handleCreateBooking} className="space-y-8">
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Start time</label>
+                <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Start time</label>
                 <input
                   type="datetime-local"
                   required
@@ -506,7 +506,7 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Notes</label>
+                <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Notes</label>
                 <textarea
                   value={bookingForm.notes}
                   onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
@@ -519,11 +519,11 @@ export default function BookingManager({ isAdmin = false, subscriptionId }: Book
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-5 bg-ai-blue text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
+                  className="w-full py-5 bg-ai-blue text-white rounded-2xl font-semibold text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
                 >
                   {isSubmitting ? 'Booking...' : 'Confirm booking'}
                 </button>
-                <p className="text-center text-[8px] font-black text-white/20 uppercase tracking-widest">
+                <p className="text-center text-[8px] font-semibold text-white/20 uppercase tracking-widest">
                   Secure end-to-end encrypted session
                 </p>
               </div>

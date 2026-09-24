@@ -44,7 +44,7 @@ export default function CustomSelect({ value, options, onChange, disabled, place
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(v => !v)}
-        className="flex items-center justify-between gap-3 bg-black/40 border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white focus:outline-none focus:border-ai-blue disabled:opacity-50 min-w-[160px]"
+        className="flex items-center justify-between gap-3 bg-black/40 border border-white/10 px-4 py-2 text-[10px] font-medium text-white focus:outline-none focus:border-ai-blue disabled:opacity-50 min-w-[160px]"
       >
         <span>{selected?.label || placeholder || 'Select...'}</span>
         <ChevronDown className={`h-3.5 w-3.5 text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -57,7 +57,7 @@ export default function CustomSelect({ value, options, onChange, disabled, place
               key={option.value}
               type="button"
               onClick={() => { onChange(option.value); setIsOpen(false); }}
-              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors"
+              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[10px] font-medium text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors"
             >
               <span>{option.label}</span>
               {option.value === value && <Check className="h-3 w-3 text-ai-blue" />}

@@ -66,13 +66,13 @@ const TemplateViewer: React.FC<TemplateViewerProps> = ({ subscriptionId }) => {
   if (loading) return (
     <div className="p-20 text-center animate-pulse">
       <div className="w-12 h-12 border-2 border-ai-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-ai-blue">Decompiling AI Blueprint...</p>
+      <p className="text-[10px] font-medium text-ai-blue">Decompiling AI Blueprint...</p>
     </div>
   );
 
   if (!template) return (
     <div className="p-20 text-center opacity-50 border border-dashed border-white/10 rounded-3xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.3em]">AI Template Generation in Progress</p>
+      <p className="text-[10px] font-medium">AI Template Generation in Progress</p>
       <span className="text-[8px] mt-2 block uppercase tracking-widest">Our neural engines are crafting your initial architecture. Please check back in 30 seconds.</span>
     </div>
   );
@@ -83,25 +83,25 @@ const TemplateViewer: React.FC<TemplateViewerProps> = ({ subscriptionId }) => {
         <div className="flex flex-wrap gap-2 justify-center md:justify-start">
           <button 
             onClick={() => setView('preview')}
-            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${view === 'preview' ? 'bg-ai-blue text-white' : 'hover:bg-white/5 text-medium-gray'}`}
+            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-medium transition-all ${view === 'preview' ? 'bg-ai-blue text-white' : 'hover:bg-white/5 text-medium-gray'}`}
           >
             Visual Preview
           </button>
           <button 
             onClick={() => setView('html')}
-            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${view === 'html' ? 'bg-tech-purple text-white' : 'hover:bg-white/5 text-medium-gray'}`}
+            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-medium transition-all ${view === 'html' ? 'bg-tech-purple text-white' : 'hover:bg-white/5 text-medium-gray'}`}
           >
             Source HTML
           </button>
           <button 
             onClick={() => setView('css')}
-            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${view === 'css' ? 'bg-expert-green text-white' : 'hover:bg-white/5 text-medium-gray'}`}
+            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-medium transition-all ${view === 'css' ? 'bg-expert-green text-white' : 'hover:bg-white/5 text-medium-gray'}`}
           >
             Global CSS
           </button>
           <button 
             onClick={() => setView('js')}
-            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${view === 'js' ? 'bg-orange-500 text-white' : 'hover:bg-white/5 text-medium-gray'}`}
+            className={`px-3 lg:px-4 py-2 rounded-lg text-[9px] font-medium transition-all ${view === 'js' ? 'bg-orange-500 text-white' : 'hover:bg-white/5 text-medium-gray'}`}
           >
             Client JS
           </button>
@@ -109,12 +109,12 @@ const TemplateViewer: React.FC<TemplateViewerProps> = ({ subscriptionId }) => {
         <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
           <button 
             onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 bg-ai-blue/10 border border-ai-blue/20 rounded-lg text-[9px] font-black uppercase tracking-widest text-ai-blue hover:bg-ai-blue hover:text-white transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-ai-blue/10 border border-ai-blue/20 rounded-lg text-[9px] font-medium text-ai-blue hover:bg-ai-blue hover:text-white transition-all"
           >
             <Download className="w-3 h-3" />
             Download Blueprint
           </button>
-          <div className="text-[8px] font-black text-ai-blue uppercase tracking-widest opacity-50 hidden sm:block">
+          <div className="text-[8px] font-semibold text-ai-blue uppercase tracking-widest opacity-50 hidden sm:block">
             Engine: {template.aiModel || 'GPT-4O-PRO'}
           </div>
         </div>

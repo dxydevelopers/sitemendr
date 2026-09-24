@@ -62,14 +62,14 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
   if (loading && !stats) {
     return (
-      <div className="min-h-screen bg-[#05070a] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-8">
           <div className="relative">
             <div className="w-24 h-24 border-4 border-ai-blue/10 rounded-full animate-spin border-t-ai-blue shadow-[0_0_30px_rgba(0,102,255,0.2)]"></div>
             <div className="absolute inset-0 flex items-center justify-center"><Terminal className="w-8 h-8 text-ai-blue animate-pulse" /></div>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <h2 className="text-xl font-black uppercase tracking-[0.4em] text-white">Loading</h2>
+            <h2 className="text-lg font-semibold text-white">Loading</h2>
             <p className="text-[10px] font-mono text-medium-gray uppercase tracking-widest animate-pulse">Preparing your Sitemendr workspace...</p>
           </div>
         </div>
@@ -159,26 +159,26 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
   const renderNavSection = (label: string, items: DashboardNavItem[]) => (
     <div className="space-y-1">
-      <span className={`block px-3 pb-1 text-[9px] font-black uppercase tracking-[0.24em] text-white/28 transition-all duration-200 ${isSidebarExpanded ? 'md:opacity-100' : 'md:h-0 md:overflow-hidden md:opacity-0'}`}>{label}</span>
+      <span className={`block px-3 pb-1 text-[11px] font-medium text-white/35 transition-all duration-200 ${isSidebarExpanded ? 'md:opacity-100' : 'md:h-0 md:overflow-hidden md:opacity-0'}`}>{label}</span>
       <div className="space-y-1">
         {items.map(item => (
           <div key={item.id} className="space-y-1">
             <button type="button" onClick={() => {
               if (item.children?.length) { setIsSidebarExpanded(true); setOpenSidebarGroup(openSidebarGroup === item.id ? null : item.id); }
               else { setActiveTab(item.id); setOpenSidebarGroup(null); setSelectedProjectId(null); setIsSidebarOpen(false); }
-            }} className={`group/nav relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-200 ${isSidebarExpanded ? 'md:justify-start' : 'md:justify-center'} ${isNavActive(item.id) ? 'bg-ai-blue/14 text-white' : 'text-white/52 hover:text-white hover:bg-white/[0.05]'}`}>
+            }} className={`group/nav relative flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-200 ${isSidebarExpanded ? 'md:justify-start' : 'md:justify-center'} ${isNavActive(item.id) ? 'bg-ai-blue/10 text-white' : 'text-white/52 hover:text-white hover:bg-white/[0.05]'}`}>
               <span className={`grid h-8 w-8 shrink-0 place-items-center transition-all ${isNavActive(item.id) ? 'text-ai-blue' : 'text-white/42 group-hover/nav:text-white/80'}`}>{item.icon}</span>
-              <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold tracking-tight transition-all duration-200 ${isSidebarExpanded ? 'md:w-auto md:opacity-100' : 'md:w-0 md:flex-none md:opacity-0'}`}>{item.label}</span>
-              {Boolean(item.count) && <span className={`min-w-5 rounded-full bg-ai-blue px-1.5 py-0.5 text-center text-[9px] font-black text-white transition-all duration-200 ${isSidebarExpanded ? 'md:static md:bg-white/10 md:text-white/78' : 'md:absolute md:right-1.5 md:top-1.5'}`}>{item.count}</span>}
+              <span className={`min-w-0 flex-1 truncate text-[13px] font-medium transition-all duration-200 ${isSidebarExpanded ? 'md:w-auto md:opacity-100' : 'md:w-0 md:flex-none md:opacity-0'}`}>{item.label}</span>
+              {Boolean(item.count) && <span className={`min-w-5 rounded-full bg-ai-blue/85 px-1.5 py-0.5 text-center text-[10px] font-medium text-white transition-all duration-200 ${isSidebarExpanded ? 'md:static md:bg-white/10 md:text-white/78' : 'md:absolute md:right-1.5 md:top-1.5'}`}>{item.count}</span>}
               {item.children?.length && <ChevronRight className={`hidden h-4 w-4 shrink-0 text-white/28 transition md:block ${isSidebarExpanded && openSidebarGroup === item.id ? 'rotate-90 text-white/60' : ''} ${isSidebarExpanded ? 'opacity-100' : 'opacity-0'}`} />}
             </button>
             {item.children?.length && isSidebarExpanded && openSidebarGroup === item.id && (
               <div className="ml-11 space-y-1 border-l border-white/[0.07] pl-3">
                 {item.children.map(child => (
                   <button key={child.id} type="button" onClick={() => { setActiveTab(child.id); setSelectedProjectId(null); setIsSidebarOpen(false); }}
-                    className={`flex min-h-9 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[12px] font-semibold transition ${activeTab === child.id ? 'bg-white/[0.07] text-white' : 'text-white/44 hover:bg-white/[0.04] hover:text-white'}`}>
+                    className={`flex min-h-9 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[12.5px] font-medium transition ${activeTab === child.id ? 'bg-white/[0.06] text-white' : 'text-white/44 hover:bg-white/[0.04] hover:text-white'}`}>
                     <span className="truncate">{child.label}</span>
-                    {Boolean(child.count) && <span className="min-w-5 rounded-full bg-white/10 px-1.5 py-0.5 text-center text-[9px] font-black text-white/70">{child.count}</span>}
+                    {Boolean(child.count) && <span className="min-w-5 rounded-full bg-white/10 px-1.5 py-0.5 text-center text-[10px] font-medium text-white/70">{child.count}</span>}
                   </button>
                 ))}
               </div>
@@ -190,7 +190,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   );
 
   return (
-    <div className="min-h-screen bg-[#05070a] text-white font-sans selection:bg-ai-blue/30 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0A0C10] text-white font-sans selection:bg-ai-blue/30 overflow-x-hidden">
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff07_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:80px_80px] opacity-30"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_64%_4%,rgba(0,102,255,0.16),transparent_34%),radial-gradient(circle_at_88%_78%,rgba(245,158,11,0.10),transparent_30%),radial-gradient(circle_at_18%_84%,rgba(16,185,129,0.08),transparent_30%)]"></div>
@@ -198,12 +198,12 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
       <div className="flex relative z-10 min-h-screen">
         {/* Sidebar */}
-        <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#05070a]/94 backdrop-blur-2xl border-r border-white/[0.10] transition-[width,transform] duration-300 transform overflow-x-hidden overflow-y-auto md:translate-x-0 ${isSidebarExpanded ? 'md:w-64' : 'md:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#0A0C10]/94 backdrop-blur-2xl border-r border-white/[0.10] transition-[width,transform] duration-300 transform overflow-x-hidden overflow-y-auto md:translate-x-0 ${isSidebarExpanded ? 'md:w-64' : 'md:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="h-full flex flex-col px-3 py-4 pb-8">
             <div className={`mb-6 flex items-center gap-3 px-1 transition-all duration-200 ${isSidebarExpanded ? 'justify-between' : 'justify-center'}`}>
               <button type="button" onClick={() => setActiveTab('dashboard')} className={`group hidden min-w-0 items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.05] md:flex ${isSidebarExpanded ? 'w-auto opacity-100' : 'w-0 overflow-hidden opacity-0'}`}>
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#05070a]"><Terminal className="h-4 w-4" /></span>
-                <span className="min-w-0"><span className="block truncate text-sm font-black tracking-tight text-white">Sitemendr</span><span className="block truncate text-[10px] font-semibold text-white/42">Client workspace</span></span>
+                <span className="min-w-0"><span className="block truncate text-sm font-semibold tracking-tight text-white">Sitemendr</span><span className="block truncate text-[10px] font-semibold text-white/42">Client workspace</span></span>
               </button>
               <button type="button" onClick={() => setIsSidebarExpanded(v => !v)} className="hidden md:grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white/52 transition hover:bg-white/[0.06] hover:text-white" aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}>
                 {isSidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
@@ -244,7 +244,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
                 </button>
               )}
               <div className="min-w-0">
-                <h1 className="truncate text-base font-black tracking-tight md:text-lg">
+                <h1 className="truncate text-base font-semibold tracking-tight md:text-lg">
                   {activeTab === 'billing' && billingView
                     ? billingView === 'contract'
                       ? `Contract${billingRecordId ? '' : ''}`
@@ -263,7 +263,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
             </div>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setActiveTab('settings')} className="hidden sm:flex items-center gap-3 px-2 py-2 group cursor-pointer transition-all">
-                <div className="text-right"><p className="text-[10px] font-black uppercase tracking-tight leading-none text-white/72">{user?.name || 'Account'}</p></div>
+                <div className="text-right"><p className="text-[12px] font-medium leading-none text-white/72">{user?.name || 'Account'}</p></div>
                 <div className="w-10 h-10 rounded-full bg-white/[0.055] flex items-center justify-center text-white/72 group-hover:bg-white/10 group-hover:text-white transition"><User className="w-5 h-5" /></div>
               </button>
               <button onClick={() => setActiveTab('messages')} className="grid h-11 w-11 place-items-center rounded-full hover:bg-white/[0.06] transition-all text-white/58 hover:text-white relative">
@@ -277,8 +277,8 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
           <div className="p-5 sm:p-7 lg:p-9 xl:p-10">
             {fetchError && (
               <div className="mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-4">
-                <div className="flex-1"><h4 className="text-sm font-black uppercase text-red-500">Workspace Sync Error</h4><p className="text-xs text-red-400/70 font-medium">{fetchError}</p></div>
-                <button onClick={() => fetchData()} className="px-4 py-2 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-600 transition-all">Retry</button>
+                <div className="flex-1"><h4 className="text-sm font-semibold text-red-400">Couldn’t sync your workspace</h4><p className="text-xs text-red-400/70 font-medium">{fetchError}</p></div>
+                <button onClick={() => fetchData()} className="px-4 py-2 bg-red-500 text-white text-[12.5px] font-medium rounded-lg hover:bg-red-600 transition-all">Retry</button>
               </div>
             )}
 
@@ -286,8 +286,8 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
               <section className="animate-fade-in grid min-h-[58vh] place-items-center border-y border-white/10 px-5 py-14 text-center">
                 <div className="max-w-sm space-y-6">
                   <div className="mx-auto grid h-14 w-14 place-items-center border border-white/10 bg-white/[0.03] text-ai-blue"><Key className="h-5 w-5" /></div>
-                  <div className="space-y-2"><p className="text-[10px] font-black uppercase tracking-[0.28em] text-ai-blue/70">No access</p><h1 className="text-2xl font-black tracking-tight text-white">{activeTabLock.label}</h1></div>
-                  <button type="button" onClick={() => openTab('projects')} className="inline-flex min-h-11 items-center gap-3 bg-ai-blue px-5 text-[10px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black">
+                  <div className="space-y-2"><p className="text-[12px] font-medium text-ai-blue/70">No access</p><h1 className="text-2xl font-semibold tracking-tight text-white">{activeTabLock.label}</h1></div>
+                  <button type="button" onClick={() => openTab('projects')} className="inline-flex min-h-11 items-center gap-3 rounded-lg bg-ai-blue px-5 text-[13px] font-medium text-white transition hover:bg-white hover:text-black">
                     <ArrowLeft className="h-4 w-4" /> Back to Build
                   </button>
                 </div>

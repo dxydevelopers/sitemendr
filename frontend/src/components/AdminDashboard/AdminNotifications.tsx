@@ -270,7 +270,7 @@ export default function AdminNotifications() {
   if (loading) {
     return (
       <div className="py-12 text-center">
-        <p className="text-[9px] font-black text-medium-gray uppercase tracking-[0.3em]">Loading notifications...</p>
+        <p className="text-[9px] font-semibold text-medium-gray uppercase tracking-[0.3em]">Loading notifications...</p>
       </div>
     );
   }
@@ -281,13 +281,13 @@ export default function AdminNotifications() {
       <div className="border border-white/10 p-6">
         <div className="flex items-center gap-3 mb-4">
           <span className="text-ai-blue"><Mail className="h-4 w-4" /></span>
-          <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white">Email Delivery</span>
+          <span className="text-[10px] font-medium text-white">Email Delivery</span>
         </div>
         {transportLoading ? (
-          <p className="text-[9px] font-black text-medium-gray uppercase tracking-widest">Loading...</p>
+          <p className="text-[9px] font-semibold text-medium-gray uppercase tracking-widest">Loading...</p>
         ) : (
           <div className="flex items-center gap-4">
-            <span className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Active Transport:</span>
+            <span className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Active Transport:</span>
             <CustomSelect
               value={transport}
               options={transportOptions}
@@ -301,11 +301,11 @@ export default function AdminNotifications() {
 
       {/* Header + Add New */}
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40">Notifications</span>
+        <span className="text-[9px] font-medium text-white/40">Notifications</span>
         <button
           type="button"
           onClick={openAddForm}
-          className="flex items-center gap-2 px-4 py-2 bg-ai-blue text-white font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-ai-blue text-white font-semibold text-[9px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all"
         >
           <Plus className="h-3.5 w-3.5" />
           Add New
@@ -316,7 +316,7 @@ export default function AdminNotifications() {
       {showAddForm && (
         <div className="border border-ai-blue/30 bg-ai-blue/[0.03] p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white">New Notification</span>
+            <span className="text-[10px] font-medium text-white">New Notification</span>
             <button type="button" onClick={() => setShowAddForm(false)} className="text-white/40 hover:text-white">
               <X className="h-4 w-4" />
             </button>
@@ -324,7 +324,7 @@ export default function AdminNotifications() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Name</label>
+              <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Name</label>
               <input
                 type="text"
                 value={newRule.name}
@@ -334,7 +334,7 @@ export default function AdminNotifications() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Category</label>
+              <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Category</label>
               <CustomSelect
                 value={newRule.category}
                 options={[...categories.map(c => ({ value: c, label: c })), { value: '__new__', label: '+ New Category' }]}
@@ -354,7 +354,7 @@ export default function AdminNotifications() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Trigger Description</label>
+            <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Trigger Description</label>
             <input
               type="text"
               value={newRule.trigger}
@@ -365,7 +365,7 @@ export default function AdminNotifications() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Recipient Type</label>
+            <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Recipient Type</label>
             <CustomSelect
               value={newRule.recipientType}
               options={recipientTypeOptions}
@@ -374,7 +374,7 @@ export default function AdminNotifications() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Subject</label>
+            <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Subject</label>
             <input
               type="text"
               value={newRule.subject}
@@ -384,7 +384,7 @@ export default function AdminNotifications() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Body</label>
+            <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Body</label>
             <div className="bg-white text-black">
               <ReactQuill
                 theme="snow"
@@ -397,7 +397,7 @@ export default function AdminNotifications() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Sender Name</label>
+              <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Sender Name</label>
               <input
                 type="text"
                 placeholder="Sitemendr"
@@ -407,7 +407,7 @@ export default function AdminNotifications() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Sender Email</label>
+              <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Sender Email</label>
               <input
                 type="email"
                 placeholder="no-reply@sitemendr.com"
@@ -417,7 +417,7 @@ export default function AdminNotifications() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Reply-To</label>
+              <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Reply-To</label>
               <input
                 type="email"
                 placeholder="support@sitemendr.com"
@@ -433,7 +433,7 @@ export default function AdminNotifications() {
           </p>
 
           {createError && (
-            <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">{createError}</p>
+            <p className="text-[10px] font-semibold text-red-400 uppercase tracking-widest">{createError}</p>
           )}
 
           <div className="flex items-center gap-3">
@@ -441,14 +441,14 @@ export default function AdminNotifications() {
               type="button"
               onClick={handleCreate}
               disabled={creating}
-              className="px-6 py-3 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              className="px-6 py-3 bg-ai-blue text-white font-semibold text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
             >
               {creating ? 'Creating...' : 'Create Notification'}
             </button>
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="px-6 py-3 border border-white/10 text-white/60 font-black text-[10px] uppercase tracking-widest hover:text-white transition-colors"
+              className="px-6 py-3 border border-white/10 text-white/60 font-semibold text-[10px] uppercase tracking-widest hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -459,7 +459,7 @@ export default function AdminNotifications() {
       {/* Notification rules by category */}
       {groupedCategories.map((category) => (
         <div key={category} className="space-y-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">{category}</p>
+          <p className="text-[9px] font-medium text-white/40 mb-3">{category}</p>
           <div className="border-t border-white/10">
             {rules.filter(r => r.category === category).map((rule) => {
               const isExpanded = expandedId === rule.id;
@@ -509,7 +509,7 @@ export default function AdminNotifications() {
                             key={s}
                             type="button"
                             onClick={() => setEditState(prev => prev ? { ...prev, status: s } : prev)}
-                            className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border transition-colors ${
+                            className={`px-3 py-1.5 text-[9px] font-medium border transition-colors ${
                               editState.status === s
                                 ? 'border-ai-blue text-ai-blue bg-ai-blue/10'
                                 : 'border-white/10 text-white/40 hover:text-white/70'
@@ -523,7 +523,7 @@ export default function AdminNotifications() {
                       {/* Available variables hint */}
                       {rule.availableVariables.length > 0 && (
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Available:</span>
+                          <span className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Available:</span>
                           {rule.availableVariables.map(v => (
                             <code key={v} className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/10 text-tech-purple">
                               {`{{${v}}}`}
@@ -534,7 +534,7 @@ export default function AdminNotifications() {
 
                       {/* Subject */}
                       <div className="space-y-2">
-                        <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Subject</label>
+                        <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Subject</label>
                         <input
                           type="text"
                           value={editState.subject}
@@ -545,7 +545,7 @@ export default function AdminNotifications() {
 
                       {/* Body — rich text */}
                       <div className="space-y-2">
-                        <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Body</label>
+                        <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Body</label>
                         <div className="bg-white text-black">
                           <ReactQuill
                             theme="snow"
@@ -559,7 +559,7 @@ export default function AdminNotifications() {
                       {/* Sender / reply-to */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Sender Name</label>
+                          <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Sender Name</label>
                           <input
                             type="text"
                             placeholder="Sitemendr"
@@ -569,7 +569,7 @@ export default function AdminNotifications() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Sender Email</label>
+                          <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Sender Email</label>
                           <input
                             type="email"
                             placeholder="no-reply@sitemendr.com"
@@ -579,7 +579,7 @@ export default function AdminNotifications() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[8px] font-black text-medium-gray uppercase tracking-widest">Reply-To</label>
+                          <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Reply-To</label>
                           <input
                             type="email"
                             placeholder="support@sitemendr.com"
@@ -591,7 +591,7 @@ export default function AdminNotifications() {
                       </div>
 
                       {saveError && (
-                        <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">{saveError}</p>
+                        <p className="text-[10px] font-semibold text-red-400 uppercase tracking-widest">{saveError}</p>
                       )}
 
                       <div className="flex items-center gap-3">
@@ -599,14 +599,14 @@ export default function AdminNotifications() {
                           type="button"
                           onClick={() => handleSave(rule.id)}
                           disabled={saving}
-                          className="px-6 py-3 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                          className="px-6 py-3 bg-ai-blue text-white font-semibold text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                         >
                           {saving ? 'Saving...' : 'Save Changes'}
                         </button>
                         <button
                           type="button"
                           onClick={() => { setExpandedId(null); setEditState(null); setSaveError(null); }}
-                          className="px-6 py-3 border border-white/10 text-white/60 font-black text-[10px] uppercase tracking-widest hover:text-white transition-colors"
+                          className="px-6 py-3 border border-white/10 text-white/60 font-semibold text-[10px] uppercase tracking-widest hover:text-white transition-colors"
                         >
                           Cancel
                         </button>
@@ -623,10 +623,10 @@ export default function AdminNotifications() {
       {/* Delete confirmation modal */}
       {deleteTarget && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md border border-white/10 bg-[#05070a] p-6 space-y-5">
+          <div className="w-full max-w-md border border-white/10 bg-[#0A0C10] p-6 space-y-5">
             <div className="flex items-center gap-3">
               <span className="text-red-400"><AlertTriangle className="h-4 w-4" /></span>
-              <span className="text-[11px] font-black uppercase tracking-widest text-white">Delete Notification</span>
+              <span className="text-[11px] font-medium text-white">Delete Notification</span>
             </div>
             <p className="text-[12px] text-white/60">
               Delete <strong className="text-white">{deleteTarget.name}</strong>? This cannot be undone.
@@ -641,14 +641,14 @@ export default function AdminNotifications() {
                 type="button"
                 onClick={() => confirmDelete(!!deleteWarning)}
                 disabled={deleting}
-                className="px-6 py-3 bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                className="px-6 py-3 bg-red-500 text-white font-semibold text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 {deleting ? 'Deleting...' : deleteWarning ? 'Delete Anyway' : 'Confirm Delete'}
               </button>
               <button
                 type="button"
                 onClick={() => { setDeleteTarget(null); setDeleteWarning(null); }}
-                className="px-6 py-3 border border-white/10 text-white/60 font-black text-[10px] uppercase tracking-widest hover:text-white transition-colors"
+                className="px-6 py-3 border border-white/10 text-white/60 font-semibold text-[10px] uppercase tracking-widest hover:text-white transition-colors"
               >
                 Cancel
               </button>

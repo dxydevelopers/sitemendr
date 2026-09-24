@@ -32,11 +32,11 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
     <div className="space-y-8 lg:space-y-10 animate-fade-in pb-12">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 px-2">
         <div>
-          <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+          <h2 className="text-sm font-medium flex items-center gap-3">
             <BookOpen className="w-5 h-5 text-ai-blue" />
             Resource Library
           </h2>
-          <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest mt-1 opacity-60">Documentation and guides</p>
+          <p className="text-[10px] text-medium-gray font-medium mt-1 opacity-60">Documentation and guides</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
@@ -47,7 +47,7 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
               placeholder="Filter resources..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-[10px] font-black uppercase tracking-widest focus:border-ai-blue outline-none transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-[10px] font-medium focus:border-ai-blue outline-none transition-all"
             />
           </div>
           <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
@@ -55,7 +55,7 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
               <button 
                 key={tag} 
                 onClick={() => setActiveFilter(tag)}
-                className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-[8px] font-medium transition-all ${
                   activeFilter === tag ? 'bg-ai-blue text-white' : 'text-white/40 hover:text-white'
                 }`}
               >
@@ -85,8 +85,8 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
               </div>
 
               <div className="space-y-2 mb-8">
-                <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.4em] block">{resource.type}</span>
-                <h3 className="text-sm font-black uppercase tracking-widest text-white leading-tight">{resource.title}</h3>
+                <span className="text-[8px] font-semibold text-ai-blue uppercase tracking-[0.4em] block">{resource.type}</span>
+                <h3 className="text-sm font-medium text-white leading-tight">{resource.title}</h3>
                 <p className="text-[11px] text-white/30 font-medium uppercase tracking-tighter line-clamp-2 leading-relaxed">
                   {resource.description || 'Access documentation, guides, and files connected to your Sitemendr workspace.'}
                 </p>
@@ -97,7 +97,7 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
                   href={resource.url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-ai-blue hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-[10px] font-medium text-ai-blue hover:text-white transition-colors"
                 >
                   Open resource <ExternalLink className="w-3.5 h-3.5" />
                 </a>
@@ -110,7 +110,7 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
         ) : (
           <div className="col-span-full p-24 text-center border border-dashed border-white/10 rounded-[40px] bg-white/[0.01]">
             <Zap className="w-16 h-16 text-white/5 mx-auto mb-6 animate-pulse" />
-            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">No resources found</p>
+            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.4em]">No resources found</p>
           </div>
         )}
       </div>
@@ -121,15 +121,15 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
           <div className="lg:col-span-2 space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
               <Shield className="w-3 h-3 text-ai-blue" />
-              <span className="text-[8px] font-black uppercase tracking-widest text-ai-blue">Support available</span>
+              <span className="text-[8px] font-medium text-ai-blue">Support available</span>
             </div>
-            <h3 className="text-xl lg:text-2xl font-black uppercase tracking-tight text-white">Need help with a resource?</h3>
+            <h3 className="text-xl lg:text-2xl font-medium text-white">Need help with a resource?</h3>
             <p className="text-xs lg:text-sm font-medium uppercase tracking-tight text-white/40 leading-relaxed max-w-2xl">
               Ask support to connect a guide, file, project note, store document, or billing reference to the correct workspace record.
             </p>
             <button 
               onClick={onSupportRequest}
-              className="px-10 py-5 bg-ai-blue text-white font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl hover:scale-105 transition-all shadow-xl shadow-ai-blue/20 flex items-center gap-4 active:scale-95"
+              className="px-10 py-5 bg-ai-blue text-white font-semibold text-[11px] uppercase tracking-[0.2em] rounded-2xl hover:scale-105 transition-all shadow-xl shadow-ai-blue/20 flex items-center gap-4 active:scale-95"
             >
               Request support
               <ArrowRight className="w-4 h-4" />

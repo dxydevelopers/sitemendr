@@ -63,7 +63,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   };
 
   return (
-    <div className="flex h-screen bg-[#05070a] text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
+    <div className="flex h-screen bg-[#0A0C10] text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
       {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
       {mobileRailGroup && <button type="button" className="fixed inset-0 z-[70] bg-transparent lg:hidden" aria-label="Close mobile navigation" onClick={() => setMobileRailGroup(null)} />}
 
@@ -76,7 +76,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
               <button type="button" onClick={() => { if (group.tabs.length === 1) { openAdminTab(group.tabs[0]); return; } setMobileRailGroup(isRailOpen ? null : group.id); }} className={`grid h-11 w-9 shrink-0 place-items-center transition ${isGroupActive || isRailOpen ? group.accent : 'text-white/66 hover:text-white'}`} aria-label={group.label}>{group.icon}</button>
               {isRailOpen && (
                 <div className="mt-2 w-full pl-10 py-1">
-                  <p className={`text-[9px] font-black uppercase tracking-[0.22em] ${group.accent}`}>{group.label}</p>
+                  <p className={`text-[11px] font-medium ${group.accent}`}>{group.label}</p>
                   <div className="mt-5 grid gap-1">
                     {group.tabs.map(tabId => {
                       const tab = adminTabs.find(item => item.id === tabId);
@@ -84,7 +84,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                       return (
                         <button key={tab.id} type="button" onClick={() => openAdminTab(tab.id)} className={`group flex min-h-12 w-fit max-w-full items-center gap-3 py-3 text-left transition ${activeTab === tab.id ? 'text-white' : 'text-white/52 hover:text-white'}`}>
                           <span className={activeTab === tab.id ? 'text-ai-blue' : 'text-white/34'}>{tab.icon}</span>
-                          <span className="min-w-0 border-b border-white/16 pb-1 text-sm font-black tracking-tight transition group-hover:border-white/34">{tab.shortName || tab.name}</span>
+                          <span className="min-w-0 border-b border-white/16 pb-1 text-sm font-medium transition group-hover:border-white/34">{tab.shortName || tab.name}</span>
                         </button>
                       );
                     })}
@@ -96,12 +96,12 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
         })}
       </nav>
 
-      <aside className={`fixed inset-y-0 left-0 w-80 bg-[#05070a]/96 backdrop-blur-2xl lg:bg-[#05070a] border-r border-white/10 flex flex-col z-[110] lg:z-20 transform transition-[width,transform] duration-300 lg:relative lg:translate-x-0 ${isSidebarExpanded ? 'lg:w-80' : 'lg:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 w-80 bg-[#0A0C10]/96 backdrop-blur-2xl lg:bg-[#0A0C10] border-r border-white/10 flex flex-col z-[110] lg:z-20 transform transition-[width,transform] duration-300 lg:relative lg:translate-x-0 ${isSidebarExpanded ? 'lg:w-80' : 'lg:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className={`border-b border-white/10 px-3 py-4 ${isSidebarExpanded ? '' : 'lg:px-3'}`}>
           <div className={`flex items-center gap-3 ${isSidebarExpanded ? 'justify-between' : 'lg:justify-center'}`}>
             <button type="button" onClick={() => openAdminTab('dashboard')} className={`group flex min-w-0 items-center gap-3 px-2 py-2 text-left transition hover:bg-white/[0.04] ${isSidebarExpanded ? 'flex-1' : 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}>
-              <div className="grid h-10 w-10 shrink-0 place-items-center bg-white text-[#05070a]"><Layout className="h-4 w-4" /></div>
-              <div className="min-w-0"><h2 className="truncate text-sm font-black tracking-tight text-white">Sitemendr</h2><p className="mt-1 truncate text-[10px] font-semibold text-white/42">Admin operations</p></div>
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-[#0A0C10]"><Layout className="h-4 w-4" /></div>
+              <div className="min-w-0"><h2 className="truncate text-sm font-semibold tracking-tight text-white">Sitemendr</h2><p className="mt-1 truncate text-[10px] font-semibold text-white/42">Admin operations</p></div>
             </button>
             <button type="button" onClick={() => setIsSidebarExpanded(v => !v)} className="hidden h-10 w-10 shrink-0 place-items-center text-white/52 transition hover:bg-white/[0.06] hover:text-white lg:grid" aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}>
               {isSidebarExpanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
@@ -116,9 +116,9 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
               const isOpen = openSidebarGroup === group.id || isGroupActive;
               return (
                 <div key={group.id} className="space-y-1">
-                  <button type="button" onClick={() => { if (group.tabs.length === 1) { openAdminTab(group.tabs[0]); setOpenSidebarGroup(group.id); } else { setOpenSidebarGroup(isOpen && !isGroupActive ? null : group.id); } }} className={`group/nav flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left transition ${isSidebarExpanded ? '' : 'lg:justify-center'} ${isGroupActive ? 'bg-white/[0.065] text-white' : 'text-white/52 hover:bg-white/[0.045] hover:text-white'}`}>
+                  <button type="button" onClick={() => { if (group.tabs.length === 1) { openAdminTab(group.tabs[0]); setOpenSidebarGroup(group.id); } else { setOpenSidebarGroup(isOpen && !isGroupActive ? null : group.id); } }} className={`group/nav flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left transition ${isSidebarExpanded ? '' : 'lg:justify-center'} ${isGroupActive ? 'rounded-lg bg-white/[0.06] text-white' : 'rounded-lg text-white/52 hover:bg-white/[0.045] hover:text-white'}`}>
                     <span className={`grid h-8 w-8 shrink-0 place-items-center ${isGroupActive ? group.accent : 'text-white/38 group-hover/nav:text-white/72'}`}>{group.icon}</span>
-                    <span className={`min-w-0 flex-1 ${isSidebarExpanded ? '' : 'lg:hidden'}`}><span className="block truncate text-[13px] font-black tracking-tight">{group.label}</span></span>
+                    <span className={`min-w-0 flex-1 ${isSidebarExpanded ? '' : 'lg:hidden'}`}><span className="block truncate text-[13px] font-medium">{group.label}</span></span>
                     {group.tabs.length > 1 && isSidebarExpanded && <ChevronRight className={`h-4 w-4 shrink-0 text-white/30 transition ${isOpen ? 'rotate-90 text-white/58' : ''}`} />}
                   </button>
                   {group.tabs.length > 1 && isOpen && isSidebarExpanded && (
@@ -127,9 +127,9 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
                         const tab = adminTabs.find(item => item.id === tabId);
                         if (!tab) return null;
                         return (
-                          <button key={tab.id} type="button" onClick={() => openAdminTab(tab.id)} className={`flex min-h-9 w-full items-center gap-3 px-3 py-2 text-left transition ${activeTab === tab.id ? 'bg-ai-blue/12 text-white' : 'text-white/44 hover:bg-white/[0.04] hover:text-white'}`}>
+                          <button key={tab.id} type="button" onClick={() => openAdminTab(tab.id)} className={`flex min-h-9 w-full items-center gap-3 px-3 py-2 text-left transition ${activeTab === tab.id ? 'rounded-md bg-ai-blue/10 text-white' : 'rounded-md text-white/44 hover:bg-white/[0.04] hover:text-white'}`}>
                             <span className={activeTab === tab.id ? 'text-ai-blue' : 'text-white/30'}>{tab.icon}</span>
-                            <span className="min-w-0 flex-1 truncate text-[12px] font-semibold tracking-tight">{tab.shortName || tab.name}</span>
+                            <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">{tab.shortName || tab.name}</span>
                           </button>
                         );
                       })}
@@ -150,16 +150,16 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
       <div className={`relative z-10 flex flex-1 flex-col overflow-hidden transition-[padding] duration-200 lg:pl-0 ${mobileRailGroup ? 'pl-64' : 'pl-10'}`}>
         {activeTab !== 'project-requests' && activeTab !== 'system' && (
-          <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#05070a]/95 px-4 py-3 lg:px-6">
+          <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#0A0C10]/95 px-4 py-3 lg:px-6">
             <div className="flex min-w-0 items-center gap-3">
               {activeTab !== 'dashboard' && (
                 <div className="min-w-0">
                   {activeTab === 'subscriptions' || activeTab === 'review' ? (
-                    <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">{currentTab?.name || 'Billing & Agreements'}</h1>
+                    <h1 className="truncate text-base font-semibold tracking-tight text-white lg:text-lg">{currentTab?.name || 'Billing & Agreements'}</h1>
                   ) : (
                     <>
-                      <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${currentGroup.accent}`}>{currentGroup.label}</p>
-                      <h1 className="truncate text-base font-black tracking-tight text-white lg:text-lg">{currentTab?.name || 'Admin'}</h1>
+                      <p className={`text-[11px] font-medium ${currentGroup.accent}`}>{currentGroup.label}</p>
+                      <h1 className="truncate text-base font-semibold tracking-tight text-white lg:text-lg">{currentTab?.name || 'Admin'}</h1>
                     </>
                   )}
                 </div>

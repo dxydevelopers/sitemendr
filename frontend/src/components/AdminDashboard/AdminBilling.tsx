@@ -27,7 +27,7 @@ interface AdminBillingProps {
   onDeploySite: (id: string) => void;
 }
 
-const label = 'text-[9px] font-black uppercase tracking-[0.24em] text-white/34';
+const label = 'text-[9px] font-medium text-white/34';
 const value = 'text-[14px] font-semibold tracking-tight text-white';
 const tierRank: Record<string, number> = {
   ai_foundation: 1,
@@ -38,7 +38,7 @@ const tierRank: Record<string, number> = {
 function SectionHeader({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="border-b border-white/12 pb-4">
-      <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/42">{title}</p>
+      <p className="text-[9px] font-medium text-white/42">{title}</p>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-white/42">{detail}</p>
     </div>
   );
@@ -46,7 +46,7 @@ function SectionHeader({ title, detail }: { title: string; detail: string }) {
 
 function TierPill({ valueText }: { valueText: string }) {
   return (
-    <span className="inline-flex items-center border border-white/12 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.22em] text-white/68">
+    <span className="inline-flex items-center border border-white/12 px-2.5 py-1 text-[8px] font-medium text-white/68">
       {valueText}
     </span>
   );
@@ -89,7 +89,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex min-h-9 items-center gap-2 border border-white/12 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] transition disabled:opacity-50 ${toneClass}`}
+      className={`inline-flex min-h-9 items-center gap-2 border border-white/12 px-2.5 py-1.5 text-[9px] font-medium transition disabled:opacity-50 ${toneClass}`}
     >
       {children}
     </button>
@@ -122,7 +122,7 @@ export default function AdminBilling({
         <button
           type="button"
           onClick={() => setSelectedSubscriptionForEditor(null)}
-          className="mb-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/42 transition hover:text-white"
+          className="mb-6 inline-flex items-center gap-2 text-[10px] font-medium text-white/42 transition hover:text-white"
         >
           <ChevronRight className="h-3.5 w-3.5 rotate-180" />
           Back to list
@@ -154,23 +154,23 @@ export default function AdminBilling({
         <div className="border-b border-white/10 pb-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-4">
             <label className="relative min-w-0 flex-1">
-              <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Search</span>
+              <span className="mb-2 block text-[9px] font-medium text-white/28">Search</span>
               <Search className="pointer-events-none absolute left-0 top-[2.15rem] h-3.5 w-3.5 text-white/28" />
               <input
                 type="text"
                 placeholder="Search deployments"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="min-h-11 w-full border border-white/12 bg-[#05070a] py-2.5 pl-6 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+                className="min-h-11 w-full border border-white/12 bg-[#0A0C10] py-2.5 pl-6 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
               />
             </label>
 
             <label className="relative min-w-[12rem] lg:w-48">
-              <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Tier</span>
+              <span className="mb-2 block text-[9px] font-medium text-white/28">Tier</span>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="min-h-11 w-full appearance-none border border-white/12 bg-[#05070a] px-3 py-2.5 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition focus:border-white/22 focus:ring-0"
+                className="min-h-11 w-full appearance-none border border-white/12 bg-[#0A0C10] px-3 py-2.5 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition focus:border-white/22 focus:ring-0"
               >
                 <option value="ALL">All tiers</option>
                 <option value="ai_foundation">AI foundation</option>
@@ -182,7 +182,7 @@ export default function AdminBilling({
         </div>
 
         <div className="border-y border-white/20">
-          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
+          <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-4 py-2.5 text-[8px] font-medium text-white/28 xl:grid">
             <div className="col-span-7">Deployment</div>
             <div className="col-span-2">Billing</div>
             <div className="col-span-3 text-right">View details</div>
@@ -206,8 +206,8 @@ export default function AdminBilling({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-3">
                           <span className={label}>ID {(sub.id || '').slice(0, 8)}</span>
-                          <span className={`text-[10px] font-black uppercase tracking-[0.18em] ${sub.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{sub.status}</span>
-                          {!sub.isCurrent && <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Previous</span>}
+                          <span className={`text-[10px] font-medium ${sub.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{sub.status}</span>
+                          {!sub.isCurrent && <span className="text-[8px] font-medium text-white/34">Previous</span>}
                         </div>
 
                         <h3 className="mt-1.5 truncate text-[17px] font-semibold tracking-tight text-white">{sub.customName || sub.siteName}</h3>
@@ -222,12 +222,12 @@ export default function AdminBilling({
 
                       <div className="min-h-full xl:border-l xl:border-white/20 xl:pl-4">
                         <p className={label}>Billing</p>
-                        <p className={`mt-2 text-[15px] font-black tracking-tight ${currentPaymentLabel === 'PAID' ? 'text-expert-green' : 'text-amber-300'}`}>{currentPaymentLabel}</p>
+                        <p className={`mt-2 text-[15px] font-semibold tracking-tight ${currentPaymentLabel === 'PAID' ? 'text-expert-green' : 'text-amber-300'}`}>{currentPaymentLabel}</p>
                         <p className="mt-2 text-sm leading-6 text-white/40">Latest commercial state for this deployment.</p>
                       </div>
 
                       <div className="flex items-center justify-end gap-2 self-stretch xl:border-l xl:border-white/20 xl:pl-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300/80">Open</span>
+                        <span className="text-[10px] font-medium text-amber-300/80">Open</span>
                         <ChevronRight className="h-4 w-4 text-amber-300/80 transition group-hover:translate-x-0.5" />
                       </div>
                     </button>
@@ -257,14 +257,14 @@ export default function AdminBilling({
 
       <div className="border-b border-white/10 pb-4">
         <label className="relative block lg:w-[28rem]">
-          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Search</span>
+          <span className="mb-2 block text-[9px] font-medium text-white/28">Search</span>
           <Search className="pointer-events-none absolute left-0 top-[2.15rem] h-3.5 w-3.5 text-white/28" />
           <input
             type="text"
             placeholder="Search projects"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="min-h-11 w-full border border-white/12 bg-[#05070a] py-2.5 pl-6 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+            className="min-h-11 w-full border border-white/12 bg-[#0A0C10] py-2.5 pl-6 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
           />
         </label>
       </div>
@@ -272,11 +272,11 @@ export default function AdminBilling({
       {filteredReview.length === 0 ? (
         <div className="border-y border-white/10 py-20 text-center">
           <Eye className="mx-auto mb-4 h-8 w-8 text-white/15" />
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No projects currently awaiting review</p>
+          <p className="text-[10px] font-medium text-white/34">No projects currently awaiting review</p>
         </div>
       ) : (
         <div className="border-y border-white/30">
-          <div className="hidden grid-cols-12 gap-4 border-b border-white/30 px-5 py-3 text-[8px] font-black uppercase tracking-[0.24em] text-white/28 xl:grid">
+          <div className="hidden grid-cols-12 gap-4 border-b border-white/30 px-5 py-3 text-[8px] font-medium text-white/28 xl:grid">
             <div className="col-span-7">Project</div>
             <div className="col-span-2">Review</div>
             <div className="col-span-3 text-right">Actions</div>
@@ -289,9 +289,9 @@ export default function AdminBilling({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h3 className="truncate text-[16px] font-semibold tracking-tight text-white">{project.domain || 'no-domain.sitemendr.com'}</h3>
-                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/34">{project.tier?.replace(/_/g, ' ')}</p>
+                        <p className="mt-1 text-[10px] font-medium text-white/34">{project.tier?.replace(/_/g, ' ')}</p>
                       </div>
-                      <span className={`shrink-0 text-[9px] font-black uppercase tracking-[0.18em] ${project.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{project.status}</span>
+                      <span className={`shrink-0 text-[9px] font-medium ${project.status === 'active' ? 'text-expert-green' : 'text-amber-300'}`}>{project.status}</span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-white/30 pt-3.5 sm:grid-cols-3">
@@ -302,13 +302,13 @@ export default function AdminBilling({
                   </div>
 
                   <div className="min-h-full xl:border-l xl:border-white/30 xl:pl-5">
-                    <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Review notes</label>
+                    <label className="mb-2 block text-[8px] font-medium text-white/28">Review notes</label>
                     <textarea
                       defaultValue={project.reviewNotes || ''}
                       onBlur={(e) => {
                         if (e.target.value !== (project.reviewNotes || '')) onUpdateReview(project.id, e.target.value);
                       }}
-                      className="h-20 w-full resize-none border border-white/12 bg-[#05070a] px-3 py-3 text-[10px] leading-5 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/40 focus:ring-0"
+                      className="h-20 w-full resize-none border border-white/12 bg-[#0A0C10] px-3 py-3 text-[10px] leading-5 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/40 focus:ring-0"
                       placeholder="Leave concise feedback..."
                     />
                   </div>

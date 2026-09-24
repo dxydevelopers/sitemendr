@@ -117,8 +117,8 @@ const MilestoneManager: React.FC = () => {
   return (
     <div className="space-y-10 animate-fade-in">
       <div className="flex flex-col">
-        <span className="text-[8px] font-black text-tech-purple uppercase tracking-[0.3em] mb-1">Project Lead</span>
-        <h2 className="text-sm font-black tracking-widest flex items-center gap-3 uppercase">
+        <span className="text-[8px] font-semibold text-tech-purple uppercase tracking-[0.3em] mb-1">Project Lead</span>
+        <h2 className="text-sm font-semibold tracking-widest flex items-center gap-3 uppercase">
           <span className="w-1.5 h-6 bg-tech-purple rounded-full"></span>
           Milestone Orchestrator
         </h2>
@@ -129,9 +129,9 @@ const MilestoneManager: React.FC = () => {
           {/* Creation / Selection Side */}
           <div className="space-y-8">
             <div className="space-y-4">
-              <label className="text-[10px] font-black text-medium-gray uppercase tracking-widest px-1">Select Project</label>
+              <label className="text-[10px] font-semibold text-medium-gray uppercase tracking-widest px-1">Select Project</label>
               <select
-                className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-5 text-sm font-black uppercase tracking-widest focus:outline-none focus:border-tech-purple/50 appearance-none cursor-pointer"
+                className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-5 text-sm font-medium focus:outline-none focus:border-tech-purple/50 appearance-none cursor-pointer"
                 value={selectedSub}
                 onChange={(e) => setSelectedSub(e.target.value)}
               >
@@ -146,14 +146,14 @@ const MilestoneManager: React.FC = () => {
 
             {selectedSub && (
               <form onSubmit={handleCreateMilestone} className="space-y-6 pt-6 border-t border-white/5 animate-fade-in">
-                <h4 className="text-[10px] font-black text-tech-purple uppercase tracking-[0.3em]">Provision New Milestone</h4>
+                <h4 className="text-[10px] font-semibold text-tech-purple uppercase tracking-[0.3em]">Provision New Milestone</h4>
                 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-medium-gray uppercase tracking-widest px-1">Title</label>
+                  <label className="text-[9px] font-semibold text-medium-gray uppercase tracking-widest px-1">Title</label>
                   <input
                     type="text"
                     required
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-tech-purple/50 transition-all"
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-medium focus:outline-none focus:border-tech-purple/50 transition-all"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   />
@@ -161,19 +161,19 @@ const MilestoneManager: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-medium-gray uppercase tracking-widest px-1">Sequence</label>
+                    <label className="text-[9px] font-semibold text-medium-gray uppercase tracking-widest px-1">Sequence</label>
                     <input
                       type="number"
                       required
-                      className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-tech-purple/50 transition-all"
+                      className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-medium focus:outline-none focus:border-tech-purple/50 transition-all"
                       value={formData.order}
                       onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-medium-gray uppercase tracking-widest px-1">Initial Status</label>
+                    <label className="text-[9px] font-semibold text-medium-gray uppercase tracking-widest px-1">Initial Status</label>
                     <select
-                      className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-tech-purple/50 transition-all appearance-none"
+                      className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-medium focus:outline-none focus:border-tech-purple/50 transition-all appearance-none"
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                     >
@@ -185,11 +185,11 @@ const MilestoneManager: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-medium-gray uppercase tracking-widest px-1">Technical Description</label>
+                  <label className="text-[9px] font-semibold text-medium-gray uppercase tracking-widest px-1">Technical Description</label>
                   <textarea
                     required
                     rows={4}
-                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-tech-purple/50 transition-all resize-none"
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-4 text-[11px] font-medium focus:outline-none focus:border-tech-purple/50 transition-all resize-none"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
@@ -197,7 +197,7 @@ const MilestoneManager: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full py-5 bg-tech-purple text-white font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl shadow-tech-purple/20"
+                  className="w-full py-5 bg-tech-purple text-white font-semibold text-[11px] uppercase tracking-[0.2em] rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl shadow-tech-purple/20"
                 >
                   <Plus className="w-4 h-4" />
                   Add Milestone
@@ -208,7 +208,7 @@ const MilestoneManager: React.FC = () => {
 
           {/* List Side */}
           <div className="space-y-8">
-            <h4 className="text-[10px] font-black text-medium-gray uppercase tracking-[0.3em] flex items-center justify-between">
+            <h4 className="text-[10px] font-semibold text-medium-gray uppercase tracking-[0.3em] flex items-center justify-between">
               Sequence Registry 
               {selectedSub && <span className="text-tech-purple font-mono">{milestones.length} ENTRIES</span>}
             </h4>
@@ -217,17 +217,17 @@ const MilestoneManager: React.FC = () => {
               {!selectedSub ? (
                 <div className="p-20 border border-dashed border-white/5 rounded-[32px] text-center opacity-30">
                   <Circle className="w-12 h-12 mx-auto mb-4" />
-                  <p className="text-[9px] font-black uppercase tracking-widest">Select node to view sequence</p>
+                  <p className="text-[9px] font-medium">Select node to view sequence</p>
                 </div>
               ) : milestonesLoading ? (
                 <div className="p-20 text-center animate-pulse">
                   <div className="w-10 h-10 border-2 border-white/10 border-t-tech-purple rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-medium-gray">Scanning registry...</p>
+                  <p className="text-[9px] font-medium text-medium-gray">Scanning registry...</p>
                 </div>
               ) : milestones.length === 0 ? (
                 <div className="p-20 border border-dashed border-white/5 rounded-[32px] text-center opacity-30">
                   <Plus className="w-12 h-12 mx-auto mb-4" />
-                  <p className="text-[9px] font-black uppercase tracking-widest">No milestones defined for this node</p>
+                  <p className="text-[9px] font-medium">No milestones defined for this node</p>
                 </div>
               ) : (
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
@@ -236,7 +236,7 @@ const MilestoneManager: React.FC = () => {
                       {editingId === ms.id ? (
                         <div className="space-y-4">
                           <input 
-                            className="w-full bg-black/40 border border-tech-purple/50 rounded-lg px-4 py-2 text-xs font-black uppercase"
+                            className="w-full bg-black/40 border border-tech-purple/50 rounded-lg px-4 py-2 text-xs font-medium"
                             value={editData.title}
                             onChange={(e) => setEditData({...editData, title: e.target.value})}
                           />
@@ -248,7 +248,7 @@ const MilestoneManager: React.FC = () => {
                           />
                           <div className="flex gap-4">
                             <select 
-                              className="flex-1 bg-black/40 border border-tech-purple/50 rounded-lg px-4 py-2 text-[10px] font-black uppercase"
+                              className="flex-1 bg-black/40 border border-tech-purple/50 rounded-lg px-4 py-2 text-[10px] font-medium"
                               value={editData.status}
                               onChange={(e) => setEditData({...editData, status: e.target.value})}
                             >
@@ -258,16 +258,16 @@ const MilestoneManager: React.FC = () => {
                             </select>
                             <input 
                               type="number"
-                              className="w-20 bg-black/40 border border-tech-purple/50 rounded-lg px-4 py-2 text-[10px] font-black"
+                              className="w-20 bg-black/40 border border-tech-purple/50 rounded-lg px-4 py-2 text-[10px] font-semibold"
                               value={editData.order}
                               onChange={(e) => setEditData({...editData, order: parseInt(e.target.value)})}
                             />
                           </div>
                           <div className="flex gap-2 pt-2">
-                            <button onClick={() => handleUpdateMilestone(ms.id)} className="flex-1 py-2 bg-expert-green text-dark-bg font-black text-[9px] uppercase tracking-widest rounded-lg flex items-center justify-center gap-2">
+                            <button onClick={() => handleUpdateMilestone(ms.id)} className="flex-1 py-2 bg-expert-green text-dark-bg font-semibold text-[9px] uppercase tracking-widest rounded-lg flex items-center justify-center gap-2">
                               <Save className="w-3 h-3" /> Commit
                             </button>
-                            <button onClick={() => setEditingId(null)} className="flex-1 py-2 bg-white/10 text-white font-black text-[9px] uppercase tracking-widest rounded-lg flex items-center justify-center gap-2">
+                            <button onClick={() => setEditingId(null)} className="flex-1 py-2 bg-white/10 text-white font-semibold text-[9px] uppercase tracking-widest rounded-lg flex items-center justify-center gap-2">
                               <X className="w-3 h-3" /> Abort
                             </button>
                           </div>
@@ -286,7 +286,7 @@ const MilestoneManager: React.FC = () => {
                                 )}
                               </div>
                               <div>
-                                <h5 className="text-[13px] font-black uppercase tracking-tight">{ms.title}</h5>
+                                <h5 className="text-[13px] font-medium">{ms.title}</h5>
                                 <p className="text-[9px] font-mono text-medium-gray mt-1">SEQ_0{ms.order}</p>
                               </div>
                             </div>

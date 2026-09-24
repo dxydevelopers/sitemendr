@@ -42,10 +42,10 @@ export default function ClientOverview({
           <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
             <button type="button" onClick={() => onOpenTab(hasActiveBuild ? 'projects' : heroSite ? 'mysites' : 'projects')} className="group flex min-h-[160px] w-full items-end justify-between gap-6 px-5 py-6 text-left transition hover:bg-white/[0.025] sm:px-7 xl:min-h-[210px]">
               <span className="min-w-0">
-                <span className={`flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.14em] ${heroSite ? 'text-expert-green' : 'text-ai-blue'}`}>
+                <span className={`flex items-center gap-3 text-[12px] font-medium ${heroSite ? 'text-expert-green' : 'text-ai-blue'}`}>
                   {heroSite ? <Globe className="h-4 w-4" /> : <Rocket className="h-4 w-4" />} {heroSite ? 'Live' : 'Build'}
                 </span>
-                <span className="mt-4 block truncate text-2xl font-black tracking-tight text-white sm:text-3xl">
+                <span className="mt-4 block truncate text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                   {heroSite ? heroSite.name : (selectedProject?.name || 'No active project')}
                 </span>
                 <span className="mt-3 block truncate text-sm font-semibold text-white/42">
@@ -78,14 +78,14 @@ export default function ClientOverview({
               ].map((path) => (
                 <button key={path.label} type="button" onClick={() => onOpenTab(path.tab)} className="group grid min-h-24 place-items-center gap-3 py-5 text-center transition hover:bg-white/[0.025]">
                   {path.icon}
-                  <span className="text-xs font-black text-white/54 group-hover:text-white">{path.label}</span>
+                  <span className="text-xs font-medium text-white/54 group-hover:text-white">{path.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="border-b border-white/10 lg:border-b-0 xl:border-r xl:border-white/10">
-            <div className="grid grid-cols-[1fr_4.5rem_5.5rem_1.5rem] items-center gap-3 border-b border-white/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/28 sm:grid-cols-[1fr_5rem_6.5rem_2rem] sm:px-6">
+            <div className="grid grid-cols-[1fr_4.5rem_5.5rem_1.5rem] items-center gap-3 border-b border-white/10 px-4 py-3 text-[11px] font-medium text-white/32 sm:grid-cols-[1fr_5rem_6.5rem_2rem] sm:px-6">
               <span>Queue</span><span className="text-right">Count</span><span className="text-right">State</span><span></span>
             </div>
             {[
@@ -101,7 +101,7 @@ export default function ClientOverview({
                   {row.icon}
                   <span className="truncate text-sm font-semibold text-white/72 group-hover:text-white">{row.label}</span>
                 </span>
-                <span className="text-right text-sm font-black text-white/58">{row.value}</span>
+                <span className="text-right text-sm font-semibold text-white/58">{row.value}</span>
                 <span className="truncate text-right text-xs font-semibold text-white/42">{row.status}</span>
                 <ChevronRight className="h-4 w-4 text-white/18 transition group-hover:translate-x-1 group-hover:text-white/62" />
               </button>
@@ -117,14 +117,14 @@ export default function ClientOverview({
                   { label: 'Files', icon: <BookOpen className="h-4 w-4" />, tab: 'resources' },
                 ].map((tool) => (
                   <button key={tool.label} type="button" onClick={() => onOpenTab(tool.tab)} className="group flex min-h-24 flex-col items-start justify-between px-4 py-5 text-left text-white/48 transition hover:bg-white/[0.025] hover:text-white">
-                    {tool.icon}<span className="text-xs font-black">{tool.label}</span>
+                    {tool.icon}<span className="text-xs font-medium">{tool.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="px-5 py-5 sm:px-6">
-              <div className="mb-3 text-sm font-black text-white">Recent</div>
+              <div className="mb-3 text-sm font-semibold text-white">Recent</div>
               <div className="divide-y divide-white/8">
                 {activities.length > 0 ? activities.slice(0, 4).map((act, i) => (
                   <div key={`${act.title}-${i}`} className="py-3">

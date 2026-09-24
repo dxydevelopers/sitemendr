@@ -63,14 +63,14 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+      <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-ai-blue"></div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-dark-bg text-light-text">
+    <main className="min-h-screen bg-[#0A0C10] text-light-text">
       {isAuthenticated ? (
         <AdminDashboard onLogout={handleLogout} />
       ) : (

@@ -94,10 +94,10 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
           {auditData ? (
             <>
               <div className="flex items-end gap-3">
-                <span className="text-5xl font-black leading-none tracking-tight text-white">{auditData.overall}</span>
-                <span className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">/ 100</span>
+                <span className="text-5xl font-semibold leading-none tracking-tight text-white">{auditData.overall}</span>
+                <span className="mb-1 text-[10px] font-medium text-white/40">/ 100</span>
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+              <p className="text-[10px] font-medium text-white/40">
                 {lastScanned ? `Last scanned ${lastScanned}` : 'Results not yet saved'}
               </p>
             </>
@@ -105,7 +105,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
             <>
               <div className="flex items-center gap-2 text-white/40">
                 <ScanLine className="h-5 w-5" />
-                <span className="text-sm font-black uppercase tracking-widest">Not yet scanned</span>
+                <span className="text-sm font-medium">Not yet scanned</span>
               </div>
               <p className="max-w-sm text-xs font-medium text-white/40">
                 Run a scan to see this site&apos;s real load speed, interactivity, and stability, plus specific recommendations.
@@ -118,7 +118,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center justify-center gap-2 border border-white/10 bg-white/[0.02] px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white/80 transition hover:border-ai-blue/30 hover:text-white disabled:opacity-50"
+            className="flex items-center justify-center gap-2 border border-white/10 bg-white/[0.02] px-6 py-3 text-[10px] font-medium text-white/80 transition hover:border-ai-blue/30 hover:text-white disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? 'Scanning...' : auditData ? 'Rescan' : 'Run scan'}
@@ -127,7 +127,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
           {onRequestOptimization && (
             <button
               onClick={onRequestOptimization}
-              className="flex items-center justify-center gap-2 bg-ai-blue px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white hover:text-black"
+              className="flex items-center justify-center gap-2 bg-ai-blue px-6 py-3 text-[10px] font-medium text-white transition hover:bg-white hover:text-black"
             >
               <LifeBuoy className="h-4 w-4" /> Request optimization
             </button>
@@ -142,12 +142,12 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
               <div key={metric.name} className="flex flex-col justify-between gap-4 border border-white/[0.08] bg-white/[0.02] p-5">
                 <metric.icon className={`h-5 w-5 ${metric.color}`} />
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">{metric.name}</p>
+                  <p className="text-[10px] font-medium text-white/40">{metric.name}</p>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xl font-black text-white">
+                    <span className="text-xl font-semibold text-white">
                       {metric.value}{metric.isPercentage ? '%' : metric.unit}
                     </span>
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${metric.status === 'good' ? 'text-expert-green' : 'text-amber-300'}`}>
+                    <span className={`text-[10px] font-medium ${metric.status === 'good' ? 'text-expert-green' : 'text-amber-300'}`}>
                       {metric.status === 'good' ? 'Good' : 'Needs work'}
                     </span>
                   </div>
@@ -158,8 +158,8 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
 
           <div className="border border-white/[0.08] bg-white/[0.02] p-6 lg:p-8">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-sm font-black uppercase tracking-[0.14em] text-white">Recommendations</h3>
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+              <h3 className="text-sm font-medium text-white">Recommendations</h3>
+              <span className="text-[10px] font-medium text-white/40">
                 {auditData.recommendations.length} {auditData.recommendations.length === 1 ? 'item' : 'items'}
               </span>
             </div>
@@ -173,7 +173,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
                       : <Info className="mt-0.5 h-4 w-4 shrink-0 text-ai-blue" />}
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-white/88">{rec.message}</p>
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${rec.priority === 'HIGH' ? 'text-red-400' : 'text-ai-blue'}`}>
+                      <span className={`text-[10px] font-medium ${rec.priority === 'HIGH' ? 'text-red-400' : 'text-ai-blue'}`}>
                         {rec.priority === 'HIGH' ? 'High impact' : 'Medium impact'}
                       </span>
                     </div>
@@ -183,7 +183,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, is
             ) : (
               <div className="flex flex-col items-center gap-3 border border-dashed border-white/10 py-12 text-center">
                 <Check className="h-8 w-8 text-expert-green/50" />
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/40">Nothing outstanding right now</p>
+                <p className="text-xs font-semibold text-white/40">Nothing outstanding right now</p>
               </div>
             )}
           </div>

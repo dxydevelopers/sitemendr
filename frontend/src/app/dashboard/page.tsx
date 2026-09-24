@@ -58,14 +58,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-darker-bg flex items-center justify-center">
+      <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-ai-blue"></div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-darker-bg text-white selection:bg-ai-blue/30">
+    <main className="min-h-screen bg-[#0A0C10] text-white selection:bg-ai-blue/30">
       {isAuthenticated ? (
         <ClientDashboard onLogout={handleLogout} />
       ) : null}

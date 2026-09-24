@@ -89,14 +89,14 @@ export default function AdminTransactions() {
     <div className="animate-fade-in space-y-5">
       <section className="border-b border-white/10 pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="inline-flex items-center border border-white/10 bg-white/[0.02] px-3 py-2 text-[9px] font-black uppercase tracking-[0.22em] text-white/42">
+          <div className="inline-flex items-center border border-white/10 bg-white/[0.02] px-3 py-2 text-[9px] font-medium text-white/42">
             {pagination.total} total records
           </div>
         </div>
 
         <div className="mt-4 grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[minmax(0,1fr)_11rem_11rem] lg:items-end">
           <label className="relative">
-            <span className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-white/24">
+            <span className="mb-2 flex items-center gap-2 text-[8px] font-medium text-white/24">
               <Search className="h-3 w-3" />
               Search
             </span>
@@ -106,12 +106,12 @@ export default function AdminTransactions() {
               placeholder="Search name, email, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="min-h-10 w-full rounded-xl border border-white/12 bg-[#05070a] py-2.5 pl-9 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+              className="min-h-10 w-full rounded-xl border border-white/12 bg-[#0A0C10] py-2.5 pl-9 pr-4 text-[11px] font-semibold tracking-[0.12em] text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
             />
           </label>
 
           <div className="relative">
-            <span className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-white/24">
+            <span className="mb-2 flex items-center gap-2 text-[8px] font-medium text-white/24">
               <SlidersHorizontal className="h-3 w-3" />
               Status
             </span>
@@ -121,13 +121,13 @@ export default function AdminTransactions() {
                 e.stopPropagation();
                 setOpenMenu(openMenu === 'status' ? null : 'status');
               }}
-              className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
+              className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#0A0C10] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
             >
               <span>{statusFilter === 'ALL' ? 'All status' : statusFilter}</span>
               <ChevronDown className="h-4 w-4 text-white/28" />
             </button>
             {openMenu === 'status' && (
-              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#05070a] shadow-2xl shadow-black/40">
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#0A0C10] shadow-2xl shadow-black/40">
                 {[
                   ['ALL', 'All status'],
                   ['completed', 'Completed'],
@@ -153,7 +153,7 @@ export default function AdminTransactions() {
           </div>
 
           <div className="relative">
-            <span className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.24em] text-white/24">
+            <span className="mb-2 flex items-center gap-2 text-[8px] font-medium text-white/24">
               <SlidersHorizontal className="h-3 w-3" />
               Type
             </span>
@@ -163,13 +163,13 @@ export default function AdminTransactions() {
                 e.stopPropagation();
                 setOpenMenu(openMenu === 'type' ? null : 'type');
               }}
-              className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#05070a] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
+              className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#0A0C10] px-3 py-2.5 text-left text-[11px] font-semibold tracking-[0.12em] text-white transition hover:border-white/20"
             >
               <span>{serviceTypeFilter === 'ALL' ? 'All types' : serviceTypeFilter.replace(/_/g, ' ')}</span>
               <ChevronDown className="h-4 w-4 text-white/28" />
             </button>
             {openMenu === 'type' && (
-              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#05070a] shadow-2xl shadow-black/40">
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#0A0C10] shadow-2xl shadow-black/40">
                 {[
                   ['ALL', 'All types'],
                   ['build', 'Build'],
@@ -196,7 +196,7 @@ export default function AdminTransactions() {
       </section>
 
       <section className="border-t border-white/20">
-        <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-4 py-3 text-[8px] font-black uppercase tracking-[0.22em] text-white/28 xl:grid">
+        <div className="hidden grid-cols-12 gap-4 border-b border-white/20 px-4 py-3 text-[8px] font-medium text-white/28 xl:grid">
           <div className="col-span-3">Payer</div>
           <div className="col-span-2">Reference</div>
           <div className="col-span-1">Type</div>
@@ -207,11 +207,11 @@ export default function AdminTransactions() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-[10px] font-black uppercase tracking-[0.2em] text-white/34">Loading transactions...</div>
+          <div className="py-16 text-center text-[10px] font-medium text-white/34">Loading transactions...</div>
         ) : transactions.length === 0 ? (
           <div className="py-16 text-center">
             <CreditCard className="mx-auto mb-4 h-8 w-8 text-white/15" />
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/34">No transactions match these filters</p>
+            <p className="text-[10px] font-medium text-white/34">No transactions match these filters</p>
           </div>
         ) : (
           <div className="divide-y divide-white/20">
@@ -219,22 +219,22 @@ export default function AdminTransactions() {
               <div key={tx.id} className="grid grid-cols-1 gap-4 border-b border-white/20 px-1 py-4 transition hover:bg-white/[0.02] xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_auto] xl:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-[11px] font-black uppercase tracking-tight text-white">{tx.payer?.name || 'Unknown'}</p>
-                    <span className={`inline-flex items-center gap-1 border border-white/12 px-2 py-1 text-[8px] font-black uppercase tracking-[0.2em] ${statusTone[tx.status] || 'text-white/50'}`}>
+                    <p className="truncate text-[11px] font-medium text-white">{tx.payer?.name || 'Unknown'}</p>
+                    <span className={`inline-flex items-center gap-1 border border-white/12 px-2 py-1 text-[8px] font-medium ${statusTone[tx.status] || 'text-white/50'}`}>
                       {statusIcon(tx.status)}
                       {tx.status}
                     </span>
                   </div>
                   <p className="mt-1 truncate text-[9px] font-medium text-white/34">{tx.payer?.email || '—'}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60">
+                    <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-medium text-white/60">
                       {tx.serviceType?.replace(/_/g, ' ')}
                     </span>
-                    <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60">
+                    <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-medium text-white/60">
                       {tx.cardType ? `${tx.cardType} •••• ${tx.last4 || ''}` : tx.channel?.replace(/_/g, ' ')}
                     </span>
                     {tx.bank && (
-                      <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <span className="inline-flex items-center border border-white/20 bg-transparent px-2.5 py-1 text-[8px] font-medium text-white/45">
                         {tx.bank}
                       </span>
                     )}
@@ -242,19 +242,19 @@ export default function AdminTransactions() {
                 </div>
 
                 <div className="grid gap-1 xl:justify-items-start">
-                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Reference</p>
-                  <p className="font-mono text-[9px] font-black text-ai-blue">{tx.reference}</p>
+                  <p className="text-[8px] font-medium text-white/28">Reference</p>
+                  <p className="font-mono text-[9px] font-semibold text-ai-blue">{tx.reference}</p>
                 </div>
 
                 <div className="grid gap-1 xl:justify-items-start">
-                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Amount</p>
-                  <p className="text-[10px] font-black text-white">{formatAmount(tx.amount, tx.currency)}</p>
+                  <p className="text-[8px] font-medium text-white/28">Amount</p>
+                  <p className="text-[10px] font-semibold text-white">{formatAmount(tx.amount, tx.currency)}</p>
                 </div>
 
                 <div className="flex items-center justify-between xl:justify-end">
                   <div className="text-right">
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/28">Date</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-white/34">
+                    <p className="text-[8px] font-medium text-white/28">Date</p>
+                    <p className="text-[9px] font-medium text-white/34">
                       {new Date(tx.createdAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -268,7 +268,7 @@ export default function AdminTransactions() {
 
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-white/10 pt-4">
-          <p className="text-[9px] font-black uppercase tracking-widest text-white/34">
+          <p className="text-[9px] font-medium text-white/34">
             Page {pagination.page} of {pagination.totalPages}
           </p>
           <div className="flex gap-2">

@@ -153,7 +153,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-4">
         <Loader2 className="h-6 w-6 animate-spin text-ai-blue" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Loading tickets...</p>
+        <p className="text-[10px] font-medium text-white/40">Loading tickets...</p>
       </div>
     );
   }
@@ -164,8 +164,8 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
         <div className="flex items-center gap-3">
           <Headphones className="h-5 w-5 text-ai-blue" />
           <div>
-            <h2 className="text-lg font-black tracking-tight text-white">Support</h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+            <h2 className="text-lg font-semibold tracking-tight text-white">Support</h2>
+            <p className="text-[10px] font-medium text-white/40">
               {view === 'list' && 'Your tickets'}
               {view === 'chat' && 'AI assistant'}
               {view === 'create' && 'New ticket'}
@@ -176,15 +176,15 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
 
         <div className="flex gap-2">
           {view !== 'list' ? (
-            <button onClick={() => { setView('list'); setSelectedTicket(null); }} className="flex items-center gap-2 border border-white/10 bg-white/[0.02] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white/70 transition hover:text-white">
+            <button onClick={() => { setView('list'); setSelectedTicket(null); }} className="flex items-center gap-2 border border-white/10 bg-white/[0.02] px-4 py-2 text-[10px] font-medium text-white/70 transition hover:text-white">
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
           ) : (
             <>
-              <button onClick={() => setView('chat')} className="flex items-center gap-2 border border-white/10 bg-white/[0.02] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white/70 transition hover:border-ai-blue/30 hover:text-white">
+              <button onClick={() => setView('chat')} className="flex items-center gap-2 border border-white/10 bg-white/[0.02] px-4 py-2 text-[10px] font-medium text-white/70 transition hover:border-ai-blue/30 hover:text-white">
                 <Bot className="h-4 w-4" /> AI chat
               </button>
-              <button onClick={() => setView('create')} className="flex items-center gap-2 bg-ai-blue px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white hover:text-black">
+              <button onClick={() => setView('create')} className="flex items-center gap-2 bg-ai-blue px-4 py-2 text-[10px] font-medium text-white transition hover:bg-white hover:text-black">
                 <Plus className="h-4 w-4" /> New ticket
               </button>
             </>
@@ -198,10 +198,10 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
             <div className="flex flex-col items-center gap-4 p-16 text-center">
               <ShieldQuestion className="h-8 w-8 text-white/24" />
               <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-white/50">No tickets yet</h3>
+                <h3 className="text-sm font-medium text-white/50">No tickets yet</h3>
                 <p className="mt-1 text-xs font-medium text-white/30">Nothing open right now.</p>
               </div>
-              <button onClick={() => setView('create')} className="border border-white/10 px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-white/80 transition hover:border-ai-blue/30 hover:text-white">
+              <button onClick={() => setView('create')} className="border border-white/10 px-6 py-2.5 text-[10px] font-medium text-white/80 transition hover:border-ai-blue/30 hover:text-white">
                 Create a ticket
               </button>
             </div>
@@ -215,8 +215,8 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                       {unread && <span className="h-2 w-2 shrink-0 bg-ai-blue" />}
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-3">
-                          <h4 className="truncate text-sm font-black text-white">{ticket.subject}</h4>
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${statusColor[ticket.status] || 'text-white/50'}`}>{ticket.status}</span>
+                          <h4 className="truncate text-sm font-semibold text-white">{ticket.subject}</h4>
+                          <span className={`text-[10px] font-medium ${statusColor[ticket.status] || 'text-white/50'}`}>{ticket.status}</span>
                         </div>
                         <p className="flex items-center gap-1.5 text-[11px] font-semibold text-white/40">
                           <Clock className="h-3 w-3" /> {format(new Date(ticket.createdAt), 'MMM d, HH:mm')}
@@ -236,10 +236,10 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
             <div className="flex flex-col gap-2 border-b border-white/[0.08] p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-base font-black tracking-tight text-white">{selectedTicket.subject}</h3>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${statusColor[selectedTicket.status] || 'text-white/50'}`}>{selectedTicket.status}</span>
+                  <h3 className="text-base font-semibold tracking-tight text-white">{selectedTicket.subject}</h3>
+                  <span className={`text-[10px] font-medium ${statusColor[selectedTicket.status] || 'text-white/50'}`}>{selectedTicket.status}</span>
                 </div>
-                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-white/40">
+                <p className="mt-1 text-[10px] font-medium text-white/40">
                   Priority: {selectedTicket.priority} · {format(new Date(selectedTicket.createdAt), 'PPP')}
                 </p>
               </div>
@@ -256,7 +256,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                       <div className={`p-4 text-sm font-medium leading-relaxed ${msg.isAdmin ? 'border border-white/[0.08] bg-white/[0.02] text-white/80' : 'bg-ai-blue text-white'}`}>
                         {msg.content}
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-white/24">{format(new Date(msg.createdAt), 'HH:mm')}</span>
+                      <span className="text-[10px] font-medium text-white/24">{format(new Date(msg.createdAt), 'HH:mm')}</span>
                     </div>
                   </div>
                 </div>
@@ -276,7 +276,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                   <button
                     onClick={handleReplyToTicket}
                     disabled={isSubmitting || !ticketReply.trim()}
-                    className="absolute bottom-4 right-4 flex items-center gap-2 bg-ai-blue px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white hover:text-black disabled:opacity-50"
+                    className="absolute bottom-4 right-4 flex items-center gap-2 bg-ai-blue px-5 py-2.5 text-[10px] font-medium text-white transition hover:bg-white hover:text-black disabled:opacity-50"
                   >
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     Send
@@ -321,7 +321,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                   placeholder="Ask a question or describe an issue..."
                   className="w-full border border-white/10 bg-white/[0.02] py-3.5 pl-4 pr-24 text-sm text-white outline-none focus:border-ai-blue"
                 />
-                <button onClick={handleSendAIChat} disabled={!chatInput.trim() || isTyping} className="absolute right-2 top-1/2 -translate-y-1/2 bg-ai-blue px-5 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-white hover:text-black disabled:opacity-50">
+                <button onClick={handleSendAIChat} disabled={!chatInput.trim() || isTyping} className="absolute right-2 top-1/2 -translate-y-1/2 bg-ai-blue px-5 py-2 text-[10px] font-medium text-white transition hover:bg-white hover:text-black disabled:opacity-50">
                   Send
                 </button>
               </div>
@@ -332,13 +332,13 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
         {view === 'create' && (
           <div className="mx-auto max-w-xl space-y-8 p-8 lg:p-12">
             <div className="space-y-1 text-center">
-              <h3 className="text-lg font-black tracking-tight text-white">New ticket</h3>
+              <h3 className="text-lg font-semibold tracking-tight text-white">New ticket</h3>
               <p className="text-xs font-medium text-white/40">Describe what you need and we&apos;ll route it to the right place.</p>
             </div>
             <form onSubmit={handleCreateTicket} className="space-y-5">
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Subject</label>
+                  <label className="text-[10px] font-medium text-white/40">Subject</label>
                   <input
                     type="text" required
                     value={newTicket.subject}
@@ -348,7 +348,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Priority</label>
+                  <label className="text-[10px] font-medium text-white/40">Priority</label>
                   <select
                     value={newTicket.priority}
                     onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
@@ -362,7 +362,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Details</label>
+                <label className="text-[10px] font-medium text-white/40">Details</label>
                 <textarea
                   required
                   value={newTicket.message}
@@ -371,7 +371,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
                   className="min-h-[180px] w-full resize-none border border-white/10 bg-white/[0.02] p-4 text-sm text-white outline-none focus:border-ai-blue"
                 />
               </div>
-              <button type="submit" disabled={isSubmitting} className="w-full bg-ai-blue py-3.5 text-[11px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black disabled:opacity-50">
+              <button type="submit" disabled={isSubmitting} className="w-full bg-ai-blue py-3.5 text-[11px] font-medium text-white transition hover:bg-white hover:text-black disabled:opacity-50">
                 {isSubmitting ? 'Creating...' : 'Create ticket'}
               </button>
             </form>

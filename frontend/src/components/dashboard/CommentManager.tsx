@@ -64,13 +64,13 @@ export default function CommentManager() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold uppercase tracking-widest text-ai-blue">Comment Moderation</h2>
+        <h2 className="text-xl font-medium text-ai-blue">Comment Moderation</h2>
         <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
           {['pending', 'approved', 'spam'].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+              className={`px-4 py-2 rounded-lg text-[10px] font-medium transition-all ${
                 filter === status ? 'bg-ai-blue text-white' : 'text-medium-gray hover:text-white'
               }`}
             >
@@ -117,7 +117,7 @@ export default function CommentManager() {
                       <FileText className="w-3 h-3" />
                       Post: <span className="text-ai-blue">{comment.blogPost?.title || 'Unknown'}</span>
                     </div>
-                    <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${
+                    <div className={`px-2 py-0.5 rounded text-[8px] font-medium ${
                       comment.status === 'approved' ? 'bg-expert-green/20 text-expert-green' : 
                       comment.status === 'spam' ? 'bg-red-500/20 text-red-500' : 
                       'bg-orange-500/20 text-orange-500'

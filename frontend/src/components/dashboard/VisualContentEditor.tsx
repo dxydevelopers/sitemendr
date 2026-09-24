@@ -325,7 +325,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <Loader2 className="w-10 h-10 text-ai-blue animate-spin" />
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-ai-blue animate-pulse">Initializing AI Editor...</p>
+        <p className="text-[10px] font-medium text-ai-blue animate-pulse">Initializing AI Editor...</p>
       </div>
     );
   }
@@ -347,10 +347,10 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
               <Lock className="w-10 h-10 text-ai-blue group-hover:rotate-12 transition-transform" />
             </div>
             <div className="space-y-4">
-              <h3 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white leading-tight">
+              <h3 className="text-2xl lg:text-3xl font-medium text-white leading-tight">
                 Editor <span className="text-ai-blue italic">Locked</span>
               </h3>
-              <p className="text-sm text-white/40 font-bold uppercase tracking-wide leading-relaxed">
+              <p className="text-sm text-white/40 font-medium leading-relaxed">
                 The <span className="text-white">Standard CMS Enhancement</span> is required to access visual editing for this project.
               </p>
             </div>
@@ -360,7 +360,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
                   const addonsTab = document.querySelector('button[id="addons"]');
                   if (addonsTab) (addonsTab as HTMLButtonElement).click();
                 }}
-                className="w-full flex items-center justify-center gap-4 py-6 bg-ai-blue text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-ai-blue/20"
+                className="w-full flex items-center justify-center gap-4 py-6 bg-ai-blue text-white rounded-2xl font-semibold text-xs uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-ai-blue/20"
               >
                 <ShoppingBag className="w-5 h-5" />
                 Add CMS access
@@ -376,7 +376,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
             <MousePointer2 className="w-4 h-4 lg:w-5 lg:h-5 text-ai-blue" />
           </div>
           <div>
-            <h3 className="text-[10px] lg:text-xs font-black uppercase tracking-[0.3em] text-white">Site Editor</h3>
+            <h3 className="text-[10px] lg:text-xs font-medium text-white">Site Editor</h3>
             <p className="text-[7px] lg:text-[8px] text-medium-gray mt-1 hidden sm:block">Changes sync in real-time</p>
           </div>
         </div>
@@ -406,7 +406,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 lg:px-6 py-2 lg:py-2.5 bg-ai-blue text-black rounded-lg lg:rounded-xl text-[8px] lg:text-[9px] font-black uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-4 lg:px-6 py-2 lg:py-2.5 bg-ai-blue text-black rounded-lg lg:rounded-xl text-[8px] lg:text-[9px] font-medium hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             <span className="hidden sm:inline">{saving ? 'Saving...' : 'Publish Changes'}</span>
@@ -449,7 +449,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="bg-darker-bg p-6 lg:p-8 rounded-2xl lg:rounded-3xl border border-ai-blue/30 flex flex-col items-center gap-4 shadow-2xl">
                 <Loader2 className="w-6 h-6 lg:w-8 lg:h-8 text-ai-blue animate-spin" />
-                <p className="text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-white animate-pulse text-center">Publishing to live site...</p>
+                <p className="text-[8px] lg:text-[10px] font-medium text-white animate-pulse text-center">Publishing to live site...</p>
               </div>
             </div>
           )}
@@ -458,7 +458,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
         {/* Properties Sidebar */}
         <div className={`fixed lg:relative inset-y-0 right-0 w-72 lg:w-80 border-l border-white/5 bg-black/90 lg:bg-white/[0.02] flex flex-col z-[60] transform transition-transform duration-300 backdrop-blur-xl lg:translate-x-0 ${showProperties ? 'translate-x-0' : 'translate-x-full'}`}>
           <div className="p-4 lg:p-6 border-b border-white/5 flex justify-between items-center">
-            <h4 className="text-[9px] lg:text-[10px] font-black uppercase tracking-[0.2em] text-ai-blue">NODE_PROPERTIES</h4>
+            <h4 className="text-[9px] lg:text-[10px] font-medium text-ai-blue">NODE_PROPERTIES</h4>
             <button onClick={() => setShowSidebar(false)} className="lg:hidden p-1 text-medium-gray"><X className="w-4 h-4" /></button>
           </div>
           
@@ -473,7 +473,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
                       ) : (
                         <ImageIcon className="w-4 h-4 text-expert-green" />
                       )}
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white">
+                      <span className="text-[9px] font-medium text-white">
                         {selectedElement.type}_COMPONENT
                       </span>
                     </div>
@@ -498,7 +498,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
                       <button
                         onClick={handleNeuralRewrite}
                         disabled={optimizing}
-                        className="w-full py-2.5 bg-tech-purple text-white rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-white hover:text-tech-purple transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-2.5 bg-tech-purple text-white rounded-xl text-[8px] font-medium hover:bg-white hover:text-tech-purple transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {optimizing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
                         {optimizing ? 'REFINING...' : 'NEURAL_REWRITE'}
@@ -510,7 +510,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
                         <img src={selectedElement.content} alt="Preview" className="w-full h-full object-contain" />
                         <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
                           <Upload className="w-6 h-6 text-white mb-2" />
-                          <span className="text-[8px] font-black uppercase text-white">Upload New Asset</span>
+                          <span className="text-[8px] font-medium text-white">Upload New Asset</span>
                           <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                         </label>
                       </div>
@@ -537,7 +537,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
                 <MousePointer2 className="w-8 h-8 text-medium-gray mb-4" />
-                <p className="text-[9px] font-black uppercase tracking-widest text-medium-gray">
+                <p className="text-[9px] font-medium text-medium-gray">
                   Select an element<br/>to begin refinement
                 </p>
               </div>
@@ -556,7 +556,7 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
               ) : (
                 <TriangleAlert className="w-3 h-3 text-red-500" />
               )}
-              <span className={`text-[9px] font-black uppercase tracking-widest ${
+              <span className={`text-[9px] font-medium ${
                 status.type === 'success' ? 'text-expert-green' : 'text-red-500'
               }`}>
                 {status.message}
@@ -566,12 +566,12 @@ const VisualContentEditor: React.FC<VisualContentEditorProps> = ({ subscriptionI
           {!status && (
             <div className="flex items-center gap-2 opacity-30">
               <div className="w-1.5 h-1.5 bg-ai-blue rounded-full animate-pulse"></div>
-              <span className="text-[8px] font-black uppercase tracking-widest text-ai-blue">Ready for input</span>
+              <span className="text-[8px] font-medium text-ai-blue">Ready for input</span>
             </div>
           )}
         </div>
         
-        <div className="flex items-center gap-4 text-[8px] font-black text-medium-gray uppercase tracking-widest">
+        <div className="flex items-center gap-4 text-[8px] font-semibold text-medium-gray uppercase tracking-widest">
           <span>{viewMode.toUpperCase()}_VIEWPORT</span>
           <span className="w-1 h-1 bg-white/10 rounded-full"></span>
           <span>DOM_READY</span>

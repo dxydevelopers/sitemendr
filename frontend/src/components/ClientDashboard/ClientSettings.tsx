@@ -36,8 +36,8 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
       <div className="mb-8 border-b border-white/10 pb-5">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Mail className="h-4 w-4 shrink-0 text-white/38" />
-          <p className="min-w-0 break-all text-base font-black text-white">{user?.email}</p>
-          <span className={`inline-flex w-fit items-center gap-1.5 text-xs font-black ${user?.isEmailVerified ? 'text-expert-green' : 'text-amber-300'}`}>
+          <p className="min-w-0 break-all text-base font-semibold text-white">{user?.email}</p>
+          <span className={`inline-flex w-fit items-center gap-1.5 text-xs font-semibold ${user?.isEmailVerified ? 'text-expert-green' : 'text-amber-300'}`}>
             {user?.isEmailVerified ? <Check className="h-3.5 w-3.5" /> : <TriangleAlert className="h-3.5 w-3.5" />}
             {user?.isEmailVerified ? 'Verified' : 'Not verified'}
           </span>
@@ -46,7 +46,7 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
               type="button"
               onClick={handleResendVerification}
               disabled={resendState === 'sending' || resendState === 'sent'}
-              className="flex items-center gap-1.5 border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white/70 transition hover:border-ai-blue/30 hover:text-white disabled:opacity-50"
+              className="flex items-center gap-1.5 border border-white/10 px-3 py-1.5 text-[10px] font-medium text-white/70 transition hover:border-ai-blue/30 hover:text-white disabled:opacity-50"
             >
               {resendState === 'sending' && <Loader2 className="h-3 w-3 animate-spin" />}
               {resendState === 'sent' ? 'Email sent' : resendState === 'error' ? 'Try again' : 'Resend verification'}
@@ -68,14 +68,14 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
         <section>
           <form onSubmit={handleUpdateProfile} className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Name</label>
+              <label className="text-[10px] font-medium text-white/40">Name</label>
               <input type="text" value={profileData.name} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                 className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue" placeholder="Your name" />
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Phone</label>
-                <span className={`text-xs font-black ${profileData.phone ? (user?.phoneVerified ? 'text-expert-green' : 'text-amber-300') : 'text-white/28'}`}>
+                <label className="text-[10px] font-medium text-white/40">Phone</label>
+                <span className={`text-xs font-semibold ${profileData.phone ? (user?.phoneVerified ? 'text-expert-green' : 'text-amber-300') : 'text-white/28'}`}>
                   {profileData.phone ? (user?.phoneVerified ? 'Verified' : 'Not verified') : 'Not added'}
                 </span>
               </div>
@@ -87,7 +87,7 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
               </div>
             </div>
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Country</label>
+              <label className="text-[10px] font-medium text-white/40">Country</label>
               <select value={profileData.country} onChange={(e) => {
                 const country = e.target.value;
                 setProfileData({ ...profileData, country, billingRegion: country, defaultCurrency: getDefaultCurrencyForCountry(country) });
@@ -96,21 +96,21 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
               </select>
             </div>
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Currency</label>
+              <label className="text-[10px] font-medium text-white/40">Currency</label>
               <select value={profileData.defaultCurrency} onChange={(e) => setProfileData({ ...profileData, defaultCurrency: e.target.value })}
                 className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue">
                 {Array.from(new Set(accountCountryOptions.map(o => o.currency))).map(currency => <option key={currency} value={currency} className="bg-black text-white">{currency}</option>)}
               </select>
             </div>
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Account type</label>
+              <label className="text-[10px] font-medium text-white/40">Account type</label>
               <select value={profileData.accountType} onChange={(e) => setProfileData({ ...profileData, accountType: e.target.value })}
                 className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue">
                 {accountTypeOptions.map(option => <option key={option.value} value={option.value} className="bg-black text-white">{option.label}</option>)}
               </select>
             </div>
             <div className="sm:col-span-2 pt-3">
-              <button type="submit" className="min-h-11 bg-ai-blue px-5 text-sm font-black text-white transition hover:bg-white hover:text-black">Save changes</button>
+              <button type="submit" className="min-h-11 bg-ai-blue px-5 text-sm font-semibold text-white transition hover:bg-white hover:text-black">Save changes</button>
             </div>
           </form>
         </section>
@@ -130,7 +130,7 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
               <input type="password" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                 className="w-full border-b border-white/14 bg-transparent px-0 py-3 text-sm text-white outline-none transition focus:border-ai-blue" placeholder="Confirm new password" />
             </div>
-            <button type="submit" className="min-h-11 border border-white/16 px-5 text-sm font-black text-white transition hover:border-white/34 hover:bg-white/8">Change password</button>
+            <button type="submit" className="min-h-11 border border-white/16 px-5 text-sm font-semibold text-white transition hover:border-white/34 hover:bg-white/8">Change password</button>
           </form>
         </section>
       </div>

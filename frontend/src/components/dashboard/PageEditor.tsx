@@ -314,8 +314,8 @@ const PageEditor: React.FC<PageEditorProps> = ({
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-sm font-black uppercase tracking-widest">Visual Editor</h2>
-            <p className="text-[10px] text-medium-gray font-bold uppercase tracking-widest">
+            <h2 className="text-sm font-medium">Visual Editor</h2>
+            <p className="text-[10px] text-medium-gray font-medium">
               {selectedPage ? selectedPage.title : 'Select a page'}
             </p>
           </div>
@@ -348,7 +348,7 @@ const PageEditor: React.FC<PageEditorProps> = ({
           {selectedPage && (
             <button
               onClick={handlePublishPage}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-[10px] tracking-widest transition-colors ${
                 selectedPage.isPublished
                   ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
                   : 'bg-expert-green/20 text-expert-green hover:bg-expert-green/30'
@@ -371,7 +371,7 @@ const PageEditor: React.FC<PageEditorProps> = ({
 
       {/* Status message */}
       {status && (
-        <div className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 ${
+        <div className={`px-6 py-2 text-[10px] font-medium flex items-center gap-2 ${
           status.type === 'success' ? 'bg-expert-green/20 text-expert-green' : 'bg-red-500/20 text-red-400'
         }`}>
           {status.type === 'success' ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
@@ -435,7 +435,7 @@ const PageEditor: React.FC<PageEditorProps> = ({
                   <p className="text-medium-gray font-medium mb-4">No page selected</p>
                   <button
                     onClick={handleCreatePage}
-                    className="px-6 py-3 bg-ai-blue text-black rounded-xl font-bold uppercase text-sm tracking-widest hover:bg-ai-blue/80 transition-colors"
+                    className="px-6 py-3 bg-ai-blue text-black rounded-xl font-medium text-sm tracking-widest hover:bg-ai-blue/80 transition-colors"
                   >
                     Create First Page
                   </button>
@@ -452,7 +452,7 @@ const PageEditor: React.FC<PageEditorProps> = ({
             <div className="flex border-b border-white/10">
               <button
                 onClick={() => setEditorMode('pages')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                className={`flex-1 py-3 text-[10px] font-medium transition-colors ${
                   editorMode === 'pages' ? 'text-ai-blue border-b-2 border-ai-blue' : 'text-medium-gray hover:text-white'
                 }`}
               >
@@ -460,7 +460,7 @@ const PageEditor: React.FC<PageEditorProps> = ({
               </button>
               <button
                 onClick={() => setEditorMode('sections')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                className={`flex-1 py-3 text-[10px] font-medium transition-colors ${
                   editorMode === 'sections' ? 'text-ai-blue border-b-2 border-ai-blue' : 'text-medium-gray hover:text-white'
                 }`}
               >
@@ -468,7 +468,7 @@ const PageEditor: React.FC<PageEditorProps> = ({
               </button>
               <button
                 onClick={() => setEditorMode('theme')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                className={`flex-1 py-3 text-[10px] font-medium transition-colors ${
                   editorMode === 'theme' ? 'text-ai-blue border-b-2 border-ai-blue' : 'text-medium-gray hover:text-white'
                 }`}
               >
@@ -518,7 +518,7 @@ const PageList: React.FC<{
   <div className="space-y-3">
     <button
       onClick={onCreate}
-      className="w-full py-3 bg-ai-blue/20 text-ai-blue rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-ai-blue/30 transition-colors flex items-center justify-center gap-2"
+      className="w-full py-3 bg-ai-blue/20 text-ai-blue rounded-xl font-medium text-[10px] tracking-widest hover:bg-ai-blue/30 transition-colors flex items-center justify-center gap-2"
     >
       <Plus className="w-4 h-4" /> New Page
     </button>
@@ -541,7 +541,7 @@ const PageList: React.FC<{
             </div>
             <div className="flex items-center gap-2">
               {page.isHome && (
-                <span className="px-2 py-1 bg-expert-green/20 text-expert-green text-[8px] font-black uppercase rounded">
+                <span className="px-2 py-1 bg-expert-green/20 text-expert-green text-[8px] font-medium rounded">
                   HOME
                 </span>
               )}
@@ -572,7 +572,7 @@ const SectionLibrary: React.FC<{
     <div className="space-y-4">
       {categories.map(category => (
         <div key={category}>
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-medium-gray mb-2">
+          <h3 className="text-[10px] font-medium text-medium-gray mb-2">
             {category}
           </h3>
           <div className="space-y-2">
@@ -604,7 +604,7 @@ const ThemeEditor: React.FC<{
 }> = ({ settings, onUpdate }) => (
   <div className="space-y-6">
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-widest text-medium-gray mb-2">
+      <label className="block text-[10px] font-medium text-medium-gray mb-2">
         Primary Color
       </label>
       <div className="flex items-center gap-2">
@@ -624,7 +624,7 @@ const ThemeEditor: React.FC<{
     </div>
 
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-widest text-medium-gray mb-2">
+      <label className="block text-[10px] font-medium text-medium-gray mb-2">
         Secondary Color
       </label>
       <div className="flex items-center gap-2">
@@ -644,7 +644,7 @@ const ThemeEditor: React.FC<{
     </div>
 
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-widest text-medium-gray mb-2">
+      <label className="block text-[10px] font-medium text-medium-gray mb-2">
         Background Color
       </label>
       <div className="flex items-center gap-2">
@@ -664,7 +664,7 @@ const ThemeEditor: React.FC<{
     </div>
 
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-widest text-medium-gray mb-2">
+      <label className="block text-[10px] font-medium text-medium-gray mb-2">
         Border Radius
       </label>
       <select
@@ -681,7 +681,7 @@ const ThemeEditor: React.FC<{
     </div>
 
     <div>
-      <label className="block text-[10px] font-black uppercase tracking-widest text-medium-gray mb-2">
+      <label className="block text-[10px] font-medium text-medium-gray mb-2">
         Heading Font
       </label>
       <select

@@ -42,7 +42,7 @@ export default function MySites({
           <div className="mx-auto grid h-14 w-14 place-items-center border border-white/10 bg-white/[0.03] text-ai-blue">
             <Globe className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-black tracking-tight text-white">No live sites yet</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-white">No live sites yet</h1>
           <p className="text-sm font-medium text-white/44">Once a build launches, it shows up here as something you own and operate — not just a finished project.</p>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function MySites({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-black tracking-tight text-white">{site.name}</h3>
+                  <h3 className="truncate text-sm font-semibold tracking-tight text-white">{site.name}</h3>
                   {site.siteUrl && (
                     <p className="mt-1 truncate text-[11px] font-semibold text-white/44">{site.siteUrl.replace(/^https?:\/\//, '')}</p>
                   )}
@@ -78,7 +78,7 @@ export default function MySites({
                 ) : (
                   <CircleCheck className="h-3.5 w-3.5 text-expert-green" />
                 )}
-                <span className={`text-[10px] font-black uppercase tracking-[0.14em] ${statusTone[status] || 'text-white/50'}`}>
+                <span className={`text-[10px] font-medium ${statusTone[status] || 'text-white/50'}`}>
                   {needsAttention ? 'Needs your review' : statusLabel[status] || status}
                 </span>
               </div>

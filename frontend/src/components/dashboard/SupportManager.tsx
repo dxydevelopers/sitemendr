@@ -92,8 +92,8 @@ const SupportManager: React.FC = () => {
   return (
     <div className="space-y-10 animate-fade-in">
       <div className="flex flex-col">
-        <span className="text-[8px] font-black text-ai-blue uppercase tracking-[0.3em] mb-1">Support_Intelligence</span>
-        <h2 className="text-sm font-black tracking-widest flex items-center gap-3 uppercase">
+        <span className="text-[8px] font-semibold text-ai-blue uppercase tracking-[0.3em] mb-1">Support_Intelligence</span>
+        <h2 className="text-sm font-semibold tracking-widest flex items-center gap-3 uppercase">
           <span className="w-1.5 h-6 bg-ai-blue rounded-full"></span>
           Terminal Support Nexus
         </h2>
@@ -107,7 +107,7 @@ const SupportManager: React.FC = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-medium-gray" />
               <input 
                 placeholder="Search..."
-                className="w-full bg-white/[0.02] border border-white/5 rounded-xl py-3 pl-12 pr-4 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-ai-blue/50"
+                className="w-full bg-white/[0.02] border border-white/5 rounded-xl py-3 pl-12 pr-4 text-[10px] font-medium focus:outline-none focus:border-ai-blue/50"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -117,7 +117,7 @@ const SupportManager: React.FC = () => {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase tracking-tighter transition-all ${
+                  className={`flex-1 py-2 rounded-lg text-[8px] font-medium transition-all ${
                     filter === f ? 'bg-ai-blue text-white' : 'bg-white/5 text-medium-gray hover:bg-white/10'
                   }`}
                 >
@@ -131,11 +131,11 @@ const SupportManager: React.FC = () => {
             {loading ? (
               <div className="p-10 text-center animate-pulse opacity-30">
                 <div className="w-8 h-8 border-2 border-ai-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-[8px] font-black uppercase tracking-[0.2em]">Synchronizing...</p>
+                <p className="text-[8px] font-medium">Synchronizing...</p>
               </div>
             ) : filteredTickets.length === 0 ? (
               <div className="p-10 text-center opacity-30">
-                <p className="text-[8px] font-black uppercase tracking-[0.2em]">No logs found</p>
+                <p className="text-[8px] font-medium">No logs found</p>
               </div>
             ) : (
               filteredTickets.map(t => (
@@ -149,7 +149,7 @@ const SupportManager: React.FC = () => {
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
+                    <span className={`text-[8px] font-semibold px-2 py-0.5 rounded uppercase tracking-widest ${
                       t.priority.toLowerCase() === 'high' ? 'bg-red-500/20 text-red-500' :
                       t.priority.toLowerCase() === 'medium' ? 'bg-orange-500/20 text-orange-500' :
                       'bg-ai-blue/20 text-ai-blue'
@@ -160,7 +160,7 @@ const SupportManager: React.FC = () => {
                       {new Date(t.createdAt).toLocaleDateString()}
                     </span>
                   </div>
-                  <h4 className="text-[11px] font-black uppercase tracking-tight mb-1 truncate">{t.subject}</h4>
+                  <h4 className="text-[11px] font-medium mb-1 truncate">{t.subject}</h4>
                   <p className="text-[9px] text-medium-gray font-medium uppercase truncate">{t.user?.email || t.client?.email}</p>
                 </button>
               ))
@@ -175,7 +175,7 @@ const SupportManager: React.FC = () => {
               <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
                 <div>
                   <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-sm font-black uppercase tracking-widest">{selectedTicket.subject}</h3>
+                    <h3 className="text-sm font-medium">{selectedTicket.subject}</h3>
                     <div className={`w-2 h-2 rounded-full ${
                       selectedTicket.status.toUpperCase() === 'RESOLVED' ? 'bg-expert-green' : 'bg-orange-500 animate-pulse'
                     }`}></div>
@@ -186,7 +186,7 @@ const SupportManager: React.FC = () => {
                   {selectedTicket.status.toUpperCase() !== 'RESOLVED' && (
                     <button 
                       onClick={() => handleUpdateStatus(selectedTicket.id, 'RESOLVED')}
-                      className="px-6 py-2.5 bg-expert-green text-dark-bg font-black text-[9px] uppercase tracking-widest rounded-xl hover:scale-105 transition-all"
+                      className="px-6 py-2.5 bg-expert-green text-dark-bg font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:scale-105 transition-all"
                     >
                       Mark Resolved
                     </button>
@@ -194,7 +194,7 @@ const SupportManager: React.FC = () => {
                   {selectedTicket.status.toUpperCase() === 'RESOLVED' && (
                     <button 
                       onClick={() => handleUpdateStatus(selectedTicket.id, 'OPEN')}
-                      className="px-6 py-2.5 bg-white/10 text-white font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all"
+                      className="px-6 py-2.5 bg-white/10 text-white font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all"
                     >
                       Reopen Ticket
                     </button>
@@ -230,7 +230,7 @@ const SupportManager: React.FC = () => {
                 {/* Status Indicator */}
                 <div className="flex items-center justify-center pt-4">
                   <div className="px-6 py-1.5 bg-white/5 rounded-full border border-white/5">
-                    <span className="text-[7px] font-black text-medium-gray uppercase tracking-[0.4em]">Status: {selectedTicket.status}</span>
+                    <span className="text-[7px] font-semibold text-medium-gray uppercase tracking-[0.4em]">Status: {selectedTicket.status}</span>
                   </div>
                 </div>
               </div>
@@ -260,7 +260,7 @@ const SupportManager: React.FC = () => {
               <div className="w-24 h-24 rounded-[40px] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-8">
                 <MessageSquare className="w-10 h-10" />
               </div>
-              <h3 className="text-sm font-black uppercase tracking-[0.4em] mb-4">Awaiting Signal</h3>
+              <h3 className="text-sm font-medium mb-4">Awaiting Signal</h3>
               <p className="text-[9px] font-medium uppercase max-w-[280px] leading-relaxed tracking-widest">Select a support transmission from the registry to initialize communication</p>
             </div>
           )}

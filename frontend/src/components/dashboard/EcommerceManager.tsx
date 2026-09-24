@@ -145,7 +145,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-4 lg:px-6 py-2 rounded-lg font-black text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
+            className={`px-4 lg:px-6 py-2 rounded-lg font-semibold text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
               activeTab === 'products' ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
             }`}
           >
@@ -153,7 +153,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-4 lg:px-6 py-2 rounded-lg font-black text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
+            className={`px-4 lg:px-6 py-2 rounded-lg font-semibold text-[9px] lg:text-[10px] uppercase tracking-widest transition-all ${
               activeTab === 'orders' ? 'bg-ai-blue text-white shadow-lg shadow-ai-blue/20' : 'text-white/40 hover:text-white'
             }`}
           >
@@ -167,7 +167,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
               setNewProduct({ name: '', description: '', price: '', category: '', stock: '', image: '' });
               setShowAddProduct(true);
             }}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-expert-green text-dark-bg rounded-xl hover:scale-105 transition-all text-[10px] font-black uppercase tracking-widest"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-expert-green text-dark-bg rounded-xl hover:scale-105 transition-all text-[10px] font-medium"
           >
             <Plus className="w-4 h-4" />
             Add product
@@ -185,18 +185,18 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                 ) : (
                   <Package className="w-12 h-12 text-white/5" />
                 )}
-                <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-[8px] font-black text-ai-blue uppercase tracking-widest">
+                <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-[8px] font-semibold text-ai-blue uppercase tracking-widest">
                   {product.category}
                 </div>
               </div>
               <div className="p-6 lg:p-8 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="font-black text-white text-base lg:text-lg uppercase tracking-tight">{product.name}</h3>
-                  <span className="text-ai-blue font-black text-lg">${product.price}</span>
+                  <h3 className="font-semibold text-white text-base lg:text-lg uppercase tracking-tight">{product.name}</h3>
+                  <span className="text-ai-blue font-semibold text-lg">${product.price}</span>
                 </div>
                 <p className="text-white/40 text-[11px] lg:text-xs mb-8 line-clamp-3 uppercase leading-relaxed font-medium">{product.description}</p>
                 <div className="mt-auto flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[9px] font-black text-white/40 uppercase tracking-widest">
+                  <div className="flex items-center gap-2 text-[9px] font-semibold text-white/40 uppercase tracking-widest">
                     <Tag className="w-3.5 h-3.5" />
                     Stock: {product.stock}
                   </div>
@@ -221,7 +221,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
           {products.length === 0 && (
             <div className="col-span-full py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
               <ShoppingBag className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No products connected yet</p>
+              <p className="text-white/20 font-semibold text-[10px] uppercase tracking-[0.4em]">No products connected yet</p>
             </div>
           )}
         </div>
@@ -235,14 +235,14 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     <Truck className="w-7 h-7 text-ai-blue" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Order {order.id.slice(0, 12)}</div>
-                    <div className="text-xl font-black text-white">${order.totalAmount}</div>
+                    <div className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.2em] mb-1">Order {order.id.slice(0, 12)}</div>
+                    <div className="text-xl font-semibold text-white">${order.totalAmount}</div>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-6 lg:gap-12">
                   <div className="flex-1 lg:flex-none">
-                    <div className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1">Status</div>
-                    <div className={`flex items-center gap-2 text-[10px] font-black uppercase ${
+                    <div className="text-[8px] font-semibold text-white/40 uppercase tracking-widest mb-1">Status</div>
+                    <div className={`flex items-center gap-2 text-[10px] font-medium ${
                       order.status.toLowerCase() === 'completed' ? 'text-expert-green' : 'text-orange-500'
                     }`}>
                       <Check className="w-3.5 h-3.5" />
@@ -250,10 +250,10 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     </div>
                   </div>
                   <div className="flex-1 lg:flex-none">
-                    <div className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1">Date</div>
-                    <div className="text-white text-[10px] font-black uppercase">{new Date(order.createdAt).toLocaleDateString()}</div>
+                    <div className="text-[8px] font-semibold text-white/40 uppercase tracking-widest mb-1">Date</div>
+                    <div className="text-white text-[10px] font-medium">{new Date(order.createdAt).toLocaleDateString()}</div>
                   </div>
-                  <button className="w-full lg:w-auto px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                  <button className="w-full lg:w-auto px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-medium hover:bg-white hover:text-black transition-all">
                     View order
                   </button>
                 </div>
@@ -263,7 +263,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
           {orders.length === 0 && (
             <div className="py-24 text-center bg-white/[0.01] border border-white/5 border-dashed rounded-[40px]">
               <Truck className="w-16 h-16 text-white/5 mx-auto mb-6" />
-              <p className="text-white/20 font-black text-[10px] uppercase tracking-[0.4em]">No orders recorded yet</p>
+              <p className="text-white/20 font-semibold text-[10px] uppercase tracking-[0.4em]">No orders recorded yet</p>
             </div>
           )}
         </div>
@@ -274,14 +274,14 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 lg:p-10 bg-black/90 backdrop-blur-2xl">
           <div className="absolute inset-0" onClick={() => setShowAddProduct(false)}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl p-8 lg:p-12 relative z-10 animate-in zoom-in-95 duration-300 shadow-2xl">
-            <h2 className="text-2xl lg:text-3xl font-black mb-8 lg:mb-10 tracking-tighter uppercase">
+            <h2 className="text-2xl lg:text-3xl font-semibold mb-8 lg:mb-10 tracking-tighter uppercase">
               {editingProduct ? 'Update' : 'Add'} <span className="text-ai-blue italic">Product</span>
             </h2>
             <form onSubmit={handleAddProduct} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Product name</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Product name</label>
                     <input
                       type="text"
                       required
@@ -293,7 +293,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Selling price ($)</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Selling price ($)</label>
                       <input
                         type="number"
                         required
@@ -304,7 +304,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Stock</label>
+                      <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Stock</label>
                       <input
                         type="number"
                         required
@@ -316,7 +316,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Category</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Category</label>
                     <input
                       type="text"
                       required
@@ -329,7 +329,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                 </div>
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Description</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Description</label>
                     <textarea
                       required
                       value={newProduct.description}
@@ -339,7 +339,7 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest ml-1">Product image URL (optional)</label>
+                    <label className="text-[9px] font-semibold text-white/40 uppercase tracking-widest ml-1">Product image URL (optional)</label>
                     <input
                       type="text"
                       value={newProduct.image}
@@ -354,14 +354,14 @@ export default function EcommerceManager({ subscriptionId }: EcommerceManagerPro
                 <button
                   type="button"
                   onClick={() => setShowAddProduct(false)}
-                  className="order-2 sm:order-1 flex-1 px-8 py-5 border border-white/10 rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
+                  className="order-2 sm:order-1 flex-1 px-8 py-5 border border-white/10 rounded-2xl font-semibold text-[10px] lg:text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="order-1 sm:order-2 flex-[2] px-8 py-5 bg-ai-blue text-white rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
+                  className="order-1 sm:order-2 flex-[2] px-8 py-5 bg-ai-blue text-white rounded-2xl font-semibold text-[10px] lg:text-xs uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)] disabled:opacity-50"
                 >
                   {isSubmitting ? 'Saving...' : editingProduct ? 'Save updates' : 'Add product'}
                 </button>

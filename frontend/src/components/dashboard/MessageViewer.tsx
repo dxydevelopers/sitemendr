@@ -110,7 +110,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
       }`}>
         <div className="p-6 border-b border-white/5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm lg:text-base font-black uppercase tracking-widest flex items-center gap-3">
+            <h2 className="text-sm lg:text-base font-medium flex items-center gap-3">
               <MessageSquare className="w-5 h-5 text-ai-blue" />
               Comms Hub
             </h2>
@@ -132,7 +132,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
               placeholder="Filter messages..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-[10px] font-black uppercase tracking-widest focus:border-ai-blue outline-none transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-[10px] font-medium focus:border-ai-blue outline-none transition-colors"
             />
           </div>
         </div>
@@ -151,14 +151,14 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-ai-blue"></div>
                 )}
                 <div className="flex justify-between items-start mb-2">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${msg.sender === 'USER' ? 'text-expert-green' : 'text-ai-blue'}`}>
+                  <span className={`text-[8px] font-medium ${msg.sender === 'USER' ? 'text-expert-green' : 'text-ai-blue'}`}>
                     {msg.sender === 'USER' ? 'OUTGOING_NODE' : 'INCOMING_SYSTEM'}
                   </span>
                   <span className="text-[8px] font-bold text-medium-gray uppercase tracking-tighter">
                     {new Date(msg.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                <h3 className={`text-xs font-black uppercase tracking-tight truncate mb-1 ${
+                <h3 className={`text-xs font-medium truncate mb-1 ${
                   !msg.isRead ? 'text-white' : 'text-white/40'
                 }`}>
                   {msg.subject}
@@ -171,7 +171,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
           ) : (
             <div className="h-full flex flex-col items-center justify-center p-10 text-center">
               <Inbox className="w-12 h-12 text-white/5 mb-4" />
-              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] leading-relaxed">
+              <p className="text-[10px] font-semibold text-white/20 uppercase tracking-[0.2em] leading-relaxed">
                 Buffer empty - awaiting interaction
               </p>
             </div>
@@ -193,20 +193,20 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Message thread</span>
+                <span className="text-[10px] font-medium text-white/40">Message thread</span>
               </div>
 
               <div className="flex justify-between items-start gap-4">
                 <div className="space-y-4">
-                  <h2 className="text-xl lg:text-2xl font-black uppercase tracking-tight text-white leading-tight">{selectedMessage.subject}</h2>
+                  <h2 className="text-xl lg:text-2xl font-medium text-white leading-tight">{selectedMessage.subject}</h2>
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black uppercase ${
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-medium ${
                         selectedMessage.sender === 'USER' ? 'bg-expert-green/20 text-expert-green' : 'bg-ai-blue/20 text-ai-blue'
                       }`}>
                         {selectedMessage.sender === 'USER' ? 'U' : 'S'}
                       </div>
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${
+                      <span className={`text-[10px] font-medium ${
                         selectedMessage.sender === 'USER' ? 'text-expert-green' : 'text-ai-blue'
                       }`}>
                         {selectedMessage.sender === 'USER' ? 'You (Client)' : 'System Orchestrator'}
@@ -215,7 +215,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                     <span className="text-white/10">|</span>
                     <div className="flex items-center gap-2 text-white/20">
                       <Clock className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(selectedMessage.createdAt).toLocaleString()}</span>
+                      <span className="text-[10px] font-medium">{new Date(selectedMessage.createdAt).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -234,12 +234,12 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-ai-blue rounded-full animate-pulse"></div>
-                  <p className="text-[9px] font-black text-ai-blue uppercase tracking-[0.3em]">Message thread open</p>
+                  <p className="text-[9px] font-semibold text-ai-blue uppercase tracking-[0.3em]">Message thread open</p>
                 </div>
                 {selectedMessage.sender === 'USER' && (
                   <button 
                     onClick={() => handleEditMessage(selectedMessage)}
-                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[8px] font-black text-white/60 uppercase tracking-widest transition-all"
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[8px] font-semibold text-white/60 uppercase tracking-widest transition-all"
                   >
                     Edit message
                   </button>
@@ -247,7 +247,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
               </div>
               <button 
                 onClick={() => handleReply(selectedMessage)}
-                className="w-full sm:w-auto px-8 py-4 bg-ai-blue text-white font-black text-[10px] uppercase tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-ai-blue/20"
+                className="w-full sm:w-auto px-8 py-4 bg-ai-blue text-white font-semibold text-[10px] uppercase tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-ai-blue/20"
               >
                 <Send className="w-4 h-4" />
                 Reply
@@ -259,8 +259,8 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             <div className="w-24 h-24 rounded-[32px] bg-white/[0.02] border border-dashed border-white/10 flex items-center justify-center mb-10 group-hover:rotate-12 transition-transform">
               <Mail className="w-10 h-10 text-white/10" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-white/40 mb-4">Select a message</h3>
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/20 max-w-[200px] leading-relaxed">
+            <h3 className="text-sm font-medium text-white/40 mb-4">Select a message</h3>
+            <p className="text-[10px] font-medium text-white/20 max-w-[200px] leading-relaxed">
               Choose a thread to read, reply, or continue the conversation.
             </p>
           </div>
@@ -278,7 +278,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
           }}></div>
           <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl">
             <div className="p-8 lg:p-10 border-b border-white/5 flex items-center justify-between">
-              <h2 className="text-xl lg:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-4">
+              <h2 className="text-xl lg:text-2xl font-medium text-white flex items-center gap-4">
                 <Plus className="w-6 h-6 text-ai-blue" />
                 {editingMessageId ? 'Update' : 'New'} <span className="text-ai-blue italic">Message</span>
               </h2>
@@ -296,7 +296,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
             
             <form onSubmit={handleSendMessage} className="p-8 lg:p-10 space-y-8">
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Subject</label>
+                <label className="text-[10px] font-semibold text-white/40 uppercase tracking-widest ml-1">Subject</label>
                 <input 
                   type="text"
                   required
@@ -309,7 +309,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
               </div>
               
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-1">Message</label>
+                <label className="text-[10px] font-semibold text-white/40 uppercase tracking-widest ml-1">Message</label>
                 <textarea 
                   required
                   disabled={isSending}
@@ -328,14 +328,14 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
                     setShowCompose(false);
                     setEditingMessageId(null);
                   }}
-                  className="order-2 sm:order-1 flex-1 py-5 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/5 transition-all disabled:opacity-50"
+                  className="order-2 sm:order-1 flex-1 py-5 border border-white/10 rounded-2xl font-semibold text-[10px] uppercase tracking-[0.2em] hover:bg-white/5 transition-all disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
                   disabled={isSending || sendSuccess}
-                  className={`order-1 sm:order-2 flex-[2] py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-lg ${
+                  className={`order-1 sm:order-2 flex-[2] py-5 rounded-2xl font-semibold text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-lg ${
                     sendSuccess 
                       ? 'bg-expert-green text-dark-bg' 
                       : 'bg-ai-blue text-white hover:scale-[1.02] active:scale-[0.98] shadow-ai-blue/20'

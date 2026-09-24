@@ -59,7 +59,7 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
         <button
           type="button"
           onClick={() => setSelectedTransactionId(null)}
-          className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/50 transition hover:text-white"
+          className="inline-flex items-center gap-2 text-[10px] font-medium text-white/50 transition hover:text-white"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to billing
         </button>
@@ -72,25 +72,25 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
     <div className="space-y-8">
       <section className="border border-white/[0.08] bg-white/[0.02]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Contract summary</p>
-          <span className={`text-[10px] font-black uppercase tracking-widest ${site.status === 'completed' ? 'text-expert-green' : 'text-amber-300'}`}>
+          <p className="text-[10px] font-medium text-white/40">Contract summary</p>
+          <span className={`text-[10px] font-medium ${site.status === 'completed' ? 'text-expert-green' : 'text-amber-300'}`}>
             {site.status.replace(/_/g, ' ')}
           </span>
         </div>
         <div className="grid grid-cols-1 divide-y divide-white/[0.06] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <div className="px-6 py-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Total agreed</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-white">
+            <p className="text-[10px] font-medium text-white/40">Total agreed</p>
+            <p className="mt-2 text-xl font-semibold tracking-tight text-white">
               {typeof totalAgreed === 'number' ? formatMajorUnits(totalAgreed, currency) : 'Not yet quoted'}
             </p>
           </div>
           <div className="px-6 py-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Total paid</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-expert-green">{formatMajorUnits(totalPaidMajor, currency)}</p>
+            <p className="text-[10px] font-medium text-white/40">Total paid</p>
+            <p className="mt-2 text-xl font-semibold tracking-tight text-expert-green">{formatMajorUnits(totalPaidMajor, currency)}</p>
           </div>
           <div className="px-6 py-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Outstanding</p>
-            <p className={`mt-2 text-xl font-black tracking-tight ${outstanding ? 'text-amber-300' : 'text-white'}`}>
+            <p className="text-[10px] font-medium text-white/40">Outstanding</p>
+            <p className={`mt-2 text-xl font-semibold tracking-tight ${outstanding ? 'text-amber-300' : 'text-white'}`}>
               {outstanding == null ? '—' : formatMajorUnits(outstanding, currency)}
             </p>
           </div>
@@ -98,10 +98,10 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
       </section>
 
       <section>
-        <p className="mb-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Transactions</p>
+        <p className="mb-4 text-[10px] font-medium text-white/40">Transactions</p>
         <div className="border border-white/[0.08] bg-white/[0.02]">
           {billing.length === 0 ? (
-            <p className="p-10 text-center text-xs font-semibold uppercase tracking-widest text-white/24">No transactions for this site yet</p>
+            <p className="p-10 text-center text-xs font-semibold text-white/24">No transactions for this site yet</p>
           ) : (
             <div className="divide-y divide-white/[0.06]">
               {billing.map((item) => (
@@ -117,8 +117,8 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
                   </div>
                   <div className="flex shrink-0 items-center gap-4">
                     <div className="text-right">
-                      <p className="text-sm font-black text-white">{formatMoney(item.amount, item.currency)}</p>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${statusTone[item.status] || 'text-white/50'}`}>{item.status}</p>
+                      <p className="text-sm font-semibold text-white">{formatMoney(item.amount, item.currency)}</p>
+                      <p className={`text-[10px] font-medium ${statusTone[item.status] || 'text-white/50'}`}>{item.status}</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-white/18" />
                   </div>
@@ -130,7 +130,7 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
       </section>
 
       <section>
-        <p className="mb-4 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">Payment method</p>
+        <p className="mb-4 text-[10px] font-medium text-white/40">Payment method</p>
         <div className="flex items-center gap-4 border border-white/[0.08] bg-white/[0.02] p-6">
           <CreditCard className="h-5 w-5 shrink-0 text-white/24" />
           {mostRecentChannelItem ? (

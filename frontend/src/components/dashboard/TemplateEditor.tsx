@@ -113,7 +113,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <Loader2 className="w-10 h-10 text-ai-blue animate-spin" />
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-ai-blue animate-pulse">Loading templates...</p>
+        <p className="text-[10px] font-medium text-ai-blue animate-pulse">Loading templates...</p>
       </div>
     );
   }
@@ -127,7 +127,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
             <Layout className="w-5 h-5 text-ai-blue" />
           </div>
           <div>
-            <h3 className="text-xs font-black uppercase tracking-[0.3em]">Template Editor</h3>
+            <h3 className="text-xs font-medium">Template Editor</h3>
             <p className="text-[8px] text-medium-gray mt-1">Subscription: {subscriptionId}</p>
           </div>
         </div>
@@ -135,7 +135,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
         <div className="flex items-center gap-3">
           <button
             onClick={() => setPreviewMode(!previewMode)}
-            className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-[9px] font-medium transition-all flex items-center gap-2 ${
               previewMode 
                 ? 'bg-tech-purple text-white shadow-lg shadow-tech-purple/20' 
                 : 'bg-white/5 border border-white/10 text-medium-gray hover:text-white'
@@ -148,7 +148,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-expert-green/20 border border-expert-green/30 text-expert-green rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-expert-green hover:text-white transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-expert-green/10"
+            className="px-6 py-2 bg-expert-green/20 border border-expert-green/30 text-expert-green rounded-xl text-[9px] font-medium hover:bg-expert-green hover:text-white transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-expert-green/10"
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             {saving ? 'SYNCING...' : 'COMMIT_CHANGES'}
@@ -206,7 +206,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
             {/* Editor Area */}
             <div className="flex-1 flex flex-col bg-black/20">
               <div className="px-6 py-2 bg-white/[0.02] border-b border-white/5 flex justify-between items-center">
-                <span className="text-[9px] font-black text-ai-blue uppercase tracking-widest">{activeTab.toUpperCase()}_ASSET</span>
+                <span className="text-[9px] font-semibold text-ai-blue uppercase tracking-widest">{activeTab.toUpperCase()}_ASSET</span>
                 <span className="text-[7px] text-medium-gray">UTF-8 // CRLF</span>
               </div>
               <textarea
@@ -238,7 +238,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
             />
             <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full flex items-center gap-2 shadow-2xl">
               <div className="w-2 h-2 rounded-full bg-expert-green animate-pulse"></div>
-              <span className="text-[9px] font-black text-white uppercase tracking-widest">Virtualized Live Instance</span>
+              <span className="text-[9px] font-semibold text-white uppercase tracking-widest">Virtualized Live Instance</span>
             </div>
           </div>
         )}
@@ -254,7 +254,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
               ) : (
                 <TriangleAlert className="w-3 h-3 text-red-500" />
               )}
-              <span className={`text-[9px] font-black uppercase tracking-widest ${
+              <span className={`text-[9px] font-medium ${
                 status.type === 'success' ? 'text-expert-green' : 'text-red-500'
               }`}>
                 {status.message}
@@ -264,12 +264,12 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
           {!status && (
             <div className="flex items-center gap-2 opacity-30">
               <div className="w-1 h-1 bg-medium-gray rounded-full"></div>
-              <span className="text-[8px] font-black uppercase tracking-widest text-medium-gray">Ready for refinement</span>
+              <span className="text-[8px] font-medium text-medium-gray">Ready for refinement</span>
             </div>
           )}
         </div>
         
-        <div className="flex items-center gap-4 text-[8px] font-black text-medium-gray uppercase tracking-widest">
+        <div className="flex items-center gap-4 text-[8px] font-semibold text-medium-gray uppercase tracking-widest">
           <span>Lines: {(template?.[activeTab].split('\n').length || 0)}</span>
           <span className="w-1 h-1 bg-white/10 rounded-full"></span>
           <span>Chars: {(template?.[activeTab].length || 0)}</span>
@@ -283,7 +283,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
             <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
               <div className="flex items-center gap-3">
                 <ImageIcon className="w-5 h-5 text-ai-blue" />
-                <h3 className="text-xs font-black uppercase tracking-[0.3em]">ASSET_SELECTOR</h3>
+                <h3 className="text-xs font-medium">ASSET_SELECTOR</h3>
               </div>
               <button 
                 onClick={() => setShowMediaSelector(false)}
@@ -309,14 +309,14 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ subscriptionId, onSave,
                       </div>
                     )}
                     <div className="absolute inset-0 bg-ai-blue/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-[8px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full">SELECT_ASSET</span>
+                      <span className="text-[8px] font-medium bg-black/60 px-3 py-1.5 rounded-full">SELECT_ASSET</span>
                     </div>
                   </div>
                 ))}
                 {media.length === 0 && (
                   <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-30">
                     <ImageIcon className="w-12 h-12 mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em]">No assets in repository</p>
+                    <p className="text-[10px] font-medium">No assets in repository</p>
                   </div>
                 )}
               </div>

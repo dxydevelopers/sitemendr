@@ -187,7 +187,7 @@ export default function AdminPortfolio() {
   };
 
   const inputClass = 'w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-ai-blue transition-colors';
-  const labelClass = 'block text-[9px] font-black uppercase tracking-[0.2em] text-white/42 mb-2';
+  const labelClass = 'block text-[9px] font-medium text-white/42 mb-2';
 
   // ------------------------------------------------------------------
   // FORM VIEW
@@ -195,12 +195,12 @@ export default function AdminPortfolio() {
   if (view === 'form') {
     return (
       <div className="animate-fade-in space-y-6">
-        <button onClick={() => setView('list')} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/52 hover:text-white transition">
+        <button onClick={() => setView('list')} className="flex items-center gap-2 text-[10px] font-medium text-white/52 hover:text-white transition">
           <ArrowLeft size={14} />
           Back to projects
         </button>
 
-        <h2 className="text-xl font-black tracking-tighter uppercase flex items-center gap-3">
+        <h2 className="text-xl font-semibold tracking-tighter uppercase flex items-center gap-3">
           <span className="w-1.5 h-6 bg-ai-blue rounded-full"></span>
           {editingId ? 'Edit Project' : 'New Project'}
         </h2>
@@ -270,7 +270,7 @@ export default function AdminPortfolio() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className={labelClass + ' mb-0'}>Images & descriptions</label>
-              <button onClick={addImageSlot} className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-ai-blue hover:text-white transition">
+              <button onClick={addImageSlot} className="flex items-center gap-1.5 text-[9px] font-medium text-ai-blue hover:text-white transition">
                 <Plus size={12} />
                 Add image
               </button>
@@ -308,21 +308,21 @@ export default function AdminPortfolio() {
           </div>
 
           <div className="flex items-center gap-6 pt-2">
-            <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest cursor-pointer">
+            <label className="flex items-center gap-2 text-[10px] font-medium cursor-pointer">
               <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />
               Featured
             </label>
-            <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest cursor-pointer">
+            <label className="flex items-center gap-2 text-[10px] font-medium cursor-pointer">
               <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
               Published (visible to clients)
             </label>
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button onClick={handleSave} disabled={saving} className="bg-ai-blue hover:bg-blue-600 disabled:opacity-50 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition">
+            <button onClick={handleSave} disabled={saving} className="bg-ai-blue hover:bg-blue-600 disabled:opacity-50 text-white px-6 py-3 rounded-xl text-[10px] font-medium transition">
               {saving ? 'Saving...' : 'Save project'}
             </button>
-            <button onClick={() => setView('list')} className="bg-white/5 hover:bg-white/10 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition">
+            <button onClick={() => setView('list')} className="bg-white/5 hover:bg-white/10 px-6 py-3 rounded-xl text-[10px] font-medium transition">
               Cancel
             </button>
           </div>
@@ -338,24 +338,24 @@ export default function AdminPortfolio() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-2">
         <div className="flex flex-col">
-          <h2 className="text-xl font-black tracking-tighter uppercase flex items-center gap-3">
+          <h2 className="text-xl font-semibold tracking-tighter uppercase flex items-center gap-3">
             <span className="w-1.5 h-6 bg-ai-blue rounded-full"></span>
             Portfolio Projects
           </h2>
-          <span className="text-[8px] font-black text-medium-gray uppercase tracking-[0.2em] mt-1">TOTAL: {projects.length}</span>
+          <span className="text-[8px] font-semibold text-medium-gray uppercase tracking-[0.2em] mt-1">TOTAL: {projects.length}</span>
         </div>
-        <button onClick={openNew} className="bg-ai-blue hover:bg-blue-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2">
+        <button onClick={openNew} className="bg-ai-blue hover:bg-blue-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-medium transition-all flex items-center gap-2">
           <Plus size={14} />
           New Project
         </button>
       </div>
 
       {loading ? (
-        <p className="text-[10px] font-black uppercase tracking-widest text-white/40 px-2">Loading...</p>
+        <p className="text-[10px] font-medium text-white/40 px-2">Loading...</p>
       ) : projects.length === 0 ? (
         <div className="py-20 flex flex-col items-center justify-center text-medium-gray border border-dashed border-white/5 rounded-3xl">
           <Plus size={48} className="mb-4 opacity-20" />
-          <p className="text-[10px] font-black uppercase tracking-[0.3em]">No projects yet</p>
+          <p className="text-[10px] font-medium">No projects yet</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -365,15 +365,15 @@ export default function AdminPortfolio() {
                 {project.images[0]?.url && (
                   <Image src={project.images[0].url} alt="" fill unoptimized={process.env.NODE_ENV === 'development'} className="object-cover" />
                 )}
-                <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${project.published ? 'bg-green-500 text-black' : 'bg-white/20 text-white'}`}>
+                <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[8px] font-medium ${project.published ? 'bg-green-500 text-black' : 'bg-white/20 text-white'}`}>
                   {project.published ? 'Published' : 'Draft'}
                 </span>
               </div>
               <div className="p-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-white/40">{project.category}</p>
+                <p className="text-[8px] font-medium text-white/40">{project.category}</p>
                 <h3 className="mt-1 text-sm font-bold tracking-tight truncate">{project.title}</h3>
                 <div className="mt-4 flex gap-2">
-                  <button onClick={() => openEdit(project)} className="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-lg text-[8px] font-black uppercase flex items-center justify-center gap-1.5">
+                  <button onClick={() => openEdit(project)} className="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-lg text-[8px] font-medium flex items-center justify-center gap-1.5">
                     <Pencil size={11} /> Edit
                   </button>
                   <button onClick={() => handleTogglePublish(project)} className="bg-white/10 hover:bg-white/20 p-2 rounded-lg">
