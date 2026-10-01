@@ -25,28 +25,28 @@ const systemPages: Array<{
   accent: string;
 }> = [
   {
-    id: 'settings',
-    label: 'Settings',
-    icon: Settings2,
-    accent: 'text-ai-blue',
+  id: 'settings',
+  label: 'Settings',
+  icon: Settings2,
+  accent: 'text-ai-blue',
   },
   {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: Bell,
-    accent: 'text-tech-purple',
+  id: 'notifications',
+  label: 'Notifications',
+  icon: Bell,
+  accent: 'text-tech-purple',
   },
   {
-    id: 'maintenance',
-    label: 'Maintenance',
-    icon: Wrench,
-    accent: 'text-expert-green',
+  id: 'maintenance',
+  label: 'Maintenance',
+  icon: Wrench,
+  accent: 'text-expert-green',
   },
   {
-    id: 'payments',
-    label: 'Payments',
-    icon: CreditCard,
-    accent: 'text-amber-300',
+  id: 'payments',
+  label: 'Payments',
+  icon: CreditCard,
+  accent: 'text-amber-300',
   },
 ];
 
@@ -78,223 +78,223 @@ export default function AdminSystem({
   const [systemPage, setSystemPage] = useState<SystemPage | null>(null);
 
   if (view === 'health') {
-    return (
-      <div className="space-y-12 animate-fade-in">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="flex flex-col">
-            <span className="text-[8px] font-semibold text-ai-blue uppercase tracking-[0.3em] mb-1">System Audit</span>
-            <h2 className="text-xl font-bold tracking-tight flex items-center gap-3 uppercase"><span className="w-1.5 h-8 bg-ai-blue rounded-full"></span>System & Site Vitals</h2>
-          </div>
-          <div className="flex items-center gap-4 bg-white/[0.02] border border-white/5 p-2 rounded-2xl">
-            <span className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest ml-4">Monitor Site:</span>
-            <select className="bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-medium focus:outline-none focus:border-ai-blue min-w-[200px]" value={selectedSiteForVitals || ''} onChange={async (e) => {
-              const id = e.target.value;
-              setSelectedSiteForVitals(id);
-              if (id) { setLoadingVitals(true); const vitals = await fetchSiteVitals(id); setSiteVitals(vitals); setLoadingVitals(false); }
-              else setSiteVitals(null);
-            }}>
-              <option value="">-- SYSTEM GLOBAL --</option>
-              {subscriptions.map(sub => <option key={sub.id} value={sub.id}>{sub.siteName || sub.customName || sub.id.slice(0, 8)} ({sub.tier})</option>)}
-            </select>
-          </div>
-        </div>
+  return (
+  <div className="space-y-12 animate-fade-in">
+  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+  <div className="flex flex-col">
+  <span className="text-[8px] font-semibold text-ai-blue mb-1">System Audit</span>
+  <h2 className="text-xl font-bold flex items-center gap-3 "><span className="w-1.5 h-8 bg-ai-blue rounded-full"></span>System & Site Vitals</h2>
+  </div>
+  <div className="flex items-center gap-4 bg-white/[0.02] border border-white/5 p-2 rounded-2xl">
+  <span className="text-[8px] font-semibold text-medium-gray ml-4">Monitor Site:</span>
+  <select className="bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-semibold focus:outline-none focus:border-ai-blue min-w-[200px]" value={selectedSiteForVitals || ''} onChange={async (e) => {
+  const id = e.target.value;
+  setSelectedSiteForVitals(id);
+  if (id) { setLoadingVitals(true); const vitals = await fetchSiteVitals(id); setSiteVitals(vitals); setLoadingVitals(false); }
+  else setSiteVitals(null);
+  }}>
+  <option value="">-- SYSTEM GLOBAL --</option>
+  {subscriptions.map(sub => <option key={sub.id} value={sub.id}>{sub.siteName || sub.customName || sub.id.slice(0, 8)} ({sub.tier})</option>)}
+  </select>
+  </div>
+  </div>
 
-        {selectedSiteForVitals && siteVitals ? (
-          <PerformanceAudit
-            data={{ metrics: { score: siteVitals.performance, vitals: { fcp: siteVitals.coreWebVitals?.fcp || siteVitals.coreWebVitals?.lcp, tti: siteVitals.coreWebVitals?.tti || '1.2s', cls: siteVitals.coreWebVitals?.cls, lcp: siteVitals.coreWebVitals?.lcp } } }}
-            isRefreshing={loadingVitals}
-            onRefresh={async () => { if (selectedSiteForVitals) { setLoadingVitals(true); const vitals = await fetchSiteVitals(selectedSiteForVitals); setSiteVitals(vitals); setLoadingVitals(false); } }}
-          />
-        ) : <AdminSystemHealth />}
-      </div>
-    );
+  {selectedSiteForVitals && siteVitals ? (
+  <PerformanceAudit
+  data={{ metrics: { score: siteVitals.performance, vitals: { fcp: siteVitals.coreWebVitals?.fcp || siteVitals.coreWebVitals?.lcp, tti: siteVitals.coreWebVitals?.tti || '1.2s', cls: siteVitals.coreWebVitals?.cls, lcp: siteVitals.coreWebVitals?.lcp } } }}
+  isRefreshing={loadingVitals}
+  onRefresh={async () => { if (selectedSiteForVitals) { setLoadingVitals(true); const vitals = await fetchSiteVitals(selectedSiteForVitals); setSiteVitals(vitals); setLoadingVitals(false); } }}
+  />
+  ) : <AdminSystemHealth />}
+  </div>
+  );
   }
 
   if (view === 'system') {
-    const currentPage = systemPages.find(page => page.id === systemPage) || null;
+  const currentPage = systemPages.find(page => page.id === systemPage) || null;
 
-    if (!systemPage || !currentPage) {
-      return (
-        <div className="space-y-4 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <span className="text-ai-blue">
-              <Settings2 className="h-5 w-5" />
-            </span>
-            <span className="text-[8px] font-medium text-white/60">System</span>
-          </div>
+  if (!systemPage || !currentPage) {
+  return (
+  <div className="space-y-4 animate-fade-in">
+  <div className="flex items-center gap-3">
+  <span className="text-ai-blue">
+  <Settings2 className="h-5 w-5" />
+  </span>
+  <span className="text-[8px] font-semibold text-white/60">System</span>
+  </div>
 
-          <div className="flex flex-col gap-4 w-full">
-            {systemPages.map((page) => {
-              const Icon = page.icon;
-              return (
-                <button
-                  key={page.id}
-                  type="button"
-                  onClick={() => setSystemPage(page.id)}
-                  className="flex w-full items-center justify-between gap-3 border-b border-white/10 py-4 text-left text-white/70 transition-all hover:text-white"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={page.accent}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="text-[11px] font-medium text-white">{page.label}</span>
-                  </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-white/25 transition-transform" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
+  <div className="flex flex-col gap-4 w-full">
+  {systemPages.map((page) => {
+  const Icon = page.icon;
+  return (
+  <button
+  key={page.id}
+  type="button"
+  onClick={() => setSystemPage(page.id)}
+  className="flex w-full items-center justify-between gap-3 border-b border-white/10 py-4 text-left text-white/70 transition-all hover:text-white"
+  >
+  <div className="flex items-center gap-3">
+  <span className={page.accent}>
+  <Icon className="h-4 w-4" />
+  </span>
+  <span className="text-[11px] font-semibold text-white">{page.label}</span>
+  </div>
+  <ArrowRight className="h-3.5 w-3.5 text-white/25 transition-transform" />
+  </button>
+  );
+  })}
+  </div>
+  </div>
+  );
+  }
 
-    return (
-      <div className="animate-fade-in">
-        {systemPage === 'settings' ? (
-          <SystemPageShell title="Settings" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
-            {enforcementSettings ? (
-              <form onSubmit={onUpdateEnforcementSettings} className="space-y-6 max-w-xl">
-                <div className="space-y-2">
-                  <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Grace Period (Days)</label>
-                  <input type="number" value={enforcementSettings.gracePeriodDays || 0} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, gracePeriodDays: parseInt(e.target.value) } : prev)} className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:border-ai-blue transition-colors" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Overlay Threshold (%)</label>
-                  <input type="number" value={enforcementSettings.overlayThreshold || 0} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, overlayThreshold: parseInt(e.target.value) } : prev)} className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:border-ai-blue transition-colors" />
-                </div>
-                <div className="flex items-center gap-4 py-2">
-                  <input type="checkbox" id="enforceOverlays" checked={enforcementSettings.enforceOverlays || false} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, enforceOverlays: e.target.checked } : prev)} className="w-4 h-4 rounded border-white/10 bg-white/[0.02] text-ai-blue focus:ring-ai-blue" />
-                  <label htmlFor="enforceOverlays" className="text-[10px] font-medium cursor-pointer">Enable Global Enforcement</label>
-                </div>
-                <button type="submit" disabled={submitting} className="w-full py-4 bg-ai-blue text-white font-semibold text-[10px] uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">{submitting ? 'Saving...' : 'Save configuration'}</button>
-              </form>
-            ) : <div className="py-12 text-center"><p className="text-[9px] font-semibold text-medium-gray uppercase tracking-[0.3em]">Loading settings...</p></div>}
-          </SystemPageShell>
-        ) : null}
+  return (
+  <div className="animate-fade-in">
+  {systemPage === 'settings' ? (
+  <SystemPageShell title="Settings" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+  {enforcementSettings ? (
+  <form onSubmit={onUpdateEnforcementSettings} className="space-y-6 max-w-xl">
+  <div className="space-y-2">
+  <label className="text-[8px] font-semibold text-medium-gray ">Grace Period (Days)</label>
+  <input type="number" value={enforcementSettings.gracePeriodDays || 0} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, gracePeriodDays: parseInt(e.target.value) } : prev)} className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:border-ai-blue transition-colors" />
+  </div>
+  <div className="space-y-2">
+  <label className="text-[8px] font-semibold text-medium-gray ">Overlay Threshold (%)</label>
+  <input type="number" value={enforcementSettings.overlayThreshold || 0} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, overlayThreshold: parseInt(e.target.value) } : prev)} className="w-full bg-white/[0.02] border border-white/10 rounded-xl px-4 py-3 text-xs font-semibold focus:outline-none focus:border-ai-blue transition-colors" />
+  </div>
+  <div className="flex items-center gap-4 py-2">
+  <input type="checkbox" id="enforceOverlays" checked={enforcementSettings.enforceOverlays || false} onChange={(e) => setEnforcementSettings(prev => prev ? { ...prev, enforceOverlays: e.target.checked } : prev)} className="w-4 h-4 rounded border-white/10 bg-white/[0.02] text-ai-blue focus:ring-ai-blue" />
+  <label htmlFor="enforceOverlays" className="text-[10px] font-semibold cursor-pointer">Enable Global Enforcement</label>
+  </div>
+  <button type="submit" disabled={submitting} className="w-full py-4 bg-ai-blue text-white font-semibold text-[10px] rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">{submitting ? 'Saving...' : 'Save configuration'}</button>
+  </form>
+  ) : <div className="py-12 text-center"><p className="text-[9px] font-semibold text-medium-gray ">Loading settings...</p></div>}
+  </SystemPageShell>
+  ) : null}
 
-        {systemPage === 'notifications' ? (
-          <SystemPageShell title="Notifications" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
-            <AdminNotifications />
-          </SystemPageShell>
-        ) : null}
+  {systemPage === 'notifications' ? (
+  <SystemPageShell title="Notifications" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+  <AdminNotifications />
+  </SystemPageShell>
+  ) : null}
 
-        {systemPage === 'maintenance' ? (
-          <SystemPageShell title="Maintenance" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
-            <div className="space-y-4 max-w-2xl">
-              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="text-expert-green">
-                    <ShieldCheck className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="font-semibold text-[11px] uppercase tracking-tight mb-1">Suspension Watchdog</p>
-                    <p className="text-[8px] text-medium-gray font-medium opacity-70">Check for overdue subscriptions and apply suspensions.</p>
-                  </div>
-                </div>
-                <button onClick={onRunSuspensionCheck} disabled={isSystemWorking} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[8px] font-medium hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-500 transition-all disabled:opacity-50">EXECUTE</button>
-              </div>
-              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="text-ai-blue">
-                    <FileClock className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="font-semibold text-[11px] uppercase tracking-tight mb-1">DNS Verify Worker</p>
-                    <p className="text-[8px] text-medium-gray font-medium opacity-70">Validate custom domain records across global DNS.</p>
-                  </div>
-                </div>
-                <button onClick={onRunDNSVerification} disabled={isSystemWorking} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[8px] font-medium hover:bg-expert-green/20 hover:border-expert-green/30 hover:text-expert-green transition-all disabled:opacity-50">EXECUTE</button>
-              </div>
-            </div>
-          </SystemPageShell>
-        ) : null}
+  {systemPage === 'maintenance' ? (
+  <SystemPageShell title="Maintenance" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+  <div className="space-y-4 max-w-2xl">
+  <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
+  <div className="flex items-start gap-3">
+  <span className="text-expert-green">
+  <ShieldCheck className="h-4 w-4" />
+  </span>
+  <div>
+  <p className="font-semibold text-[11px] mb-1">Suspension Watchdog</p>
+  <p className="text-[8px] text-medium-gray font-bold opacity-70">Check for overdue subscriptions and apply suspensions.</p>
+  </div>
+  </div>
+  <button onClick={onRunSuspensionCheck} disabled={isSystemWorking} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[8px] font-semibold hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-500 transition-all disabled:opacity-50">EXECUTE</button>
+  </div>
+  <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between">
+  <div className="flex items-start gap-3">
+  <span className="text-ai-blue">
+  <FileClock className="h-4 w-4" />
+  </span>
+  <div>
+  <p className="font-semibold text-[11px] mb-1">DNS Verify Worker</p>
+  <p className="text-[8px] text-medium-gray font-bold opacity-70">Validate custom domain records across global DNS.</p>
+  </div>
+  </div>
+  <button onClick={onRunDNSVerification} disabled={isSystemWorking} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[8px] font-semibold hover:bg-expert-green/20 hover:border-expert-green/30 hover:text-expert-green transition-all disabled:opacity-50">EXECUTE</button>
+  </div>
+  </div>
+  </SystemPageShell>
+  ) : null}
 
-        {systemPage === 'payments' ? (
-          <SystemPageShell title="Payments" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
-            {enforcementSettings ? (
-              <div className="space-y-6 max-w-xl">
-                <div className="space-y-2">
-                  <p className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Grace Period (Days)</p>
-                  <p className="text-lg font-medium">{enforcementSettings.gracePeriodDays || 0}</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Overlay Threshold (%)</p>
-                  <p className="text-lg font-medium">{enforcementSettings.overlayThreshold || 0}</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest">Global Enforcement</p>
-                  <p className="text-sm font-medium">{enforcementSettings.enforceOverlays ? 'Enabled' : 'Disabled'}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="py-12 text-center">
-                <p className="text-[9px] font-semibold text-medium-gray uppercase tracking-[0.3em]">Loading billing controls...</p>
-              </div>
-            )}
-          </SystemPageShell>
-        ) : null}
-      </div>
-    );
+  {systemPage === 'payments' ? (
+  <SystemPageShell title="Payments" icon={currentPage.icon} onBack={() => setSystemPage(null)}>
+  {enforcementSettings ? (
+  <div className="space-y-6 max-w-xl">
+  <div className="space-y-2">
+  <p className="text-[8px] font-semibold text-medium-gray ">Grace Period (Days)</p>
+  <p className="text-lg font-semibold ">{enforcementSettings.gracePeriodDays || 0}</p>
+  </div>
+  <div className="space-y-2">
+  <p className="text-[8px] font-semibold text-medium-gray ">Overlay Threshold (%)</p>
+  <p className="text-lg font-semibold ">{enforcementSettings.overlayThreshold || 0}</p>
+  </div>
+  <div className="space-y-2">
+  <p className="text-[8px] font-semibold text-medium-gray ">Global Enforcement</p>
+  <p className="text-sm font-semibold ">{enforcementSettings.enforceOverlays ? 'Enabled' : 'Disabled'}</p>
+  </div>
+  </div>
+  ) : (
+  <div className="py-12 text-center">
+  <p className="text-[9px] font-semibold text-medium-gray ">Loading billing controls...</p>
+  </div>
+  )}
+  </SystemPageShell>
+  ) : null}
+  </div>
+  );
   }
 
   // view === 'analytics'
   const userGrowthTrend = analytics?.predictions?.growthRate?.users;
   const revenueGrowthTrend = analytics?.predictions?.growthRate?.revenue;
   const cards = [
-    { title: 'Traffic_Flow', metrics: [
-      { label: 'Ingress Views', value: analytics?.assessments?.total || '0', trend: `${analytics?.assessments?.conversionRate || 0}% CONV` },
-      { label: 'Nodes', value: analytics?.users?.total || '0', trend: `+${analytics?.users?.new || 0} NEW` },
-      { label: 'Active Users', value: analytics?.users?.active || '0', trend: (userGrowthTrend != null ? `${userGrowthTrend}%` : 'N/A') },
-    ], icon: '🌐' },
-    { title: 'Resource_Revenue', metrics: [
-      { label: 'Gross Credits', value: `${analytics?.revenue?.total || 0}`, trend: (revenueGrowthTrend != null ? `${revenueGrowthTrend}%` : 'N/A') },
-      { label: 'Avg Unit Val', value: `${analytics?.revenue?.averageOrderValue || 0}`, trend: 'N/A' },
-      { label: 'Conv Index', value: `${analytics?.leads?.conversionRate || 0}%`, trend: 'N/A' },
-    ], icon: '💰' },
-    { title: 'Predictions', metrics: [
-      { label: 'Forecast Users', value: analytics?.predictions?.nextWeekUsers ?? 'N/A', trend: 'N/A' },
-      { label: 'Forecast Revenue', value: analytics?.predictions?.nextWeekRevenue != null ? `${analytics.predictions.nextWeekRevenue}` : 'N/A', trend: 'N/A' },
-      { label: 'Conv Rate', value: analytics?.predictions?.nextWeekConversionRate != null ? `${analytics.predictions.nextWeekConversionRate}%` : 'N/A', trend: 'N/A' },
-    ], icon: '🔮' },
+  { title: 'Traffic_Flow', metrics: [
+  { label: 'Ingress Views', value: analytics?.assessments?.total || '0', trend: `${analytics?.assessments?.conversionRate || 0}% CONV` },
+  { label: 'Nodes', value: analytics?.users?.total || '0', trend: `+${analytics?.users?.new || 0} NEW` },
+  { label: 'Active Users', value: analytics?.users?.active || '0', trend: (userGrowthTrend != null ? `${userGrowthTrend}%` : 'N/A') },
+  ], icon: '🌐' },
+  { title: 'Resource_Revenue', metrics: [
+  { label: 'Gross Credits', value: `${analytics?.revenue?.total || 0}`, trend: (revenueGrowthTrend != null ? `${revenueGrowthTrend}%` : 'N/A') },
+  { label: 'Avg Unit Val', value: `${analytics?.revenue?.averageOrderValue || 0}`, trend: 'N/A' },
+  { label: 'Conv Index', value: `${analytics?.leads?.conversionRate || 0}%`, trend: 'N/A' },
+  ], icon: '💰' },
+  { title: 'Predictions', metrics: [
+  { label: 'Forecast Users', value: analytics?.predictions?.nextWeekUsers ?? 'N/A', trend: 'N/A' },
+  { label: 'Forecast Revenue', value: analytics?.predictions?.nextWeekRevenue != null ? `${analytics.predictions.nextWeekRevenue}` : 'N/A', trend: 'N/A' },
+  { label: 'Conv Rate', value: analytics?.predictions?.nextWeekConversionRate != null ? `${analytics.predictions.nextWeekConversionRate}%` : 'N/A', trend: 'N/A' },
+  ], icon: '🔮' },
   ];
 
   return (
-    <div className="space-y-10 animate-fade-in">
-      <div className="flex flex-col">
-        <span className="text-[8px] font-semibold text-ai-blue uppercase tracking-[0.3em] mb-1">Intelligence_Feed</span>
-        <h2 className="text-xl font-bold tracking-tight flex items-center gap-3 uppercase"><span className="w-1.5 h-8 bg-ai-blue rounded-full"></span>System Analytics</h2>
-      </div>
+  <div className="space-y-10 animate-fade-in">
+  <div className="flex flex-col">
+  <span className="text-[8px] font-semibold text-ai-blue mb-1">Intelligence_Feed</span>
+  <h2 className="text-xl font-bold flex items-center gap-3 "><span className="w-1.5 h-8 bg-ai-blue rounded-full"></span>System Analytics</h2>
+  </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {cards.map((card, i) => (
-          <div key={i} className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl flex flex-col">
-            <div className="flex items-center gap-4 mb-8"><h3 className="font-semibold text-xs tracking-widest uppercase text-ai-blue">{card.title}</h3></div>
-            <div className="space-y-6 flex-1">
-              {card.metrics.map((m, mi) => (
-                <div key={mi} className="flex justify-between items-end border-b border-white/[0.03] pb-4 last:border-0 last:pb-0">
-                  <div><p className="text-[8px] font-semibold text-medium-gray uppercase tracking-widest mb-1">{m.label}</p><p className="text-sm font-semibold tracking-widest">{m.value}</p></div>
-                  <span className={`text-[8px] font-semibold px-2 py-1 rounded border ${m.trend.startsWith('+') ? 'text-expert-green border-expert-green/20 bg-expert-green/5' : 'text-medium-gray border-white/10 bg-white/5'}`}>{m.trend}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+  {cards.map((card, i) => (
+  <div key={i} className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl flex flex-col">
+  <div className="flex items-center gap-4 mb-8"><h3 className="font-semibold text-xs text-ai-blue">{card.title}</h3></div>
+  <div className="space-y-6 flex-1">
+  {card.metrics.map((m, mi) => (
+  <div key={mi} className="flex justify-between items-end border-b border-white/[0.03] pb-4 last:border-0 last:pb-0">
+  <div><p className="text-[8px] font-semibold text-medium-gray mb-1">{m.label}</p><p className="text-sm font-semibold ">{m.value}</p></div>
+  <span className={`text-[8px] font-semibold px-2 py-1 rounded border ${m.trend.startsWith('+') ? 'text-expert-green border-expert-green/20 bg-expert-green/5' : 'text-medium-gray border-white/10 bg-white/5'}`}>{m.trend}</span>
+  </div>
+  ))}
+  </div>
+  </div>
+  ))}
+  </div>
 
-      <div className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl">
-        <h3 className="text-sm font-semibold mb-8 flex items-center gap-3 uppercase tracking-widest">AI Strategic Recommendations</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          {analytics?.predictions?.recommendations?.length > 0 ? analytics.predictions.recommendations.map((rec: Recommendation, i: number) => (
-            <div key={i} className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
-              <div className="flex items-start gap-4">
-                <div className={`mt-1 w-2 h-2 rounded-full ${rec.type === 'warning' ? 'bg-red-500' : rec.type === 'success' ? 'bg-expert-green' : 'bg-ai-blue'}`}></div>
-                <div><p className="font-semibold text-[11px] uppercase tracking-tight mb-2">{rec.category.replace('_', ' ')}</p><p className="text-[9px] text-medium-gray font-medium leading-relaxed opacity-70">{rec.message}</p></div>
-              </div>
-            </div>
-          )) : <div className="col-span-2 p-6 bg-white/[0.02] border border-white/5 rounded-2xl"><p className="text-[9px] text-medium-gray font-medium text-center">Analyzing...</p></div>}
-        </div>
-      </div>
-    </div>
+  <div className="bg-white/[0.01] border border-white/5 p-8 rounded-3xl">
+  <h3 className="text-sm font-semibold mb-8 flex items-center gap-3 ">AI Strategic Recommendations</h3>
+  <div className="grid md:grid-cols-2 gap-4">
+  {analytics?.predictions?.recommendations?.length > 0 ? analytics.predictions.recommendations.map((rec: Recommendation, i: number) => (
+  <div key={i} className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+  <div className="flex items-start gap-4">
+  <div className={`mt-1 w-2 h-2 rounded-full ${rec.type === 'warning' ? 'bg-red-500' : rec.type === 'success' ? 'bg-expert-green' : 'bg-ai-blue'}`}></div>
+  <div><p className="font-semibold text-[11px] mb-2">{rec.category.replace('_', ' ')}</p><p className="text-[9px] text-medium-gray font-bold leading-relaxed opacity-70">{rec.message}</p></div>
+  </div>
+  </div>
+  )) : <div className="col-span-2 p-6 bg-white/[0.02] border border-white/5 rounded-2xl"><p className="text-[9px] text-medium-gray font-semibold text-center">Analyzing...</p></div>}
+  </div>
+  </div>
+  </div>
   );
 }
 
@@ -310,24 +310,24 @@ function SystemPageShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center justify-center text-white/60 transition hover:text-white"
-          aria-label="Back"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-3">
-          <span className="text-ai-blue">
-            <Icon className="h-5 w-5" />
-          </span>
-          <h3 className="text-sm font-medium">{title}</h3>
-        </div>
-      </div>
-      {children}
-    </div>
+  <div className="space-y-8">
+  <div className="flex items-center gap-3">
+  <button
+  type="button"
+  onClick={onBack}
+  className="inline-flex items-center justify-center text-white/60 transition hover:text-white"
+  aria-label="Back"
+  >
+  <ChevronLeft className="h-4 w-4" />
+  </button>
+  <div className="flex items-center gap-3">
+  <span className="text-ai-blue">
+  <Icon className="h-5 w-5" />
+  </span>
+  <h3 className="text-sm font-semibold ">{title}</h3>
+  </div>
+  </div>
+  {children}
+  </div>
   );
 }

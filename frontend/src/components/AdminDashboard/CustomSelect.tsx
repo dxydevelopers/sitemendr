@@ -27,44 +27,44 @@ export default function CustomSelect({ value, options, onChange, disabled, place
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  const handleClickOutside = (e: MouseEvent) => {
+  if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+  setIsOpen(false);
+  }
+  };
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const selected = options.find(o => o.value === value);
 
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen(v => !v)}
-        className="flex items-center justify-between gap-3 bg-black/40 border border-white/10 px-4 py-2 text-[10px] font-medium text-white focus:outline-none focus:border-ai-blue disabled:opacity-50 min-w-[160px]"
-      >
-        <span>{selected?.label || placeholder || 'Select...'}</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+  <div ref={containerRef} className="relative">
+  <button
+  type="button"
+  disabled={disabled}
+  onClick={() => setIsOpen(v => !v)}
+  className="flex items-center justify-between gap-3 bg-black/40 border border-white/10 px-4 py-2 text-[10px] font-semibold text-white focus:outline-none focus:border-ai-blue disabled:opacity-50 min-w-[160px]"
+  >
+  <span>{selected?.label || placeholder || 'Select...'}</span>
+  <ChevronDown className={`h-3.5 w-3.5 text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+  </button>
 
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full min-w-[160px] bg-[#0a0d12] border border-white/10 shadow-xl">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => { onChange(option.value); setIsOpen(false); }}
-              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[10px] font-medium text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors"
-            >
-              <span>{option.label}</span>
-              {option.value === value && <Check className="h-3 w-3 text-ai-blue" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+  {isOpen && (
+  <div className="absolute z-50 mt-1 w-full min-w-[160px] bg-[0A0C10] border border-white/10 shadow-xl">
+  {options.map((option) => (
+  <button
+  key={option.value}
+  type="button"
+  onClick={() => { onChange(option.value); setIsOpen(false); }}
+  className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[10px] font-semibold text-white/70 hover:bg-white/[0.06] hover:text-white transition-colors"
+  >
+  <span>{option.label}</span>
+  {option.value === value && <Check className="h-3 w-3 text-ai-blue" />}
+  </button>
+  ))}
+  </div>
+  )}
+  </div>
   );
 }

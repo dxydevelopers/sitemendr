@@ -8,9 +8,10 @@
 
 'use client';
 
-import { Globe, ArrowUpRight, CircleCheck, CircleAlert } from 'lucide-react';
+import { Globe, CircleCheck, CircleAlert, ChevronRight } from 'lucide-react';
 import type { ClientProject } from './ClientDashboard_types';
 import { normalizeBuildStatus } from './utils';
+import { DrillList } from '@/components/ui/DrillShell';
 
 const LIVE_STATUSES = ['launched', 'handoff', 'completed'];
 
@@ -33,59 +34,46 @@ export default function MySites({
   projects: ClientProject[];
   onOpenSite: (siteId: string) => void;
 }) {
-  const sites = projects.filter((p) => LIVE_STATUSES.includes(normalizeBuildStatus(p.status)));
+  const sites = projects.filter((p) => p.recordType === 'project' && LIVE_STATUSES.includes(normalizeBuildStatus(p.status)));
 
   if (!sites.length) {
-    return (
-      <div className="animate-fade-in grid min-h-[50vh] place-items-center border-y border-white/10 px-5 py-14 text-center">
-        <div className="max-w-sm space-y-3">
-          <div className="mx-auto grid h-14 w-14 place-items-center border border-white/10 bg-white/[0.03] text-ai-blue">
-            <Globe className="h-5 w-5" />
-          </div>
-          <h1 className="text-xl font-semibold tracking-tight text-white">No live sites yet</h1>
-          <p className="text-sm font-medium text-white/44">Once a build launches, it shows up here as something you own and operate — not just a finished project.</p>
-        </div>
-      </div>
-    );
+  return (
+  <div className="animate-fade-in grid min-h-[50vh] place-items-center border-y border-white/10 px-5 py-14 text-center">
+  <div className="max-w-sm space-y-3">
+  <div className="mx-auto grid h-14 w-14 place-items-center border border-white/10 bg-white/[0.03] text-ai-blue">
+  <Globe className="h-5 w-5" />
+  </div>
+  <h1 className="text-xl font-semibold text-white">No live sites yet</h1>
+  <p className="text-sm font-medium text-white/44">Once a build launches, it shows up here as something you own and operate — not just a finished project.</p>
+  </div>
+  </div>
+  );
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {sites.map((site) => {
-          const status = normalizeBuildStatus(site.status);
-          const needsAttention = status === 'handoff' && !site.completionAcknowledgedAt;
-          return (
-            <button
-              key={site.id}
-              type="button"
-              onClick={() => onOpenSite(site.id)}
-              className="group flex flex-col gap-4 border border-white/[0.08] bg-white/[0.02] p-5 text-left transition hover:border-ai-blue/30 hover:bg-white/[0.04]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold tracking-tight text-white">{site.name}</h3>
-                  {site.siteUrl && (
-                    <p className="mt-1 truncate text-[11px] font-semibold text-white/44">{site.siteUrl.replace(/^https?:\/\//, '')}</p>
-                  )}
-                </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:text-ai-blue" />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {needsAttention ? (
-                  <CircleAlert className="h-3.5 w-3.5 text-amber-300" />
-                ) : (
-                  <CircleCheck className="h-3.5 w-3.5 text-expert-green" />
-                )}
-                <span className={`text-[10px] font-medium ${statusTone[status] || 'text-white/50'}`}>
-                  {needsAttention ? 'Needs your review' : statusLabel[status] || status}
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+  <div className="animate-fade-in w-full min-w-0">
+  <DrillList
+  items={sites.map((site) => {
+  const status = normalizeBuildStatus(site.status);
+  const needsAttention = status === 'handoff' && !site.completionAcknowledgedAt;
+  return {
+  id: site.id,
+  icon: <Globe className="h-4 w-4" />,
+  label: site.name,
+  meta: site.siteUrl ? site.siteUrl.replace(/^https?:\/\//, '') : undefined,
+  trailing: (
+  <span className="flex min-w-0 items-center gap-2 sm:gap-3">
+  <span className={`flex min-w-0 items-center gap-1.5 text-[10px] font-medium leading-tight sm:text-[11px] ${statusTone[status] || 'text-white/50'}`}>
+  {needsAttention ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
+  <span className="max-w-[9ch] whitespace-normal text-left sm:max-w-none sm:whitespace-nowrap">{needsAttention ? 'Needs your review' : statusLabel[status] || status}</span>
+  </span>
+  <ChevronRight className="hidden h-4 w-4 shrink-0 text-white/22 sm:block" />
+  </span>
+  ),
+  };
+  })}
+  onSelect={onOpenSite}
+  />
+  </div>
   );
 }

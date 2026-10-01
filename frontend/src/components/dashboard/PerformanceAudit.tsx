@@ -8,8 +8,8 @@ import {
 
 interface Metric {
   name: string;
-  value: number;
-  status: 'good' | 'warning';
+  value: number | null;
+  status: 'good' | 'warning' | 'unknown';
   icon: React.ElementType;
   color: string;
   isPercentage?: boolean;
@@ -23,19 +23,19 @@ interface Recommendation {
 
 interface PerformanceAuditProps {
   data: {
-    metrics?: {
-      score?: number;
-      vitals?: {
-        fcp?: string;
-        tti?: string;
-        cls?: string;
-        lcp?: string;
-      };
-    };
-    aiInsights?: {
-      actionPlan?: Array<{ task: string; impact: string }>;
-    };
-    timestamp?: string;
+  metrics?: {
+  score?: number;
+  vitals?: {
+  fcp?: string;
+  tti?: string;
+  cls?: string;
+  lcp?: string;
+  };
+  };
+  aiInsights?: {
+  actionPlan?: Array<{ task: string; impact: string }>;
+  };
+  timestamp?: string;
   } | null;
   onRefresh?: () => void;
   isRefreshing?: boolean;
@@ -46,150 +46,165 @@ interface PerformanceAuditProps {
 
 const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ data, onRefresh, isRefreshing, onRequestOptimization }) => {
   const auditData = React.useMemo(() => {
-    if (!data) return null;
+  if (!data) return null;
 
-    return {
-      overall: data.metrics?.score ?? 0,
-      metrics: [
-        {
-          name: 'Page load speed',
-          value: parseFloat(data.metrics?.vitals?.fcp || '0') || 0,
-          status: (parseFloat(data.metrics?.vitals?.fcp || '0') < 2 ? 'good' : 'warning') as 'good' | 'warning',
-          icon: Zap, color: 'text-expert-green', unit: 's',
-        },
-        {
-          name: 'Time to interactive',
-          value: parseFloat(data.metrics?.vitals?.tti || '0') || 0,
-          status: (parseFloat(data.metrics?.vitals?.tti || '0') < 3.8 ? 'good' : 'warning') as 'good' | 'warning',
-          icon: Shield, color: 'text-ai-blue', unit: 's',
-        },
-        {
-          name: 'Layout stability',
-          value: Math.round((1 - (parseFloat(data.metrics?.vitals?.cls || '0') || 0)) * 100),
-          status: (parseFloat(data.metrics?.vitals?.cls || '0') < 0.1 ? 'good' : 'warning') as 'good' | 'warning',
-          icon: Search, color: 'text-tech-purple', isPercentage: true,
-        },
-        {
-          name: 'Visual completion',
-          value: parseFloat(data.metrics?.vitals?.lcp || '0') || 0,
-          status: (parseFloat(data.metrics?.vitals?.lcp || '0') < 2.5 ? 'good' : 'warning') as 'good' | 'warning',
-          icon: Smartphone, color: 'text-expert-green', unit: 's',
-        },
-      ] as Metric[],
-      recommendations: (data.aiInsights?.actionPlan?.map((item) => ({
-        message: item.task,
-        priority: item.impact?.toUpperCase() === 'HIGH' ? 'HIGH' : 'MEDIUM',
-      })) || []) as Recommendation[],
-    };
+  const readMetric = (raw: string | undefined) => {
+    if (!raw?.trim()) return null;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const fcp = readMetric(data.metrics?.vitals?.fcp);
+  const tti = readMetric(data.metrics?.vitals?.tti);
+  const cls = readMetric(data.metrics?.vitals?.cls);
+  const lcp = readMetric(data.metrics?.vitals?.lcp);
+  const toStatus = (value: number | null, threshold: number, lowerIsBetter = true): Metric['status'] => {
+    if (value == null) return 'unknown';
+    return (lowerIsBetter ? value < threshold : value > threshold) ? 'good' : 'warning';
+  };
+
+  return {
+  overall: typeof data.metrics?.score === 'number' ? data.metrics.score : null,
+  metrics: [
+  {
+  name: 'Page load speed',
+  value: fcp,
+  status: toStatus(fcp, 2),
+  icon: Zap, color: 'text-expert-green', unit: 's',
+  },
+  {
+  name: 'Time to interactive',
+  value: tti,
+  status: toStatus(tti, 3.8),
+  icon: Shield, color: 'text-ai-blue', unit: 's',
+  },
+  {
+  name: 'Layout stability',
+  value: cls == null ? null : Math.round((1 - cls) * 100),
+  status: toStatus(cls, 0.1),
+  icon: Search, color: 'text-tech-purple', isPercentage: true,
+  },
+  {
+  name: 'Visual completion',
+  value: lcp,
+  status: toStatus(lcp, 2.5),
+  icon: Smartphone, color: 'text-expert-green', unit: 's',
+  },
+  ] as Metric[],
+  recommendations: (data.aiInsights?.actionPlan?.map((item) => ({
+  message: item.task,
+  priority: item.impact?.toUpperCase() === 'HIGH' ? 'HIGH' : 'MEDIUM',
+  })) || []) as Recommendation[],
+  };
   }, [data]);
 
   const lastScanned = data?.timestamp
-    ? new Date(data.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-    : null;
+  ? new Date(data.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  : null;
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex flex-col gap-6 border border-white/[0.08] bg-white/[0.02] p-6 sm:flex-row sm:items-center sm:justify-between lg:p-8">
-        <div className="space-y-2">
-          {auditData ? (
-            <>
-              <div className="flex items-end gap-3">
-                <span className="text-5xl font-semibold leading-none tracking-tight text-white">{auditData.overall}</span>
-                <span className="mb-1 text-[10px] font-medium text-white/40">/ 100</span>
-              </div>
-              <p className="text-[10px] font-medium text-white/40">
-                {lastScanned ? `Last scanned ${lastScanned}` : 'Results not yet saved'}
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-white/40">
-                <ScanLine className="h-5 w-5" />
-                <span className="text-sm font-medium">Not yet scanned</span>
-              </div>
-              <p className="max-w-sm text-xs font-medium text-white/40">
-                Run a scan to see this site&apos;s real load speed, interactivity, and stability, plus specific recommendations.
-              </p>
-            </>
-          )}
-        </div>
+  <div className="animate-fade-in space-y-6">
+  <div className="flex flex-col gap-6 border border-white/[0.08] bg-white/[0.02] p-6 sm:flex-row sm:items-center sm:justify-between lg:p-8">
+  <div className="space-y-2">
+  {auditData ? (
+  <>
+  <div className="flex items-end gap-3">
+  <span className="text-5xl font-semibold leading-none text-white">{auditData.overall ?? '—'}</span>
+  <span className="mb-1 text-[10px] font-semibold text-white/40">/ 100</span>
+  </div>
+  <p className="text-[10px] font-semibold text-white/40">
+  {lastScanned ? `Last scanned ${lastScanned}` : 'Results not yet saved'}
+  </p>
+  </>
+  ) : (
+  <>
+  <div className="flex items-center gap-2 text-white/40">
+  <ScanLine className="h-5 w-5" />
+  <span className="text-sm font-semibold ">Not yet scanned</span>
+  </div>
+  <p className="max-w-sm text-xs font-medium text-white/40">
+  Run a scan to see this site&apos;s real load speed, interactivity, and stability, plus specific recommendations.
+  </p>
+  </>
+  )}
+  </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="flex items-center justify-center gap-2 border border-white/10 bg-white/[0.02] px-6 py-3 text-[10px] font-medium text-white/80 transition hover:border-ai-blue/30 hover:text-white disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Scanning...' : auditData ? 'Rescan' : 'Run scan'}
-          </button>
+  <div className="flex flex-col gap-2 sm:flex-row">
+  <button
+  onClick={onRefresh}
+  disabled={isRefreshing}
+  className="flex items-center justify-center gap-2 border border-white/10 bg-white/[0.02] px-6 py-3 text-[10px] font-semibold text-white/80 transition hover:border-ai-blue/30 hover:text-white disabled:opacity-50"
+  >
+  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+  {isRefreshing ? 'Scanning...' : auditData ? 'Rescan' : 'Run scan'}
+  </button>
 
-          {onRequestOptimization && (
-            <button
-              onClick={onRequestOptimization}
-              className="flex items-center justify-center gap-2 bg-ai-blue px-6 py-3 text-[10px] font-medium text-white transition hover:bg-white hover:text-black"
-            >
-              <LifeBuoy className="h-4 w-4" /> Request optimization
-            </button>
-          )}
-        </div>
-      </div>
+  {onRequestOptimization && (
+  <button
+  onClick={onRequestOptimization}
+  className="flex items-center justify-center gap-2 bg-ai-blue px-6 py-3 text-[10px] font-semibold text-white transition hover:bg-white hover:text-black"
+  >
+  <LifeBuoy className="h-4 w-4" /> Request optimization
+  </button>
+  )}
+  </div>
+  </div>
 
-      {auditData && (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {auditData.metrics.map((metric) => (
-              <div key={metric.name} className="flex flex-col justify-between gap-4 border border-white/[0.08] bg-white/[0.02] p-5">
-                <metric.icon className={`h-5 w-5 ${metric.color}`} />
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-medium text-white/40">{metric.name}</p>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xl font-semibold text-white">
-                      {metric.value}{metric.isPercentage ? '%' : metric.unit}
-                    </span>
-                    <span className={`text-[10px] font-medium ${metric.status === 'good' ? 'text-expert-green' : 'text-amber-300'}`}>
-                      {metric.status === 'good' ? 'Good' : 'Needs work'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+  {auditData && (
+  <>
+  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  {auditData.metrics.map((metric) => (
+  <div key={metric.name} className="flex flex-col justify-between gap-4 border border-white/[0.08] bg-white/[0.02] p-5">
+  <metric.icon className={`h-5 w-5 ${metric.color}`} />
+  <div className="space-y-1.5">
+  <p className="text-[10px] font-semibold text-white/40">{metric.name}</p>
+  <div className="flex items-center justify-between gap-3">
+  <span className="text-xl font-semibold text-white">
+  {metric.value == null ? '—' : `${metric.value}${metric.isPercentage ? '%' : metric.unit || ''}`}
+  </span>
+  <span className={`text-[10px] font-semibold ${metric.status === 'good' ? 'text-expert-green' : metric.status === 'warning' ? 'text-amber-300' : 'text-white/35'}`}>
+  {metric.status === 'good' ? 'Good' : metric.status === 'warning' ? 'Needs work' : 'Not measured'}
+  </span>
+  </div>
+  </div>
+  </div>
+  ))}
+  </div>
 
-          <div className="border border-white/[0.08] bg-white/[0.02] p-6 lg:p-8">
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-white">Recommendations</h3>
-              <span className="text-[10px] font-medium text-white/40">
-                {auditData.recommendations.length} {auditData.recommendations.length === 1 ? 'item' : 'items'}
-              </span>
-            </div>
+  <div className="border border-white/[0.08] bg-white/[0.02] p-6 lg:p-8">
+  <div className="mb-6 flex items-center justify-between">
+  <h3 className="text-sm font-semibold text-white">Recommendations</h3>
+  <span className="text-[10px] font-semibold text-white/40">
+  {auditData.recommendations.length} {auditData.recommendations.length === 1 ? 'item' : 'items'}
+  </span>
+  </div>
 
-            {auditData.recommendations.length > 0 ? (
-              <div className="space-y-3">
-                {auditData.recommendations.map((rec, idx) => (
-                  <div key={idx} className="flex items-start gap-4 border border-white/[0.06] p-4">
-                    {rec.priority === 'HIGH'
-                      ? <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
-                      : <Info className="mt-0.5 h-4 w-4 shrink-0 text-ai-blue" />}
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-white/88">{rec.message}</p>
-                      <span className={`text-[10px] font-medium ${rec.priority === 'HIGH' ? 'text-red-400' : 'text-ai-blue'}`}>
-                        {rec.priority === 'HIGH' ? 'High impact' : 'Medium impact'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3 border border-dashed border-white/10 py-12 text-center">
-                <Check className="h-8 w-8 text-expert-green/50" />
-                <p className="text-xs font-semibold text-white/40">Nothing outstanding right now</p>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+  {auditData.recommendations.length > 0 ? (
+  <div className="space-y-3">
+  {auditData.recommendations.map((rec, idx) => (
+  <div key={idx} className="flex items-start gap-4 border border-white/[0.06] p-4">
+  {rec.priority === 'HIGH'
+  ? <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+  : <Info className="mt-0.5 h-4 w-4 shrink-0 text-ai-blue" />}
+  <div className="space-y-1">
+  <p className="text-sm font-semibold text-white/88">{rec.message}</p>
+  <span className={`text-[10px] font-semibold ${rec.priority === 'HIGH' ? 'text-red-400' : 'text-ai-blue'}`}>
+  {rec.priority === 'HIGH' ? 'High impact' : 'Medium impact'}
+  </span>
+  </div>
+  </div>
+  ))}
+  </div>
+  ) : (
+  <div className="flex flex-col items-center gap-3 border border-dashed border-white/10 py-12 text-center">
+  <Check className="h-8 w-8 text-expert-green/50" />
+  <p className="text-xs font-semibold text-white/40">This scan returned no recommendations.</p>
+  </div>
+  )}
+  </div>
+  </>
+  )}
+  </div>
   );
 };
 

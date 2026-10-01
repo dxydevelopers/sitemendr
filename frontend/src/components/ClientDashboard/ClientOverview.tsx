@@ -1,20 +1,11 @@
-// components/client-dashboard/ClientOverview.tsx
-//
-// The "dashboard" tab: current project summary, quick links to the
-// other workspaces, and a short recent-activity feed. Pure presentation -
-// all data comes in as props from useClientDashboard().
-
+// A focused client workspace summary built from the account's real activity.
 'use client';
 
-import {
-  Rocket, Shield, ShoppingBag, ChevronRight, MousePointer2, BookOpen,
-  MessageSquare, LifeBuoy, CreditCard, Zap, Globe,
-} from 'lucide-react';
-import type { ClientProject, ClientActivity, CustomDomain, BillingItem, SupportTicket, MessageItem } from './ClientDashboard_types';
+import { Activity, ArrowRight, Globe, MessageSquare, Rocket } from 'lucide-react';
+import type { ClientProject, ClientActivity, CustomDomain, BillingItem, SupportTicket } from './ClientDashboard_types';
 
 interface ClientOverviewProps {
   selectedProject?: ClientProject | null;
-  averageProgress: number;
   projectsCount: number;
   domains: CustomDomain[];
   billing: BillingItem[];
@@ -26,120 +17,116 @@ interface ClientOverviewProps {
 }
 
 export default function ClientOverview({
-  selectedProject, averageProgress, projectsCount, domains, billing, tickets,
+  selectedProject, projectsCount, domains, billing, tickets,
   unreadMessages, activities, liveSites, onOpenTab,
 }: ClientOverviewProps) {
-  const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
+  const openTickets = tickets.filter(ticket => ticket.status !== 'resolved' && ticket.status !== 'closed').length;
   const liveSitesCount = liveSites.length;
-  const hasActiveBuild = projectsCount > liveSitesCount;
-  const heroSite = !hasActiveBuild ? liveSites[0] : null;
-  const heroLaunchDate = heroSite?.completedAt || heroSite?.launchApprovedAt;
+  const selectedProjectIsLive = Boolean(selectedProject && liveSites.some(site => site.id === selectedProject.id));
+  const buildProject = selectedProject && !selectedProjectIsLive
+    ? selectedProject
+    : null;
+  const currentSite = selectedProjectIsLive
+    ? selectedProject
+    : liveSites[0];
+  const hasProjects = projectsCount > 0;
+
+  const summary = [
+    { label: 'Live sites', value: liveSitesCount, tab: 'mysites' },
+    { label: 'Domains', value: domains.length, tab: 'domains' },
+    { label: 'Open support', value: openTickets, tab: 'tickets' },
+    { label: 'Unread messages', value: unreadMessages, tab: 'messages' },
+    { label: 'Billing items', value: billing.length, tab: 'billing' },
+  ];
 
   return (
-    <div className="animate-fade-in">
-      <section className="border-y border-white/10">
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] xl:grid-cols-[minmax(300px,0.72fr)_minmax(420px,1fr)_minmax(280px,0.48fr)]">
-          <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10">
-            <button type="button" onClick={() => onOpenTab(hasActiveBuild ? 'projects' : heroSite ? 'mysites' : 'projects')} className="group flex min-h-[160px] w-full items-end justify-between gap-6 px-5 py-6 text-left transition hover:bg-white/[0.025] sm:px-7 xl:min-h-[210px]">
-              <span className="min-w-0">
-                <span className={`flex items-center gap-3 text-[12px] font-medium ${heroSite ? 'text-expert-green' : 'text-ai-blue'}`}>
-                  {heroSite ? <Globe className="h-4 w-4" /> : <Rocket className="h-4 w-4" />} {heroSite ? 'Live' : 'Build'}
-                </span>
-                <span className="mt-4 block truncate text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                  {heroSite ? heroSite.name : (selectedProject?.name || 'No active project')}
-                </span>
-                <span className="mt-3 block truncate text-sm font-semibold text-white/42">
-                  {heroSite
-                    ? (liveSitesCount > 1 ? `${liveSitesCount} sites live` : (heroSite.siteUrl?.replace(/^https?:\/\//, '') || 'Live and operating'))
-                    : (selectedProject?.planType?.replace(/_/g, ' ') || 'Start from a private workspace')}
-                </span>
-              </span>
-              <ChevronRight className="mb-1 h-5 w-5 shrink-0 text-white/22 transition group-hover:translate-x-1 group-hover:text-white/70" />
-            </button>
+    <div className="animate-fade-in mx-auto w-full max-w-6xl space-y-6 sm:space-y-8">
+      <section className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141B]">
+        <div className="flex flex-col gap-6 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between lg:p-9">
+          <div className="min-w-0 flex-1">
+            <div className="mb-5 flex items-center gap-2 text-xs font-medium text-white/48">
+              {currentSite ? <Globe className="h-4 w-4 text-emerald-400" /> : <Rocket className="h-4 w-4 text-ai-blue" />}
+              <span>{currentSite ? 'Live site' : buildProject ? 'Project in progress' : 'Client workspace'}</span>
+            </div>
+            <h2 className="truncate text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              {currentSite?.name || buildProject?.name || (hasProjects ? 'Your projects' : 'Start a project')}
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-white/48">
+              {currentSite
+                ? currentSite.siteUrl?.replace(/^https?:\/\//, '') || 'Your website is live.'
+                : buildProject
+                  ? 'Continue following your project build and updates.'
+                  : hasProjects
+                    ? 'View your projects and their latest progress.'
+                    : 'Tell us what you need and start a new website project.'}
+            </p>
 
-            {hasActiveBuild ? (
-              <div className="border-t border-white/10 px-5 py-5 sm:px-7">
-                <div className="mb-3 flex items-center justify-between text-xs font-semibold text-white/48">
-                  <span>Progress</span><span>{averageProgress}%</span>
+            {buildProject && (
+              <div className="mt-6 max-w-lg">
+                <div className="mb-2 flex items-center justify-between text-xs text-white/52">
+                  <span>Build progress</span><span>{buildProject.progress || 0}%</span>
                 </div>
-                <div className="h-1 bg-white/10"><div className="h-1 bg-expert-green" style={{ width: `${averageProgress}%` }} /></div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-label="Build progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0, Math.min(100, buildProject.progress || 0))}>
+                  <div className="h-full rounded-full bg-ai-blue transition-[width]" style={{ width: `${Math.max(0, Math.min(100, buildProject.progress || 0))}%` }} />
+                </div>
               </div>
-            ) : heroSite ? (
-              <div className="border-t border-white/10 px-5 py-5 text-xs font-semibold text-white/42 sm:px-7">
-                {heroLaunchDate ? `Live since ${new Date(heroLaunchDate).toLocaleDateString()}` : 'Live and operating'}
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-3 border-t border-white/10 divide-x divide-white/10">
-              {[
-                { label: 'Build', icon: <Rocket className="h-5 w-5 text-ai-blue" />, tab: 'projects' },
-                { label: 'Repair', icon: <Shield className="h-5 w-5 text-expert-green" />, tab: 'audit' },
-                { label: 'Grow', icon: <ShoppingBag className="h-5 w-5 text-amber-300" />, tab: 'business' },
-              ].map((path) => (
-                <button key={path.label} type="button" onClick={() => onOpenTab(path.tab)} className="group grid min-h-24 place-items-center gap-3 py-5 text-center transition hover:bg-white/[0.025]">
-                  {path.icon}
-                  <span className="text-xs font-medium text-white/54 group-hover:text-white">{path.label}</span>
-                </button>
-              ))}
-            </div>
+            )}
           </div>
 
-          <div className="border-b border-white/10 lg:border-b-0 xl:border-r xl:border-white/10">
-            <div className="grid grid-cols-[1fr_4.5rem_5.5rem_1.5rem] items-center gap-3 border-b border-white/10 px-4 py-3 text-[11px] font-medium text-white/32 sm:grid-cols-[1fr_5rem_6.5rem_2rem] sm:px-6">
-              <span>Queue</span><span className="text-right">Count</span><span className="text-right">State</span><span></span>
-            </div>
-            {[
-              { label: 'Projects', value: projectsCount, status: projectsCount ? 'Active' : 'Ready', tab: 'projects', icon: <Rocket className="h-4 w-4 text-ai-blue" /> },
-              { label: 'My Sites', value: liveSitesCount, status: liveSitesCount ? 'Live' : 'None yet', tab: 'mysites', icon: <Globe className="h-4 w-4 text-expert-green" /> },
-              { label: 'Domains', value: domains.length, status: domains.length ? 'Connected' : 'Setup', tab: 'domains', icon: <Globe className="h-4 w-4 text-ai-blue" /> },
-              { label: 'Messages', value: unreadMessages, status: unreadMessages ? 'Unread' : 'Clear', tab: 'messages', icon: <MessageSquare className="h-4 w-4 text-tech-purple" /> },
-              { label: 'Tickets', value: openTickets, status: openTickets ? 'Open' : 'Clear', tab: 'tickets', icon: <LifeBuoy className="h-4 w-4 text-expert-green" /> },
-              { label: 'Billing', value: billing.length, status: billing.length ? 'Available' : 'Clear', tab: 'billing', icon: <CreditCard className="h-4 w-4 text-amber-300" /> },
-            ].map((row) => (
-              <button key={row.label} type="button" onClick={() => onOpenTab(row.tab)} className="group grid min-h-14 grid-cols-[1fr_4.5rem_5.5rem_1.5rem] items-center gap-3 border-b border-white/8 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/[0.025] sm:grid-cols-[1fr_5rem_6.5rem_2rem] sm:px-6">
-                <span className="flex min-w-0 items-center gap-3">
-                  {row.icon}
-                  <span className="truncate text-sm font-semibold text-white/72 group-hover:text-white">{row.label}</span>
-                </span>
-                <span className="text-right text-sm font-semibold text-white/58">{row.value}</span>
-                <span className="truncate text-right text-xs font-semibold text-white/42">{row.status}</span>
-                <ChevronRight className="h-4 w-4 text-white/18 transition group-hover:translate-x-1 group-hover:text-white/62" />
-              </button>
-            ))}
-          </div>
-
-          <div className="grid lg:col-span-2 lg:grid-cols-2 xl:col-span-1 xl:block">
-            <div className="border-b border-white/10 lg:border-b-0 lg:border-r lg:border-white/10 xl:border-r-0 xl:border-b">
-              <div className="grid grid-cols-3 divide-x divide-white/10">
-                {[
-                  { label: 'Edit', icon: <MousePointer2 className="h-4 w-4" />, tab: 'editor' },
-                  { label: 'Store', icon: <ShoppingBag className="h-4 w-4" />, tab: 'ecommerce' },
-                  { label: 'Files', icon: <BookOpen className="h-4 w-4" />, tab: 'resources' },
-                ].map((tool) => (
-                  <button key={tool.label} type="button" onClick={() => onOpenTab(tool.tab)} className="group flex min-h-24 flex-col items-start justify-between px-4 py-5 text-left text-white/48 transition hover:bg-white/[0.025] hover:text-white">
-                    {tool.icon}<span className="text-xs font-medium">{tool.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <div className="mb-3 text-sm font-semibold text-white">Recent</div>
-              <div className="divide-y divide-white/8">
-                {activities.length > 0 ? activities.slice(0, 4).map((act, i) => (
-                  <div key={`${act.title}-${i}`} className="py-3">
-                    <div className="truncate text-sm font-semibold text-white/70">{act.title}</div>
-                    <div className="mt-1 flex items-center justify-between gap-3 text-xs text-white/34">
-                      <span className="truncate">{act.desc}</span><span className="shrink-0">{act.time}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-3 text-sm text-white/34">No recent activity yet.</div>
-                )}
-              </div>
-            </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onOpenTab(currentSite ? 'mysites' : 'projects')}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ai-blue px-4 text-sm font-semibold text-white transition hover:bg-ai-blue/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ai-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#10141B]"
+            >
+              {currentSite ? 'Manage site' : hasProjects ? 'View projects' : 'Start a project'}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            {currentSite?.siteUrl && (
+              <a href={currentSite.siteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/10 px-4 text-sm font-medium text-white/70 transition hover:bg-white/[0.05] hover:text-white">
+                Visit site
+              </a>
+            )}
           </div>
         </div>
+      </section>
+
+      <section aria-label="Workspace summary" className="grid grid-cols-2 divide-x divide-y divide-white/[0.08] overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-5">
+        {summary.map(item => (
+          <button key={item.label} type="button" onClick={() => onOpenTab(item.tab)} className="min-w-0 p-4 text-left transition hover:bg-white/[0.04] sm:p-5">
+            <span className="block truncate text-xs font-medium text-white/45">{item.label}</span>
+            <span className="mt-2 block text-2xl font-semibold tabular-nums text-white">{item.value}</span>
+          </button>
+        ))}
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
+        <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <Activity className="h-4 w-4 text-white/45" />
+            <h3 className="text-sm font-semibold text-white">Recent activity</h3>
+          </div>
+          {unreadMessages > 0 && (
+            <button type="button" onClick={() => onOpenTab('messages')} className="inline-flex items-center gap-1.5 text-xs font-medium text-ai-blue hover:text-white">
+              <MessageSquare className="h-3.5 w-3.5" /> {unreadMessages} unread
+            </button>
+          )}
+        </div>
+        {activities.length ? (
+          <ul className="divide-y divide-white/[0.06]">
+            {activities.slice(0, 5).map((activity, index) => (
+              <li key={`${activity.title}-${index}`} className="flex min-w-0 flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white/82">{activity.title}</p>
+                  <p className="mt-1 truncate text-xs text-white/42">{activity.desc}</p>
+                </div>
+                <time className="shrink-0 text-xs text-white/35">{activity.time}</time>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-5 py-8 text-sm text-white/42 sm:px-6">No recent activity.</p>
+        )}
       </section>
     </div>
   );

@@ -57,7 +57,7 @@ export const getAdminNextAction = (request: ProjectRequest) => {
   if (request.status === 'quote_ready') return 'Await client';
   if (request.status === 'approved') return 'Send terms';
   if (request.status === 'payment_agreement') {
-    return request.paymentAgreementStatus === 'confirmed' ? 'Start development' : 'Waiting payment';
+  return request.paymentAgreementStatus === 'confirmed' ? 'Start development' : 'Waiting payment';
   }
   if (request.status === 'in_development') return 'Update studio';
   if (request.status === 'staging_review') return 'Handle review';

@@ -1320,6 +1320,7 @@ exports.getDomains = async (req, res) => {
       where: { userId },
       select: {
         id: true,
+        siteId: true,
         domain: true,
         setup: true,
         createdAt: true,

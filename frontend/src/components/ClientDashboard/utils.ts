@@ -9,19 +9,10 @@ import type { ApiRecord, ClientProject, BuildMilestone, StudioLink, StudioUpdate
 export const normalizeDashboardTab = (tab?: string | null) => {
   const groupOnlyTabs: Record<string, string> = {
     workspaces: 'dashboard',
-    support: 'messages',
     account: 'settings',
   };
 
   return tab ? groupOnlyTabs[tab] || tab : 'dashboard';
-};
-
-export const lockedClientTabs: Record<string, { label: string; area: string }> = {
-  ecommerce: { label: 'Commerce', area: 'merchant' },
-  booking: { label: 'Bookings', area: 'merchant' },
-  editor: { label: 'Editor', area: 'project' },
-  addons: { label: 'Add-ons', area: 'billing' },
-  resources: { label: 'Resources', area: 'support' },
 };
 
 export const formatCurrencyAmount = (currency: string, amount?: number | null, fallback = 'Pending') => {
@@ -64,6 +55,23 @@ export const loadPaystackInline = () => new Promise<void>((resolve, reject) => {
   document.body.appendChild(script);
 });
 
+const normalizePurchasedAddons = (value: unknown): unknown[] | undefined => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeSiteUrl = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const url = value.trim();
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+};
+
 export const mapApiProjectToClientProject = (p: ApiRecord): ClientProject => ({
   id: String(p.id || ''),
   recordType: p.recordType === 'request' || p.recordType === 'project' ? p.recordType : undefined,
@@ -103,12 +111,12 @@ export const mapApiProjectToClientProject = (p: ApiRecord): ClientProject => ({
   studioLinks: Array.isArray(p.studioLinks) ? p.studioLinks as StudioLink[] : [],
   studioUpdates: Array.isArray(p.studioUpdates) ? p.studioUpdates as StudioUpdate[] : [],
   clientNotes: typeof p.clientNotes === 'string' ? p.clientNotes : undefined,
-  siteUrl: typeof p.siteUrl === 'string' ? p.siteUrl : undefined,
+  siteUrl: normalizeSiteUrl(p.siteUrl || p.launchUrl || p.domain),
   domain: typeof p.domain === 'string' ? p.domain : undefined,
   reviewRequested: typeof p.reviewRequested === 'boolean' ? p.reviewRequested : undefined,
   reviewNotes: typeof p.reviewNotes === 'string' ? p.reviewNotes : undefined,
   revisionCount: typeof p.revisionCount === 'number' ? p.revisionCount : undefined,
-  purchasedAddons: Array.isArray(p.purchasedAddons) || typeof p.purchasedAddons === 'string' ? p.purchasedAddons : undefined,
+  purchasedAddons: normalizePurchasedAddons(p.purchasedAddons),
   isCurrent: typeof p.isCurrent === 'boolean' ? p.isCurrent : undefined,
   createdAt: typeof p.createdAt === 'string' ? p.createdAt : undefined,
   updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : undefined,

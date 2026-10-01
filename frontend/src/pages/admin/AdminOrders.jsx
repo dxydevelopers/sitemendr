@@ -42,8 +42,8 @@ export default function AdminOrders() {
   // so this list doesn't go stale without a manual refresh.
   useEffect(() => {
     const socket = io("/", { path: "/socket.io" });
-    socket.on("order-status-updated", ({ id, status }) => {
-      setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, status } : o)));
+    socket.on("order-status-updated", ({ id, status, paymentStatus }) => {
+      setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, status, ...(paymentStatus ? { paymentStatus } : {}) } : o)));
     });
     return () => socket.disconnect();
   }, []);
@@ -53,6 +53,16 @@ export default function AdminOrders() {
     try {
       await api.put(`/orders/${id}/status`, { status });
       setOrders((prev) => prev.map((o) => o._id === id ? { ...o, status } : o));
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  async function markPaid(id) {
+    setUpdating(id);
+    try {
+      await api.put(`/orders/${id}/payment-status`, { paymentStatus: "paid" });
+      setOrders((prev) => prev.map((o) => o._id === id ? { ...o, paymentStatus: "paid" } : o));
     } finally {
       setUpdating(null);
     }
@@ -149,6 +159,13 @@ export default function AdminOrders() {
                           <StatusIcon size={9} /> {cfg.label}
                         </span>
                         <span className="font-mono-tag text-[9px] uppercase text-cream/25">{order.channel}</span>
+                        <span className={`font-mono-tag text-[9px] uppercase px-2 py-0.5 rounded-full ${
+                          order.paymentStatus === "paid" ? "bg-emerald-500/10 text-emerald-400"
+                          : order.paymentStatus === "failed" ? "bg-red-500/10 text-red-400"
+                          : "bg-cream/5 text-cream/40"
+                        }`}>
+                          {order.paymentMethod === "mpesa" ? "M-Pesa" : order.paymentMethod === "paystack" ? "Card" : "COD"} · {order.paymentStatus}
+                        </span>
                       </div>
                       <p className="text-cream text-sm font-medium">
                         {order.user ? order.user.name : order.guestInfo?.name || "Guest"}
@@ -179,6 +196,18 @@ export default function AdminOrders() {
                 {/* Expanded order details */}
                 {isOpen && (
                   <div className="mt-4 pt-4 border-t border-cream/8 space-y-3">
+                    {order.paymentStatus !== "paid" && (
+                      <button
+                        onClick={() => markPaid(order._id)}
+                        disabled={updating === order._id}
+                        className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition disabled:opacity-50"
+                      >
+                        Mark as Paid
+                      </button>
+                    )}
+                    {order.paymentReference && (
+                      <p className="text-cream/30 text-[11px]">Payment ref: {order.paymentReference}</p>
+                    )}
                     {order.items?.map((item, i) => (
                       <div key={i} className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-mall-800 overflow-hidden shrink-0">

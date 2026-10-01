@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ClientDashboard from '@/components/ClientDashboard';
 
 import { apiClient } from '@/lib/api';
@@ -10,65 +10,68 @@ export default function DashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  const routeTab = pathname.split('/').filter(Boolean)[1];
+  const initialTab = routeTab || 'dashboard';
 
   const checkAuthStatus = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('sitemendr_auth_token');
-      if (!token) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
+  try {
+  const token = localStorage.getItem('sitemendr_auth_token');
+  if (!token) {
+  setLoading(false);
+  router.push('/login');
+  return;
+  }
 
-      const data = await apiClient.getProfile();
+  const data = await apiClient.getProfile();
 
-      if (data.success && data.user) {
-        if (data.user.role === 'user' || data.user.role === 'client') {
-          setIsAuthenticated(true);
-          localStorage.setItem('sitemendr_client_user', JSON.stringify(data.user));
-          localStorage.setItem('user', JSON.stringify(data.user));
-          localStorage.removeItem('sitemendr_admin_user');
-        } else if (data.user.role === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push('/login');
-        }
-      } else {
-        router.push('/login');
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      router.push('/login');
-    }
-    setLoading(false);
+  if (data.success && data.user) {
+  if (data.user.role === 'user' || data.user.role === 'client') {
+  setIsAuthenticated(true);
+  localStorage.setItem('sitemendr_client_user', JSON.stringify(data.user));
+  localStorage.setItem('user', JSON.stringify(data.user));
+  localStorage.removeItem('sitemendr_admin_user');
+  } else if (data.user.role === 'admin') {
+  router.push('/admin');
+  } else {
+  router.push('/login');
+  }
+  } else {
+  router.push('/login');
+  }
+  } catch (error) {
+  console.error('Auth check failed:', error);
+  router.push('/login');
+  }
+  setLoading(false);
   }, [router]);
 
   useEffect(() => {
-    checkAuthStatus();
+  checkAuthStatus();
   }, [checkAuthStatus]);
 
   const handleLogout = () => {
-    localStorage.removeItem('sitemendr_auth_token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('sitemendr_client_user');
-    localStorage.removeItem('sitemendr_admin_user');
-    setIsAuthenticated(false);
-    router.push('/');
+  localStorage.removeItem('sitemendr_auth_token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('sitemendr_client_user');
+  localStorage.removeItem('sitemendr_admin_user');
+  setIsAuthenticated(false);
+  router.push('/');
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-ai-blue"></div>
-      </div>
-    );
+  return (
+  <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center">
+  <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-ai-blue"></div>
+  </div>
+  );
   }
 
   return (
-    <main className="min-h-screen bg-[#0A0C10] text-white selection:bg-ai-blue/30">
-      {isAuthenticated ? (
-        <ClientDashboard onLogout={handleLogout} />
-      ) : null}
-    </main>
+  <main className="min-h-screen bg-[#0A0C10] text-white selection:bg-ai-blue/30">
+  {isAuthenticated ? (
+  <ClientDashboard onLogout={handleLogout} initialTab={initialTab} />
+  ) : null}
+  </main>
   );
 }

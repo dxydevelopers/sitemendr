@@ -170,6 +170,7 @@ export interface ResourceItem {
 
 export interface CustomDomain {
   id: string;
+  siteId?: string;
   domain: string;
   setup: string;
   status?: string;

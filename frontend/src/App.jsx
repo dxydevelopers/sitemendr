@@ -11,6 +11,7 @@ import Product from "./pages/Product";
 import Search from "./pages/Search";
 import Cart from "./pages/Cart";
 import OrderSuccess from "./pages/OrderSuccess";
+import PaymentCallback from "./pages/PaymentCallback";
 import TrackOrder from "./pages/TrackOrder";
 import VerifyEmail from "./pages/VerifyEmail";
 import Login from "./pages/Login";
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/collection/:name" element={<AttributeProducts attribute="category" label="Collection" />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/order-success" element={<OrderSuccess />} />
+        <Route path="/payment/callback" element={<PaymentCallback />} />
         <Route path="/track-order" element={<TrackOrder />} />
         <Route path="/track-order/:id" element={<TrackOrder />} />
         <Route path="/verify-email" element={<VerifyEmail />} />

@@ -45,8 +45,15 @@ export function useClientDashboard(initialTab?: string) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserData | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const selectedProjectIdRef = useRef<string | null>(null);
+  const updateSelectedProjectId = useCallback((projectId: string | null) => {
+    selectedProjectIdRef.current = projectId;
+    setSelectedProjectId(projectId);
+  }, []);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingProjectId, setAnalyzingProjectId] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisProjectId, setAnalysisProjectId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [selectedAssessment, setSelectedAssessment] = useState<ClientAssessment | null>(null);
   const [activeBuildChapter, setActiveBuildChapter] = useState<string | null>(null);
@@ -81,7 +88,7 @@ export function useClientDashboard(initialTab?: string) {
   const [handoffChatLoadedProjectId, setHandoffChatLoadedProjectId] = useState<string | null>(null);
   const [finalPaymentSubmitting, setFinalPaymentSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>(null);
   const [mobileRailGroup, setMobileRailGroup] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -97,7 +104,6 @@ export function useClientDashboard(initialTab?: string) {
 
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
-  const selectedProjectIdRef = useRef(selectedProjectId);
   const reviewChatOpenRef = useRef(reviewChatOpen);
 
   useEffect(() => {
@@ -158,18 +164,23 @@ export function useClientDashboard(initialTab?: string) {
 
       if (mappedProjects.length > 0) {
         setProjects(mappedProjects);
-        if (selectedProjectId && !mappedProjects.some(project => project.id === selectedProjectId)) {
-          setSelectedProjectId(null);
+        const currentSelectedProjectId = selectedProjectIdRef.current;
+        if (currentSelectedProjectId && !mappedProjects.some(project => project.id === currentSelectedProjectId)) {
+          updateSelectedProjectId(null);
+          selectedProjectIdRef.current = null;
           setActiveBuildChapter(null);
         }
-        if (projectId && !selectedProjectId) {
+        if (projectId && !currentSelectedProjectId) {
           const requestedProject = mappedProjects.find((p) => p.id === projectId);
-          if (requestedProject) setSelectedProjectId(requestedProject.id);
+          if (requestedProject) {
+            updateSelectedProjectId(requestedProject.id);
+          }
         }
       } else {
         setProjects([]);
-        if (selectedProjectId) {
-          setSelectedProjectId(null);
+        if (selectedProjectIdRef.current) {
+          updateSelectedProjectId(null);
+          selectedProjectIdRef.current = null;
           setActiveBuildChapter(null);
         }
       }
@@ -279,7 +290,7 @@ export function useClientDashboard(initialTab?: string) {
 
       const currentSelectedId = selectedProjectIdRef.current;
       if (!currentSelectedId) {
-        setSelectedProjectId(updatedProject.id);
+        updateSelectedProjectId(updatedProject.id);
       } else if (currentSelectedId === updatedProject.id && stageChanged) {
         setActiveBuildChapter(null);
       }
@@ -385,14 +396,16 @@ export function useClientDashboard(initialTab?: string) {
 
   const handleAnalyzeSite = async (projectId: string, url: string) => {
     setIsAnalyzing(true);
+    setAnalyzingProjectId(projectId);
     try {
       const res = await apiClient.analyzePerformance(url, projectId);
       setAnalysisResult(res.data as unknown as AnalysisResult);
-      setActiveTab('audit');
+      setAnalysisProjectId(projectId);
     } catch {
       alert('Audit failed.');
     } finally {
       setIsAnalyzing(false);
+      setAnalyzingProjectId(null);
     }
   };
 
@@ -437,7 +450,7 @@ export function useClientDashboard(initialTab?: string) {
       if (!res.success) throw new Error(res.message || 'Failed to respond to quote');
       setQuoteMessage('');
       await fetchData(project.id);
-      setSelectedProjectId(project.id);
+      updateSelectedProjectId(project.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to respond to quote.');
     } finally {
@@ -497,7 +510,7 @@ export function useClientDashboard(initialTab?: string) {
             try {
               await apiClient.verifyPayment(response.reference || response.trxref || reference);
               await fetchData(project.id);
-              setSelectedProjectId(project.id);
+              updateSelectedProjectId(project.id);
               setShowAgreementPaymentMethods(false);
             } catch (err) {
               alert(err instanceof Error ? err.message : 'Payment was completed, but verification needs support review.');
@@ -555,7 +568,7 @@ export function useClientDashboard(initialTab?: string) {
       setBriefResponseAnswers({});
       setBriefResponseFeedback(res.message || 'Your clarification has been sent to the team.');
       await fetchData(project.id);
-      setSelectedProjectId(project.id);
+      updateSelectedProjectId(project.id);
     } catch (err) {
       setBriefResponseFeedback(err instanceof Error ? err.message : 'Failed to send brief clarification.');
     } finally {
@@ -575,7 +588,7 @@ export function useClientDashboard(initialTab?: string) {
       setStagingReviewMessage('');
       if (action === 'changes') setReviewChatDraft('');
       await fetchData(project.id);
-      setSelectedProjectId(project.id);
+      updateSelectedProjectId(project.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to respond to staging review.');
     } finally {
@@ -658,7 +671,7 @@ export function useClientDashboard(initialTab?: string) {
       if (!res.success) throw new Error(res.message || 'Failed to respond to handoff');
       setHandoffMessage('');
       await fetchData(project.id);
-      setSelectedProjectId(project.id);
+      updateSelectedProjectId(project.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to respond to handoff.');
     } finally {
@@ -761,7 +774,7 @@ export function useClientDashboard(initialTab?: string) {
             try {
               await apiClient.verifyPayment(response.reference || response.trxref || reference);
               await fetchData(project.id);
-              setSelectedProjectId(project.id);
+              updateSelectedProjectId(project.id);
             } catch (err) {
               alert(err instanceof Error ? err.message : 'Payment was completed, but verification needs support review.');
             } finally {
@@ -853,7 +866,7 @@ export function useClientDashboard(initialTab?: string) {
     // project selection / build journey
     selectedProjectId, setSelectedProjectId,
     activeBuildChapter, setActiveBuildChapter,
-    isAnalyzing, analysisResult, handleAnalyzeSite,
+    isAnalyzing, analyzingProjectId, analysisResult, analysisProjectId, handleAnalyzeSite,
     exportingId, handleExportCodebase,
     selectedAssessment, showAssessmentModal, setShowAssessmentModal, handleViewAssessment,
     showProjectRequestModal, setShowProjectRequestModal,
