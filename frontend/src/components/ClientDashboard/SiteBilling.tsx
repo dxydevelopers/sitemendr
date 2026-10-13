@@ -45,10 +45,11 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
 
   const selectedTransaction = selectedTransactionId ? billing.find((b) => b.id === selectedTransactionId) || null : null;
   const mostRecentChannelItem = billing.find((item) => item.channel);
+  const buildPayments = billing.filter((item) => ['build_agreement', 'build_final_balance'].includes(item.serviceType || ''));
 
   const currency = site.quoteCurrency || billing[0]?.currency || 'USD';
   const totalAgreed = site.totalAgreedAmount;
-  const totalPaidMajor = billing
+  const totalPaidMajor = buildPayments
   .filter((item) => PAID_STATUSES.has(item.status))
   .reduce((sum, item) => sum + (item.amount || 0) / 100, 0);
   const outstanding = typeof totalAgreed === 'number' ? Math.max(0, totalAgreed - totalPaidMajor) : null;
@@ -85,11 +86,11 @@ export default function SiteBilling({ site, billing }: { site: ClientProject; bi
   </p>
   </div>
   <div className="px-6 py-5">
-  <p className="text-[10px] font-semibold text-white/40">Total paid</p>
+  <p className="text-[10px] font-semibold text-white/40">Build paid</p>
   <p className="mt-2 text-xl font-semibold text-expert-green">{formatMajorUnits(totalPaidMajor, currency)}</p>
   </div>
   <div className="px-6 py-5">
-  <p className="text-[10px] font-semibold text-white/40">Outstanding</p>
+  <p className="text-[10px] font-semibold text-white/40">Build balance</p>
   <p className={`mt-2 text-xl font-semibold ${outstanding ? 'text-amber-300' : 'text-white'}`}>
   {outstanding == null ? '—' : formatMajorUnits(outstanding, currency)}
   </p>

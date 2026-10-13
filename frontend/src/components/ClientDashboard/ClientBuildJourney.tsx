@@ -16,10 +16,11 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import {
-  ArrowLeft, ChevronRight, Sparkles, Clock, Check, TriangleAlert, MessageSquare,
-  CircleDollarSign, ExternalLink, Send, Loader2, CreditCard, X, Globe,
+  ArrowLeft, ChevronRight, Sparkles, Check, TriangleAlert, MessageSquare,
+  CircleDollarSign, ExternalLink, Send, Loader2, CreditCard, X,
 } from 'lucide-react';
-import type { ClientProject, ReviewChatMessage } from './ClientDashboard_types';
+import type { ClientProject } from './ClientDashboard_types';
+import ProjectConversationEntries from './ProjectConversationEntries';
 import {
   buildLifecycle, buildJourneyChapters, normalizeBuildStatus, requestStatuses,
   formatCurrencyAmount, getPaystackChannelsForCurrency, agreementPaymentMethods,
@@ -32,20 +33,21 @@ interface ClientBuildJourneyProps {
 }
 
 export default function ClientBuildJourney({ dashboard, onStartRequest }: ClientBuildJourneyProps) {
+  const [acceptedQuoteTermsId, setAcceptedQuoteTermsId] = useState('');
   const {
   projects, selectedProjectId, setSelectedProjectId, activeBuildChapter, setActiveBuildChapter,
   user, quoteMessage, setQuoteMessage, quoteSubmitting, handleQuoteResponse,
   paymentSubmitting, showAgreementPaymentMethods, setShowAgreementPaymentMethods,
   selectedAgreementPaymentMethod, setSelectedAgreementPaymentMethod, handleAgreementPayment,
   briefResponseAnswers, setBriefResponseAnswers, briefResponseSubmitting, briefResponseFeedback,
-  handleBriefClarificationResponse, stagingReviewMessage, setStagingReviewMessage,
+  handleBriefClarificationResponse, stagingReviewMessage,
   stagingReviewSubmitting, handleStagingReviewResponse, reviewChatOpen, setReviewChatOpen,
   reviewChatMessages, reviewChatUnreadCount, reviewChatDraft, setReviewChatDraft,
-  reviewChatLoading, reviewChatSending, handleSendClientReviewChat, handoffMessage,
-  setHandoffMessage, handoffMessageError, setHandoffMessageError, handoffSubmitting,
+  reviewChatLoading, reviewChatSending, handleSendClientReviewChat,
+  handleProjectLifecycleRequest,
+  handoffSubmitting,
   handoffSubmittingAction, handleHandoffResponse, handleViewAssessment,
-  handoffChatStarted, handoffChatMessages, handoffChatDraft, setHandoffChatDraft,
-  handoffChatLoading, handoffChatSending, handleOpenHandoffChat, handleSendClientHandoffChat,
+  handoffChatStarted, handleOpenHandoffChat,
   finalPaymentSubmitting, handleFinalBalancePayment,
   } = dashboard;
 
@@ -53,8 +55,6 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   ? Math.round(projects.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.length)
   : 0;
 
-  const getLifecycleIndex = (project?: ClientProject | null) =>
-  Math.max(0, buildLifecycle.findIndex(step => step.status === normalizeBuildStatus(project?.status)));
   const isProjectRequest = (project?: ClientProject | null) =>
   Boolean(project && (project.recordType === 'request' || requestStatuses.includes(project.status)));
 
@@ -63,19 +63,24 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   : projects[0] || null;
   const currentBuildRecord = selectedProjectRecord || projects[0] || null;
   const currentBuildStatus = normalizeBuildStatus(currentBuildRecord?.status);
+  const hasPendingLifecycleRequest = reviewChatMessages.some(item => item.eventData?.lifecycleStatus === 'pending' && ['pause', 'cancel'].includes(String(item.eventData?.lifecycleType)));
+  const pausedFromStatus = currentBuildStatus === 'paused'
+    ? String(reviewChatMessages.find(item => item.eventData?.lifecycleType === 'pause' && item.eventData?.lifecycleStatus === 'confirmed')?.eventData?.previousStatus || 'in_development')
+    : undefined;
+  const activeQuoteVersion = currentBuildRecord?.quoteVersions?.find(quote => quote.status === 'sent') || currentBuildRecord?.quoteVersions?.[0];
+  const acceptedQuoteVersion = currentBuildRecord?.quoteVersions?.find(quote => quote.status === 'accepted');
   const currentBuildPlanLabel = currentBuildRecord?.planType?.replace(/_/g, ' ') || 'Custom build';
   const currentBuildSubmittedLabel = currentBuildRecord?.createdAt
   ? new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(currentBuildRecord.createdAt))
   : 'Recently submitted';
   const currentLifecycleIndex = Math.max(0, buildLifecycle.findIndex(step => step.status === currentBuildStatus));
-  const defaultBuildChapter = buildJourneyChapters.find(c => c.statuses.includes(currentBuildStatus)) || buildJourneyChapters[0];
+  const defaultBuildChapter = buildJourneyChapters.find(c => c.statuses.includes(currentBuildStatus)) || (pausedFromStatus ? buildJourneyChapters.find(c => c.statuses.includes(pausedFromStatus)) : undefined) || buildJourneyChapters[0];
   const defaultBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(c => c.id === defaultBuildChapter.id));
   const requestedBuildChapter = buildJourneyChapters.find(c => c.id === activeBuildChapter);
   const requestedBuildChapterIndex = requestedBuildChapter ? buildJourneyChapters.findIndex(c => c.id === requestedBuildChapter.id) : -1;
   const selectedBuildChapter = requestedBuildChapter && (requestedBuildChapterIndex <= defaultBuildChapterIndex || currentBuildStatus === 'completed')
   ? requestedBuildChapter : defaultBuildChapter;
   const selectedBuildChapterIndex = Math.max(0, buildJourneyChapters.findIndex(c => c.id === selectedBuildChapter.id));
-  const nextBuildChapter = buildJourneyChapters[Math.min(selectedBuildChapterIndex + 1, buildJourneyChapters.length - 1)];
   const buildPageProgress = Math.round(((defaultBuildChapterIndex + 1) / buildJourneyChapters.length) * 100);
 
   const hasScopeProposal = Boolean(currentBuildRecord?.quotedAmount) || [
@@ -90,7 +95,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
   const paymentAgreementStatusLabel = currentBuildRecord?.paymentAgreementStatus === 'confirmed'
   ? 'Deposit paid' : currentBuildRecord?.paymentAgreementStatus === 'sent' ? 'Deposit pending' : 'Awaiting payment request';
-  const activeBuildLifecycleLabel = currentBuildStatus === 'payment_agreement'
+  const activeBuildLifecycleLabel = currentBuildStatus === 'paused' ? 'Paused · waiting to resume' : currentBuildStatus === 'payment_agreement'
   ? paymentAgreementStatusLabel : buildLifecycle[currentLifecycleIndex]?.label || 'Submitted';
   const selectedBuildChapterDetail = selectedBuildChapter.id === 'agreement'
   ? currentBuildRecord?.paymentAgreementStatus === 'confirmed'
@@ -209,11 +214,9 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   const clientPreviewUrl = currentBuildRecord?.stagingUrl || clientPreviewLink?.url || '';
   const clientPreviewIsReal = Boolean(clientPreviewUrl && /^https?:\/\//i.test(clientPreviewUrl) && !/sitemendr\.test|localhost|127\.0\.0\.1/i.test(clientPreviewUrl));
   const latestStudioUpdate = clientStudioUpdates[0];
-  const clientProductionFocus = activeBuildMilestone?.title || 'Production setup';
   const clientProductionUpdate = latestStudioUpdate?.message || clientBuildUpdate;
   const clientProductionHeadline = blockedBuildMilestones.length ? 'The team needs one thing to keep moving'
   : clientPreviewIsReal ? 'Preview is ready for you' : 'Production has started';
-  const clientPreviewStatus = clientPreviewIsReal ? 'Ready' : 'Preparing';
   const clientActionMessage = blockedBuildMilestones.length ? 'The team may ask for one detail before continuing.' : 'Nothing is needed from you right now.';
   const clientPreparedItems = [
   briefGoals ? `Goal: ${briefGoals}` : null,
@@ -406,6 +409,30 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   </div>
   </div>
 
+  {isProjectRequest(currentBuildRecord) && !['completed', 'cancelled', 'archived', 'paused'].includes(currentBuildStatus) && (
+  <div className="mx-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-0 py-3 sm:mx-8 lg:mx-10">
+  <p className="text-xs font-semibold text-white/40">{hasPendingLifecycleRequest ? 'Your request is with the admin. The current project stage stays active until a decision is recorded.' : 'Need to pause or end this build? Send a request for the admin to review.'}</p>
+  {!hasPendingLifecycleRequest && <>
+  <div className="flex gap-2">
+  <button type="button" onClick={() => handleProjectLifecycleRequest(currentBuildRecord.id, 'pause')} className="min-h-9 border border-white/10 px-3 py-2 text-[10px] font-semibold text-white/60 hover:bg-white/[0.05]">Request pause</button>
+  <button type="button" onClick={() => handleProjectLifecycleRequest(currentBuildRecord.id, 'cancel')} className="min-h-9 border border-amber-300/20 px-3 py-2 text-[10px] font-semibold text-amber-300/75 hover:bg-amber-300/10">Request cancellation</button>
+  </div>
+  </>}
+  </div>
+  )}
+  {currentBuildStatus === 'paused' && currentBuildRecord && (
+  <div className="mx-5 flex flex-wrap items-center justify-between gap-3 border-b border-amber-300/20 px-0 py-3 sm:mx-8 lg:mx-10">
+  <p className="text-xs font-semibold text-amber-300">{hasPendingLifecycleRequest ? 'Your request is with the admin.' : 'This build is paused. The admin can resume it at the stage where work stopped, or review a cancellation request.'}</p>
+  {!hasPendingLifecycleRequest && <button type="button" onClick={() => handleProjectLifecycleRequest(currentBuildRecord.id, 'cancel')} className="min-h-9 border border-amber-300/20 px-3 py-2 text-[10px] font-semibold text-amber-300/75 hover:bg-amber-300/10">Request cancellation</button>}
+  </div>
+  )}
+  {currentBuildStatus === 'cancelled' && (
+  <div className="mx-5 border-b border-amber-300/20 px-0 py-5 sm:mx-8 lg:mx-10">
+  <p className="mb-3 text-[10px] font-semibold text-amber-300">Cancellation closeout</p>
+  {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="client" /> : <p className="text-sm leading-6 text-white/50">The admin’s cancellation settlement will appear here.</p>}
+  </div>
+  )}
+
   {selectedBuildChapter.id !== 'brief' && (
   <div className="border-b border-white/10 px-5 pb-4 pt-3 sm:px-8 lg:px-10">
   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -531,6 +558,17 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   </div>
   </div>
 
+  {activeQuoteVersion && (
+  <div className="grid gap-4 border-t border-white/10 py-5 sm:grid-cols-2">
+  <div><p className="text-[10px] font-semibold text-white/35">Quote version</p><p className="mt-1 text-sm font-semibold text-white">Version {activeQuoteVersion.version}</p></div>
+  <div><p className="text-[10px] font-semibold text-white/35">Delivery timeline</p><p className="mt-1 text-sm font-semibold text-white">{activeQuoteVersion.snapshot.timeline || 'To be confirmed'}</p></div>
+  <div className="sm:col-span-2"><p className="text-[10px] font-semibold text-white/35">Included scope</p><p className="mt-1 whitespace-pre-line text-sm leading-6 text-white/70">{activeQuoteVersion.snapshot.scope || 'Scope details will be provided by the team.'}</p></div>
+  <div className="sm:col-span-2"><p className="text-[10px] font-semibold text-white/35">Milestone values for cancellation terms</p><div className="mt-2 divide-y divide-white/[0.06]">{(activeQuoteVersion.snapshot.milestoneAmounts || []).map(item => <div key={item.name} className="flex items-center justify-between gap-4 py-2 text-sm"><span className="text-white/65">{item.name}</span><span className="font-semibold text-white">{formatCurrencyAmount(activeQuoteVersion.snapshot.currency || agreementCurrency, item.amount)}</span></div>)}</div></div>
+  <div className="sm:col-span-2"><p className="text-[10px] font-semibold text-white/35">Pre-approved non-recoverable costs</p>{activeQuoteVersion.snapshot.nonRecoverableCosts?.length ? <div className="mt-2 divide-y divide-white/[0.06]">{activeQuoteVersion.snapshot.nonRecoverableCosts.map(item => <div key={`${item.name}-${item.reason}`} className="flex flex-col justify-between gap-1 py-2 text-sm sm:flex-row sm:gap-4"><span className="text-white/70">{item.name}: {item.reason}</span><span className="font-semibold text-white">{formatCurrencyAmount(activeQuoteVersion.snapshot.currency || agreementCurrency, item.amount)}</span></div>)}</div> : <p className="mt-1 text-sm leading-6 text-white/55">None included.</p>}</div>
+  <div className="sm:col-span-2"><p className="text-[10px] font-semibold text-white/35">Cancellation terms</p><p className="mt-1 text-sm leading-6 text-white/70">{activeQuoteVersion.snapshot.cancellationTerms}</p></div>
+  </div>
+  )}
+
   {isScopeApproved ? (
   <div className="border-t border-expert-green/25 py-5">
   <p className="text-[10px] font-semibold text-expert-green">Accepted</p>
@@ -600,7 +638,17 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
 
   {canPayAgreement && (
   <div className="mt-6 space-y-4">
-  <button type="button" onClick={() => setShowAgreementPaymentMethods(v => !v)} disabled={paymentSubmitting} className="flex min-h-12 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-semibold text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-50 sm:max-w-sm">
+  {acceptedQuoteVersion && (
+  <label className="flex cursor-pointer items-start gap-3 border border-white/10 bg-white/[0.02] p-4 text-sm leading-6 text-white/70">
+  <input type="checkbox" checked={acceptedQuoteTermsId === acceptedQuoteVersion.id} onChange={event => setAcceptedQuoteTermsId(event.target.checked ? acceptedQuoteVersion.id : '')} className="mt-1 h-4 w-4 accent-[#f4bd50]" />
+  <span className="space-y-1">
+  <span className="block">I agree to quote version {acceptedQuoteVersion.version} and the payment and cancellation terms for this project.</span>
+  <span className="block text-xs text-white/45">Total {formatCurrencyAmount(agreementCurrency, agreementTotalAmount)} · Due now {formatCurrencyAmount(agreementCurrency, agreementDueNowAmount)} · {currentBuildRecord.paymentAgreementType?.replace(/_/g, ' ') || 'Payment schedule pending'}</span>
+  <span className="block text-xs text-white/45">On confirmed cancellation, completed milestones and any listed pre-approved non-recoverable costs already incurred are charged. Any prepaid amount above that is refunded.</span>
+  </span>
+  </label>
+  )}
+  <button type="button" onClick={() => setShowAgreementPaymentMethods(v => !v)} disabled={paymentSubmitting || acceptedQuoteTermsId !== acceptedQuoteVersion?.id} className="flex min-h-12 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-semibold text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-50 sm:max-w-sm">
   <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Proceed to payment</span><ChevronRight className={`h-4 w-4 transition ${showAgreementPaymentMethods ? 'rotate-90' : ''}`} />
   </button>
 
@@ -620,7 +668,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   );
   })}
   </div>
-  <button type="button" onClick={() => handleAgreementPayment(currentBuildRecord, activeAgreementPaymentMethod)} disabled={paymentSubmitting} className="flex min-h-12 w-full items-center justify-between gap-3 border border-amber-300/35 px-3 py-2 text-left text-[10px] font-semibold text-amber-200 transition hover:border-amber-200 hover:bg-amber-300/10 hover:text-white disabled:opacity-50 sm:max-w-sm">
+  <button type="button" onClick={() => handleAgreementPayment(currentBuildRecord, activeAgreementPaymentMethod, acceptedQuoteVersion?.id, acceptedQuoteTermsId === acceptedQuoteVersion?.id)} disabled={paymentSubmitting || acceptedQuoteTermsId !== acceptedQuoteVersion?.id} className="flex min-h-12 w-full items-center justify-between gap-3 border border-amber-300/35 px-3 py-2 text-left text-[10px] font-semibold text-amber-200 transition hover:border-amber-200 hover:bg-amber-300/10 hover:text-white disabled:opacity-50 sm:max-w-sm">
   <span>{paymentSubmitting ? 'Opening secure checkout' : `Continue with ${activeAgreementPaymentMethod.label} (${agreementDueNowLabel})`}</span>
   {paymentSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
   </button>
@@ -795,26 +843,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   <button type="button" onClick={() => setReviewChatOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white" aria-label="Close preview discussion"><X className="h-4 w-4" /></button>
   </div>
   <div className="flex-1 space-y-4 overflow-y-auto bg-black/35 p-4">
-  {reviewChatMessages.length ? reviewChatMessages.map(message => {
-  const isClientMessage = message.senderRole === 'client';
-  return (
-  <div key={message.id} className={`flex ${isClientMessage ? 'justify-end' : 'justify-start'}`}>
-  <div className={`max-w-[84%] ${isClientMessage ? 'text-right' : 'text-left'}`}>
-  <div className={`inline-block rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${isClientMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
-  <p className="whitespace-pre-line">{message.message}</p>
-  <p className={`mt-1 text-[10px] font-semibold ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-  </div>
-  {!isClientMessage && Array.isArray(message.choices) && message.choices.length > 0 && (
-  <div className="mt-2 flex flex-wrap gap-2">
-  {message.choices.map(choice => (
-  <button key={choice} type="button" onClick={() => handleSendClientReviewChat(currentBuildRecord.id, choice)} disabled={reviewChatSending} className="rounded-full border border-ai-blue/25 px-3 py-1.5 text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">{choice}</button>
-  ))}
-  </div>
-  )}
-  </div>
-  </div>
-  );
-  }) : (
+  {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="client" onChoose={choice => handleSendClientReviewChat(currentBuildRecord.id, choice)} /> : (
   <div className="flex h-full items-center justify-center text-center"><p className="max-w-xs text-sm font-semibold leading-6 text-white/50">Ask a question or write the changes you want the team to review.</p></div>
   )}
   </div>
@@ -897,31 +926,25 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   <div className="border border-ai-blue/20 bg-white/[0.02]">
   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 p-5">
   <div className="min-w-0">
-  <p className="text-[10px] font-semibold text-ai-blue">Handoff discussion</p>
-  <p className="mt-1 text-xs leading-5 text-white/44">{currentBuildRecord.completionAcknowledgedAt ? "You've already accepted handoff. Flag anything you spot before or during final payment." : "Tell the team what's missing. You can accept handoff here once it's sorted."}</p>
+  <p className="text-[10px] font-semibold text-ai-blue">Project conversation</p>
+  <p className="mt-1 text-xs leading-5 text-white/44">{currentBuildRecord.completionAcknowledgedAt
+    ? 'You’ve already accepted handoff. Flag anything you spot before or during final payment.'
+    : currentBuildRecord.handoffIssuesReportedAt
+      ? 'The handoff is back under review. Continue the conversation below; after the team replies, you can accept it again when the issue is resolved.'
+      : 'Tell the team what’s missing. You can accept handoff here once it’s sorted.'}</p>
   </div>
-  <span className="shrink-0 text-[10px] font-semibold text-white/34">{handoffChatLoading ? 'Loading' : `${handoffChatMessages.length} message${handoffChatMessages.length === 1 ? '' : 's'}`}</span>
+  <span className="shrink-0 text-[10px] font-semibold text-white/34">{reviewChatLoading ? 'Loading' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}</span>
   </div>
   <div className="max-h-72 space-y-3 overflow-y-auto p-5">
-  {handoffChatMessages.length ? handoffChatMessages.map(message => {
-  const isClientMessage = message.senderRole === 'client';
-  return (
-  <div key={message.id} className={`flex ${isClientMessage ? 'justify-end' : 'justify-start'}`}>
-  <div className={`max-w-[84%] rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${isClientMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
-  <p className="whitespace-pre-line">{message.message}</p>
-  <p className={`mt-1 text-[10px] font-semibold ${isClientMessage ? 'text-white/65' : 'text-white/35'}`}>{isClientMessage ? 'You' : 'Team'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-  </div>
-  </div>
-  );
-  }) : <p className="py-6 text-center text-sm font-semibold leading-6 text-white/50">Describe what's missing below to start the conversation.</p>}
+  {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="client" onChoose={choice => handleSendClientReviewChat(currentBuildRecord.id, choice)} /> : <p className="py-6 text-center text-sm font-semibold leading-6 text-white/50">Describe what&apos;s missing below to start the conversation.</p>}
   </div>
   <div className="border-t border-white/10 p-5">
-  <textarea value={handoffChatDraft} onChange={(e) => setHandoffChatDraft(e.target.value)} rows={2} className="w-full resize-none bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24" placeholder="Describe the handoff issue..." />
+  <textarea value={reviewChatDraft} onChange={(e) => setReviewChatDraft(e.target.value)} rows={2} className="w-full resize-none bg-transparent text-sm leading-6 text-white outline-none transition placeholder:text-white/24" placeholder="Message the team about this project..." />
   <div className="mt-3 flex flex-wrap items-center gap-3">
-  <button type="button" onClick={() => handleSendClientHandoffChat(currentBuildRecord.id)} disabled={handoffChatSending || !handoffChatDraft.trim()} className="inline-flex min-h-10 items-center gap-2 border border-ai-blue/30 px-3 py-2 text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
-  {handoffChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5 shrink-0" />
+  <button type="button" onClick={() => handleSendClientReviewChat(currentBuildRecord.id)} disabled={reviewChatSending || !reviewChatDraft.trim()} className="inline-flex min-h-10 items-center gap-2 border border-ai-blue/30 px-3 py-2 text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
+  {reviewChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5 shrink-0" />
   </button>
-  {(currentBuildRecord.completionAcknowledgedAt || handoffChatMessages.some(m => m.senderRole === 'admin')) && (
+  {(currentBuildRecord.completionAcknowledgedAt || reviewChatMessages.some(m => m.senderRole === 'admin')) && (
   <button type="button" onClick={() => handleHandoffResponse(currentBuildRecord, 'complete')} disabled={handoffSubmitting} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 border border-expert-green/30 px-3 py-2 text-center text-[10px] font-semibold text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:opacity-40 sm:flex-none">
   {handoffSubmittingAction === 'complete' ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Check className="h-3.5 w-3.5 shrink-0" />} {currentBuildRecord.completionAcknowledgedAt ? 'Mark resolved' : 'Accept handoff'}
   </button>
@@ -966,7 +989,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   </div>
   <div className="mt-5 border border-expert-green/25 bg-expert-green/[0.04] p-4 sm:p-5">
   <div className="flex items-center gap-2 text-expert-green"><Check className="h-4 w-4 shrink-0" /><p className="text-[10px] font-semibold ">Payment confirmed</p></div>
-  <p className="mt-2 text-sm font-semibold leading-6 text-white/64">Our team is doing one last check before marking this fully complete — you'll be notified the moment it's official.</p>
+  <p className="mt-2 text-sm font-semibold leading-6 text-white/64">The team is completing a final check. We will notify you when the build is complete.</p>
   {currentBuildRecord.launchUrl && (
   <a href={currentBuildRecord.launchUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-[10px] font-semibold text-ai-blue transition hover:text-white">Open live build <ExternalLink className="h-3.5 w-3.5 shrink-0" /></a>
   )}

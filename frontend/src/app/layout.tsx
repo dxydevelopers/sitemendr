@@ -1,15 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import LayoutWrapper from "@/components/LayoutWrapper";
 import QueryProvider from "@/lib/query-provider";
 import { OrganizationSchema, WebSiteSchema, LocalBusinessSchema } from "@/components/StructuredData";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -165,7 +159,7 @@ export default function RootLayout({
           })}
         </Script>
       </head>
-      <body className={`${inter.variable} font-sans antialiased bg-dark-bg text-light-text`}>
+      <body className="font-sans antialiased bg-dark-bg text-light-text">
         {/* SEO Structured Data */}
         <OrganizationSchema />
         <WebSiteSchema />

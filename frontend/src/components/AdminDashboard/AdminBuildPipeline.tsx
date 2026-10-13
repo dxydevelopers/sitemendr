@@ -11,20 +11,21 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   ArrowLeft, ChevronRight, Search, Package, UserRound, Mail, CalendarDays,
   Activity, Clock, CreditCard, MessageSquare, Check, ExternalLink, Send,
   CircleDollarSign, Layout, Folder, Eye, Sparkles, X,
 } from 'lucide-react';
-import type { ProjectRequest, StudioTask, StudioBlocker } from './AdminDashboard_types';
+import type { StudioTask, StudioBlocker } from './AdminDashboard_types';
 import {
   adminBuildChapters, closedBuildStatuses, buildOperatorViews, briefMissingOptions,
   getAdminBuildChapter, getAdminBuildProgress, getAdminNextAction, getAdminBuildState,
   formatCurrencyAmount,
 } from './utils';
 import type { UseAdminDashboardReturn } from './useAdminDashboard';
+import ProjectConversationEntries from '../ClientDashboard/ProjectConversationEntries';
 
 interface AdminBuildPipelineProps {
   dashboard: UseAdminDashboardReturn;
@@ -35,32 +36,91 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   loading, projectRequests, selectedProjectRequestId, setSelectedProjectRequestId,
   activeAdminBuildChapter, setActiveAdminBuildChapter, buildOperatorView, setBuildOperatorView,
   searchTerm, setSearchTerm, submitting, briefMissingItems, setBriefMissingItems,
-  briefClarificationMessage, setBriefClarificationMessage, briefDecisionMessage,
-  scopeClientNote, setScopeClientNote, studioTaskDraft, setStudioTaskDraft,
+  briefClarificationMessage, setBriefClarificationMessage,
+  scopeClientNote, setScopeClientNote, quoteMilestoneDraft, setQuoteMilestoneDraft,
+  quoteCostDraft, setQuoteCostDraft, briefDecisionMessage, setBriefDecisionMessage,
+  studioTaskDraft, setStudioTaskDraft,
   studioBlockerDraft, setStudioBlockerDraft, studioUpdateDraft, setStudioUpdateDraft,
   studioLinkDraft, setStudioLinkDraft, reviewChatOpen, setReviewChatOpen, reviewChatMessages,
   reviewChatDraft, setReviewChatDraft, reviewChatChoiceDraft, setReviewChatChoiceDraft,
-  reviewChatLoading, reviewChatSending, handleSendAdminReviewChat, agreementDraft, setAgreementDraft,
+  reviewChatLoading, reviewChatSending, handleSendAdminReviewChat, handleDecideProjectLifecycleRequest, handleRecordCancellationRefund, agreementDraft, setAgreementDraft,
   handleUpdateProjectRequest, handleCreateStudioTask, handleUpdateStudioTask,
   handleCreateStudioBlocker, handleUpdateStudioBlocker, handleCreateStudioUpdate,
   handleCreatePreviewLink, handleClearPreviewLink, handleCreateStudioLink,
-  handoffChatMessages, handoffChatDraft, setHandoffChatDraft, handoffChatLoading, handoffChatSending,
-  handoffChatLoadedRequestId, fetchAdminHandoffChat, handleSendAdminHandoffChat, handleMarkFinalPaymentReceived,
   } = dashboard;
 
   const selectedProjectRequest = selectedProjectRequestId
   ? projectRequests.find(r => r.id === selectedProjectRequestId) || null
   : null;
+  const [launchUrlDraft, setLaunchUrlDraft] = useState('');
 
   useEffect(() => {
-  if (
-  selectedProjectRequest
-  && selectedProjectRequest.status === 'handoff'
-  && handoffChatLoadedRequestId !== selectedProjectRequest.id
-  ) {
-  fetchAdminHandoffChat(selectedProjectRequest.id);
-  }
-  }, [selectedProjectRequest?.id, selectedProjectRequest?.status, handoffChatLoadedRequestId]);
+    if (!selectedProjectRequest) return;
+    setAgreementDraft({
+      paymentAgreementType: selectedProjectRequest.paymentAgreementType || '',
+      paymentDueDate: selectedProjectRequest.paymentDueDate?.slice(0, 10) || '',
+      totalAgreedAmount: selectedProjectRequest.totalAgreedAmount?.toString() || selectedProjectRequest.quotedAmount?.toString() || '',
+      depositAmount: selectedProjectRequest.depositAmount?.toString() || '',
+      paymentInstructions: selectedProjectRequest.paymentInstructions || '',
+    });
+  }, [
+    selectedProjectRequest,
+    selectedProjectRequest?.id,
+    selectedProjectRequest?.paymentAgreementType,
+    selectedProjectRequest?.paymentDueDate,
+    selectedProjectRequest?.totalAgreedAmount,
+    selectedProjectRequest?.quotedAmount,
+    selectedProjectRequest?.depositAmount,
+    selectedProjectRequest?.paymentInstructions,
+    setAgreementDraft,
+  ]);
+
+  useEffect(() => {
+    setLaunchUrlDraft(selectedProjectRequest?.launchUrl || '');
+  }, [selectedProjectRequest?.id, selectedProjectRequest?.launchUrl]);
+  const pendingLifecycleMessages = reviewChatMessages.filter(item => item.eventData?.lifecycleStatus === 'pending' && ['pause', 'cancel'].includes(String(item.eventData?.lifecycleType)));
+
+  const decideLifecycleFromConversation = async (messageId: string, decision: 'confirm' | 'decline' | 'resume' | 'reopen') => {
+    if (!selectedProjectRequest) return;
+    const lifecycleMessage = reviewChatMessages.find(item => item.id === messageId);
+    if (decision === 'reopen' && !window.confirm('Reopen this build at its saved stage? This voids the pending cancellation settlement. Reopening is blocked after a refund has been recorded.')) return;
+    let settlementSelection: { completedMilestoneIndexes: number[]; incurredCostIndexes: number[] } | undefined;
+    if (decision === 'confirm' && lifecycleMessage?.eventData?.lifecycleType === 'cancel') {
+      const acceptedQuote = selectedProjectRequest.quoteVersions?.find(quote => quote.status === 'accepted');
+      const snapshot = acceptedQuote?.snapshot;
+      const milestones = Array.isArray(snapshot?.milestoneAmounts) ? snapshot.milestoneAmounts as Array<{ name: string; amount: number }> : [];
+      const costs = Array.isArray(snapshot?.nonRecoverableCosts) ? snapshot.nonRecoverableCosts as Array<{ name: string; amount: number; reason: string }> : [];
+      if (!acceptedQuote) {
+        settlementSelection = { completedMilestoneIndexes: [], incurredCostIndexes: [] };
+      } else {
+        const choose = (label: string, entries: Array<{ name: string; amount: number; reason?: string }>) => {
+          if (!entries.length) return [] as number[];
+          const list = entries.map((entry, index) => `${index + 1}. ${entry.name} — ${formatCurrencyAmount(String(snapshot?.currency || selectedProjectRequest.quoteCurrency || 'USD'), entry.amount)}${entry.reason ? ` (${entry.reason})` : ''}`).join('\n');
+          const answer = window.prompt(`${label}\nEnter completed item numbers separated by commas, or leave blank for none.\n\n${list}`, '');
+          if (answer === null) return null;
+          const indexes = answer.split(',').map(value => value.trim()).filter(Boolean).map(value => Number(value));
+          if (indexes.some(value => !Number.isInteger(value) || value < 1 || value > entries.length)) return null;
+          return [...new Set(indexes)].map(value => value - 1);
+        };
+        const completedMilestones = choose('Completed quote milestones', milestones);
+        if (completedMilestones === null) { alert('Enter valid milestone numbers, or cancel to keep the request pending.'); return; }
+        const incurredCosts = choose('Pre-approved costs actually incurred', costs);
+        if (incurredCosts === null) { alert('Enter valid cost numbers, or cancel to keep the request pending.'); return; }
+        settlementSelection = { completedMilestoneIndexes: completedMilestones, incurredCostIndexes: incurredCosts };
+      }
+    }
+    await handleDecideProjectLifecycleRequest(selectedProjectRequest.id, messageId, decision, settlementSelection);
+  };
+
+  const selectedQuoteVersion = selectedProjectRequest?.quoteVersions?.[0];
+  useEffect(() => {
+  const snapshot = selectedQuoteVersion?.snapshot;
+  const milestones = Array.isArray(snapshot?.milestoneAmounts) ? snapshot.milestoneAmounts as Array<{ name: string; amount: number }> : [];
+  const costs = Array.isArray(snapshot?.nonRecoverableCosts) ? snapshot.nonRecoverableCosts as Array<{ name: string; amount: number; reason: string }> : [];
+  setQuoteMilestoneDraft(milestones.map(item => `${item.name} | ${item.amount}`).join('\n'));
+  setQuoteCostDraft(costs.map(item => `${item.name} | ${item.amount} | ${item.reason}`).join('\n'));
+  if (typeof snapshot?.scope === 'string') setScopeClientNote(snapshot.scope);
+  }, [selectedProjectRequest?.id, selectedQuoteVersion?.id, selectedQuoteVersion?.snapshot, setQuoteMilestoneDraft, setQuoteCostDraft, setScopeClientNote]);
 
   const buildSearchTerm = searchTerm.trim().toLowerCase();
   const filteredBySearch = projectRequests.filter(request => {
@@ -194,14 +254,16 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   // ---------- SELECTED REQUEST VIEW ----------
   if (!selectedProjectRequest) return null;
 
-  const defaultAdminBuildChapter = adminBuildChapters.find(c => c.statuses.includes(selectedProjectRequest.status)) || adminBuildChapters[0];
+  const pausedFromStatus = selectedProjectRequest.status === 'paused'
+    ? String(reviewChatMessages.find(item => item.eventData?.lifecycleType === 'pause' && item.eventData?.lifecycleStatus === 'confirmed')?.eventData?.previousStatus || 'in_development')
+    : undefined;
+  const defaultAdminBuildChapter = adminBuildChapters.find(c => c.statuses.includes(selectedProjectRequest.status)) || (pausedFromStatus ? adminBuildChapters.find(c => c.statuses.includes(pausedFromStatus)) : undefined) || adminBuildChapters[0];
   const defaultAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(c => c.id === defaultAdminBuildChapter.id));
   const requestedAdminBuildChapter = adminBuildChapters.find(c => c.id === activeAdminBuildChapter);
   const requestedAdminBuildChapterIndex = requestedAdminBuildChapter ? adminBuildChapters.findIndex(c => c.id === requestedAdminBuildChapter.id) : -1;
   const canOpenRequestedAdminBuildChapter = Boolean(requestedAdminBuildChapter && (requestedAdminBuildChapterIndex <= defaultAdminBuildChapterIndex || selectedProjectRequest.status === 'completed' || (selectedProjectRequest.status === 'approved' && requestedAdminBuildChapter.id === 'agreement')));
   const selectedAdminBuildChapter = requestedAdminBuildChapter && canOpenRequestedAdminBuildChapter ? requestedAdminBuildChapter : defaultAdminBuildChapter;
   const selectedAdminBuildChapterIndex = Math.max(0, adminBuildChapters.findIndex(c => c.id === selectedAdminBuildChapter.id));
-  const nextAdminBuildChapter = adminBuildChapters[Math.min(selectedAdminBuildChapterIndex + 1, adminBuildChapters.length - 1)];
   const adminBuildPageProgress = Math.round(((defaultAdminBuildChapterIndex + 1) / adminBuildChapters.length) * 100);
 
   const selectedBuildMilestones = selectedProjectRequest.buildMilestones || [];
@@ -288,6 +350,12 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   const selectedReviewStatusLabel = selectedReviewStatus === 'changes_requested' ? 'Changes requested' : selectedReviewStatus === 'approved' ? 'Approved' : selectedReviewStatus === 'sent' ? 'Waiting client' : 'Not sent';
   const selectedReviewStatusTone = selectedReviewStatus === 'approved' ? 'text-expert-green' : selectedReviewStatus === 'changes_requested' ? 'text-amber-300' : selectedReviewStatus === 'sent' ? 'text-ai-blue' : 'text-white/46';
   const selectedReviewCanMoveForward = selectedReviewStatus === 'approved';
+  const launchUrlIsPublic = (() => {
+    try {
+      const url = new URL(launchUrlDraft.trim());
+      return ['http:', 'https:'].includes(url.protocol) && !/^(localhost|127\.0\.0\.1|0\.0\.0\.0|.*\.test)$/i.test(url.hostname);
+    } catch { return false; }
+  })();
   const selectedReviewHeadline = selectedReviewStatus === 'changes_requested' ? 'Client requested changes' : selectedReviewStatus === 'approved' ? 'Preview approved' : 'Preview is with client';
   const selectedReviewIntro = selectedReviewStatus === 'changes_requested' ? 'Review the note, return to Studio, then send the updated preview back.' : selectedReviewStatus === 'approved' ? 'Client approval is recorded. Handoff can begin when the team is ready.' : 'Awaiting approval or change notes.';
   const selectedBriefAnswerRows = [
@@ -322,20 +390,12 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   const selectedAgreementDueNowLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementDueNow);
   const selectedAgreementTotalLabel = formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementTotal);
   const selectedAgreementBalanceLabel = selectedAgreementBalance ? formatCurrencyAmount(selectedAgreementCurrency, selectedAgreementBalance) : 'No balance';
-  const selectedHandoffNote = selectedProjectRequest.handoffNotes?.trim() || '';
   const hasScopeDiscussionRequest = selectedClientNotes.toLowerCase().includes('client wants to discuss the quote');
   const selectedScopeDiscussionLines = selectedClientNotes.split('\n').map(l => l.trim()).filter(l => l.toLowerCase().startsWith('client message:') && !l.toLowerCase().includes('brief clarification')).map(l => l.replace(/^Client message:\s*/i, '')).filter((l, i, arr) => l && arr.indexOf(l) === i);
   const selectedAgreementNote = agreementDraft.paymentInstructions
   ? agreementDraft.paymentInstructions.replace(/Deposit of [A-Z]{3}\s*[\d,]+(\.\d+)?/i, `Deposit of ${selectedAgreementDueNowLabel}`)
   : selectedAgreementDueNow ? `Deposit of ${selectedAgreementDueNowLabel} before development starts. Balance follows the agreed project terms.` : '';
-  const isAgreementDraftDirty = (
-  agreementDraft.paymentAgreementType !== (selectedProjectRequest.paymentAgreementType || '')
-  || agreementDraft.paymentDueDate !== (selectedProjectRequest.paymentDueDate ? selectedProjectRequest.paymentDueDate.slice(0, 10) : '')
-  || agreementDraft.totalAgreedAmount !== (selectedProjectRequest.totalAgreedAmount?.toString() || selectedProjectRequest.quotedAmount?.toString() || '')
-  || agreementDraft.depositAmount !== (selectedProjectRequest.depositAmount?.toString() || '')
-  || agreementDraft.paymentInstructions !== (selectedProjectRequest.paymentInstructions || '')
-  );
-  const selectedAgreementTypeLabel = agreementDraft.paymentAgreementType === 'deposit' ? 'Deposit payment' : agreementDraft.paymentAgreementType === 'full_payment' ? 'Full payment' : agreementDraft.paymentAgreementType === 'milestone_payments' ? 'Milestone payments' : 'Deposit payment';
+  const selectedAgreementTypeLabel = agreementDraft.paymentAgreementType === 'deposit' ? 'Deposit + final balance' : agreementDraft.paymentAgreementType?.replace(/_/g, ' ') || 'Deposit + final balance';
   const selectedPaymentReference = selectedClientNotes.match(/Reference:\s*([^\n]+)/i)?.[1]?.trim() || '';
   const selectedPaymentConfirmedAt = selectedProjectRequest.paymentConfirmedAt ? new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(selectedProjectRequest.paymentConfirmedAt)) : '';
   const selectedClientResponseReceivedAt = selectedProjectRequest.updatedAt ? new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(selectedProjectRequest.updatedAt)) : 'Recently';
@@ -353,11 +413,30 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   const message = [missingText, noteText].filter(Boolean).join('\n');
   if (!message) return; // decision message set upstream via dashboard.setBriefDecisionMessage if needed
   handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'in_review', clientNotes: message });
+  void handleSendAdminReviewChat(message);
   };
   const handleSendScopeToClient = () => {
   if (!selectedProjectRequest.quotedAmount) return;
+  const quoteMilestones = quoteMilestoneDraft.split('\n').map(line => {
+    const [name, rawAmount] = line.split('|').map(value => value.trim());
+    return { name, amount: Number(rawAmount) };
+  }).filter(item => item.name || item.amount);
+  const nonRecoverableCosts = quoteCostDraft.split('\n').map(line => {
+    const [name, rawAmount, reason] = line.split('|').map(value => value.trim());
+    return { name, amount: Number(rawAmount), reason: reason || '' };
+  }).filter(item => item.name || item.amount || item.reason);
+  const milestoneTotal = quoteMilestones.reduce((sum, item) => sum + item.amount, 0);
+  if (!quoteMilestones.length || quoteMilestones.some(item => !item.name || !Number.isFinite(item.amount) || item.amount <= 0) || Math.abs(milestoneTotal - Number(selectedProjectRequest.quotedAmount)) > 0.01) {
+    setBriefDecisionMessage({ type: 'error', text: 'Add valid milestone amounts that total the quote amount before sending it.' });
+    return;
+  }
+  if (nonRecoverableCosts.some(item => !item.name || !Number.isFinite(item.amount) || item.amount <= 0 || !item.reason)) {
+    setBriefDecisionMessage({ type: 'error', text: 'Each pre-approved cost needs a name, amount, and reason. Clear the field if there are no costs.' });
+    return;
+  }
   const note = scopeClientNote.trim() || 'Scope sent. Please review the offer, price, and delivery terms.';
-  handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'quote_ready', quoteCurrency: selectedProjectRequest.quoteCurrency || selectedProjectRequest.user?.defaultCurrency || 'USD', clientNotes: note });
+  handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'quote_ready', quoteCurrency: selectedProjectRequest.quoteCurrency || selectedProjectRequest.user?.defaultCurrency || 'USD', clientNotes: note, quoteMilestones, nonRecoverableCosts });
+  void handleSendAdminReviewChat(note);
   };
   const handleSendAgreementPaymentRequest = () => {
   handleUpdateProjectRequest(selectedProjectRequest.id, {
@@ -400,7 +479,19 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   </div>
 
   <div className={`flex-1 ${selectedAdminBuildChapter.id === 'brief' || selectedAdminBuildChapter.id === 'agreement' ? 'divide-y divide-white/10' : 'grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:divide-x xl:divide-white/10'}`}>
-  <section className={`px-5 py-6 lg:px-8 ${selectedAdminBuildChapter.id === 'agreement' ? 'hidden' : ''}`}>
+  <section className={`px-5 py-6 lg:px-8 ${selectedAdminBuildChapter.id === 'agreement' && pendingLifecycleMessages.length === 0 ? 'hidden' : ''}`}>
+  {pendingLifecycleMessages.length > 0 && selectedProjectRequest.status !== 'cancelled' && (
+  <div className="mb-6 border-y border-amber-300/20 py-5">
+  <p className="mb-4 text-[10px] font-semibold text-amber-300">Client lifecycle request · admin decision needed</p>
+  <ProjectConversationEntries messages={pendingLifecycleMessages} viewerRole="admin" onLifecycleDecision={decideLifecycleFromConversation} />
+  </div>
+  )}
+  {selectedProjectRequest.status === 'cancelled' && (
+  <div className="mb-6 border-y border-amber-300/20 py-5">
+  <p className="mb-4 text-[10px] font-semibold text-amber-300">Cancellation closeout</p>
+  {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="admin" onLifecycleDecision={decideLifecycleFromConversation} onRecordRefund={handleRecordCancellationRefund} /> : <p className="text-sm text-white/50">The cancellation settlement conversation is loading or unavailable.</p>}
+  </div>
+  )}
   {/* BRIEF */}
   {selectedAdminBuildChapter.id === 'brief' && (
   <>
@@ -699,11 +790,14 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   </div>
   <div className="border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
   <p className="text-[9px] font-semibold text-white/34">Next move</p>
-  <p className={`mt-2 text-lg font-semibold ${selectedReviewStatusTone}`}>{selectedReviewCanMoveForward ? 'Open handoff' : selectedReviewStatus === 'changes_requested' ? 'Update preview' : 'Await client'}</p>
+  <p className={`mt-2 text-lg font-semibold ${selectedReviewStatusTone}`}>{selectedReviewCanMoveForward ? 'Ready to launch' : selectedReviewStatus === 'changes_requested' ? 'Update preview' : 'Await client'}</p>
+  <label className="mt-4 block text-[9px] font-semibold text-white/42" htmlFor="build-live-url">Production URL</label>
+  <input id="build-live-url" type="url" value={launchUrlDraft} onChange={(event) => setLaunchUrlDraft(event.target.value)} className="mt-2 w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60" placeholder="https://your-live-site.com" />
+  <p className="mt-2 text-[9px] leading-4 text-white/34">Enter the public production URL before confirming launch.</p>
   {selectedReviewStatus === 'changes_requested' ? (
   <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'in_development', stagingReviewStatus: 'changes_requested' })} disabled={submitting} className="mt-5 flex min-h-11 w-full items-center justify-between gap-3 border border-amber-300/25 px-3 py-2 text-left text-[10px] font-semibold text-amber-300 transition hover:bg-amber-300/10 hover:text-white disabled:opacity-45">Return to Studio<ChevronRight className="h-4 w-4" /></button>
   ) : (
-  <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'handoff' })} disabled={submitting || !selectedReviewCanMoveForward} className={`mt-5 flex min-h-11 w-full items-center justify-between gap-3 border px-3 py-2 text-left text-[10px] font-semibold transition disabled:cursor-not-allowed ${selectedReviewCanMoveForward ? 'border-expert-green/25 text-expert-green hover:bg-expert-green/10 hover:text-white' : 'border-white/10 text-white/34'}`}>{selectedReviewCanMoveForward ? 'Move to handoff' : 'Waiting approval'}<ChevronRight className="h-4 w-4" /></button>
+  <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'launched', launchUrl: launchUrlDraft.trim() })} disabled={submitting || !selectedReviewCanMoveForward || !launchUrlIsPublic} className={`mt-5 flex min-h-11 w-full items-center justify-between gap-3 border px-3 py-2 text-left text-[10px] font-semibold transition disabled:cursor-not-allowed ${selectedReviewCanMoveForward && launchUrlIsPublic ? 'border-expert-green/25 text-expert-green hover:bg-expert-green/10 hover:text-white' : 'border-white/10 text-white/34'}`}>{!selectedReviewCanMoveForward ? 'Waiting approval' : !launchUrlIsPublic ? 'Add a public URL' : 'Confirm launch'}<ChevronRight className="h-4 w-4" /></button>
   )}
   </div>
   </div>
@@ -715,28 +809,13 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <button type="button" onClick={() => setReviewChatOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold text-white/80 transition hover:bg-white/10 hover:text-white" aria-label="Close review chat"><X className="h-4 w-4" /></button>
   </div>
   <div className="flex-1 space-y-4 overflow-y-auto bg-black/35 p-4">
-  {reviewChatMessages.length ? reviewChatMessages.map(message => {
-  const isAdminMessage = message.senderRole === 'admin';
-  return (
-  <div key={message.id} className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
-  <div className={`max-w-[84%] ${isAdminMessage ? 'text-right' : 'text-left'}`}>
-  <div className={`inline-block rounded-2xl px-4 py-3 text-sm font-semibold leading-6 ${isAdminMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
-  <p className="whitespace-pre-line">{message.message}</p>
-  <p className={`mt-1 text-[9px] font-semibold ${isAdminMessage ? 'text-white/65' : 'text-white/35'}`}>{isAdminMessage ? 'Admin' : 'Client'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-  </div>
-  {Array.isArray(message.choices) && message.choices.length > 0 && (
-  <div className={`mt-3 flex flex-wrap gap-2 ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>{message.choices.map(choice => <span key={choice} className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] font-semibold text-white/48">{choice}</span>)}</div>
-  )}
-  </div>
-  </div>
-  );
-  }) : <div className="flex h-full items-center justify-center text-center"><p className="max-w-xs text-sm font-semibold leading-6 text-white/50">Start a direct review conversation with the client.</p></div>}
+  {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="admin" onLifecycleDecision={decideLifecycleFromConversation} onRecordRefund={handleRecordCancellationRefund} /> : <div className="flex h-full items-center justify-center text-center"><p className="max-w-xs text-sm font-semibold leading-6 text-white/50">Start a direct review conversation with the client.</p></div>}
   </div>
   <div className="border-t border-white/10 bg-[0A0C10] p-4">
   <textarea value={reviewChatDraft} onChange={(e) => setReviewChatDraft(e.target.value)} rows={2} className="max-h-28 min-h-12 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60" placeholder="Write to the client about this review..." />
   <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
   <input value={reviewChatChoiceDraft} onChange={(e) => setReviewChatChoiceDraft(e.target.value)} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-2 text-xs font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60" placeholder="Optional choices, comma separated" />
-  <button type="button" onClick={handleSendAdminReviewChat} disabled={reviewChatSending || (!reviewChatDraft.trim() && !reviewChatChoiceDraft.trim())} className="flex min-h-11 items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-36">{reviewChatSending ? 'Sending' : reviewChatChoiceDraft.trim() ? 'Send question' : 'Send message'}<Send className="h-4 w-4" /></button>
+  <button type="button" onClick={() => handleSendAdminReviewChat()} disabled={reviewChatSending || (!reviewChatDraft.trim() && !reviewChatChoiceDraft.trim())} className="flex min-h-11 items-center justify-between gap-3 border border-ai-blue/30 px-3 py-2 text-left text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-36">{reviewChatSending ? 'Sending' : reviewChatChoiceDraft.trim() ? 'Send question' : 'Send message'}<Send className="h-4 w-4" /></button>
   </div>
   </div>
   </div>
@@ -758,6 +837,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <p className="text-[9px] font-semibold text-white/34">Launch state</p>
   <p className="mt-2 text-lg font-semibold text-expert-green">{selectedProjectRequest.status === 'completed' ? 'Closed' : selectedProjectRequest.status === 'handoff' ? 'Client handoff' : 'Live'}</p>
   {selectedProjectRequest.launchUrl && <a href={selectedProjectRequest.launchUrl} target="_blank" rel="noreferrer" className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2.5 text-left text-[10px] font-semibold text-expert-green transition hover:border-expert-green hover:bg-expert-green/10 hover:text-white">Open live build<ExternalLink className="h-4 w-4 shrink-0" /></a>}
+  {selectedProjectRequest.status === 'launched' && <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { status: 'handoff' })} disabled={submitting || !/^https?:\/\//i.test(selectedProjectRequest.launchUrl || '')} className="mt-3 flex min-h-11 w-full items-center justify-between gap-3 border border-ai-blue/25 px-3 py-2.5 text-left text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">Prepare client handoff<ChevronRight className="h-4 w-4 shrink-0" /></button>}
   </div>
   </div>
 
@@ -781,29 +861,19 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
 
   {/* Dynamic status column */}
   <div className="flex flex-col gap-6">
-  {selectedProjectRequest.status === 'handoff' && (selectedProjectRequest.handoffIssuesReportedAt || selectedProjectRequest.completionAcknowledgedAt) && (
+  {selectedProjectRequest.status === 'handoff' && (
   <div className="border border-ai-blue/20 bg-white/[0.02]">
   <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-  <p className="text-[9px] font-semibold text-ai-blue">Handoff discussion</p>
-  <span className="shrink-0 text-[9px] font-semibold text-white/30">{handoffChatLoading ? 'Loading' : `${handoffChatMessages.length} msg${handoffChatMessages.length === 1 ? '' : 's'}`}</span>
+  <p className="text-[9px] font-semibold text-ai-blue">Project conversation</p>
+  <span className="shrink-0 text-[9px] font-semibold text-white/30">{reviewChatLoading ? 'Loading' : `${reviewChatMessages.length} msg${reviewChatMessages.length === 1 ? '' : 's'}`}</span>
   </div>
   <div className="max-h-64 space-y-3 overflow-y-auto px-5 py-4">
-  {handoffChatMessages.length ? handoffChatMessages.map(message => {
-  const isAdminMessage = message.senderRole === 'admin';
-  return (
-  <div key={message.id} className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
-  <div className={`max-w-[88%] rounded-xl px-3 py-2 text-xs font-semibold leading-5 ${isAdminMessage ? 'rounded-tr-sm bg-ai-blue text-white' : 'rounded-tl-sm border border-white/10 bg-white/[0.06] text-white/78'}`}>
-  <p className="whitespace-pre-line">{message.message}</p>
-  <p className={`mt-1 text-[8px] font-semibold ${isAdminMessage ? 'text-white/65' : 'text-white/35'}`}>{isAdminMessage ? 'You' : 'Client'} - {new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-  </div>
-  </div>
-  );
-  }) : <p className="py-4 text-center text-xs font-semibold leading-5 text-white/46">No handoff messages yet.</p>}
+  {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="admin" onLifecycleDecision={decideLifecycleFromConversation} onRecordRefund={handleRecordCancellationRefund} /> : <p className="py-4 text-center text-xs font-semibold leading-5 text-white/46">No project messages yet.</p>}
   </div>
   <div className="border-t border-white/10 p-4">
-  <textarea value={handoffChatDraft} onChange={(e) => setHandoffChatDraft(e.target.value)} rows={2} className="w-full resize-none bg-transparent text-sm text-white outline-none transition placeholder:text-white/24" placeholder="e.g. Are you happy with the handoff?" />
-  <button type="button" onClick={() => handleSendAdminHandoffChat(selectedProjectRequest.id)} disabled={handoffChatSending || !handoffChatDraft.trim()} className="mt-2 inline-flex min-h-9 w-full items-center justify-between gap-2 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
-  {handoffChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5" />
+  <textarea value={reviewChatDraft} onChange={(e) => setReviewChatDraft(e.target.value)} rows={2} className="w-full resize-none bg-transparent text-sm text-white outline-none transition placeholder:text-white/24" placeholder="Message the client about this project..." />
+  <button type="button" onClick={() => handleSendAdminReviewChat()} disabled={reviewChatSending || !reviewChatDraft.trim()} className="mt-2 inline-flex min-h-9 w-full items-center justify-between gap-2 border border-ai-blue/25 px-3 py-2 text-left text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
+  {reviewChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5" />
   </button>
   </div>
   </div>
@@ -846,9 +916,9 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   </div>
   )}
 
-  {selectedProjectRequest.status === 'handoff' && !selectedProjectRequest.completionAcknowledgedAt && !selectedProjectRequest.handoffIssuesReportedAt && (
+  {selectedProjectRequest.status === 'handoff' && !selectedProjectRequest.completionAcknowledgedAt && (
   <div className="border border-amber-300/20 bg-white/[0.02] p-5">
-  <p className="text-[9px] font-semibold text-white/34">Closeout</p>
+  <p className="text-[9px] font-semibold text-white/34">{selectedProjectRequest.handoffIssuesReportedAt ? 'Handoff review' : 'Closeout'}</p>
   <div className="mt-3 space-y-3 border-y border-white/10 py-4">
   {[{ label: 'Total agreed', value: selectedAgreementTotalLabel, tone: 'text-white/70' }, { label: 'Deposit paid', value: selectedAgreementDueNowLabel, tone: 'text-expert-green' }, { label: 'Remaining balance', value: selectedAgreementBalanceLabel, tone: selectedAgreementBalance <= 0 ? 'text-expert-green' : 'text-amber-300' }].map(item => (
   <div key={item.label} className="flex items-center justify-between gap-4"><span className="text-[9px] font-semibold text-white/28">{item.label}</span><span className={`text-[10px] font-semibold ${item.tone}`}>{item.value}</span></div>
@@ -857,9 +927,11 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <textarea defaultValue={selectedProjectRequest.completionNotes || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { completionNotes: e.target.value })} className="mt-4 h-16 w-full resize-none border border-white/10 bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-amber-300/40" placeholder="Notes for closeout (optional, can add now or later)..." />
   <div className="mt-4 flex items-center gap-2 text-amber-300">
   <Clock className="h-3.5 w-3.5 shrink-0" />
-  <p className="text-[10px] font-semibold ">Waiting on client to accept handoff</p>
+  <p className="text-[10px] font-semibold ">{selectedProjectRequest.handoffIssuesReportedAt ? 'Resolve the handoff issue' : 'Waiting on client to accept handoff'}</p>
   </div>
-  <p className="mt-2 text-xs leading-5 text-white/46">Closeout and final payment open once the client accepts. If they flag an issue instead, it'll show here as a discussion thread.</p>
+  <p className="mt-2 text-xs leading-5 text-white/46">{selectedProjectRequest.handoffIssuesReportedAt
+    ? 'Review the conversation above and reply with the resolution. The client can accept the handoff again when they are satisfied. Any verified payment remains recorded.'
+    : 'The client needs to accept the handoff before closeout and any remaining final balance become due. If they flag an issue, use the conversation above to resolve it.'}</p>
   </div>
   )}
 
@@ -950,6 +1022,8 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Quote amount</label><input type="number" defaultValue={selectedProjectRequest.quotedAmount || ''} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quotedAmount: e.target.value, status: selectedProjectRequest.status === 'submitted' || selectedProjectRequest.status === 'in_review' ? 'quote_ready' : selectedProjectRequest.status })} className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/50" placeholder="0" /></div>
   <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Currency</label><input type="text" defaultValue={selectedProjectRequest.quoteCurrency || selectedProjectRequest.user?.defaultCurrency || 'USD'} onBlur={(e) => handleUpdateProjectRequest(selectedProjectRequest.id, { quoteCurrency: e.target.value || selectedProjectRequest.user?.defaultCurrency || 'USD' })} className="w-full border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/50" /></div>
   <div className="sm:col-span-2"><label className="mb-2 block text-[9px] font-semibold text-white/28">Scope message to client</label><textarea value={scopeClientNote} onChange={(e) => setScopeClientNote(e.target.value)} className="h-28 w-full resize-none border border-white/10 bg-black px-4 py-3 text-sm leading-6 text-white outline-none transition focus:border-amber-300/50" placeholder="Write what changed, what the client should review, and the next decision..." /></div>
+  <div className="sm:col-span-2"><label className="mb-2 block text-[9px] font-semibold text-white/28">Milestone amounts · must total the quote</label><textarea value={quoteMilestoneDraft} onChange={(e) => setQuoteMilestoneDraft(e.target.value)} className="h-24 w-full resize-none border border-white/10 bg-black px-4 py-3 font-mono text-xs leading-6 text-white outline-none transition focus:border-amber-300/50" placeholder={'Design | 300\nDevelopment | 900\nLaunch and handoff | 300'} /><p className="mt-2 text-[10px] leading-5 text-white/38">One milestone per line: name | amount</p></div>
+  <div className="sm:col-span-2"><label className="mb-2 block text-[9px] font-semibold text-white/28">Pre-approved non-recoverable costs · optional</label><textarea value={quoteCostDraft} onChange={(e) => setQuoteCostDraft(e.target.value)} className="h-20 w-full resize-none border border-white/10 bg-black px-4 py-3 font-mono text-xs leading-6 text-white outline-none transition focus:border-amber-300/50" placeholder={'Stock photography | 40 | Licensed for this project'} /><p className="mt-2 text-[10px] leading-5 text-white/38">One additional approved cost per line: name | amount | reason. Leave empty if none. A listed cost is charged on cancellation only if already incurred.</p></div>
   </div>
   )}
   <div className="border-t border-white/10 pt-4">
@@ -991,19 +1065,20 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">
   {!isAgreementConfirmed ? (
   <div className="grid gap-5 sm:grid-cols-2">
+  {isAgreementSent && <p className="sm:col-span-2 border border-amber-300/15 bg-amber-300/[0.03] px-4 py-3 text-xs leading-5 text-amber-100/70">This payment request has been sent. Its terms are locked while the client reviews it.</p>}
   <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Payment model</label>
-  <select value={agreementDraft.paymentAgreementType} onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentAgreementType: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-[10px] font-semibold text-white outline-none transition focus:border-expert-green/60">
-  <option value="">Select terms</option><option value="deposit">Deposit payment</option><option value="full_payment">Full payment</option><option value="milestone_payments">Milestone payments</option>
+  <select disabled={isAgreementSent} value={agreementDraft.paymentAgreementType} onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentAgreementType: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-[10px] font-semibold text-white outline-none transition focus:border-expert-green/60 disabled:cursor-not-allowed disabled:opacity-60">
+  <option value="">Select terms</option><option value="deposit">Deposit + final balance</option>
   </select>
   </div>
-  <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Due date</label><input type="date" value={agreementDraft.paymentDueDate} onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentDueDate: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60" /></div>
-  <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Total agreed</label><input type="number" value={agreementDraft.totalAgreedAmount} onChange={(e) => setAgreementDraft(prev => ({ ...prev, totalAgreedAmount: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60" placeholder="0" /></div>
-  <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Deposit required</label><input type="number" value={agreementDraft.depositAmount} onChange={(e) => setAgreementDraft(prev => ({ ...prev, depositAmount: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60" placeholder="0" /></div>
-  <div className="sm:col-span-2"><label className="mb-2 block text-[9px] font-semibold text-white/28">Client payment note</label><textarea value={selectedAgreementNote} onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentInstructions: e.target.value }))} className="h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60" placeholder="Explain what the payment covers and what happens after checkout..." /></div>
+  <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Due date</label><input disabled={isAgreementSent} type="date" value={agreementDraft.paymentDueDate} onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentDueDate: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60 disabled:cursor-not-allowed disabled:opacity-60" /></div>
+  <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Total agreed</label><input disabled={isAgreementSent} type="number" value={agreementDraft.totalAgreedAmount} onChange={(e) => setAgreementDraft(prev => ({ ...prev, totalAgreedAmount: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60 disabled:cursor-not-allowed disabled:opacity-60" placeholder="0" /></div>
+  <div><label className="mb-2 block text-[9px] font-semibold text-white/28">Deposit required</label><input disabled={isAgreementSent} type="number" value={agreementDraft.depositAmount} onChange={(e) => setAgreementDraft(prev => ({ ...prev, depositAmount: e.target.value }))} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm font-semibold text-white outline-none transition focus:border-expert-green/60 disabled:cursor-not-allowed disabled:opacity-60" placeholder="0" /></div>
+  <div className="sm:col-span-2"><label className="mb-2 block text-[9px] font-semibold text-white/28">Client payment note</label><textarea disabled={isAgreementSent} value={selectedAgreementNote} onChange={(e) => setAgreementDraft(prev => ({ ...prev, paymentInstructions: e.target.value }))} className="h-24 w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-expert-green/60 disabled:cursor-not-allowed disabled:opacity-60" placeholder="Explain what the payment covers and what happens after checkout..." /></div>
   </div>
   ) : <div className="hidden xl:block" />}
   <div className="space-y-3">
-  {!isAgreementConfirmed && isAgreementSent && !isAgreementDraftDirty ? (
+  {!isAgreementConfirmed && isAgreementSent ? (
   <div className="flex min-h-12 items-center justify-between gap-3 border border-amber-300/20 px-3 py-2 text-left text-[10px] font-semibold text-amber-300"><span className="flex items-center gap-2"><Check className="h-4 w-4" /> Payment request sent</span></div>
   ) : !isAgreementConfirmed ? (
   <button type="button" onClick={handleSendAgreementPaymentRequest} disabled={submitting || isAgreementConfirmed} className="flex min-h-12 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-semibold text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-45">

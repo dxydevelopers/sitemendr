@@ -4,7 +4,7 @@
 
 import {
   Layout, FileText, Eye, Activity, Clock, Users, BarChart3, CreditCard,
-  Settings, MessageSquare, Folder, PenLine, Briefcase,
+  Settings, MessageSquare, Folder, PenLine, Briefcase, PackagePlus,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ProjectRequest } from './AdminDashboard_types';
@@ -31,7 +31,7 @@ export const buildOperatorViews = [
   { id: 'briefs', label: 'Briefs', detail: 'New requests and intake review', statuses: ['submitted', 'in_review'] },
   { id: 'scope', label: 'Scope', detail: 'Quote preparation and client decision', statuses: ['quote_ready', 'approved'] },
   { id: 'agreement', label: 'Agreement', detail: '', statuses: ['payment_agreement'] },
-  { id: 'studio', label: 'Studio', detail: 'Build work currently moving', statuses: ['in_development'] },
+  { id: 'studio', label: 'Studio', detail: 'Build work currently moving', statuses: ['in_development', 'paused'] },
   { id: 'review', label: 'Review', detail: 'Staging preview and client feedback', statuses: ['staging_review'] },
   { id: 'launch', label: 'Launch / Handoff', detail: 'Live release, access, and ownership transfer', statuses: ['launched', 'handoff'] },
   { id: 'completed', label: 'Completed', detail: 'Launched, handed off, and closed', statuses: ['completed'] },
@@ -67,6 +67,7 @@ export const getAdminNextAction = (request: ProjectRequest) => {
 };
 
 export const getAdminBuildState = (request: ProjectRequest) => {
+  if (request.status === 'paused') return 'Paused';
   if (request.status === 'completed') return 'Completed';
   if (request.status === 'cancelled') return 'Cancelled';
   if (request.status === 'archived') return 'Archived';
@@ -94,6 +95,7 @@ export const adminTabs: AdminTab[] = [
   { id: 'leads', name: 'Leads', icon: <Folder className="w-4 h-4" /> },
   { id: 'assessments', name: 'Assessments', icon: <Activity className="w-4 h-4" /> },
   { id: 'subscriptions', name: 'Billing & Agreements', shortName: 'Billing', icon: <CreditCard className="w-4 h-4" /> },
+  { id: 'addon-fulfillment', name: 'Add-on Setup', shortName: 'Add-ons', icon: <PackagePlus className="w-4 h-4" /> },
   { id: 'transactions', name: 'Transactions', icon: <CreditCard className="w-4 h-4" /> },
   { id: 'tickets', name: 'Tickets', icon: <MessageSquare className="w-4 h-4" /> },
   { id: 'live-support', name: 'Live Chat', icon: <MessageSquare className="w-4 h-4" /> },
@@ -110,7 +112,7 @@ export const adminTabGroups: AdminTabGroup[] = [
   { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'review', 'milestones', 'health', 'bookings'] },
   { id: 'clients', label: 'Clients', accent: 'text-expert-green', icon: <Users className="w-4 h-4" />, tabs: ['users', 'leads', 'assessments'] },
   { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['tickets', 'live-support', 'comments'] },
-  { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'transactions', 'analytics'] },
+  { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'addon-fulfillment', 'transactions', 'analytics'] },
   { id: 'content', label: 'Content', accent: 'text-ai-blue', icon: <PenLine className="w-4 h-4" />, tabs: ['media', 'blog', 'portfolio'] },
   { id: 'system', label: 'System', accent: 'text-white/70', icon: <Settings className="w-4 h-4" />, tabs: ['system'] },
 ];

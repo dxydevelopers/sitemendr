@@ -30,6 +30,14 @@ import type {
   ApiRecord, ClientAssessment, ReviewChatMessage, AnalysisResult,
 } from './ClientDashboard_types';
 
+const sortProjectConversation = (messages: ReviewChatMessage[]) => [...messages].sort((a, b) => {
+  const timeDelta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  return timeDelta || a.id.localeCompare(b.id);
+});
+
+const mergeProjectConversationMessage = (messages: ReviewChatMessage[], incoming: ReviewChatMessage) =>
+  sortProjectConversation([...messages.filter(message => message.id !== incoming.id), incoming]);
+
 export function useClientDashboard(initialTab?: string) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(normalizeDashboardTab(initialTab));
@@ -76,16 +84,9 @@ export function useClientDashboard(initialTab?: string) {
   const [reviewChatDraft, setReviewChatDraft] = useState('');
   const [reviewChatLoading, setReviewChatLoading] = useState(false);
   const [reviewChatSending, setReviewChatSending] = useState(false);
-  const [handoffMessage, setHandoffMessage] = useState('');
-  const [handoffMessageError, setHandoffMessageError] = useState('');
   const [handoffSubmitting, setHandoffSubmitting] = useState(false);
   const [handoffSubmittingAction, setHandoffSubmittingAction] = useState<'complete' | 'issue' | null>(null);
   const [handoffChatStarted, setHandoffChatStarted] = useState(false);
-  const [handoffChatMessages, setHandoffChatMessages] = useState<ReviewChatMessage[]>([]);
-  const [handoffChatDraft, setHandoffChatDraft] = useState('');
-  const [handoffChatLoading, setHandoffChatLoading] = useState(false);
-  const [handoffChatSending, setHandoffChatSending] = useState(false);
-  const [handoffChatLoadedProjectId, setHandoffChatLoadedProjectId] = useState<string | null>(null);
   const [finalPaymentSubmitting, setFinalPaymentSubmitting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
@@ -105,15 +106,16 @@ export function useClientDashboard(initialTab?: string) {
   const socketRef = useRef<Socket | null>(null);
   const activeTabRef = useRef(activeTab);
   const reviewChatOpenRef = useRef(reviewChatOpen);
+  const reviewChatMessagesRef = useRef(reviewChatMessages);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab');
     if (tabParam) setActiveTab(normalizeDashboardTab(tabParam));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = useCallback(async (projectId?: string) => {
+    let refreshedProjects: ClientProject[] = [];
     try {
       setLoading(true);
       setFetchError(null);
@@ -161,6 +163,7 @@ export function useClientDashboard(initialTab?: string) {
 
       const projectList = readApiArray<ApiRecord>(safeProjectsRes, ['data', 'projects', 'subscriptions']);
       const mappedProjects = projectList.map(mapApiProjectToClientProject);
+      refreshedProjects = mappedProjects;
 
       if (mappedProjects.length > 0) {
         setProjects(mappedProjects);
@@ -226,6 +229,7 @@ export function useClientDashboard(initialTab?: string) {
     } finally {
       setLoading(false);
     }
+    return refreshedProjects;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProjectId]);
 
@@ -236,6 +240,7 @@ export function useClientDashboard(initialTab?: string) {
     reviewChatOpenRef.current = reviewChatOpen;
     if (reviewChatOpen) setReviewChatUnreadCount(0);
   }, [reviewChatOpen]);
+  useEffect(() => { reviewChatMessagesRef.current = reviewChatMessages; }, [reviewChatMessages]);
 
   useEffect(() => {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -296,18 +301,24 @@ export function useClientDashboard(initialTab?: string) {
       }
     });
 
-    socketRef.current.on('review_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
-      if (!data?.message || data.requestId !== selectedProjectIdRef.current) return;
-      setReviewChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
-      if (!reviewChatOpenRef.current && data.message.senderRole !== 'client') {
-        setReviewChatUnreadCount(prev => prev + 1);
-      }
+    socketRef.current.on('build_site_linked', () => { void fetchData(); });
+    socketRef.current.on('addon_fulfillment_updated', () => {
+      if (activeTabRef.current === 'mysites') void fetchData();
     });
 
-    socketRef.current.on('handoff_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
-      if (!data?.message || data.requestId !== selectedProjectIdRef.current) return;
-      setHandoffChatMessages(prev => prev.some(m => m.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
-      setHandoffChatStarted(true);
+    socketRef.current.on('project_conversation_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
+      if (!data?.message) return;
+      if (['deposit_payment_verified', 'final_payment_verified'].includes(String(data.message.eventData?.type || ''))) {
+        // Payment callbacks may run in another tab or from a webhook. Reload
+        // the request so its agreement status and client-facing journey update.
+        void fetchData(data.requestId);
+      }
+      if (data.requestId !== selectedProjectIdRef.current) return;
+      const isExistingMessage = reviewChatMessagesRef.current.some(message => message.id === data.message?.id);
+      setReviewChatMessages(prev => mergeProjectConversationMessage(prev, data.message as ReviewChatMessage));
+      if (!isExistingMessage && !reviewChatOpenRef.current && data.message.senderRole !== 'client') {
+        setReviewChatUnreadCount(prev => prev + 1);
+      }
     });
 
     return () => { socketRef.current?.disconnect(); };
@@ -399,10 +410,13 @@ export function useClientDashboard(initialTab?: string) {
     setAnalyzingProjectId(projectId);
     try {
       const res = await apiClient.analyzePerformance(url, projectId);
+      if (!res.success || !res.data) {
+        throw new Error(res.message || 'The performance scan could not be completed.');
+      }
       setAnalysisResult(res.data as unknown as AnalysisResult);
       setAnalysisProjectId(projectId);
-    } catch {
-      alert('Audit failed.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Audit failed.');
     } finally {
       setIsAnalyzing(false);
       setAnalyzingProjectId(null);
@@ -460,9 +474,12 @@ export function useClientDashboard(initialTab?: string) {
 
   const handleAgreementPayment = async (
     project: ClientProject,
-    selectedMethod: { id: string; label: string; gateway: string; channels?: string[] }
+    selectedMethod: { id: string; label: string; gateway: string; channels?: string[] },
+    quoteVersionId?: string,
+    termsAccepted = false
   ) => {
     if (!project?.id || paymentSubmitting) return;
+    if (!quoteVersionId || !termsAccepted) { alert('Review and accept the quote terms before paying the deposit.'); return; }
     if (selectedMethod.gateway !== 'paystack') {
       alert(`${selectedMethod.label} needs its own payment gateway setup before it can process this deposit.`);
       return;
@@ -482,6 +499,8 @@ export function useClientDashboard(initialTab?: string) {
         description: `${project.name} agreement payment`,
         metadata: {
           projectRequestId: project.id,
+          quoteVersionId,
+          termsAccepted,
           paymentStage: project.depositAmount ? 'deposit' : 'agreement',
           buildTitle: project.name,
           checkoutRoute: 'inline_checkout',
@@ -599,9 +618,9 @@ export function useClientDashboard(initialTab?: string) {
   const fetchClientReviewChat = useCallback(async (requestId: string) => {
     setReviewChatLoading(true);
     try {
-      const res = await apiClient.getClientReviewChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
+      const res = await apiClient.getClientProjectConversation(requestId) as { success: boolean; data?: ReviewChatMessage[] };
       if (res.success) {
-        setReviewChatMessages(res.data || []);
+        setReviewChatMessages(sortProjectConversation(res.data || []));
         setReviewChatLoadedProjectId(requestId);
         setReviewChatUnreadCount(0);
       }
@@ -612,22 +631,29 @@ export function useClientDashboard(initialTab?: string) {
     }
   }, []);
 
+  const handleProjectLifecycleRequest = async (requestId: string, type: 'pause' | 'cancel') => {
+    const message = window.prompt(type === 'pause' ? 'Why would you like to pause this project?' : 'Why would you like to cancel this project?') || '';
+    if (!message.trim()) return;
+    try {
+      const res = await apiClient.requestProjectPauseOrCancellation(requestId, { type, message }) as { success: boolean; data?: ReviewChatMessage; message?: string };
+      if (!res.success || !res.data) throw new Error(res.message || 'Could not send your request.');
+      setReviewChatMessages(prev => mergeProjectConversationMessage(prev, res.data as ReviewChatMessage));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not send your request.');
+    }
+  };
+
   useEffect(() => {
     setReviewChatMessages([]);
     setReviewChatDraft('');
     setReviewChatUnreadCount(0);
     setReviewChatLoadedProjectId(null);
-    setHandoffChatMessages([]);
-    setHandoffChatDraft('');
     setHandoffChatStarted(false);
-    setHandoffChatLoadedProjectId(null);
   }, [selectedProjectId]);
 
   useEffect(() => {
     const selectedProject = projects.find(project => project.id === selectedProjectId);
-    const shouldLoadReviewChat = Boolean(
-      selectedProjectId && selectedProject?.status === 'staging_review' && reviewChatLoadedProjectId !== selectedProjectId
-    );
+    const shouldLoadReviewChat = Boolean(selectedProjectId && selectedProject && reviewChatLoadedProjectId !== selectedProjectId);
     if (shouldLoadReviewChat && selectedProjectId) fetchClientReviewChat(selectedProjectId);
   }, [fetchClientReviewChat, projects, reviewChatLoadedProjectId, selectedProjectId]);
 
@@ -637,11 +663,11 @@ export function useClientDashboard(initialTab?: string) {
     if (!message) return;
     setReviewChatSending(true);
     try {
-      const res = await apiClient.sendClientReviewChat(projectId, {
+      const res = await apiClient.sendClientProjectConversation(projectId, {
         message, kind: choice ? 'choice_response' : 'message', selectedChoice: choice || undefined,
       }) as { success: boolean; data?: ReviewChatMessage; message?: string };
       if (res.success && res.data) {
-        setReviewChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setReviewChatMessages(prev => mergeProjectConversationMessage(prev, res.data as ReviewChatMessage));
         setReviewChatDraft('');
         setReviewChatUnreadCount(0);
         setReviewChatOpen(true);
@@ -653,25 +679,23 @@ export function useClientDashboard(initialTab?: string) {
     }
   };
 
-  const handleHandoffResponse = async (project: ClientProject, action: 'complete' | 'issue') => {
+  const handleHandoffResponse = async (project: ClientProject, action: 'complete') => {
     if (!project?.id || handoffSubmitting) return;
-    if (action === 'issue' && !handoffMessage.trim()) {
-      setHandoffMessageError('Please describe what is missing before sending the handoff issue.');
-      return;
-    }
-    if (action === 'issue' && handoffMessage.trim().length > 2000) {
-      setHandoffMessageError('Your message is too long. Please keep it under 2000 characters.');
-      return;
-    }
-    setHandoffMessageError('');
     setHandoffSubmitting(true);
     setHandoffSubmittingAction(action);
     try {
-      const res = await apiClient.respondToHandoff(project.id, action, handoffMessage.trim());
+      const res = await apiClient.respondToHandoff(project.id, action);
       if (!res.success) throw new Error(res.message || 'Failed to respond to handoff');
-      setHandoffMessage('');
-      await fetchData(project.id);
+      const refreshedProjects = await fetchData(project.id);
       updateSelectedProjectId(project.id);
+      const responseData = res.data as { status?: string } | undefined;
+      if (action === 'complete' && responseData?.status === 'completed') {
+        const request = refreshedProjects.find(item => item.id === project.id);
+        const managedSite = request?.subscriptionId
+          ? refreshedProjects.find(item => item.id === request.subscriptionId && item.recordType === 'project')
+          : undefined;
+        if (managedSite) router.push(`/dashboard/mysites?site=${encodeURIComponent(managedSite.id)}&view=overview`);
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to respond to handoff.');
     } finally {
@@ -680,45 +704,24 @@ export function useClientDashboard(initialTab?: string) {
     }
   };
 
-  // --- Handoff chat: replaces the old single-textarea "report an issue" flow.
-  // Reporting an issue now just means sending the first chat message.
-  const fetchClientHandoffChat = useCallback(async (requestId: string) => {
-    setHandoffChatLoading(true);
-    try {
-      const res = await apiClient.getClientHandoffChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
-      if (res.success) {
-        setHandoffChatMessages(res.data || []);
-        setHandoffChatLoadedProjectId(requestId);
-        if ((res.data || []).length > 0) setHandoffChatStarted(true);
-      }
-    } catch (error) {
-      console.error('Failed to load handoff chat:', error);
-    } finally {
-      setHandoffChatLoading(false);
-    }
-  }, []);
-
-  const handleOpenHandoffChat = (project: ClientProject) => {
+  const handleOpenHandoffChat = async (project: ClientProject) => {
     setHandoffChatStarted(true);
-    if (handoffChatLoadedProjectId !== project.id) fetchClientHandoffChat(project.id);
-  };
-
-  const handleSendClientHandoffChat = async (projectId: string | undefined) => {
-    if (!projectId || handoffChatSending) return;
-    const message = handoffChatDraft.trim();
-    if (!message) return;
-    setHandoffChatSending(true);
-    try {
-      const res = await apiClient.sendClientHandoffChat(projectId, { message }) as { success: boolean; data?: ReviewChatMessage; message?: string };
-      if (res.success && res.data) {
-        setHandoffChatMessages(prev => prev.some(m => m.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
-        setHandoffChatDraft('');
-        setHandoffChatStarted(true);
+    if (reviewChatLoadedProjectId !== project.id) fetchClientReviewChat(project.id);
+    if (!project.handoffIssuesReportedAt) {
+      setHandoffSubmitting(true);
+      setHandoffSubmittingAction('issue');
+      try {
+        const res = await apiClient.respondToHandoff(project.id, 'issue', '');
+        if (!res.success) throw new Error(res.message || 'Could not open a handoff issue conversation.');
+        await fetchData(project.id);
+        updateSelectedProjectId(project.id);
+      } catch (error) {
+        setHandoffChatStarted(false);
+        alert(error instanceof Error ? error.message : 'Could not open a handoff issue conversation.');
+      } finally {
+        setHandoffSubmitting(false);
+        setHandoffSubmittingAction(null);
       }
-    } catch (error) {
-      console.error('Failed to send handoff chat message:', error);
-    } finally {
-      setHandoffChatSending(false);
     }
   };
 
@@ -773,8 +776,16 @@ export function useClientDashboard(initialTab?: string) {
             if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
             try {
               await apiClient.verifyPayment(response.reference || response.trxref || reference);
-              await fetchData(project.id);
-              updateSelectedProjectId(project.id);
+              const refreshedProjects = await fetchData(project.id);
+              const request = refreshedProjects.find(item => item.id === project.id);
+              const managedSite = request?.subscriptionId
+                ? refreshedProjects.find(item => item.id === request.subscriptionId && item.recordType === 'project')
+                : undefined;
+              if (request?.status === 'completed' && managedSite) {
+                router.push(`/dashboard/mysites?site=${encodeURIComponent(managedSite.id)}&view=overview`);
+              } else {
+                updateSelectedProjectId(project.id);
+              }
             } catch (err) {
               alert(err instanceof Error ? err.message : 'Payment was completed, but verification needs support review.');
             } finally {
@@ -877,11 +888,9 @@ export function useClientDashboard(initialTab?: string) {
     handleBriefClarificationResponse,
     stagingReviewMessage, setStagingReviewMessage, stagingReviewSubmitting, handleStagingReviewResponse,
     reviewChatOpen, setReviewChatOpen, reviewChatMessages, reviewChatUnreadCount,
-    reviewChatDraft, setReviewChatDraft, reviewChatLoading, reviewChatSending, handleSendClientReviewChat,
-    handoffMessage, setHandoffMessage, handoffMessageError, setHandoffMessageError,
+    reviewChatDraft, setReviewChatDraft, reviewChatLoading, reviewChatSending, handleSendClientReviewChat, handleProjectLifecycleRequest,
     handoffSubmitting, handoffSubmittingAction, handleHandoffResponse,
-    handoffChatStarted, handoffChatMessages, handoffChatDraft, setHandoffChatDraft,
-    handoffChatLoading, handoffChatSending, handleOpenHandoffChat, handleSendClientHandoffChat,
+    handoffChatStarted, handleOpenHandoffChat,
     finalPaymentSubmitting, handleFinalBalancePayment,
     // settings
     profileData, setProfileData, profileMessage, handleUpdateProfile,

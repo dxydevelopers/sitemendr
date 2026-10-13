@@ -26,20 +26,24 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 import { LifeBuoy, Globe as GlobeIcon, ExternalLink } from 'lucide-react';
-import type { ClientProject, CustomDomain, BillingItem } from './ClientDashboard_types';
+import type { ClientProject, CustomDomain, BillingItem, AnalysisResult } from './ClientDashboard_types';
 import type { UseClientDashboardReturn } from './useClientDashboard';
+import { apiClient } from '@/lib/api';
 import SiteDomain from './SiteDomain';
 import SiteBilling from './SiteBilling';
+import AddonMarketplace from '../dashboard/AddonMarketplace';
 
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
 const SupportTickets = dynamic(() => import('../dashboard/SupportTickets'), { ssr: false });
 
-export type RoomView = 'overview' | 'domain' | 'billing' | 'performance' | 'support';
+export type RoomView = 'overview' | 'domain' | 'addons' | 'billing' | 'performance' | 'support';
 
 const ROOM_TABS: { id: RoomView; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'domain', label: 'Domain' },
+  { id: 'addons', label: 'Add-ons' },
   { id: 'billing', label: 'Billing' },
   { id: 'performance', label: 'Performance' },
   { id: 'support', label: 'Support' },
@@ -66,11 +70,22 @@ function UnderlineTabs({ active, onChange }: { active: RoomView; onChange: (v: R
 }
 
 function OverviewTab({ site }: { site: ClientProject }) {
+  const statusLabels: Record<string, string> = {
+    completed: 'Live',
+    launched: 'Live',
+    handoff: 'Handoff pending',
+    suspended: 'Suspended',
+  };
+  const planLabels: Record<string, string> = {
+    self_hosted: 'Self-hosted',
+    monthly: 'Monthly',
+    annual: 'Annual',
+  };
   const rows: { label: string; value: string }[] = [
-  { label: 'Status', value: site.status },
-  { label: 'Plan', value: site.planType || '—' },
+  { label: 'Status', value: statusLabels[site.status] || site.status.replace(/_/g, ' ') },
+  { label: 'Hosting', value: site.planType ? (planLabels[site.planType] || site.planType.replace(/_/g, ' ')) : '—' },
   { label: 'Live URL', value: site.siteUrl || '—' },
-  { label: 'Launched', value: site.launchApprovedAt ? new Date(site.launchApprovedAt).toLocaleDateString() : '—' },
+  { label: 'Launch approved', value: site.launchApprovedAt ? new Date(site.launchApprovedAt).toLocaleDateString() : '—' },
   { label: 'Handed off', value: site.completionAcknowledgedAt ? new Date(site.completionAcknowledgedAt).toLocaleDateString() : '—' },
   ];
 
@@ -110,11 +125,34 @@ export default function SiteRoom({
   onChangeView: (v: RoomView) => void;
 }) {
   const { domains, billing, projects, analysisResult, analysisProjectId, analyzingProjectId, isAnalyzing, handleAnalyzeSite } = dashboard;
+  const [savedAnalysis, setSavedAnalysis] = useState<AnalysisResult | null>(null);
+
+  useEffect(() => {
+    if (view !== 'performance') return;
+    let active = true;
+    setSavedAnalysis(null);
+    apiClient.getSiteVitals(site.id).then((response) => {
+      if (!active || !response.success || !response.vitals || typeof response.vitals !== 'object') return;
+      const metrics = response.vitals as AnalysisResult['metrics'];
+      if (typeof metrics?.score !== 'number') return;
+      setSavedAnalysis({
+        metrics,
+        aiInsights: response.aiInsights as AnalysisResult['aiInsights'],
+        timestamp: typeof response.timestamp === 'string' ? response.timestamp : undefined,
+        insights: ''
+      });
+    }).catch(() => {
+      if (active) setSavedAnalysis(null);
+    });
+    return () => { active = false; };
+  }, [site.id, view]);
 
   const siteDomains = domains.filter((domain: CustomDomain) => domain.siteId === site.id);
   const relatedRequestIds = projects.filter(project => project.subscriptionId === site.id).map(project => project.id);
   const siteBilling = billing.filter((item: BillingItem) =>
-    item.metadata?.projectRequestId === site.id || relatedRequestIds.includes(String(item.metadata?.projectRequestId || ''))
+    item.metadata?.subscriptionId === site.id
+    || item.metadata?.projectRequestId === site.id
+    || relatedRequestIds.includes(String(item.metadata?.projectRequestId || ''))
   );
 
   return (
@@ -146,11 +184,15 @@ export default function SiteRoom({
   <SiteDomain site={site} domains={siteDomains} dashboard={dashboard} />
   )}
 
+  {view === 'addons' && (
+  <AddonMarketplace subscription={site} onRequestCustom={() => onChangeView('support')} />
+  )}
+
   {view === 'billing' && <SiteBilling site={site} billing={siteBilling} />}
 
   {view === 'performance' && (
   <PerformanceAudit
-  data={analysisProjectId === site.id ? analysisResult : null}
+  data={analysisProjectId === site.id ? analysisResult : savedAnalysis}
   isRefreshing={isAnalyzing && analyzingProjectId === site.id}
   onRefresh={() => {
   if (site.siteUrl) handleAnalyzeSite(site.id, site.siteUrl);

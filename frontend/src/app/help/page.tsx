@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Space_Grotesk } from 'next/font/google';
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -18,11 +17,6 @@ import {
   ShieldCheck,
   Wrench,
 } from 'lucide-react';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-});
 
 const supportPaths = [
   {
@@ -107,7 +101,7 @@ const contactMethods = [
 
 export default function HelpCenter() {
   return (
-    <main className={`${spaceGrotesk.variable} min-h-screen overflow-hidden bg-[#05070a] text-white`}>
+    <main className="min-h-screen overflow-hidden bg-[#05070a] text-white">
       <section className="relative min-h-[760px] overflow-hidden border-b border-white/10 pt-20">
         <Image
           src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=2200&h=1400&fit=crop&crop=center"

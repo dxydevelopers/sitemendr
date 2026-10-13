@@ -1,10 +1,12 @@
 const { prisma } = require('../config/db');
 const dns = require('dns').promises;
-const { notifyAdmins } = require('../services/socketService');
+const { notifyUser, notifyAdmins } = require('../services/socketService');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
 const logger = require('../config/logger');
 const { convertCurrencyAmount, normalizeCurrency } = require('../utils/currency');
+const { recordProjectEvent } = require('../services/projectConversation');
+const { ensureCompletedBuildSite } = require('../services/projectSiteService');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -17,6 +19,15 @@ const groq = new Groq({
 const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
 
 const handoffChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
+const projectConversationSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","eventData","readByAdmin","readByClient","createdAt"`;
+
+const getProjectConversation = async (requestId) => prisma.$queryRawUnsafe(
+  `SELECT ${projectConversationSelect}
+   FROM "ProjectConversationMessage"
+   WHERE "projectRequestId" = $1
+   ORDER BY "createdAt" ASC, "id" ASC`,
+  requestId
+);
 
 const sanitizeReviewChatChoices = (choices) => {
   if (!Array.isArray(choices)) return null;
@@ -101,6 +112,7 @@ const mapProjectRequestForClient = (request) => {
     buildMilestones: request.buildMilestones,
     studioLinks: request.studioLinks,
     studioUpdates: request.studioUpdates,
+    quoteVersions: request.quoteVersions,
     clientNotes: request.clientNotes,
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,
@@ -188,7 +200,7 @@ exports.getSiteVitals = async (req, res) => {
     }
 
     // Check if we have stored performance data
-    if (subscription.performanceData && subscription.performanceData.metrics) {
+    if (subscription.performanceData?.provider === 'pagespeed' && subscription.performanceData.metrics) {
       return res.json({
         success: true,
         vitals: subscription.performanceData.metrics,
@@ -197,22 +209,11 @@ exports.getSiteVitals = async (req, res) => {
       });
     }
 
-    // Fallback to realistic values based on the plan type if no scan has been performed
-    const isEnterprise = subscription.tier === 'enterprise';
-    
     res.json({
       success: true,
-      vitals: {
-        performance: isEnterprise ? 98 : 92,
-        accessibility: isEnterprise ? 100 : 96,
-        bestPractices: 96,
-        seo: 100,
-        coreWebVitals: {
-          lcp: isEnterprise ? '1.1s' : '1.8s',
-          fid: '12ms',
-          cls: '0.01'
-        }
-      }
+      vitals: null,
+      aiInsights: null,
+      timestamp: null
     });
   } catch (error) {
     logger.error('Failed to get site vitals', { error: error.message });
@@ -249,7 +250,8 @@ exports.getProjects = async (req, res) => {
             where: { visibility: 'client' },
             orderBy: { createdAt: 'desc' },
             take: 10
-          }
+          },
+          quoteVersions: { orderBy: { version: 'desc' }, take: 10 }
         },
         orderBy: { createdAt: 'desc' }
       }),
@@ -262,6 +264,9 @@ exports.getProjects = async (req, res) => {
           id: true,
           siteName: true,
           customName: true,
+          price: true,
+          totalPaid: true,
+          lastPaymentDate: true,
           planType: true,
           domain: true,
           status: true,
@@ -280,6 +285,24 @@ exports.getProjects = async (req, res) => {
             }
           },
           purchasedAddons: true,
+          projectRequests: {
+            // A completed build can be returned to handoff if an issue is
+            // reopened. Keep its linked-site projection in sync with that state.
+            where: { serviceType: 'build', status: { in: ['completed', 'handoff'] } },
+            orderBy: { updatedAt: 'desc' },
+            take: 1,
+            select: {
+              status: true,
+              launchUrl: true,
+              launchApprovedAt: true,
+              completionAcknowledgedAt: true,
+              handoffIssuesReportedAt: true,
+              completedAt: true,
+              quoteCurrency: true,
+              totalAgreedAmount: true,
+              quotedAmount: true
+            }
+          },
           template: {
             select: {
               isPublished: true
@@ -290,11 +313,19 @@ exports.getProjects = async (req, res) => {
       })
     ]);
 
+    const completedRequestsWithoutSites = projectRequests.filter(request => request.status === 'completed' && !request.subscriptionId);
+    const recoveredSites = await Promise.all(completedRequestsWithoutSites.map(async request => {
+      const site = await ensureCompletedBuildSite(request.id);
+      if (site) request.subscriptionId = site.id;
+      return site ? { site, request } : null;
+    }));
+
     const requestProjects = projectRequests.map(mapProjectRequestForClient);
 
     // Map subscriptions to project-like objects for the dashboard
     const subscriptionProjects = subscriptions.map((sub) => {
       const milestones = sub.milestones;
+      const linkedBuild = sub.projectRequests[0];
 
       // Calculate overall progress from milestones
       let progress = 0;
@@ -327,10 +358,22 @@ exports.getProjects = async (req, res) => {
         id: sub.id,
         recordType: 'project',
         name: sub.siteName || sub.customName || 'Untitled Project',
+        businessName: sub.siteName || sub.customName || undefined,
         progress: progress,
-        status: sub.suspended ? 'suspended' : (progress === 100 ? 'completed' : 'active'),
+        status: sub.suspended ? 'suspended' : (linkedBuild?.status === 'handoff' ? 'handoff' : (progress === 100 ? 'completed' : 'active')),
         planType: sub.planType,
         domain: sub.domain,
+        siteUrl: linkedBuild?.launchUrl || (sub.domain ? `https://${sub.domain}` : undefined),
+        launchUrl: linkedBuild?.launchUrl || undefined,
+        launchApprovedAt: linkedBuild?.launchApprovedAt?.toISOString?.() || undefined,
+        completionAcknowledgedAt: linkedBuild?.completionAcknowledgedAt?.toISOString?.() || undefined,
+        handoffIssuesReportedAt: linkedBuild?.handoffIssuesReportedAt?.toISOString?.() || undefined,
+        completedAt: linkedBuild?.completedAt?.toISOString?.() || undefined,
+        quotedAmount: linkedBuild?.totalAgreedAmount ?? linkedBuild?.quotedAmount ?? sub.price ?? undefined,
+        totalAgreedAmount: linkedBuild?.totalAgreedAmount ?? sub.price ?? undefined,
+        quoteCurrency: linkedBuild?.quoteCurrency || undefined,
+        totalPaid: sub.totalPaid,
+        lastPaymentDate: sub.lastPaymentDate?.toISOString?.() || undefined,
         isCurrent: sub.status === 'active',
         createdAt: sub.createdAt,
         reviewRequested: sub.reviewRequested,
@@ -341,7 +384,35 @@ exports.getProjects = async (req, res) => {
       };
     });
 
-    const projects = [...requestProjects, ...subscriptionProjects];
+    const existingSiteIds = new Set(subscriptionProjects.map(site => site.id));
+    const recoveredSiteProjects = recoveredSites
+      .filter(entry => Boolean(entry?.site && !existingSiteIds.has(entry.site.id)))
+      .map(({ site, request }) => ({
+        id: site.id,
+        recordType: 'project',
+        name: site.siteName || site.customName || 'Completed build',
+        businessName: site.siteName || site.customName || undefined,
+        progress: 100,
+        status: site.suspended ? 'suspended' : 'completed',
+        planType: site.planType,
+        domain: site.domain,
+        siteUrl: request.launchUrl || (site.domain ? `https://${site.domain}` : undefined),
+        launchUrl: request.launchUrl || undefined,
+        launchApprovedAt: request.launchApprovedAt?.toISOString?.() || undefined,
+        completionAcknowledgedAt: request.completionAcknowledgedAt?.toISOString?.() || undefined,
+        completedAt: request.completedAt?.toISOString?.() || undefined,
+        quotedAmount: request.totalAgreedAmount ?? request.quotedAmount ?? site.price ?? undefined,
+        totalAgreedAmount: request.totalAgreedAmount ?? site.price ?? undefined,
+        quoteCurrency: request.quoteCurrency || undefined,
+        totalPaid: site.totalPaid,
+        lastPaymentDate: site.lastPaymentDate?.toISOString?.() || undefined,
+        isCurrent: site.status === 'active',
+        createdAt: site.createdAt,
+        milestones: site.milestones || [],
+        purchasedAddons: site.purchasedAddons || []
+      }));
+
+    const projects = [...requestProjects, ...subscriptionProjects, ...recoveredSiteProjects];
 
     res.json({
       success: true,
@@ -426,7 +497,7 @@ exports.respondToHandoff = async (req, res) => {
       });
     }
 
-    if (!['handoff', 'launched'].includes(request.status)) {
+    if (request.status !== 'handoff') {
       return res.status(400).json({
         success: false,
         message: 'This build is not waiting for handoff response'
@@ -444,17 +515,21 @@ exports.respondToHandoff = async (req, res) => {
     const remainingBalance = Math.max((request.totalAgreedAmount || request.quotedAmount || 0) - (request.depositAmount || 0), 0);
     const hasFinalBalance = remainingBalance > 0;
 
-    const updated = await prisma.projectRequest.update({
-      where: { id: request.id },
+    const handoffTransition = await prisma.projectRequest.updateMany({
+      where: { id: request.id, userId, status: 'handoff' },
       data: {
-        status: action === 'complete' ? (hasFinalBalance ? 'handoff' : 'completed') : 'handoff',
-        completionAcknowledgedAt: action === 'complete' ? new Date() : request.completionAcknowledgedAt,
-        completedAt: action === 'complete' && !hasFinalBalance ? new Date() : request.completedAt,
+        status: action === 'complete' ? (hasFinalBalance && !request.finalPaymentConfirmedAt ? 'handoff' : 'completed') : 'handoff',
+        completionAcknowledgedAt: action === 'complete' ? new Date() : null,
+        completedAt: action === 'complete' && (!hasFinalBalance || request.finalPaymentConfirmedAt) ? new Date() : action === 'issue' ? null : request.completedAt,
         completionNotes: action === 'complete' ? (message || request.completionNotes) : request.completionNotes,
         handoffIssuesReportedAt: action === 'issue' ? new Date() : null,
         clientNotes: noteParts.join('\n\n')
       }
     });
+    if (handoffTransition.count !== 1) {
+      return res.status(409).json({ success: false, message: 'The handoff changed while you were responding. Refresh the project and try again.' });
+    }
+    const updated = await prisma.projectRequest.findUnique({ where: { id: request.id } });
 
     const handoffMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Handoff');
 
@@ -472,6 +547,17 @@ exports.respondToHandoff = async (req, res) => {
           clientNote: message || 'Client reported a handoff issue.'
         }
       });
+    }
+
+    await recordProjectEvent(
+      request.id,
+      action === 'complete' ? 'handoff_accepted' : 'handoff_issue_reported',
+      action === 'complete' ? 'Client accepted the handoff.' : 'Client reported a handoff issue.',
+      { message: message || null }
+    );
+    if (updated.status === 'completed') {
+      await recordProjectEvent(request.id, 'build_completed', 'Build completed after handoff acceptance and required payments were confirmed.');
+      await ensureCompletedBuildSite(request.id);
     }
 
     const responseRequest = await prisma.projectRequest.findUnique({
@@ -502,6 +588,7 @@ exports.respondToHandoff = async (req, res) => {
     });
 
     if (responseRequest) {
+      notifyUser(request.userId, 'project_request_updated', { request: responseRequest });
       notifyAdmins('project_request_updated', { request: responseRequest });
       if (action === 'issue') {
         notifyAdmins('new_client_message', { requestId: request.id, message: message || 'Client reported a handoff issue.' });
@@ -512,7 +599,9 @@ exports.respondToHandoff = async (req, res) => {
       success: true,
       data: updated,
       message: action === 'complete'
-        ? 'Build handoff acknowledged. This project is now complete.'
+        ? updated.status === 'completed'
+          ? 'Build handoff accepted and the agreement is fully settled.'
+          : 'Build handoff accepted. The remaining balance is still due before the build can close.'
         : 'Your handoff note has been sent to the team.'
     });
   } catch (error) {
@@ -562,6 +651,12 @@ exports.respondToStagingReview = async (req, res) => {
         message: 'This build is not waiting for staging review'
       });
     }
+    if (request.stagingReviewStatus && request.stagingReviewStatus !== 'sent') {
+      return res.status(409).json({
+        success: false,
+        message: 'A decision has already been recorded for this preview. Wait for the team to send an updated preview.'
+      });
+    }
 
     const label = action === 'approve'
       ? 'Client approved staging for launch.'
@@ -574,7 +669,7 @@ exports.respondToStagingReview = async (req, res) => {
     const updated = await prisma.projectRequest.update({
       where: { id: request.id },
       data: {
-        status: action === 'approve' ? 'launched' : 'staging_review',
+        status: 'staging_review',
         stagingReviewStatus: action === 'approve' ? 'approved' : 'changes_requested',
         stagingReviewedAt: new Date(),
         launchApprovedAt: action === 'approve' ? new Date() : request.launchApprovedAt,
@@ -609,6 +704,13 @@ exports.respondToStagingReview = async (req, res) => {
       });
     }
 
+    await recordProjectEvent(
+      request.id,
+      action === 'approve' ? 'preview_approved' : 'preview_changes_requested',
+      action === 'approve' ? 'Client approved the preview for launch.' : 'Client requested changes to the preview.',
+      { message: message || null, previewUrl: request.stagingUrl || null }
+    );
+
     const responseRequest = await prisma.projectRequest.findUnique({
       where: { id: request.id },
       include: {
@@ -637,6 +739,7 @@ exports.respondToStagingReview = async (req, res) => {
     });
 
     if (responseRequest) {
+      notifyUser(request.userId, 'project_request_updated', { request: responseRequest });
       notifyAdmins('project_request_updated', { request: responseRequest });
     }
 
@@ -667,27 +770,19 @@ exports.getReviewChatMessages = async (req, res) => {
         userId,
         serviceType: 'build'
       },
-      select: { id: true }
+      select: { id: true, status: true }
     });
 
     if (!request) {
       return res.status(404).json({ success: false, message: 'Build request not found' });
     }
+    if (request.status !== 'handoff') {
+      return res.status(409).json({ success: false, message: 'Handoff messages can only be sent while the build is awaiting handoff review.' });
+    }
 
-    const messages = await prisma.$queryRawUnsafe(
-      `SELECT ${reviewChatSelect}
-       FROM "ReviewChatMessage"
-       WHERE "projectRequestId" = $1
-       ORDER BY "createdAt" ASC`,
-      requestId
-    );
+    const messages = await getProjectConversation(requestId);
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE "ReviewChatMessage"
-       SET "readByClient" = true
-       WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`,
-      requestId
-    );
+    await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByClient" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`, requestId);
 
     res.json({ success: true, data: messages });
   } catch (error) {
@@ -723,10 +818,10 @@ exports.createReviewChatMessage = async (req, res) => {
     }
 
     const rows = await prisma.$queryRawUnsafe(
-      `INSERT INTO "ReviewChatMessage"
+      `INSERT INTO "ProjectConversationMessage"
        ("projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
        VALUES ($1,$2,'client',$3,$4,$5::jsonb,$6,$7::jsonb,false,true)
-       RETURNING ${reviewChatSelect}`,
+       RETURNING ${projectConversationSelect}`,
       requestId,
       userId,
       cleanedMessage,
@@ -737,7 +832,7 @@ exports.createReviewChatMessage = async (req, res) => {
     );
 
     const chatMessage = rows[0];
-    notifyAdmins('review_chat_message', { requestId, message: chatMessage });
+    notifyAdmins('project_conversation_message', { requestId, message: chatMessage });
 
     res.json({ success: true, data: chatMessage, message: 'Review message sent' });
   } catch (error) {
@@ -764,20 +859,9 @@ exports.getHandoffChatMessages = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Build request not found' });
     }
 
-    const messages = await prisma.$queryRawUnsafe(
-      `SELECT ${handoffChatSelect}
-       FROM "HandoffChatMessage"
-       WHERE "projectRequestId" = $1
-       ORDER BY "createdAt" ASC`,
-      requestId
-    );
+    const messages = await getProjectConversation(requestId);
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE "HandoffChatMessage"
-       SET "readByClient" = true
-       WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`,
-      requestId
-    );
+    await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByClient" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`, requestId);
 
     res.json({ success: true, data: messages });
   } catch (error) {
@@ -798,40 +882,47 @@ exports.createHandoffChatMessage = async (req, res) => {
     }
 
     const request = await prisma.projectRequest.findFirst({
-      where: {
-        id: requestId,
-        userId,
-        serviceType: 'build'
-      },
-      select: { id: true }
+      where: { id: requestId, userId, serviceType: 'build' },
+      select: { id: true, status: true }
     });
 
     if (!request) {
       return res.status(404).json({ success: false, message: 'Build request not found' });
     }
+    if (request.status !== 'handoff') {
+      return res.status(409).json({ success: false, message: 'Handoff messages can only be sent while the build is awaiting handoff review.' });
+    }
 
-    const newMessageId = require('crypto').randomUUID();
-
-    const rows = await prisma.$queryRawUnsafe(
-      `INSERT INTO "HandoffChatMessage"
-       ("id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
-       VALUES ($1,$2,$3,'client',$4,'message',NULL,NULL,$5::jsonb,false,true)
-       RETURNING ${handoffChatSelect}`,
-      newMessageId,
-      requestId,
-      userId,
-      cleanedMessage,
-      JSON.stringify(attachments || null)
-    );
-
-    const chatMessage = rows[0];
-
-    await prisma.projectRequest.update({
-      where: { id: requestId },
-      data: { handoffIssuesReportedAt: new Date() }
+    const chatMessage = await prisma.$transaction(async (tx) => {
+      const transition = await tx.projectRequest.updateMany({
+        where: { id: requestId, userId, serviceType: 'build', status: 'handoff' },
+        data: {
+          handoffIssuesReportedAt: new Date(),
+          completionAcknowledgedAt: null,
+          completedAt: null
+        }
+      });
+      if (transition.count !== 1) return null;
+      return tx.projectConversationMessage.create({
+        data: {
+          projectRequestId: requestId,
+          senderId: userId,
+          senderRole: 'client',
+          message: cleanedMessage,
+          kind: 'message',
+          attachments: attachments || null,
+          readByAdmin: false,
+          readByClient: true
+        }
+      });
     });
+    if (!chatMessage) return res.status(409).json({ success: false, message: 'The handoff is no longer open for review.' });
 
-    notifyAdmins('handoff_chat_message', { requestId, message: chatMessage });
+    notifyUser(userId, 'project_conversation_message', { requestId, message: chatMessage });
+    notifyAdmins('project_conversation_message', { requestId, message: chatMessage });
+    const updatedRequest = await prisma.projectRequest.findUnique({ where: { id: requestId } });
+    notifyUser(userId, 'project_request_updated', { request: updatedRequest });
+    notifyAdmins('project_request_updated', { request: updatedRequest });
 
     res.json({ success: true, data: chatMessage, message: 'Handoff message sent' });
   } catch (error) {
@@ -876,6 +967,14 @@ exports.respondToProjectQuote = async (req, res) => {
       });
     }
 
+    const currentQuote = await prisma.projectQuoteVersion.findFirst({
+      where: { projectRequestId: requestId, status: 'sent' },
+      orderBy: { version: 'desc' }
+    });
+    if (!currentQuote) {
+      return res.status(409).json({ success: false, message: 'There is no current quote version to accept. Ask the team to send the quote again.' });
+    }
+
     const responseLabels = {
       accept: 'Client accepted the quote.',
       discuss: 'Client wants to discuss the quote.',
@@ -894,6 +993,27 @@ exports.respondToProjectQuote = async (req, res) => {
       }
     });
 
+    if (action === 'accept') {
+      await prisma.projectQuoteVersion.update({
+        where: { id: currentQuote.id },
+        data: { status: 'accepted', acceptedAt: new Date() }
+      });
+    }
+
+    const messageRows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ProjectConversationMessage"
+       ("projectRequestId","senderId","senderRole","message","kind","eventData","readByAdmin","readByClient")
+       VALUES ($1,$2,'client',$3,$4,$5::jsonb,false,true)
+       RETURNING ${projectConversationSelect}`,
+      requestId, userId,
+      action === 'accept' ? `Client accepted quote version ${currentQuote.version}.` : (String(message || '').trim() || 'Client wants to discuss the quote.'),
+      action === 'accept' ? 'event' : 'message',
+      JSON.stringify(action === 'accept' ? { type: 'quote_accepted', quoteVersionId: currentQuote.id, version: currentQuote.version, quoteAmount: currentQuote.snapshot.amount, currency: currentQuote.snapshot.currency } : null)
+    );
+    notifyAdmins('project_conversation_message', { requestId, message: messageRows[0] });
+    notifyUser(userId, 'project_request_updated', { request: updated });
+    notifyAdmins('project_request_updated', { request: updated });
+
     res.json({
       success: true,
       data: updated,
@@ -907,6 +1027,91 @@ exports.respondToProjectQuote = async (req, res) => {
       success: false,
       message: 'Failed to respond to quote'
     });
+  }
+};
+
+// Unified project conversation endpoints. These expose the migrated history
+// and provide one write path for every stage of the build journey.
+exports.getProjectConversation = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const request = await prisma.projectRequest.findFirst({
+      where: { id: requestId, userId, serviceType: 'build' },
+      select: { id: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+
+    const messages = await getProjectConversation(requestId);
+    await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByClient" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`, requestId);
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_CLIENT_PROJECT_CONVERSATION_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load project conversation' });
+  }
+};
+
+exports.createProjectConversationMessage = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const { message = '', kind = 'message', choices = null, selectedChoice = null, attachments = null } = req.body || {};
+    const cleanedMessage = String(message || selectedChoice || '').trim();
+    const cleanedChoices = sanitizeReviewChatChoices(choices);
+    const cleanedKind = normalizeReviewChatKind(kind, cleanedChoices);
+    if (!cleanedMessage && !attachments) return res.status(400).json({ success: false, message: 'Message is required' });
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id: requestId, userId, serviceType: 'build' },
+      select: { id: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ProjectConversationMessage"
+       ("projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
+       VALUES ($1,$2,'client',$3,$4,$5::jsonb,$6,$7::jsonb,false,true)
+       RETURNING ${projectConversationSelect}`,
+      requestId, userId, cleanedMessage, cleanedKind, JSON.stringify(cleanedChoices),
+      selectedChoice ? String(selectedChoice).trim() : null, JSON.stringify(attachments || null)
+    );
+    const chatMessage = rows[0];
+    notifyAdmins('project_conversation_message', { requestId, message: chatMessage });
+    res.json({ success: true, data: chatMessage, message: 'Project message sent' });
+  } catch (error) {
+    logger.error('CREATE_CLIENT_PROJECT_CONVERSATION_MESSAGE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send project message' });
+  }
+};
+
+exports.createProjectLifecycleRequest = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { requestId } = req.params;
+    const type = req.body?.type;
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (!['pause', 'cancel'].includes(type)) return res.status(400).json({ success: false, message: 'Choose pause or cancellation.' });
+    if (!message || message.length > 2000) return res.status(400).json({ success: false, message: 'Add a short reason (up to 2000 characters).' });
+
+    const request = await prisma.projectRequest.findFirst({ where: { id: requestId, userId, serviceType: 'build' }, select: { id: true, status: true } });
+    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+    if (['completed', 'cancelled', 'archived'].includes(request.status) || (request.status === 'paused' && type === 'pause')) return res.status(409).json({ success: false, message: 'This build cannot accept that request in its current state.' });
+
+    const pending = await prisma.$queryRawUnsafe(
+      `SELECT "id" FROM "ProjectConversationMessage" WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'lifecycleStatus' = 'pending' LIMIT 1`, requestId
+    );
+    if (pending.length) return res.status(409).json({ success: false, message: 'There is already a pause or cancellation request waiting for the admin.' });
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ProjectConversationMessage" ("projectRequestId","senderId","senderRole","message","kind","eventData","readByAdmin","readByClient")
+       VALUES ($1,$2,'system',$3,'event',$4::jsonb,false,true) RETURNING ${projectConversationSelect}`,
+      requestId, userId, message, JSON.stringify({ type: `${type}_requested`, lifecycleType: type, lifecycleStatus: 'pending', previousStatus: request.status })
+    );
+    notifyAdmins('project_conversation_message', { requestId, message: rows[0] });
+    res.json({ success: true, data: rows[0], message: 'Request sent to the admin for confirmation.' });
+  } catch (error) {
+    logger.error('CREATE_PROJECT_LIFECYCLE_REQUEST_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send the pause or cancellation request.' });
   }
 };
 
@@ -955,6 +1160,15 @@ exports.respondToBriefClarification = async (req, res) => {
         adminNotes: `${existingAdminNotes}Client brief clarification:\n${cleanMessage}`
       }
     });
+
+    const messageRows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ProjectConversationMessage"
+       ("projectRequestId","senderId","senderRole","message","kind","readByAdmin","readByClient")
+       VALUES ($1,$2,'client',$3,'message',false,true)
+       RETURNING ${projectConversationSelect}`,
+      requestId, userId, cleanMessage
+    );
+    notifyAdmins('project_conversation_message', { requestId, message: messageRows[0] });
 
     res.json({
       success: true,
@@ -1284,6 +1498,19 @@ exports.createSupportTicket = async (req, res) => {
       });
     }
 
+    if (subscriptionId) {
+      const ownedSite = await prisma.subscription.findFirst({
+        where: { id: subscriptionId, userId },
+        select: { id: true }
+      });
+      if (!ownedSite) {
+        return res.status(403).json({
+          success: false,
+          message: 'This site is not available in your workspace'
+        });
+      }
+    }
+
     const ticket = await prisma.supportTicket.create({
       data: {
         userId,
@@ -1440,12 +1667,25 @@ exports.verifyDomainDNS = async (req, res) => {
     }
 
     const domain = customDomain.domain;
-    const serverIP = '102.0.21.24'; // The public IP of our server
+    const serverIP = process.env.INFRA_IP || '102.0.21.24';
+    const targetCname = process.env.INFRA_CNAME || 'nodes.sitemendr.com';
 
     try {
-      // Resolve A records for the domain
-      const records = await dns.resolve4(domain);
-      const isVerified = records.includes(serverIP);
+      let records = [];
+      let isVerified = false;
+
+      try {
+        records = await dns.resolve4(domain);
+        isVerified = records.includes(serverIP);
+      } catch { /* Try the supported CNAME setup below. */ }
+
+      if (!isVerified) {
+        try {
+          const cnameRecords = await dns.resolveCname(domain);
+          records = [...records, ...cnameRecords];
+          isVerified = cnameRecords.some(record => record.replace(/\.$/, '').toLowerCase() === targetCname.replace(/\.$/, '').toLowerCase());
+        } catch { /* No matching CNAME is published yet. */ }
+      }
 
       if (isVerified) {
         await prisma.customDomain.update({
@@ -1463,7 +1703,7 @@ exports.verifyDomainDNS = async (req, res) => {
         return res.json({
           success: true,
           verified: false,
-          message: `DNS verification failed. Expected A record ${serverIP}, but found ${records.join(', ')}.`,
+          message: `DNS verification failed. Expected an A record for ${serverIP} or a CNAME to ${targetCname}, but found ${records.join(', ') || 'no matching records'}.`,
           records
         });
       }
@@ -1921,6 +2161,14 @@ exports.getContractBilling = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
 
+    const settlementEvents = await prisma.$queryRawUnsafe(
+      `SELECT "eventData"->'cancellationSettlement' AS "cancellationSettlement"
+       FROM "ProjectConversationMessage"
+       WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'type' = 'cancel_confirmed'
+       ORDER BY "createdAt" DESC LIMIT 1`,
+      id
+    );
+
     const payments = await prisma.payment.findMany({
       where: {
         userId,
@@ -1931,7 +2179,7 @@ exports.getContractBilling = async (req, res) => {
 
     res.json({
       success: true,
-      contract: request,
+      contract: { ...request, cancellationSettlement: settlementEvents[0]?.cancellationSettlement || null },
       payments: payments.map((payment) => ({ ...payment, ...extractChannelInfo(payment) }))
     });
   } catch (error) {

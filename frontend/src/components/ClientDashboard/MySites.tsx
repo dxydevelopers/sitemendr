@@ -2,9 +2,8 @@
 //
 // The "My Sites" list: everything the client actually owns and operates,
 // as opposed to Projects (which is the build lifecycle, still in motion).
-// A project counts as a "site" once it's launched — matches the same
-// ['launched', 'handoff', 'completed'] set ClientBuildJourney already
-// uses to decide a build is live.
+// Completed Build requests are linked to their managed-site record after
+// handoff acceptance and payment closeout.
 
 'use client';
 
@@ -44,7 +43,7 @@ export default function MySites({
   <Globe className="h-5 w-5" />
   </div>
   <h1 className="text-xl font-semibold text-white">No live sites yet</h1>
-  <p className="text-sm font-medium text-white/44">Once a build launches, it shows up here as something you own and operate — not just a finished project.</p>
+  <p className="text-sm font-medium text-white/44">Completed builds appear here after handoff acceptance and payment closeout, ready for site management.</p>
   </div>
   </div>
   );

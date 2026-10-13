@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Space_Grotesk } from 'next/font/google';
 import {
   ArrowRight,
   BadgeCheck,
@@ -14,11 +13,6 @@ import {
   ShoppingBag,
   Wrench,
 } from 'lucide-react';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-});
 
 const paths = [
   {
@@ -70,7 +64,7 @@ const proof = [
 
 export default function Home() {
   return (
-    <main className={`${spaceGrotesk.variable} min-h-screen bg-[#05070a] text-white overflow-hidden`}>
+    <main className="min-h-screen bg-[#05070a] text-white overflow-hidden">
       <section className="relative min-h-[600px] w-full max-w-full overflow-hidden border-b border-white/10 pt-20 md:min-h-[640px] lg:min-h-[680px]">
         <video
           autoPlay

@@ -47,6 +47,28 @@ export interface ReviewChatMessage {
   choices?: string[] | null;
   selectedChoice?: string | null;
   attachments?: Array<{ label?: string; url?: string }> | null;
+  eventData?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface ProjectQuoteVersion {
+  id: string;
+  version: number;
+  status: string;
+  snapshot: {
+    projectTitle?: string;
+    scope?: string;
+    amount?: number;
+    currency?: string;
+    timeline?: string | null;
+    totalAgreedAmount?: number;
+    depositAmount?: number | null;
+    paymentSchedule?: string | null;
+    cancellationTerms?: string;
+    milestoneAmounts?: Array<{ name: string; amount: number }>;
+    nonRecoverableCosts?: Array<{ name: string; amount: number; reason: string }>;
+  };
+  acceptedAt?: string | null;
   createdAt: string;
 }
 
@@ -88,6 +110,7 @@ export interface ClientProject {
   handoffIssuesReportedAt?: string;
   completedAt?: string;
   finalPaymentConfirmedAt?: string;
+  quoteVersions?: ProjectQuoteVersion[];
   buildMilestones?: BuildMilestone[];
   studioLinks?: StudioLink[];
   studioUpdates?: StudioUpdate[];
@@ -97,7 +120,7 @@ export interface ClientProject {
   reviewRequested?: boolean;
   reviewNotes?: string;
   revisionCount?: number;
-  purchasedAddons?: string[] | string;
+  purchasedAddons?: unknown[] | string;
   isCurrent?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -139,7 +162,7 @@ export interface BillingItem {
   cardType?: string | null;
   last4?: string | null;
   bank?: string | null;
-  metadata?: { projectRequestId?: string } | Record<string, unknown> | null;
+  metadata?: { projectRequestId?: string; subscriptionId?: string; addonId?: string } | Record<string, unknown> | null;
 }
 
 export interface MessageItem {

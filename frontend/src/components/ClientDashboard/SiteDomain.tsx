@@ -34,7 +34,7 @@ export default function SiteDomain({
 
       <div className="divide-y divide-white/[0.06] border border-white/[0.08] bg-white/[0.02]">
         {domains.length ? domains.map((domain: CustomDomain) => {
-          const verified = domain.status?.toLowerCase() === 'verified';
+          const verified = ['verified', 'active'].includes(domain.status?.toLowerCase() || '');
           return (
             <div key={domain.id} className="flex min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
               <div className="min-w-0 space-y-1.5">

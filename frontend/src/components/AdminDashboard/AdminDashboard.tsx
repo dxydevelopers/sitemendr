@@ -22,6 +22,7 @@ import AdminBilling from './AdminBilling';
 import AdminTransactions from './AdminTransactions';
 import AdminContent from './AdminContent';
 import AdminSystem from './AdminSystem';
+import AdminAddonFulfillment from './AdminAddonFulfillment';
 
 const AssessmentModal = dynamic(() => import('../AssessmentModal'), { ssr: false });
 const SupportManager = dynamic(() => import('../dashboard/SupportManager'), { ssr: false });
@@ -195,6 +196,8 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   )}
 
   {activeTab === 'transactions' && <AdminTransactions />}
+
+  {activeTab === 'addon-fulfillment' && <AdminAddonFulfillment />}
 
   {(activeTab === 'media' || activeTab === 'blog' || activeTab === 'portfolio') && (
   <AdminContent view={activeTab} media={media} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onUploadMedia={handleUploadMedia} onDeleteMedia={handleDeleteMedia} />

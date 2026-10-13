@@ -4,6 +4,9 @@ const { notifyUser, notifyAdmins } = require('../services/socketService');
 const { runSuspensionAutomation, suspendSubscription } = require('../scripts/suspensionAutomation');
 const { verifyDomains } = require('../scripts/dnsWorker');
 const logger = require('../config/logger');
+const { recordProjectEvent } = require('../services/projectConversation');
+const { ensureCompletedBuildSite } = require('../services/projectSiteService');
+const { ADDONS, getAddon } = require('../services/addonCatalog');
 
 const runInBatches = async (tasks, batchSize = 3) => {
   const results = [];
@@ -19,6 +22,143 @@ const runInBatches = async (tasks, batchSize = 3) => {
 const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
 
 const handoffChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
+const projectConversationSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","eventData","readByAdmin","readByClient","createdAt"`;
+
+const getProjectConversation = async (requestId) => prisma.$queryRawUnsafe(
+  `SELECT ${projectConversationSelect}
+   FROM "ProjectConversationMessage"
+   WHERE "projectRequestId" = $1
+   ORDER BY "createdAt" ASC, "id" ASC`,
+  requestId
+);
+
+const isPublicHttpUrl = (value) => {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol)
+      && !/^(localhost|127\.0\.0\.1|0\.0\.0\.0|.*\.test)$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
+const updateProjectPreviewUrl = async (projectRequestId, nextUrl) => {
+  const current = await prisma.projectRequest.findUnique({
+    where: { id: projectRequestId },
+    select: { status: true, stagingUrl: true, stagingReviewStatus: true }
+  });
+  if (!current) return;
+  const normalizedNextUrl = nextUrl || null;
+  if ((current.stagingUrl || null) === normalizedNextUrl) return;
+
+  await prisma.projectRequest.update({
+    where: { id: projectRequestId },
+    data: {
+      stagingUrl: normalizedNextUrl,
+      ...(current.status === 'staging_review' ? {
+        stagingReviewStatus: 'sent',
+        stagingReviewedAt: null,
+        launchApprovedAt: null
+      } : {})
+    }
+  });
+};
+
+exports.getAddonPurchases = async (req, res) => {
+  try {
+    const subscriptions = await prisma.subscription.findMany({
+      where: { tier: { not: 'maintenance' } },
+      select: {
+        id: true,
+        userId: true,
+        siteName: true,
+        customName: true,
+        domain: true,
+        purchasedAddons: true,
+        user: { select: { name: true, email: true } }
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000
+    });
+
+    const purchases = subscriptions.flatMap((site) => {
+      const addons = Array.isArray(site.purchasedAddons) ? site.purchasedAddons : [];
+      return addons.flatMap((entry) => {
+        const addonId = typeof entry === 'string' ? entry : entry?.id;
+        const addon = getAddon(addonId);
+        if (!addon || addon.fulfillmentMode !== 'admin') return [];
+        return [{
+          siteId: site.id,
+          siteName: site.siteName || site.customName || 'Untitled site',
+          domain: site.domain,
+          user: site.user,
+          addon: { id: addon.id, name: addon.name, price: addon.price },
+          paymentId: typeof entry === 'object' ? entry.paymentId || null : null,
+          purchasedAt: typeof entry === 'object' ? entry.purchasedAt || null : null,
+          status: typeof entry === 'object' ? entry.fulfillmentStatus || 'pending' : 'pending',
+          adminNote: typeof entry === 'object' ? entry.adminNote || '' : '',
+          statusUpdatedAt: typeof entry === 'object' ? entry.statusUpdatedAt || null : null
+        }];
+      });
+    });
+
+    res.json({ success: true, data: purchases });
+  } catch (error) {
+    logger.error('GET_ADDON_PURCHASES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load add-on setup queue' });
+  }
+};
+
+exports.updateAddonFulfillment = async (req, res) => {
+  try {
+    const { siteId, addonId } = req.params;
+    const { status, adminNote = '' } = req.body;
+    if (!getAddon(addonId) || getAddon(addonId).fulfillmentMode !== 'admin') {
+      return res.status(404).json({ success: false, message: 'Admin-managed add-on not found' });
+    }
+    if (!['pending', 'in_progress', 'fulfilled'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid setup status' });
+    }
+    if (typeof adminNote !== 'string' || adminNote.length > 1000) {
+      return res.status(400).json({ success: false, message: 'Setup note must be 1000 characters or fewer' });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${siteId}:${addonId}`}))`;
+      const site = await tx.subscription.findUnique({
+        where: { id: siteId },
+        select: { id: true, userId: true, purchasedAddons: true }
+      });
+      if (!site) return null;
+      const addons = Array.isArray(site.purchasedAddons) ? site.purchasedAddons : [];
+      const index = addons.findIndex((entry) => entry === addonId || entry?.id === addonId);
+      if (index < 0) return null;
+
+      const current = typeof addons[index] === 'object' && addons[index] !== null
+        ? addons[index]
+        : { id: addonId, name: getAddon(addonId).name };
+      const updatedAddon = {
+        ...current,
+        fulfillmentMode: 'admin',
+        fulfillmentStatus: status,
+        adminNote: adminNote.trim(),
+        statusUpdatedAt: new Date().toISOString(),
+        statusUpdatedBy: req.user.userId
+      };
+      addons[index] = updatedAddon;
+      await tx.subscription.update({ where: { id: site.id }, data: { purchasedAddons: addons } });
+      return { userId: site.userId, addon: updatedAddon };
+    });
+
+    if (!result) return res.status(404).json({ success: false, message: 'The purchased add-on was not found on this site' });
+    notifyUser(result.userId, 'addon_fulfillment_updated', { siteId, addonId, status });
+    res.json({ success: true, data: result.addon });
+  } catch (error) {
+    logger.error('UPDATE_ADDON_FULFILLMENT_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update add-on setup status' });
+  }
+};
 
 const sanitizeReviewChatChoices = (choices) => {
   if (!Array.isArray(choices)) return null;
@@ -632,6 +772,7 @@ const buildRequestStatuses = [
   'approved',
   'payment_agreement',
   'in_development',
+  'paused',
   'staging_review',
   'launched',
   'handoff',
@@ -714,6 +855,10 @@ const projectRequestInclude = {
   studioUpdates: {
     orderBy: { createdAt: 'desc' },
     take: 20
+  },
+  quoteVersions: {
+    orderBy: { version: 'desc' },
+    take: 10
   }
 };
 
@@ -792,20 +937,9 @@ exports.getReviewChatMessages = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Build request not found' });
     }
 
-    const messages = await prisma.$queryRawUnsafe(
-      `SELECT ${reviewChatSelect}
-       FROM "ReviewChatMessage"
-       WHERE "projectRequestId" = $1
-       ORDER BY "createdAt" ASC`,
-      id
-    );
+    const messages = await getProjectConversation(id);
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE "ReviewChatMessage"
-       SET "readByAdmin" = true
-       WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`,
-      id
-    );
+    await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByAdmin" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`, id);
 
     res.json({ success: true, data: messages });
   } catch (error) {
@@ -836,10 +970,10 @@ exports.createReviewChatMessage = async (req, res) => {
     }
 
     const rows = await prisma.$queryRawUnsafe(
-      `INSERT INTO "ReviewChatMessage"
+      `INSERT INTO "ProjectConversationMessage"
        ("projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
        VALUES ($1,$2,'admin',$3,$4,$5::jsonb,$6,$7::jsonb,true,false)
-       RETURNING ${reviewChatSelect}`,
+       RETURNING ${projectConversationSelect}`,
       id,
       req.user?.userId || null,
       cleanedMessage,
@@ -850,8 +984,8 @@ exports.createReviewChatMessage = async (req, res) => {
     );
 
     const chatMessage = rows[0];
-    notifyUser(request.userId, 'review_chat_message', { requestId: id, message: chatMessage });
-    notifyAdmins('review_chat_message', { requestId: id, message: chatMessage });
+    notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: chatMessage });
+    notifyAdmins('project_conversation_message', { requestId: id, message: chatMessage });
 
     res.json({ success: true, data: chatMessage, message: 'Review message sent' });
   } catch (error) {
@@ -872,20 +1006,9 @@ exports.getHandoffChatMessages = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Build request not found' });
     }
 
-    const messages = await prisma.$queryRawUnsafe(
-      `SELECT ${handoffChatSelect}
-       FROM "HandoffChatMessage"
-       WHERE "projectRequestId" = $1
-       ORDER BY "createdAt" ASC`,
-      id
-    );
+    const messages = await getProjectConversation(id);
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE "HandoffChatMessage"
-       SET "readByAdmin" = true
-       WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`,
-      id
-    );
+    await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByAdmin" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`, id);
 
     res.json({ success: true, data: messages });
   } catch (error) {
@@ -913,14 +1036,12 @@ exports.createHandoffChatMessage = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Build request not found' });
     }
 
-    const newMessageId = require('crypto').randomUUID();
-
     const rows = await prisma.$queryRawUnsafe(
-      `INSERT INTO "HandoffChatMessage"
+      `INSERT INTO "ProjectConversationMessage"
        ("id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
        VALUES ($1,$2,$3,'admin',$4,'message',NULL,NULL,$5::jsonb,true,false)
-       RETURNING ${handoffChatSelect}`,
-      newMessageId,
+       RETURNING ${projectConversationSelect}`,
+      require('crypto').randomUUID(),
       id,
       req.user?.userId || null,
       cleanedMessage,
@@ -928,13 +1049,274 @@ exports.createHandoffChatMessage = async (req, res) => {
     );
 
     const chatMessage = rows[0];
-    notifyUser(request.userId, 'handoff_chat_message', { requestId: id, message: chatMessage });
-    notifyAdmins('handoff_chat_message', { requestId: id, message: chatMessage });
+    notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: chatMessage });
+    notifyAdmins('project_conversation_message', { requestId: id, message: chatMessage });
 
     res.json({ success: true, data: chatMessage, message: 'Handoff message sent' });
   } catch (error) {
     logger.error('CREATE_HANDOFF_CHAT_MESSAGE_ERROR:', error);
     res.status(500).json({ success: false, message: 'Failed to send handoff message' });
+  }
+};
+
+exports.getProjectConversation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'build' },
+      select: { id: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+
+    const messages = await getProjectConversation(id);
+    await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByAdmin" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`, id);
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_ADMIN_PROJECT_CONVERSATION_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load project conversation' });
+  }
+};
+
+exports.createProjectConversationMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message = '', kind = 'message', choices = null, selectedChoice = null, attachments = null } = req.body || {};
+    const cleanedMessage = String(message || '').trim();
+    const cleanedChoices = sanitizeReviewChatChoices(choices);
+    const cleanedKind = normalizeReviewChatKind(kind, cleanedChoices);
+    if (!cleanedMessage && !cleanedChoices?.length && !attachments) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'build' },
+      select: { id: true, userId: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO "ProjectConversationMessage"
+       ("projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient")
+       VALUES ($1,$2,'admin',$3,$4,$5::jsonb,$6,$7::jsonb,true,false)
+       RETURNING ${projectConversationSelect}`,
+      id, req.user?.userId || null, cleanedMessage, cleanedKind, JSON.stringify(cleanedChoices),
+      selectedChoice ? String(selectedChoice).trim() : null, JSON.stringify(attachments || null)
+    );
+    const chatMessage = rows[0];
+    notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: chatMessage });
+    notifyAdmins('project_conversation_message', { requestId: id, message: chatMessage });
+    res.json({ success: true, data: chatMessage, message: 'Project message sent' });
+  } catch (error) {
+    logger.error('CREATE_ADMIN_PROJECT_CONVERSATION_MESSAGE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send project message' });
+  }
+};
+
+exports.decideProjectLifecycleRequest = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const { decision, settlementSelection } = req.body || {};
+    const message = typeof req.body?.message === 'string' ? req.body.message : '';
+    if (!['confirm', 'decline', 'resume', 'reopen'].includes(decision)) return res.status(400).json({ success: false, message: 'Choose confirm, decline, resume, or reopen.' });
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT "id","eventData" FROM "ProjectConversationMessage" WHERE "id" = $1 AND "projectRequestId" = $2 AND "kind" = 'event' LIMIT 1`, messageId, id
+    );
+    const requestEvent = rows[0];
+    const eventData = requestEvent?.eventData || {};
+    const lifecycleType = eventData.lifecycleType;
+    const isResume = decision === 'resume';
+    const isReopen = decision === 'reopen';
+    if (!requestEvent || (isResume
+      ? lifecycleType !== 'pause' || eventData.lifecycleStatus !== 'confirmed'
+      : isReopen
+        ? lifecycleType !== 'cancel' || eventData.lifecycleStatus !== 'confirmed'
+      : !['pause', 'cancel'].includes(lifecycleType) || eventData.lifecycleStatus !== 'pending')) {
+      return res.status(404).json({ success: false, message: 'Pending pause or cancellation request not found.' });
+    }
+    const request = await prisma.projectRequest.findFirst({ where: { id, serviceType: 'build' }, select: { id: true, userId: true, status: true, quoteCurrency: true } });
+    if (!request) return res.status(404).json({ success: false, message: 'Build request not found.' });
+    if ((isResume || isReopen) && !message.trim()) return res.status(400).json({ success: false, message: 'Add a reason for reopening or resuming the build.' });
+    const lifecycleStatus = isResume ? 'resumed' : isReopen ? 'reopened' : decision === 'confirm' ? 'confirmed' : 'declined';
+    let cancellationSettlement = null;
+    if (decision === 'confirm' && lifecycleType === 'cancel') {
+      const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+        where: { projectRequestId: id, status: 'accepted' },
+        orderBy: { version: 'desc' },
+        select: { id: true, version: true, snapshot: true }
+      });
+      const selectedMilestones = Array.isArray(settlementSelection?.completedMilestoneIndexes) ? settlementSelection.completedMilestoneIndexes : [];
+      const selectedCosts = Array.isArray(settlementSelection?.incurredCostIndexes) ? settlementSelection.incurredCostIndexes : [];
+      const payments = await prisma.payment.findMany({
+        where: {
+          userId: request.userId,
+          status: 'completed',
+          serviceType: { in: ['build_agreement', 'build_final_balance'] },
+          metadata: { path: ['projectRequestId'], equals: id }
+        },
+        select: { id: true, reference: true, amount: true, currency: true }
+      });
+      if (!acceptedQuote) {
+        if (payments.length || selectedMilestones.length || selectedCosts.length) {
+          return res.status(409).json({ success: false, message: 'This build has no accepted quote, but payment or charge selections exist. Review the contract before cancelling.' });
+        }
+        cancellationSettlement = {
+          quoteVersionId: null,
+          quoteVersion: null,
+          currency: String(request.quoteCurrency || 'USD').toUpperCase(),
+          completedMilestones: [],
+          incurredCosts: [],
+          milestoneCharges: 0,
+          costCharges: 0,
+          chargeTotal: 0,
+          paidTotal: 0,
+          refundDue: 0,
+          balanceDue: 0,
+          paymentReferences: [],
+          refundStatus: 'not_due',
+          recordedAt: new Date().toISOString()
+        };
+      } else {
+        const snapshot = acceptedQuote.snapshot || {};
+        const quotedMilestones = Array.isArray(snapshot.milestoneAmounts) ? snapshot.milestoneAmounts : [];
+        const approvedCosts = Array.isArray(snapshot.nonRecoverableCosts) ? snapshot.nonRecoverableCosts : [];
+        if (!snapshot.cancellationTerms || !settlementSelection) {
+          return res.status(400).json({ success: false, message: 'The accepted quote and cancellation closeout selection are required before confirming cancellation.' });
+        }
+        const invalidMilestone = selectedMilestones.some(index => !Number.isInteger(index) || index < 0 || index >= quotedMilestones.length);
+        const invalidCost = selectedCosts.some(index => !Number.isInteger(index) || index < 0 || index >= approvedCosts.length);
+        if (invalidMilestone || invalidCost || new Set(selectedMilestones).size !== selectedMilestones.length || new Set(selectedCosts).size !== selectedCosts.length) {
+          return res.status(400).json({ success: false, message: 'Closeout selections must match unique milestones and approved costs on the accepted quote.' });
+        }
+        const quoteCurrency = String(snapshot.currency || request.quoteCurrency || 'USD').toUpperCase();
+      if (payments.some(payment => String(payment.currency || '').toUpperCase() !== quoteCurrency)) {
+        return res.status(409).json({ success: false, message: 'Payments exist in a different currency from the accepted quote. Reconcile the converted amounts before confirming cancellation.' });
+      }
+      const completedMilestones = selectedMilestones.map(index => quotedMilestones[index]).map(item => ({ name: item.name, amount: Number(item.amount) }));
+      const incurredCosts = selectedCosts.map(index => approvedCosts[index]).map(item => ({ name: item.name, amount: Number(item.amount), reason: item.reason }));
+      const milestoneCharges = completedMilestones.reduce((sum, item) => sum + item.amount, 0);
+      const costCharges = incurredCosts.reduce((sum, item) => sum + item.amount, 0);
+      const paidTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0) / 100, 0);
+      const chargeTotal = milestoneCharges + costCharges;
+      cancellationSettlement = {
+        quoteVersionId: acceptedQuote.id,
+        quoteVersion: acceptedQuote.version,
+        currency: quoteCurrency,
+        completedMilestones,
+        incurredCosts,
+        milestoneCharges,
+        costCharges,
+        chargeTotal,
+        paidTotal,
+        refundDue: Math.max(paidTotal - chargeTotal, 0),
+        balanceDue: Math.max(chargeTotal - paidTotal, 0),
+        paymentReferences: payments.map(payment => payment.reference),
+        refundStatus: paidTotal > chargeTotal ? 'pending' : 'not_due',
+        recordedAt: new Date().toISOString()
+      };
+      }
+    }
+    if (isResume) {
+      if (request.status !== 'paused' || !buildRequestStatuses.includes(eventData.previousStatus)) return res.status(409).json({ success: false, message: 'The paused build cannot be resumed from its saved stage.' });
+      await prisma.projectRequest.update({ where: { id }, data: { status: eventData.previousStatus } });
+    } else if (isReopen) {
+      const settlement = eventData.cancellationSettlement || {};
+      if (request.status !== 'cancelled' || !buildRequestStatuses.includes(eventData.previousStatus)) return res.status(409).json({ success: false, message: 'This cancelled build cannot be reopened from its saved stage.' });
+      if (Number(settlement.refundedTotal || 0) > 0) return res.status(409).json({ success: false, message: 'A refund has already been recorded. Create a new build agreement to continue work.' });
+      cancellationSettlement = { ...settlement, settlementStatus: 'reversed', refundStatus: 'voided' };
+      await prisma.projectRequest.update({ where: { id }, data: { status: eventData.previousStatus } });
+    } else if (decision === 'confirm') {
+      if (request.status !== eventData.previousStatus) return res.status(409).json({ success: false, message: 'The project stage changed after this request was sent. Review the latest stage before confirming.' });
+      const nextStatus = lifecycleType === 'pause' ? 'paused' : 'cancelled';
+      await prisma.projectRequest.update({ where: { id }, data: { status: nextStatus } });
+    }
+    const updatedEventRows = cancellationSettlement
+      ? await prisma.$queryRawUnsafe(
+        `UPDATE "ProjectConversationMessage"
+         SET "eventData" = jsonb_set(jsonb_set("eventData", '{lifecycleStatus}', to_jsonb($2::text), true), '{cancellationSettlement}', $3::jsonb, true),
+             "readByClient" = false WHERE "id" = $1 RETURNING ${projectConversationSelect}`,
+        messageId, lifecycleStatus, JSON.stringify(cancellationSettlement)
+      )
+      : await prisma.$queryRawUnsafe(
+        `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{lifecycleStatus}', to_jsonb($2::text), true), "readByClient" = false WHERE "id" = $1 RETURNING ${projectConversationSelect}`,
+        messageId, lifecycleStatus
+      );
+    if (updatedEventRows[0]) {
+      notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: updatedEventRows[0] });
+      notifyAdmins('project_conversation_message', { requestId: id, message: updatedEventRows[0] });
+    }
+    await recordProjectEvent(id, `${lifecycleType}_${lifecycleStatus}`, isResume ? `The admin resumed the build at its previous stage. ${message.trim()}` : isReopen ? `The admin reopened the cancelled build at its previous stage. ${message.trim()}` : `The admin ${decision === 'confirm' ? 'confirmed' : 'declined'} the ${lifecycleType} request.${message.trim() ? ` ${message.trim()}` : ''}`, { lifecycleType, lifecycleStatus, previousStatus: eventData.previousStatus || null, adminNote: message.trim() || null, ...(cancellationSettlement ? { cancellationSettlement } : {}) });
+    const updated = await prisma.projectRequest.findUnique({ where: { id }, include: projectRequestInclude });
+    notifyUser(request.userId, 'project_request_updated', { request: updated });
+    notifyAdmins('project_request_updated', { request: updated });
+    res.json({ success: true, data: updated, message: `Request ${lifecycleStatus}.` });
+  } catch (error) {
+    logger.error('DECIDE_PROJECT_LIFECYCLE_REQUEST_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to record the admin decision.' });
+  }
+};
+
+exports.recordCancellationRefund = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const amount = Number(req.body?.amount);
+    const reference = typeof req.body?.reference === 'string' ? req.body.reference.trim() : '';
+    const request = await prisma.projectRequest.findFirst({ where: { id, serviceType: 'build', status: 'cancelled' }, select: { id: true, userId: true } });
+    if (!request) return res.status(409).json({ success: false, message: 'Refunds can only be recorded for a cancelled build.' });
+    if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.0001 || !reference || reference.length > 200) {
+      return res.status(400).json({ success: false, message: 'Enter a positive refund amount and the external transaction reference.' });
+    }
+    const settlementRows = await prisma.$queryRawUnsafe(
+      `SELECT "id","eventData" FROM "ProjectConversationMessage" WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'type' = 'cancel_confirmed' ORDER BY "createdAt" DESC LIMIT 1`, id
+    );
+    const settlementEvent = settlementRows[0];
+    const settlement = settlementEvent?.eventData?.cancellationSettlement;
+    if (!settlement || Number(settlement.refundDue) <= 0 || !['pending', 'partial'].includes(settlement.refundStatus)) {
+      return res.status(409).json({ success: false, message: 'This cancellation has no outstanding refund due.' });
+    }
+    const duplicate = await prisma.$queryRawUnsafe(
+      `SELECT "id" FROM "ProjectConversationMessage" WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'refundReference' = $2 LIMIT 1`, id, reference
+    );
+    if (duplicate.length) return res.status(409).json({ success: false, message: 'That refund reference has already been recorded.' });
+    const refundedTotal = Number(settlement.refundedTotal || 0);
+    const remainingBefore = Math.max(Number(settlement.refundDue) - refundedTotal, 0);
+    if (amount > remainingBefore) return res.status(400).json({ success: false, message: 'The refund amount is greater than the remaining amount due.' });
+    const nextRefundedTotal = Math.round((refundedTotal + amount) * 100) / 100;
+    const remainingAfter = Math.max(Math.round((Number(settlement.refundDue) - nextRefundedTotal) * 100) / 100, 0);
+    const updatedSettlement = {
+      ...settlement,
+      refundedTotal: nextRefundedTotal,
+      refundStatus: remainingAfter === 0 ? 'processed' : 'partial',
+      lastRefundReference: reference,
+      lastRefundAmount: amount,
+      lastRefundAt: new Date().toISOString()
+    };
+    const updatedRows = await prisma.$queryRawUnsafe(
+      `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{cancellationSettlement}', $2::jsonb, true)
+       WHERE "id" = $1 AND COALESCE("eventData"->'cancellationSettlement'->>'refundedTotal', '0') = $3
+       RETURNING ${projectConversationSelect}`,
+      settlementEvent.id, JSON.stringify(updatedSettlement), String(settlement.refundedTotal || 0)
+    );
+    if (!updatedRows.length) return res.status(409).json({ success: false, message: 'The refund record changed just now. Reload the conversation and try again.' });
+    if (updatedRows[0]) {
+      notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: updatedRows[0] });
+      notifyAdmins('project_conversation_message', { requestId: id, message: updatedRows[0] });
+    }
+    await recordProjectEvent(id, 'cancellation_refund_processed', `Admin recorded a refund of ${settlement.currency} ${amount}. External reference: ${reference}.`, {
+      refundReference: reference,
+      refundAmount: amount,
+      currency: settlement.currency,
+      refundedTotal: nextRefundedTotal,
+      refundRemaining: remainingAfter,
+      refundStatus: updatedSettlement.refundStatus,
+      cancellationSettlement: updatedSettlement
+    });
+    const updated = await prisma.projectRequest.findUnique({ where: { id }, include: projectRequestInclude });
+    notifyUser(request.userId, 'project_request_updated', { request: updated });
+    notifyAdmins('project_request_updated', { request: updated });
+    res.json({ success: true, data: updated, message: `Refund recorded. ${remainingAfter > 0 ? `${settlement.currency} ${remainingAfter} remains.` : 'The cancellation refund is fully recorded.'}` });
+  } catch (error) {
+    logger.error('RECORD_CANCELLATION_REFUND_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to record the cancellation refund.' });
   }
 };
 
@@ -968,10 +1350,92 @@ exports.updateProjectRequest = async (req, res) => {
       clientNotes,
       packageIntent,
       timeline,
-      budget
+      budget,
+      quoteMilestones,
+      nonRecoverableCosts
     } = req.body;
 
+    const currentTerms = await prisma.projectRequest.findUnique({
+      where: { id },
+      select: {
+        quotedAmount: true,
+        quoteCurrency: true,
+        timeline: true,
+        totalAgreedAmount: true,
+        depositAmount: true,
+        paymentAgreementType: true,
+        paymentAgreementStatus: true,
+        paymentDueDate: true,
+        paymentInstructions: true,
+        status: true,
+        stagingUrl: true,
+        stagingReviewStatus: true
+      }
+    });
+    if (!currentTerms) return res.status(404).json({ success: false, message: 'Build request not found.' });
+    const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+      where: { projectRequestId: id, status: 'accepted' },
+      orderBy: { version: 'desc' },
+      select: { id: true }
+    });
+
+    const acceptedQuoteTermsChanged = acceptedQuote && (
+      (quotedAmount !== undefined && quotedAmount !== '' && Number(quotedAmount) !== Number(currentTerms.quotedAmount))
+      || (quoteCurrency !== undefined && String(quoteCurrency || 'USD').toUpperCase() !== String(currentTerms.quoteCurrency || 'USD').toUpperCase())
+      || (timeline !== undefined && (timeline || '') !== (currentTerms.timeline || ''))
+      || status === 'quote_ready'
+    );
+    if (acceptedQuoteTermsChanged) {
+      return res.status(409).json({ success: false, message: 'This quote has already been accepted. Create a new build agreement to change its price or currency.' });
+    }
+
+    const agreementAlreadySent = ['sent', 'confirmed'].includes(String(currentTerms.paymentAgreementStatus || ''));
+    const agreementTermsChanged = agreementAlreadySent && (
+      (totalAgreedAmount !== undefined && Number(totalAgreedAmount || 0) !== Number(currentTerms.totalAgreedAmount || 0))
+      || (depositAmount !== undefined && Number(depositAmount || 0) !== Number(currentTerms.depositAmount || 0))
+      || (paymentAgreementType !== undefined && (paymentAgreementType || null) !== (currentTerms.paymentAgreementType || null))
+      || (paymentDueDate !== undefined && String(paymentDueDate || '') !== String(currentTerms.paymentDueDate?.toISOString?.().slice(0, 10) || ''))
+      || (paymentInstructions !== undefined && (paymentInstructions || '') !== (currentTerms.paymentInstructions || ''))
+      || (paymentAgreementStatus !== undefined && paymentAgreementStatus !== currentTerms.paymentAgreementStatus)
+    );
+    if (agreementTermsChanged) {
+      return res.status(409).json({ success: false, message: 'The payment agreement has already been sent. Keep its terms unchanged and create a new build agreement if they need to change.' });
+    }
+
+    if (status === 'payment_agreement' && paymentAgreementStatus === 'sent') {
+      const agreedTotal = Number(totalAgreedAmount ?? currentTerms.totalAgreedAmount ?? currentTerms.quotedAmount ?? 0);
+      const agreedDeposit = Number(depositAmount ?? currentTerms.depositAmount ?? 0);
+      const agreementType = paymentAgreementType ?? currentTerms.paymentAgreementType;
+      if (!acceptedQuote
+        || agreementType !== 'deposit'
+        || !Number.isFinite(agreedTotal)
+        || !Number.isFinite(agreedDeposit)
+        || agreedTotal <= 0
+        || agreedDeposit <= 0
+        || agreedDeposit > agreedTotal) {
+        return res.status(400).json({
+          success: false,
+          message: 'Send a payment request only after quote acceptance, with a positive deposit no greater than the agreed total. The current flow supports a deposit followed by the final balance.'
+        });
+      }
+    }
+
+    if (status === 'quote_ready' && clientNotes !== undefined) {
+      if (!Array.isArray(quoteMilestones) || !quoteMilestones.length || quoteMilestones.some(item => !item || typeof item.name !== 'string' || !item.name.trim() || !Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0)) {
+        return res.status(400).json({ success: false, message: 'Valid milestone names and amounts are required for a quote.' });
+      }
+      if (!Array.isArray(nonRecoverableCosts) || nonRecoverableCosts.some(item => !item || typeof item.name !== 'string' || !item.name.trim() || !Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0 || typeof item.reason !== 'string' || !item.reason.trim())) {
+        return res.status(400).json({ success: false, message: 'Each pre-approved non-recoverable cost needs a name, positive amount, and reason.' });
+      }
+      const amountForValidation = quotedAmount === undefined ? Number((await prisma.projectRequest.findUnique({ where: { id }, select: { quotedAmount: true } }))?.quotedAmount) : Number(quotedAmount);
+      const milestoneTotal = quoteMilestones.reduce((sum, item) => sum + Number(item.amount), 0);
+      if (!Number.isFinite(amountForValidation) || Math.abs(milestoneTotal - amountForValidation) > 0.01) {
+        return res.status(400).json({ success: false, message: 'Milestone amounts must add up to the full quote amount.' });
+      }
+    }
+
     let previousRequestStatus = null;
+    let completionGate = null;
     const data = {};
     if (status !== undefined) {
       if (!buildRequestStatuses.includes(status)) {
@@ -980,24 +1444,135 @@ exports.updateProjectRequest = async (req, res) => {
           message: 'Invalid build request status'
         });
       }
+      if (['paused', 'cancelled'].includes(status)) {
+        const lifecycleType = status === 'paused' ? 'pause' : 'cancel';
+        const latestLifecycleRequest = await prisma.$queryRawUnsafe(
+          `SELECT "id","eventData" FROM "ProjectConversationMessage" WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'lifecycleType' = $2 ORDER BY "createdAt" DESC LIMIT 1`,
+          id, lifecycleType
+        );
+        if (latestLifecycleRequest[0]?.eventData?.lifecycleStatus !== 'confirmed') return res.status(400).json({ success: false, message: 'Pause and cancellation status changes require a currently approved request in the project conversation.' });
+      }
       if (status === 'in_development') {
         const currentRequest = await prisma.projectRequest.findUnique({
           where: { id },
-          select: { status: true, paymentAgreementStatus: true }
+          select: { status: true, paymentAgreementStatus: true, paymentConfirmedAt: true }
         });
         previousRequestStatus = currentRequest?.status || null;
 
-        if (currentRequest?.status === 'approved') {
+        const canEnterDevelopmentFrom = ['payment_agreement', 'in_development', 'staging_review'];
+        if (!acceptedQuote
+          || !currentRequest
+          || !canEnterDevelopmentFrom.includes(currentRequest.status)
+          || currentRequest.paymentAgreementStatus !== 'confirmed'
+          || !currentRequest.paymentConfirmedAt) {
           return res.status(400).json({
             success: false,
-            message: 'Confirm the payment agreement before moving this build into development'
+            message: 'Development requires an accepted quote, a verified deposit, and a valid build stage.'
           });
         }
-        if (currentRequest?.status === 'payment_agreement' && currentRequest.paymentAgreementStatus !== 'confirmed' && paymentAgreementStatus !== 'confirmed') {
+      }
+      if (status === 'staging_review') {
+        const currentRequest = await prisma.projectRequest.findUnique({
+          where: { id },
+          select: {
+            status: true,
+            stagingUrl: true,
+            studioLinks: { select: { type: true, url: true } },
+            studioTasks: { select: { status: true } },
+            studioBlockers: { select: { status: true } },
+            studioUpdates: { where: { visibility: 'client' }, select: { id: true }, take: 1 }
+          }
+        });
+        if (!['in_development', 'staging_review'].includes(currentRequest?.status)) {
           return res.status(400).json({
             success: false,
-            message: 'Mark the payment agreement as confirmed before moving this build into development'
+            message: 'A preview can only be sent for review from the development or preview-review stage.'
           });
+        }
+        const previewUrl = stagingUrl !== undefined ? stagingUrl : currentRequest.stagingUrl;
+        const hasPublicPreview = isPublicHttpUrl(previewUrl)
+          || currentRequest.studioLinks.some(link => link.type === 'preview' && isPublicHttpUrl(link.url));
+        const hasProductionEvidence = currentRequest.studioLinks.some(link => ['design', 'repo', 'file', 'link'].includes(link.type));
+        const hasCompletedWork = currentRequest.studioTasks.some(task => task.status === 'done');
+        const hasOpenBlockers = currentRequest.studioBlockers.some(blocker => blocker.status !== 'resolved');
+        if (!currentRequest.studioUpdates.length || !hasPublicPreview || !hasProductionEvidence || !hasCompletedWork || hasOpenBlockers) {
+          return res.status(400).json({
+            success: false,
+            message: 'Review requires a client update, public preview, production evidence, completed work, and no open blockers.'
+          });
+        }
+      }
+      if (status === 'completed') {
+        const currentRequest = await prisma.projectRequest.findUnique({
+          where: { id },
+          select: {
+            status: true,
+            completionAcknowledgedAt: true,
+            handoffIssuesReportedAt: true,
+            finalPaymentConfirmedAt: true,
+            totalAgreedAmount: true,
+            quotedAmount: true,
+            depositAmount: true
+          }
+        });
+        const finalBalance = Math.max((currentRequest?.totalAgreedAmount || currentRequest?.quotedAmount || 0) - (currentRequest?.depositAmount || 0), 0);
+        if (currentRequest?.status !== 'handoff' || !currentRequest.completionAcknowledgedAt || currentRequest.handoffIssuesReportedAt || (finalBalance > 0 && !currentRequest.finalPaymentConfirmedAt)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Completion requires an active handoff, client acceptance, and verified final payment when a balance is due.'
+          });
+        }
+        previousRequestStatus = currentRequest.status;
+        completionGate = { finalBalance };
+      }
+      if (status === 'launched' || status === 'handoff') {
+        const currentRequest = await prisma.projectRequest.findUnique({
+          where: { id },
+          select: {
+            status: true,
+            stagingReviewStatus: true,
+            launchApprovedAt: true,
+            stagingUrl: true,
+            launchUrl: true,
+            completionAcknowledgedAt: true,
+            studioLinks: { select: { type: true, url: true } },
+            studioTasks: { select: { status: true } },
+            studioBlockers: { select: { status: true } },
+            studioUpdates: { where: { visibility: 'client' }, select: { id: true }, take: 1 }
+          }
+        });
+        const hasCurrentReviewReadiness = Boolean(currentRequest
+          && currentRequest.studioUpdates.length > 0
+          && (isPublicHttpUrl(currentRequest.stagingUrl) || currentRequest.studioLinks.some(link => link.type === 'preview' && isPublicHttpUrl(link.url)))
+          && currentRequest.studioLinks.some(link => ['design', 'repo', 'file', 'link'].includes(link.type))
+          && currentRequest.studioTasks.some(task => task.status === 'done')
+          && currentRequest.studioBlockers.every(blocker => blocker.status === 'resolved'));
+        const previewChangedDuringLaunch = stagingUrl !== undefined
+          && (stagingUrl || null) !== (currentRequest?.stagingUrl || null);
+        if (status === 'launched' && (currentRequest?.status !== 'staging_review'
+          || currentRequest.stagingReviewStatus !== 'approved'
+          || !currentRequest.launchApprovedAt
+          || previewChangedDuringLaunch
+          || !hasCurrentReviewReadiness
+          || !isPublicHttpUrl(currentRequest.stagingUrl)
+          || !isPublicHttpUrl(launchUrl || currentRequest.launchUrl || ''))) {
+          return res.status(400).json({
+            success: false,
+            message: 'Launch requires the current public preview to be approved and a public live URL.'
+          });
+        }
+        if (status === 'handoff' && (!['launched', 'completed'].includes(currentRequest?.status) || !/^https?:\/\//i.test(currentRequest.launchUrl || launchUrl || ''))) {
+          return res.status(400).json({
+            success: false,
+            message: 'Handoff requires a live site with a valid URL'
+          });
+        }
+        if (status === 'handoff' && currentRequest?.status === 'completed') {
+          data.completionAcknowledgedAt = null;
+          data.completedAt = null;
+          // Keep a review marker so both dashboards distinguish a reopened
+          // handoff from a fresh one waiting for its first client response.
+          data.handoffIssuesReportedAt = new Date();
         }
       }
       data.status = status;
@@ -1039,13 +1614,26 @@ exports.updateProjectRequest = async (req, res) => {
       data.productionMode = productionMode;
     }
     if (productionSourceNote !== undefined) data.productionSourceNote = productionSourceNote || null;
-    if (stagingUrl !== undefined) data.stagingUrl = stagingUrl || null;
+    if (stagingUrl !== undefined) {
+      data.stagingUrl = stagingUrl || null;
+      if ((currentTerms.stagingUrl || null) !== (stagingUrl || null) && currentTerms.status === 'staging_review') {
+        data.stagingReviewStatus = 'sent';
+        data.stagingReviewedAt = null;
+        data.launchApprovedAt = null;
+      }
+    }
     if (stagingNotes !== undefined) data.stagingNotes = stagingNotes;
     if (stagingReviewStatus !== undefined) {
       if (!stagingReviewStatuses.includes(stagingReviewStatus)) {
         return res.status(400).json({
           success: false,
           message: 'Invalid staging review status'
+        });
+      }
+      if (stagingReviewStatus === 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: 'Preview approval must be recorded through the client review response.'
         });
       }
       data.stagingReviewStatus = stagingReviewStatus;
@@ -1062,21 +1650,89 @@ exports.updateProjectRequest = async (req, res) => {
     if (launchNotes !== undefined) data.launchNotes = launchNotes;
     if (handoffNotes !== undefined) data.handoffNotes = handoffNotes;
     if (completionNotes !== undefined) data.completionNotes = completionNotes;
-    if (finalPaymentConfirmedAt !== undefined) data.finalPaymentConfirmedAt = finalPaymentConfirmedAt ? new Date(finalPaymentConfirmedAt) : null;
+    if (finalPaymentConfirmedAt !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Final payment confirmation is handled by verified checkout'
+      });
+    }
     if (adminNotes !== undefined) data.adminNotes = adminNotes;
     if (clientNotes !== undefined) data.clientNotes = clientNotes;
     if (packageIntent !== undefined) data.packageIntent = packageIntent;
     if (timeline !== undefined) data.timeline = timeline;
     if (budget !== undefined) data.budget = budget;
 
-    let request = await prisma.projectRequest.update({
-      where: { id },
-      data,
-      include: projectRequestInclude
-    });
+    let request;
+    if (status === 'completed' && completionGate) {
+      const completionTransition = await prisma.projectRequest.updateMany({
+        where: {
+          id,
+          status: 'handoff',
+          completionAcknowledgedAt: { not: null },
+          handoffIssuesReportedAt: null,
+          ...(completionGate.finalBalance > 0 ? { finalPaymentConfirmedAt: { not: null } } : {})
+        },
+        data
+      });
+      if (completionTransition.count !== 1) {
+        return res.status(409).json({ success: false, message: 'The handoff changed or has an unresolved issue. Refresh the project before completing it.' });
+      }
+      request = await prisma.projectRequest.findUnique({ where: { id }, include: projectRequestInclude });
+    } else {
+      request = await prisma.projectRequest.update({ where: { id }, data, include: projectRequestInclude });
+    }
+
+    if (status === 'quote_ready' && clientNotes !== undefined && Number(request.quotedAmount) > 0) {
+      const latestQuote = await prisma.projectQuoteVersion.findFirst({
+        where: { projectRequestId: id },
+        orderBy: { version: 'desc' },
+        select: { version: true }
+      });
+      await prisma.projectQuoteVersion.updateMany({
+        where: { projectRequestId: id, status: 'sent' },
+        data: { status: 'superseded' }
+      });
+      const quote = await prisma.projectQuoteVersion.create({
+        data: {
+          projectRequestId: id,
+          version: (latestQuote?.version || 0) + 1,
+          status: 'sent',
+          createdBy: req.user?.userId || null,
+          snapshot: {
+            projectTitle: request.title,
+            scope: request.clientNotes || request.summary || '',
+            amount: request.quotedAmount,
+            currency: request.quoteCurrency,
+            timeline: request.timeline || null,
+            totalAgreedAmount: request.totalAgreedAmount || request.quotedAmount,
+            depositAmount: request.depositAmount || null,
+            paymentSchedule: request.paymentAgreementType || null,
+            milestoneAmounts: quoteMilestones.map(item => ({ name: item.name.trim(), amount: Number(item.amount) })),
+            nonRecoverableCosts: nonRecoverableCosts.map(item => ({ name: item.name.trim(), amount: Number(item.amount), reason: item.reason.trim() })),
+            cancellationTerms: 'On confirmed cancellation, completed milestones and listed pre-approved non-recoverable costs already incurred are charged. Any prepaid amount above that is refunded.'
+          }
+        }
+      });
+      const event = await prisma.projectConversationMessage.create({
+        data: {
+          projectRequestId: id,
+          senderId: req.user?.userId || null,
+          senderRole: 'system',
+          kind: 'event',
+          message: `Quote version ${quote.version} sent for review.`,
+          eventData: { type: 'quote_sent', quoteVersionId: quote.id, version: quote.version, amount: request.quotedAmount, currency: request.quoteCurrency }
+        }
+      });
+      notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: event });
+      notifyAdmins('project_conversation_message', { requestId: id, message: event });
+      request = await prisma.projectRequest.findUnique({ where: { id }, include: projectRequestInclude });
+    }
 
     if (status === 'in_development') {
-      if (previousRequestStatus && previousRequestStatus !== 'in_development') {
+      // A first start after the deposit creates the initial milestone plan.
+      // Returning from preview review or a pause must preserve work already
+      // recorded against those milestones.
+      if (['approved', 'payment_agreement'].includes(previousRequestStatus)) {
         await resetBuildStartMilestones(id);
       } else {
         await ensureDefaultBuildMilestones(id);
@@ -1164,6 +1820,25 @@ exports.updateProjectRequest = async (req, res) => {
     }
 
     if (status === 'completed') {
+      const currentRequest = await prisma.projectRequest.findUnique({
+        where: { id },
+        select: {
+          status: true,
+          completionAcknowledgedAt: true,
+            handoffIssuesReportedAt: true,
+          finalPaymentConfirmedAt: true,
+          totalAgreedAmount: true,
+          quotedAmount: true,
+          depositAmount: true
+        }
+      });
+      const finalBalance = Math.max((currentRequest?.totalAgreedAmount || currentRequest?.quotedAmount || 0) - (currentRequest?.depositAmount || 0), 0);
+      if (previousRequestStatus !== 'handoff' || !currentRequest?.completionAcknowledgedAt || currentRequest.handoffIssuesReportedAt || (finalBalance > 0 && !currentRequest.finalPaymentConfirmedAt)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Completion requires an active handoff, client acceptance, and verified final payment when a balance is due.'
+        });
+      }
       await prisma.buildMilestone.updateMany({
         where: { projectRequestId: id },
         data: { status: 'completed', progress: 100 }
@@ -1172,9 +1847,39 @@ exports.updateProjectRequest = async (req, res) => {
         where: { id },
         data: { completedAt: new Date() }
       });
+      await ensureCompletedBuildSite(id);
       request = await prisma.projectRequest.findUnique({
         where: { id },
         include: projectRequestInclude
+      });
+    }
+
+    const statusEvents = {
+      in_development: ['production_started', 'Production started.'],
+      staging_review: ['preview_shared', 'A preview is ready for client review.'],
+      launched: ['site_launched', 'The site is live.'],
+      handoff: ['handoff_prepared', 'The admin prepared the site handoff.'],
+      completed: ['build_completed', 'Build completed after handoff and payment were confirmed.']
+    };
+    if (statusEvents[status]) {
+      const [eventType, message] = statusEvents[status];
+      const priorPreviewEvents = status === 'staging_review'
+        ? await prisma.projectConversationMessage.findMany({ where: { projectRequestId: id }, select: { eventData: true } })
+        : [];
+      const previewVersion = status === 'staging_review'
+        ? priorPreviewEvents.filter(item => item.eventData?.type === 'preview_shared').length + 1
+        : undefined;
+      await recordProjectEvent(id, eventType, message, {
+        status,
+        milestoneProgress: request.buildMilestones?.map(item => ({ name: item.title, status: item.status, progress: item.progress })) || [],
+        ...(status === 'staging_review' ? { previewUrl: request.stagingUrl, version: previewVersion } : {}),
+        ...(status === 'launched' ? { liveUrl: request.launchUrl } : {})
+      });
+    } else if (status === 'payment_agreement' && paymentAgreementStatus === 'sent') {
+      await recordProjectEvent(id, 'payment_request_sent', 'The admin sent a deposit payment request.', {
+        amount: request.depositAmount || request.totalAgreedAmount || request.quotedAmount,
+        currency: request.quoteCurrency,
+        dueDate: request.paymentDueDate
       });
     }
 
@@ -1216,6 +1921,11 @@ exports.createDefaultBuildMilestones = async (req, res) => {
       where: { id },
       include: projectRequestInclude
     });
+
+    if (request?.userId) {
+      notifyUser(request.userId, 'project_request_updated', { request });
+    }
+    notifyAdmins('project_request_updated', { request });
 
     res.json({
       success: true,
@@ -1283,10 +1993,24 @@ exports.updateBuildMilestone = async (req, res) => {
       data
     });
 
+    if (status !== undefined && status !== existing.status) {
+      await recordProjectEvent(id, 'milestone_updated', `${title || existing.title}: ${status.replace(/_/g, ' ')}.`, {
+        milestoneId,
+        milestone: title || existing.title,
+        status,
+        progress: data.progress ?? existing.progress
+      });
+    }
+
     const request = await prisma.projectRequest.findUnique({
       where: { id },
       include: projectRequestInclude
     });
+
+    if (request?.userId) {
+      notifyUser(request.userId, 'project_request_updated', { request });
+    }
+    notifyAdmins('project_request_updated', { request });
 
     res.json({
       success: true,
@@ -1437,7 +2161,7 @@ exports.createStudioLink = async (req, res) => {
     });
 
     if (type === 'preview' && url) {
-      await prisma.projectRequest.update({ where: { id }, data: { stagingUrl: url } });
+      await updateProjectPreviewUrl(id, url);
     }
 
     return sendUpdatedProjectRequest(res, id, 'Studio link added');
@@ -1467,7 +2191,9 @@ exports.updateStudioLink = async (req, res) => {
     const finalType = data.type || existing.type;
     const finalUrl = data.url !== undefined ? data.url : existing.url;
     if (finalType === 'preview') {
-      await prisma.projectRequest.update({ where: { id }, data: { stagingUrl: finalUrl || null } });
+      await updateProjectPreviewUrl(id, finalUrl || null);
+    } else if (existing.type === 'preview') {
+      await updateProjectPreviewUrl(id, null);
     }
 
     return sendUpdatedProjectRequest(res, id, 'Studio link updated');
@@ -1555,6 +2281,7 @@ exports.createStudioUpdate = async (req, res) => {
         where: { id },
         data: { clientNotes: `${existing?.clientNotes ? `${existing.clientNotes}\n\n` : ''}Studio update: ${message.trim()}` }
       });
+      await recordProjectEvent(id, 'progress_update', message.trim(), { visibility: 'client' });
     }
 
     return sendUpdatedProjectRequest(res, id, 'Studio update published');

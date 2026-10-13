@@ -2,6 +2,22 @@ const { prisma } = require('../config/db');
 const logger = require('../config/logger');
 const discountService = require('../services/discountService');
 
+const COMMERCE_ADDON_ID = 'addon_ecommerce_lite';
+
+const hasCommerceAddon = (purchasedAddons) => Array.isArray(purchasedAddons)
+  && purchasedAddons.some((addon) => addon === COMMERCE_ADDON_ID || addon?.id === COMMERCE_ADDON_ID);
+
+const isAdmin = (req) => req.user?.role === 'admin' || req.admin?.role === 'admin';
+
+async function getManageableSite(req, subscriptionId) {
+  if (!subscriptionId) return null;
+  const where = { id: subscriptionId, status: 'active', suspended: false };
+  if (!isAdmin(req)) where.userId = req.user?.userId || req.user?.id;
+  const site = await prisma.subscription.findFirst({ where });
+  if (!site || (!isAdmin(req) && !hasCommerceAddon(site.purchasedAddons))) return null;
+  return site;
+}
+
 // Get all products
 exports.getAllProducts = async (req, res) => {
   try {
@@ -40,8 +56,15 @@ exports.getProductById = async (req, res) => {
 exports.createProduct = async (req, res) => {
   try {
     const { name, description, price, image, category, stock, subscriptionId } = req.body;
+    const site = await getManageableSite(req, subscriptionId);
+    if (!site) return res.status(403).json({ message: 'An active site with E-commerce Core is required to manage products.' });
+    const parsedPrice = Number(price);
+    const parsedStock = Number(stock);
+    if (!name?.trim() || !description?.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0 || !Number.isInteger(parsedStock) || parsedStock < 0) {
+      return res.status(400).json({ message: 'Provide a name, description, valid price, and non-negative whole-number stock.' });
+    }
     const product = await prisma.product.create({
-      data: { name, description, price: parseFloat(price), image, category, stock: parseInt(stock), subscriptionId },
+      data: { name: name.trim(), description: description.trim(), price: parsedPrice, image, category, stock: parsedStock, subscriptionId: site.id },
     });
     res.status(201).json(product);
   } catch (error) {
@@ -54,17 +77,25 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { name, description, price, image, category, stock, isActive } = req.body;
+    const existing = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (!existing?.subscriptionId) return res.status(404).json({ message: 'Product not found for this site.' });
+    const site = await getManageableSite(req, existing.subscriptionId);
+    if (!site) return res.status(403).json({ message: 'You cannot manage products for this site.' });
+    const data = {
+      name: typeof name === 'string' ? name.trim() : undefined,
+      description: typeof description === 'string' ? description.trim() : undefined,
+      price: price === undefined ? undefined : Number(price),
+      image,
+      category,
+      stock: stock === undefined ? undefined : Number(stock),
+      isActive: typeof isActive === 'boolean' ? isActive : undefined,
+    };
+    if (data.name !== undefined && !data.name) return res.status(400).json({ message: 'Product name cannot be empty.' });
+    if (data.price !== undefined && (!Number.isFinite(data.price) || data.price < 0)) return res.status(400).json({ message: 'Provide a valid non-negative price.' });
+    if (data.stock !== undefined && (!Number.isInteger(data.stock) || data.stock < 0)) return res.status(400).json({ message: 'Stock must be a non-negative whole number.' });
     const product = await prisma.product.update({
       where: { id: req.params.id },
-      data: { 
-        name, 
-        description, 
-        price: price ? parseFloat(price) : undefined, 
-        image, 
-        category, 
-        stock: stock ? parseInt(stock) : undefined,
-        isActive
-      },
+      data,
     });
     res.json(product);
   } catch (error) {
@@ -76,6 +107,10 @@ exports.updateProduct = async (req, res) => {
 // Delete product (Admin only)
 exports.deleteProduct = async (req, res) => {
   try {
+    const existing = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (!existing?.subscriptionId) return res.status(404).json({ message: 'Product not found for this site.' });
+    const site = await getManageableSite(req, existing.subscriptionId);
+    if (!site) return res.status(403).json({ message: 'You cannot manage products for this site.' });
     await prisma.product.delete({
       where: { id: req.params.id },
     });
@@ -90,10 +125,15 @@ exports.deleteProduct = async (req, res) => {
 exports.createOrder = async (req, res) => {
   try {
     const { items, subscriptionId, discountCode } = req.body; // items: [{ productId, quantity }]
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ message: 'No items provided' });
+    }
+
+    const site = subscriptionId ? await prisma.subscription.findFirst({ where: { id: subscriptionId, status: 'active', suspended: false } }) : null;
+    if (!site || (!isAdmin(req) && (!hasCommerceAddon(site.purchasedAddons) || site.userId !== userId))) {
+      return res.status(403).json({ message: 'An active store with E-commerce Core is required to place an order.' });
     }
 
     // Calculate total and fetch product prices
@@ -107,6 +147,10 @@ exports.createOrder = async (req, res) => {
 
       if (!product) {
         return res.status(404).json({ message: `Product ${item.productId} not found` });
+      }
+
+      if (product.subscriptionId !== site.id || !product.isActive || !Number.isInteger(item.quantity) || item.quantity < 1) {
+        return res.status(400).json({ message: 'Order items must be active products from the selected store with valid quantities.' });
       }
 
       if (product.stock < item.quantity) {
@@ -181,7 +225,7 @@ exports.createOrder = async (req, res) => {
 exports.getUserOrders = async (req, res) => {
   try {
     const { subscriptionId } = req.query;
-    const where = { userId: req.user.id };
+    const where = { userId: req.user.userId || req.user.id };
     if (subscriptionId) {
       where.subscriptionId = subscriptionId;
     }

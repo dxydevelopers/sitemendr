@@ -41,9 +41,11 @@ interface Order {
 interface EcommerceManagerProps {
   subscriptionId?: string;
   isAdmin?: boolean;
+  purchasedAddons?: unknown[] | string;
+  onBrowseAddons?: () => void;
 }
 
-export default function EcommerceManager({ subscriptionId, isAdmin = false }: EcommerceManagerProps) {
+export default function EcommerceManager({ subscriptionId, isAdmin = false, purchasedAddons = [], onBrowseAddons }: EcommerceManagerProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -60,9 +62,17 @@ export default function EcommerceManager({ subscriptionId, isAdmin = false }: Ec
   image: ''
   });
 
+  const addonList = Array.isArray(purchasedAddons) ? purchasedAddons : (() => {
+    try { const parsed: unknown = JSON.parse(purchasedAddons); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+  })();
+  const commerceEnabled = isAdmin || addonList.some((item) => item === 'addon_ecommerce_lite'
+    || (typeof item === 'object' && item !== null && 'id' in item && item.id === 'addon_ecommerce_lite'));
+  const canManageProducts = isAdmin || commerceEnabled;
+
   useEffect(() => {
-  fetchData();
-  }, [subscriptionId]);
+  if (commerceEnabled) void fetchData();
+  else setIsLoading(false);
+  }, [subscriptionId, commerceEnabled]);
 
   const fetchData = async () => {
   setIsLoading(true);
@@ -141,6 +151,19 @@ export default function EcommerceManager({ subscriptionId, isAdmin = false }: Ec
   );
   }
 
+  if (!commerceEnabled) {
+  return (
+  <section className="grid min-h-64 place-items-center border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+  <div className="max-w-md space-y-4">
+  <ShoppingBag className="mx-auto h-8 w-8 text-ai-blue" />
+  <h2 className="text-lg font-semibold text-white">Commerce add-on required</h2>
+  <p className="text-sm leading-6 text-white/45">Purchase E-commerce Core for this site to manage its catalog, orders, and inventory.</p>
+  {onBrowseAddons && <button type="button" onClick={onBrowseAddons} className="min-h-10 bg-ai-blue px-4 text-xs font-semibold text-white transition hover:bg-ai-blue/80">View site add-ons</button>}
+  </div>
+  </section>
+  );
+  }
+
   return (
   <div className="space-y-6 lg:space-y-8 animate-fade-in">
   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -162,7 +185,7 @@ export default function EcommerceManager({ subscriptionId, isAdmin = false }: Ec
   Orders
   </button>
   </div>
-  {isAdmin && activeTab === 'products' && (
+  {canManageProducts && activeTab === 'products' && (
   <button
   onClick={() => {
   setEditingProduct(null);
@@ -177,7 +200,7 @@ export default function EcommerceManager({ subscriptionId, isAdmin = false }: Ec
   )}
   </div>
 
-  {isAdmin && showAddProduct ? (
+  {canManageProducts && showAddProduct ? (
   <DrillShell
   title={editingProduct ? `Edit ${editingProduct.name}` : 'Add product'}
   icon={Package}
@@ -300,7 +323,7 @@ export default function EcommerceManager({ subscriptionId, isAdmin = false }: Ec
   <Tag className="w-3.5 h-3.5" />
   Stock: {product.stock}
   </div>
-  {isAdmin && <div className="flex gap-2">
+  {canManageProducts && <div className="flex gap-2">
   <button 
   onClick={() => handleEditInitiate(product)}
   className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-ai-blue/10 hover:border-ai-blue/30 text-white/60 hover:text-ai-blue transition-all"

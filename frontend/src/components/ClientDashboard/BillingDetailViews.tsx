@@ -44,9 +44,21 @@ interface ContractPayment {
   bank?: string | null;
 }
 
+interface CancellationSettlement {
+  currency?: string;
+  chargeTotal?: number;
+  paidTotal?: number;
+  refundDue?: number;
+  balanceDue?: number;
+  refundedTotal?: number;
+  refundStatus?: string;
+  settlementStatus?: string;
+  lastRefundReference?: string;
+}
+
 export function ContractDetail({ contractId }: ContractDetailProps) {
   const [loading, setLoading] = useState(true);
-  const [contract, setContract] = useState<{ id: string; title: string; businessName?: string; status: string; totalAgreedAmount?: number; quoteCurrency?: string; completedAt?: string } | null>(null);
+  const [contract, setContract] = useState<{ id: string; title: string; businessName?: string; status: string; totalAgreedAmount?: number; quoteCurrency?: string; completedAt?: string; cancellationSettlement?: CancellationSettlement | null } | null>(null);
   const [payments, setPayments] = useState<ContractPayment[]>([]);
 
   useEffect(() => {
@@ -72,6 +84,8 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
   }
 
   const isCompleted = contract.status === 'completed';
+  const settlement = contract.cancellationSettlement;
+  const refundRemaining = Math.max(Number(settlement?.refundDue || 0) - Number(settlement?.refundedTotal || 0), 0);
 
   return (
   <div className="animate-fade-in">
@@ -93,6 +107,19 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
   </div>
   </div>
   </div>
+
+  {settlement && (
+  <div className="border-b border-white/12 py-6">
+  <p className="text-[10px] font-semibold text-amber-300">Cancellation closeout</p>
+  {settlement.settlementStatus === 'reversed' && <p className="mt-3 text-sm leading-6 text-white/60">The cancellation calculation was voided when the build reopened. No refund was processed.</p>}
+  <div className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-3">
+  <div><p className="text-[10px] font-semibold text-white/28">Charges for completed work and costs</p><p className="mt-2 text-sm font-semibold text-white">{formatMajorUnits(Number(settlement.chargeTotal || 0), settlement.currency)}</p></div>
+  <div><p className="text-[10px] font-semibold text-white/28">Payments received</p><p className="mt-2 text-sm font-semibold text-white">{formatMajorUnits(Number(settlement.paidTotal || 0), settlement.currency)}</p></div>
+  {Number(settlement.balanceDue) > 0 && <div><p className="text-[10px] font-semibold text-white/28">Remaining balance</p><p className="mt-2 text-sm font-semibold text-amber-300">{formatMajorUnits(Number(settlement.balanceDue), settlement.currency)}</p></div>}
+  {Number(settlement.refundDue) > 0 && settlement.settlementStatus !== 'reversed' && <div><p className="text-[10px] font-semibold text-white/28">Refund status</p><p className={`mt-2 text-sm font-semibold ${refundRemaining <= 0 ? 'text-expert-green' : 'text-amber-300'}`}>{refundRemaining <= 0 ? `Recorded · ${formatMajorUnits(Number(settlement.refundedTotal || 0), settlement.currency)}` : `${settlement.refundStatus === 'partial' ? 'Remaining' : 'Pending'} · ${formatMajorUnits(refundRemaining, settlement.currency)}`}</p>{settlement.lastRefundReference && <p className="mt-1 break-all font-mono text-[10px] text-white/34">Ref {settlement.lastRefundReference}</p>}</div>}
+  </div>
+  </div>
+  )}
 
   <div className="py-6">
   <p className="text-[10px] font-semibold text-white/34">Payment history</p>

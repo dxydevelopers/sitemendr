@@ -57,7 +57,7 @@ export default function ClientDomains({
   </thead>
   <tbody className="divide-y divide-white/[0.06]">
   {domains.map((d: CustomDomain) => {
-  const verified = d.status?.toLowerCase() === 'verified';
+  const verified = ['verified', 'active'].includes(d.status?.toLowerCase() || '');
   return (
   <tr key={d.id} className="text-sm font-semibold transition hover:bg-white/[0.02]">
   <td className="px-6 py-4 text-white">{d.domain}</td>
@@ -93,7 +93,7 @@ export default function ClientDomains({
 
   <div className="space-y-3 lg:hidden">
   {domains.map((d: CustomDomain) => {
-  const verified = d.status?.toLowerCase() === 'verified';
+  const verified = ['verified', 'active'].includes(d.status?.toLowerCase() || '');
   return (
   <div key={d.id} className="space-y-4 border border-white/[0.08] bg-white/[0.02] p-5">
   <div className="flex items-start justify-between gap-3">

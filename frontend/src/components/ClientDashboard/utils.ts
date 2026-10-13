@@ -172,6 +172,7 @@ export const requestStatuses = [
   'quoted',
   'awaiting_payment',
   'rejected',
+  'paused',
   'cancelled',
   'archived',
 ];

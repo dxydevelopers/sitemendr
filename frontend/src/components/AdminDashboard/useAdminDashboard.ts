@@ -16,6 +16,14 @@ import type {
   StudioBlocker, StudioLink, StudioUpdate, ReviewChatMessage,
 } from './AdminDashboard_types';
 
+const sortProjectConversation = (messages: ReviewChatMessage[]) => [...messages].sort((a, b) => {
+  const timeDelta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  return timeDelta || a.id.localeCompare(b.id);
+});
+
+const mergeProjectConversationMessage = (messages: ReviewChatMessage[], incoming: ReviewChatMessage) =>
+  sortProjectConversation([...messages.filter(message => message.id !== incoming.id), incoming]);
+
 export function useAdminDashboard(initialTab?: string) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab || 'dashboard');
@@ -30,6 +38,8 @@ export function useAdminDashboard(initialTab?: string) {
   const [briefClarificationMessage, setBriefClarificationMessage] = useState('');
   const [briefDecisionMessage, setBriefDecisionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [scopeClientNote, setScopeClientNote] = useState('');
+  const [quoteMilestoneDraft, setQuoteMilestoneDraft] = useState('');
+  const [quoteCostDraft, setQuoteCostDraft] = useState('');
   const [studioTaskDraft, setStudioTaskDraft] = useState({ title: '', area: 'design' });
   const [studioBlockerDraft, setStudioBlockerDraft] = useState('');
   const [studioUpdateDraft, setStudioUpdateDraft] = useState('');
@@ -153,18 +163,25 @@ export function useAdminDashboard(initialTab?: string) {
           : [data.request as ProjectRequest, ...prev];
       });
     });
-    socketRef.current.on('review_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
-      if (!data?.message || data.requestId !== selectedProjectRequestIdRef.current) return;
-      setReviewChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
+    socketRef.current.on('build_site_linked', () => {
+      if (activeTabRef.current === 'project-requests') fetchData();
     });
-
-    socketRef.current.on('handoff_chat_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
-      if (!data?.message || data.requestId !== selectedProjectRequestIdRef.current) return;
-      setHandoffChatMessages(prev => prev.some(message => message.id === data.message?.id) ? prev : [...prev, data.message as ReviewChatMessage]);
+    socketRef.current.on('project_conversation_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
+      if (!data?.message) return;
+      if (['deposit_payment_verified', 'final_payment_verified'].includes(String(data.message.eventData?.type || ''))) {
+        // The payment callback may run in another tab or from a webhook.
+        // Refresh build requests even when the admin is on another dashboard tab.
+        void apiClient.getAdminProjectRequests().then((res) => {
+          const response = res as { success: boolean; data?: ProjectRequest[] };
+          if (response.success && response.data) setProjectRequests(response.data);
+        }).catch((error) => console.error('Failed to refresh build requests after payment:', error));
+      }
+      if (data.requestId !== selectedProjectRequestIdRef.current) return;
+      setReviewChatMessages(prev => mergeProjectConversationMessage(prev, data.message as ReviewChatMessage));
+      setHandoffChatMessages(prev => mergeProjectConversationMessage(prev, data.message as ReviewChatMessage));
     });
 
     return () => { socketRef.current?.disconnect(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData]);
 
   useEffect(() => { fetchData(); }, [fetchData, activeTab]);
@@ -329,6 +346,7 @@ export function useAdminDashboard(initialTab?: string) {
   const handleUpdateProjectRequest = async (id: string, data: Record<string, unknown>) => {
     setSubmitting(true);
     setBriefDecisionMessage(null);
+    const previousRequest = projectRequests.find(request => request.id === id);
     patchProjectRequestLocal(id, request => ({ ...request, ...data, updatedAt: new Date().toISOString() } as ProjectRequest));
     try {
       const res = await apiClient.updateAdminProjectRequest(id, data) as { success: boolean; data?: ProjectRequest; message?: string };
@@ -340,10 +358,24 @@ export function useAdminDashboard(initialTab?: string) {
           : data.status === 'in_development' ? 'Development started.' : 'Build request updated.';
         setBriefDecisionMessage({ type: 'success', text: successText });
       } else {
+        if (previousRequest) replaceProjectRequestLocal(id, previousRequest);
         setBriefDecisionMessage({ type: 'error', text: res.message || 'The build request could not be updated.' });
       }
     } catch (error) {
       console.error('Failed to update build request:', error);
+      // A network failure can happen after the server has already committed
+      // the update, so reconcile against the server instead of keeping the
+      // optimistic status or blindly restoring a stale snapshot.
+      try {
+        const refreshed = await apiClient.getAdminProjectRequests() as { success: boolean; data?: ProjectRequest[] };
+        if (refreshed.success && refreshed.data) {
+          setProjectRequests(refreshed.data);
+        } else if (previousRequest) {
+          replaceProjectRequestLocal(id, previousRequest);
+        }
+      } catch {
+        if (previousRequest) replaceProjectRequestLocal(id, previousRequest);
+      }
       setBriefDecisionMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update build request.' });
     } finally { setSubmitting(false); }
   };
@@ -351,8 +383,11 @@ export function useAdminDashboard(initialTab?: string) {
   const fetchAdminReviewChat = useCallback(async (requestId: string) => {
     setReviewChatLoading(true);
     try {
-      const res = await apiClient.getAdminReviewChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
-      if (res.success) setReviewChatMessages(res.data || []);
+      const res = await apiClient.getAdminProjectConversation(requestId) as { success: boolean; data?: ReviewChatMessage[] };
+      if (res.success) {
+        setReviewChatMessages(sortProjectConversation(res.data || []));
+        setHandoffChatMessages(sortProjectConversation(res.data || []));
+      }
     } catch (error) {
       console.error('Failed to load review chat:', error);
     } finally { setReviewChatLoading(false); }
@@ -362,21 +397,21 @@ export function useAdminDashboard(initialTab?: string) {
     setReviewChatMessages([]);
     setReviewChatDraft('');
     setReviewChatChoiceDraft('');
-    if (selectedProjectRequestId && reviewChatOpen) fetchAdminReviewChat(selectedProjectRequestId);
-  }, [fetchAdminReviewChat, reviewChatOpen, selectedProjectRequestId]);
+    if (selectedProjectRequestId) fetchAdminReviewChat(selectedProjectRequestId);
+  }, [fetchAdminReviewChat, selectedProjectRequestId]);
 
-  const handleSendAdminReviewChat = async () => {
+  const handleSendAdminReviewChat = async (messageOverride?: string) => {
     if (!selectedProjectRequestId || reviewChatSending) return;
-    const message = reviewChatDraft.trim();
+    const message = (messageOverride ?? reviewChatDraft).trim();
     const choices = reviewChatChoiceDraft.split(',').map(c => c.trim()).filter(Boolean);
     if (!message && !choices.length) return;
     setReviewChatSending(true);
     try {
-      const res = await apiClient.sendAdminReviewChat(selectedProjectRequestId, {
+      const res = await apiClient.sendAdminProjectConversation(selectedProjectRequestId, {
         message, kind: choices.length ? 'question' : 'message', choices,
       }) as { success: boolean; data?: ReviewChatMessage; message?: string };
       if (res.success && res.data) {
-        setReviewChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setReviewChatMessages(prev => mergeProjectConversationMessage(prev, res.data as ReviewChatMessage));
         setReviewChatDraft('');
         setReviewChatChoiceDraft('');
         setReviewChatOpen(true);
@@ -386,15 +421,50 @@ export function useAdminDashboard(initialTab?: string) {
     } finally { setReviewChatSending(false); }
   };
 
+  const handleDecideProjectLifecycleRequest = async (requestId: string, messageId: string, decision: 'confirm' | 'decline' | 'resume' | 'reopen', settlementSelection?: { completedMilestoneIndexes: number[]; incurredCostIndexes: number[] }) => {
+    const note = window.prompt(decision === 'confirm' ? 'Optional note to include with confirmation:' : decision === 'resume' ? 'Reason for resuming this build:' : decision === 'reopen' ? 'Reason for reopening this cancelled build:' : 'Reason for declining this request:') || '';
+    if (['decline', 'resume', 'reopen'].includes(decision) && !note.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await apiClient.decideProjectLifecycleRequest(requestId, messageId, { decision, message: note, settlementSelection }) as { success: boolean; data?: ProjectRequest; message?: string };
+      if (!res.success || !res.data) throw new Error(res.message || 'Could not record the decision.');
+      replaceProjectRequestLocal(requestId, res.data);
+      await fetchAdminReviewChat(requestId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not record the decision.');
+    } finally { setSubmitting(false); }
+  };
+
+  const handleRecordCancellationRefund = async (requestId: string) => {
+    const event = reviewChatMessages.find(item => item.projectRequestId === requestId && item.eventData?.type === 'cancel_confirmed' && item.eventData?.cancellationSettlement);
+    const settlement = event?.eventData?.cancellationSettlement as { refundDue?: number; refundedTotal?: number } | undefined;
+    const remaining = Math.max(Number(settlement?.refundDue || 0) - Number(settlement?.refundedTotal || 0), 0);
+    if (!remaining) return;
+    const amount = Number(window.prompt(`Process the refund through Paystack first, then record the amount (up to ${remaining}).`, String(remaining)) || '');
+    if (!Number.isFinite(amount) || amount <= 0 || amount > remaining) return;
+    const reference = window.prompt('Enter the Paystack refund transaction reference:')?.trim() || '';
+    if (!reference) return;
+    setSubmitting(true);
+    try {
+      const res = await apiClient.recordProjectCancellationRefund(requestId, { amount, reference }) as { success: boolean; data?: ProjectRequest; message?: string };
+      if (!res.success || !res.data) throw new Error(res.message || 'Could not record the refund.');
+      replaceProjectRequestLocal(requestId, res.data);
+      await fetchAdminReviewChat(requestId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not record the refund.');
+    } finally { setSubmitting(false); }
+  };
+
   // --- Handoff chat: shown inline in the Launch stage whenever a request is
   // in 'handoff' and not yet accepted by the client. Replaces the old
   // regex-parsed "client reported a handoff issue" note.
   const fetchAdminHandoffChat = useCallback(async (requestId: string) => {
     setHandoffChatLoading(true);
     try {
-      const res = await apiClient.getAdminHandoffChat(requestId) as { success: boolean; data?: ReviewChatMessage[] };
+      const res = await apiClient.getAdminProjectConversation(requestId) as { success: boolean; data?: ReviewChatMessage[] };
       if (res.success) {
-        setHandoffChatMessages(res.data || []);
+        setHandoffChatMessages(sortProjectConversation(res.data || []));
+        setReviewChatMessages(sortProjectConversation(res.data || []));
         setHandoffChatLoadedRequestId(requestId);
       }
     } catch (error) {
@@ -414,19 +484,15 @@ export function useAdminDashboard(initialTab?: string) {
     if (!message) return;
     setHandoffChatSending(true);
     try {
-      const res = await apiClient.sendAdminHandoffChat(requestId, { message }) as { success: boolean; data?: ReviewChatMessage; message?: string };
+      const res = await apiClient.sendAdminProjectConversation(requestId, { message }) as { success: boolean; data?: ReviewChatMessage; message?: string };
       if (res.success && res.data) {
-        setHandoffChatMessages(prev => prev.some(item => item.id === res.data?.id) ? prev : [...prev, res.data as ReviewChatMessage]);
+        setHandoffChatMessages(prev => mergeProjectConversationMessage(prev, res.data as ReviewChatMessage));
+        setReviewChatMessages(prev => mergeProjectConversationMessage(prev, res.data as ReviewChatMessage));
         setHandoffChatDraft('');
       }
     } catch (error) {
       console.error('Failed to send handoff chat message:', error);
     } finally { setHandoffChatSending(false); }
-  };
-
-  const handleMarkFinalPaymentReceived = (requestId: string) => {
-    if (!confirm('Confirm the final balance has been received for this build?')) return;
-    handleUpdateProjectRequest(requestId, { finalPaymentConfirmedAt: new Date().toISOString() });
   };
 
   const applyStudioProjectResponse = (requestId: string, response: { success?: boolean; data?: ProjectRequest; message?: string }) => {
@@ -577,12 +643,13 @@ export function useAdminDashboard(initialTab?: string) {
     buildOperatorView, setBuildOperatorView,
     briefMissingItems, setBriefMissingItems, briefClarificationMessage, setBriefClarificationMessage,
     briefDecisionMessage, setBriefDecisionMessage, scopeClientNote, setScopeClientNote,
+    quoteMilestoneDraft, setQuoteMilestoneDraft, quoteCostDraft, setQuoteCostDraft,
     studioTaskDraft, setStudioTaskDraft, studioBlockerDraft, setStudioBlockerDraft,
     studioUpdateDraft, setStudioUpdateDraft, studioLinkDraft, setStudioLinkDraft,
     reviewChatOpen, setReviewChatOpen, reviewChatMessages, reviewChatDraft, setReviewChatDraft,
-    reviewChatChoiceDraft, setReviewChatChoiceDraft, reviewChatLoading, reviewChatSending, handleSendAdminReviewChat,
+    reviewChatChoiceDraft, setReviewChatChoiceDraft, reviewChatLoading, reviewChatSending, handleSendAdminReviewChat, handleDecideProjectLifecycleRequest, handleRecordCancellationRefund,
     handoffChatMessages, handoffChatDraft, setHandoffChatDraft, handoffChatLoading, handoffChatSending,
-    handoffChatLoadedRequestId, fetchAdminHandoffChat, handleSendAdminHandoffChat, handleMarkFinalPaymentReceived,
+    handoffChatLoadedRequestId, fetchAdminHandoffChat, handleSendAdminHandoffChat,
     agreementDraft, setAgreementDraft,
     stats, leads, users, subscriptions, assessments, projectRequests, setProjectRequests,
     selectedProjectRequestId, setSelectedProjectRequestId, activeAdminBuildChapter, setActiveAdminBuildChapter,

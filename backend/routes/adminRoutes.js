@@ -44,6 +44,10 @@ router.delete('/assessments/:id', adminController.deleteAssessment);
 // Build request management
 router.get('/project-requests', adminController.getProjectRequests);
 router.put('/project-requests/:id', adminController.updateProjectRequest);
+router.get('/project-requests/:id/conversation', adminController.getProjectConversation);
+router.post('/project-requests/:id/conversation', adminController.createProjectConversationMessage);
+router.post('/project-requests/:id/lifecycle-request/:messageId/decision', adminController.decideProjectLifecycleRequest);
+router.post('/project-requests/:id/cancellation-refund', adminController.recordCancellationRefund);
 router.get('/project-requests/:id/review-chat', adminController.getReviewChatMessages);
 router.post('/project-requests/:id/review-chat', adminController.createReviewChatMessage);
 router.get('/project-requests/:id/handoff-chat', adminController.getHandoffChatMessages);
@@ -70,6 +74,8 @@ router.post('/support/:id/messages', [
 
 // Subscription & Template management
 router.get('/subscriptions', adminController.getSubscriptions);
+router.get('/addon-purchases', adminController.getAddonPurchases);
+router.patch('/subscriptions/:siteId/addons/:addonId/fulfillment', adminController.updateAddonFulfillment);
 router.delete('/subscriptions/:id', adminController.deleteSubscription);
 router.post('/subscriptions/:id/generate', adminController.triggerAIGeneration);
 router.get('/subscriptions/:id/template', adminController.getTemplate);

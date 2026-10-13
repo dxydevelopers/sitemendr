@@ -91,6 +91,19 @@ export interface Subscription {
   };
 }
 
+export interface AddonFulfillmentPurchase {
+  siteId: string;
+  siteName: string;
+  domain?: string | null;
+  user: { name: string; email: string };
+  addon: { id: string; name: string; price: number };
+  paymentId?: string | null;
+  purchasedAt?: string | null;
+  status: 'pending' | 'in_progress' | 'fulfilled' | 'active';
+  adminNote?: string;
+  statusUpdatedAt?: string | null;
+}
+
 export interface Milestone {
   id: string;
   title: string;
@@ -112,7 +125,7 @@ export interface ClientProject {
   reviewNotes?: string;
   revisionCount?: number;
   isCurrent?: boolean;
-  purchasedAddons?: string | string[];
+  purchasedAddons?: string | unknown[];
   suspended?: boolean;
 }
 
@@ -538,7 +551,12 @@ class ApiClient {
   }
 
   async getSiteVitals(subscriptionId: string) {
-    return this.request<{ success: boolean; vitals: Record<string, unknown> }>(`/client/vitals/${subscriptionId}`);
+    return this.request<{
+      success: boolean;
+      vitals: Record<string, unknown> | null;
+      aiInsights?: Record<string, unknown>;
+      timestamp?: string;
+    }>(`/client/vitals/${subscriptionId}`);
   }
 
   async getClientProjects() {
@@ -618,10 +636,26 @@ class ApiClient {
     return this.request<{ success: boolean; data: unknown[] }>(`/client/project-requests/${requestId}/review-chat`);
   }
 
+  async getClientProjectConversation(requestId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/client/project-requests/${requestId}/conversation`);
+  }
+
   async sendClientReviewChat(requestId: string, data: Record<string, unknown>) {
     return this.request<{ success: boolean; data: unknown; message?: string }>(`/client/project-requests/${requestId}/review-chat`, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async sendClientProjectConversation(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message?: string }>(`/client/project-requests/${requestId}/conversation`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
+  async requestProjectPauseOrCancellation(requestId: string, data: { type: 'pause' | 'cancel'; message: string }) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/client/project-requests/${requestId}/lifecycle-request`, {
+      method: 'POST', body: JSON.stringify(data),
     });
   }
 
@@ -973,7 +1007,12 @@ class ApiClient {
   }
 
   async analyzePerformance(url: string, subscriptionId?: string) {
-    return this.request<{ success: boolean; data: Record<string, unknown> }>('/monitoring/analyze', {
+    return this.request<{
+      success: boolean;
+      data?: Record<string, unknown>;
+      message?: string;
+      status?: number;
+    }>('/monitoring/analyze', {
       method: 'POST',
       body: JSON.stringify({ url, subscriptionId }),
     });
@@ -1026,6 +1065,17 @@ class ApiClient {
 
   async getAdminSubscriptions() {
     return this.request<{ success: boolean; data: unknown[] }>('/admin/subscriptions');
+  }
+
+  async getAdminAddonPurchases() {
+    return this.request<{ success: boolean; data: AddonFulfillmentPurchase[]; message?: string }>('/admin/addon-purchases');
+  }
+
+  async updateAdminAddonFulfillment(siteId: string, addonId: string, status: 'pending' | 'in_progress' | 'fulfilled', adminNote: string) {
+    return this.request<{ success: boolean; data?: Record<string, unknown>; message?: string }>(`/admin/subscriptions/${siteId}/addons/${addonId}/fulfillment`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, adminNote }),
+    });
   }
 
   async deleteSubscription(id: string) {
@@ -1243,10 +1293,32 @@ class ApiClient {
     return this.request<{ success: boolean; data: unknown[] }>(`/admin/project-requests/${requestId}/review-chat`);
   }
 
+  async getAdminProjectConversation(requestId: string) {
+    return this.request<{ success: boolean; data: unknown[] }>(`/admin/project-requests/${requestId}/conversation`);
+  }
+
   async sendAdminReviewChat(requestId: string, data: Record<string, unknown>) {
     return this.request<{ success: boolean; data: unknown; message?: string }>(`/admin/project-requests/${requestId}/review-chat`, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async sendAdminProjectConversation(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data: unknown; message?: string }>(`/admin/project-requests/${requestId}/conversation`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
+  async decideProjectLifecycleRequest(requestId: string, messageId: string, data: { decision: 'confirm' | 'decline' | 'resume' | 'reopen'; message?: string; settlementSelection?: { completedMilestoneIndexes: number[]; incurredCostIndexes: number[] } }) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/project-requests/${requestId}/lifecycle-request/${messageId}/decision`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
+  async recordProjectCancellationRefund(requestId: string, data: { amount: number; reference: string }) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/project-requests/${requestId}/cancellation-refund`, {
+      method: 'POST', body: JSON.stringify(data),
     });
   }
 

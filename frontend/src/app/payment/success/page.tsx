@@ -10,10 +10,13 @@ interface PaymentDetail {
   reference: string;
   amount: number;
   currency?: string;
+  serviceType?: string;
   createdAt: string;
   metadata?: {
     isNewGuest?: boolean;
     setupToken?: string;
+    addonName?: string;
+    subscriptionId?: string;
   };
 }
 
@@ -24,14 +27,16 @@ export default function PaymentSuccessPage() {
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   const [setupToken, setSetupToken] = useState('');
+  const [addonProvisioned, setAddonProvisioned] = useState(true);
 
   useEffect(() => {
     const fetchPaymentDetails = async (reference: string) => {
       try {
-        const data = await apiClient.verifyPayment(reference) as { success: boolean, data: { payment: PaymentDetail } };
+        const data = await apiClient.verifyPayment(reference) as { success: boolean, data: { payment: PaymentDetail; addonProvisioned?: boolean } };
         
         if (data.success) {
           setPaymentData(data.data.payment);
+          if (data.data.payment.serviceType === 'addon') setAddonProvisioned(data.data.addonProvisioned === true);
           if (data.data.payment.metadata?.isNewGuest) {
             setIsGuest(true);
             setSetupToken(data.data.payment.metadata.setupToken || '');
@@ -48,7 +53,7 @@ export default function PaymentSuccessPage() {
       }
     };
 
-    const reference = searchParams.get('reference');
+    const reference = searchParams?.get('reference');
     
     if (reference) {
       fetchPaymentDetails(reference);
@@ -61,10 +66,14 @@ export default function PaymentSuccessPage() {
   const handleGoToDashboard = () => {
     if (isGuest && setupToken) {
       router.push(`/reset-password?token=${setupToken}&setup=true`);
+    } else if (paymentData?.serviceType === 'addon' && paymentData.metadata?.subscriptionId) {
+      router.push(`/dashboard/mysites?site=${encodeURIComponent(paymentData.metadata.subscriptionId)}&view=overview`);
     } else {
       router.push('/dashboard');
     }
   };
+
+  const isAddonPurchase = paymentData?.serviceType === 'addon';
 
   const handleGoHome = () => {
     router.push('/');
@@ -94,7 +103,13 @@ export default function PaymentSuccessPage() {
           <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter uppercase">
             Payment <span className="bg-gradient-to-r from-expert-green to-ai-blue bg-clip-text text-transparent">Successful</span>
           </h1>
-          <p className="text-lg text-medium-gray">Your payment has been processed successfully!</p>
+          <p className="text-lg text-medium-gray">
+            {isAddonPurchase
+              ? addonProvisioned
+                ? `${paymentData?.metadata?.addonName || 'Your add-on'} was purchased and attached to your selected site.`
+                : 'Your payment is confirmed. Site attachment is still processing; check My Sites again shortly.'
+              : 'Your payment has been processed successfully!'}
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
@@ -140,8 +155,8 @@ export default function PaymentSuccessPage() {
                   <Check className="w-4 h-4 text-expert-green" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white uppercase tracking-tight">Account Activated</h3>
-                  <p className="text-medium-gray text-sm">Your subscription is now active and you can access all premium features.</p>
+                  <h3 className="font-black text-white uppercase tracking-tight">{isAddonPurchase ? addonProvisioned ? 'Add-on attached' : 'Attachment processing' : 'Account Activated'}</h3>
+                  <p className="text-medium-gray text-sm">{isAddonPurchase ? addonProvisioned ? 'The add-on is attached to the site you selected.' : 'Your payment is verified. The add-on will appear on the selected site once attachment completes.' : 'Your subscription is now active and you can access all premium features.'}</p>
                 </div>
               </div>
               
@@ -150,12 +165,12 @@ export default function PaymentSuccessPage() {
                   <ExternalLink className="w-4 h-4 text-ai-blue" />
                 </div>
                 <div>
-                  <h3 className="font-black text-white uppercase tracking-tight">Access Dashboard</h3>
-                  <p className="text-medium-gray text-sm">Manage your projects, view billing history, and monitor your subscription.</p>
+                  <h3 className="font-black text-white uppercase tracking-tight">{isAddonPurchase ? 'Return to your site' : 'Access Dashboard'}</h3>
+                  <p className="text-medium-gray text-sm">{isAddonPurchase ? 'Open My Sites to review the selected site and its purchased add-ons.' : 'Manage your projects, view billing history, and monitor your subscription.'}</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
+              {!isAddonPurchase && <div className="flex items-start gap-4">
                 <div className="w-8 h-8 bg-tech-purple/20 border border-tech-purple/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                   <ExternalLink className="w-4 h-4 text-tech-purple" />
                 </div>
@@ -163,7 +178,7 @@ export default function PaymentSuccessPage() {
                   <h3 className="font-black text-white uppercase tracking-tight">Start Building</h3>
                   <p className="text-medium-gray text-sm">Begin creating your digital infrastructure with our premium tools and templates.</p>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
         </div>
@@ -174,7 +189,7 @@ export default function PaymentSuccessPage() {
             onClick={handleGoToDashboard}
             className="flex items-center gap-3 px-8 py-4 bg-ai-blue text-white font-black text-sm uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_40px_rgba(0,102,255,0.3)]"
           >
-            <span>{isGuest ? 'Complete Account Setup' : 'Go to Dashboard'}</span>
+            <span>{isGuest ? 'Complete Account Setup' : isAddonPurchase ? 'Return to My Site' : 'Go to Dashboard'}</span>
           </button>
           
           <button

@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Space_Grotesk } from 'next/font/google';
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -17,11 +16,6 @@ import {
   ShieldCheck,
   UserPlus,
 } from 'lucide-react';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-});
 
 const processSteps = [
   {
@@ -95,7 +89,7 @@ const principles = [
 
 export default function ProcessPage() {
   return (
-    <main className={`${spaceGrotesk.variable} min-h-screen overflow-hidden bg-[#05070a] text-white`}>
+    <main className="min-h-screen overflow-hidden bg-[#05070a] text-white">
       <section className="relative min-h-[720px] overflow-hidden border-b border-white/10 pt-20 md:min-h-[820px]">
         <Image
           src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=2200&h=1400&fit=crop&crop=center"

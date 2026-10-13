@@ -27,6 +27,7 @@ interface Addon {
   icon: React.ReactNode;
   category: string;
   features: string[];
+  fulfillmentMode: 'automatic' | 'admin';
 }
 
 const ADDONS: Addon[] = [
@@ -37,7 +38,7 @@ const ADDONS: Addon[] = [
   price: 499,
   icon: <Layout className="w-6 h-6 text-ai-blue" />,
   category: 'Backend',
-  features: ['Blog management', 'Media library', 'SEO controls', 'Multi-user access']
+  features: ['Blog management', 'Media library', 'SEO controls', 'Multi-user access'], fulfillmentMode: 'automatic'
   },
   {
   id: 'addon_ecommerce_lite',
@@ -46,7 +47,7 @@ const ADDONS: Addon[] = [
   price: 2999,
   icon: <ShoppingBag className="w-6 h-6 text-expert-green" />,
   category: 'Commerce',
-  features: ['Product catalog', 'Secure checkout', 'Order tracking', 'Inventory management']
+  features: ['Product catalog', 'Secure checkout', 'Order tracking', 'Inventory management'], fulfillmentMode: 'automatic'
   },
   {
   id: 'addon_ai_search',
@@ -55,7 +56,7 @@ const ADDONS: Addon[] = [
   price: 799,
   icon: <Search className="w-6 h-6 text-tech-purple" />,
   category: 'AI Tools',
-  features: ['Semantic understanding', 'Instant results', 'Voice search ready', 'Search analytics']
+  features: ['Semantic understanding', 'Instant results', 'Voice search ready', 'Search analytics'], fulfillmentMode: 'admin'
   },
   {
   id: 'addon_analytics_pro',
@@ -64,7 +65,7 @@ const ADDONS: Addon[] = [
   price: 599,
   icon: <Zap className="w-6 h-6 text-orange-500" />,
   category: 'Analytics',
-  features: ['Heatmaps', 'Conversion funnels', 'A/B testing', 'ROI tracking']
+  features: ['Heatmaps', 'Conversion funnels', 'A/B testing', 'ROI tracking'], fulfillmentMode: 'admin'
   },
   {
   id: 'addon_global_cdn',
@@ -73,7 +74,7 @@ const ADDONS: Addon[] = [
   price: 199,
   icon: <Globe className="w-6 h-6 text-ai-blue" />,
   category: 'Infrastructure',
-  features: ['Global edge caching', 'DDoS protection', 'Image optimization', '1TB bandwidth']
+  features: ['Global edge caching', 'DDoS protection', 'Image optimization', '1TB bandwidth'], fulfillmentMode: 'admin'
   },
   {
   id: 'addon_database_sync',
@@ -82,7 +83,7 @@ const ADDONS: Addon[] = [
   price: 1499,
   icon: <Database className="w-6 h-6 text-expert-green" />,
   category: 'Backend',
-  features: ['Automatic backups', 'Low latency', 'Unlimited collections', 'API access']
+  features: ['Automatic backups', 'Low latency', 'Unlimited collections', 'API access'], fulfillmentMode: 'admin'
   },
   {
   id: 'addon_crm_sync',
@@ -91,7 +92,7 @@ const ADDONS: Addon[] = [
   price: 899,
   icon: <Link2 className="w-6 h-6 text-ai-blue" />,
   category: 'Integrations',
-  features: ['Lead auto-capture', 'Field mapping', 'Real-time updates', 'Custom webhooks']
+  features: ['Lead auto-capture', 'Field mapping', 'Real-time updates', 'Custom webhooks'], fulfillmentMode: 'admin'
   },
   {
   id: 'addon_email_nexus',
@@ -100,15 +101,16 @@ const ADDONS: Addon[] = [
   price: 499,
   icon: <Mail className="w-6 h-6 text-tech-purple" />,
   category: 'Integrations',
-  features: ['Campaign automation', 'List segmentation', 'Dynamic content', 'Open/Click tracking']
+  features: ['Campaign automation', 'List segmentation', 'Dynamic content', 'Open/Click tracking'], fulfillmentMode: 'admin'
   }
 ];
 
 interface AddonMarketplaceProps {
   subscription: {
   id: string;
+  name: string;
   purchasedAddons?: any;
-  } | null;
+  };
   onRequestCustom?: () => void;
 }
 
@@ -132,6 +134,15 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
       typeof value === 'object' && value !== null && 'id' in value && value.id === addonId
     )
   );
+  const getAddonStatus = (addon: Addon) => {
+    const purchased = purchasedAddonsList.find(value => value === addon.id || (
+      typeof value === 'object' && value !== null && 'id' in value && value.id === addon.id
+    ));
+    if (!purchased || typeof purchased !== 'object' || !('fulfillmentStatus' in purchased)) {
+      return addon.fulfillmentMode === 'automatic' ? 'active' : 'pending';
+    }
+    return String(purchased.fulfillmentStatus || 'pending');
+  };
 
   const handlePurchase = async (addon: Addon) => {
   if (hasAddon(addon.id)) {
@@ -154,7 +165,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
   if (response.success && response.data?.paystack?.authorization_url) {
   window.location.href = response.data.paystack.authorization_url;
   } else {
-  alert('Payment initialization failed. Please try again.');
+  alert(response.message || 'Payment initialization failed. Please try again.');
   }
   } catch (error) {
   console.error('Purchase failed:', error);
@@ -170,7 +181,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
   return (
   <div className="space-y-8 animate-fade-in pb-12">
   <div className="flex flex-col gap-4 px-1 lg:flex-row lg:items-center lg:justify-between">
-  <p className="text-sm text-white/45">Add services to this project.</p>
+  <div><p className="text-sm text-white/45">Choose an add-on for {subscription.name}. Purchases attach to this site.</p><p className="mt-1 text-xs text-white/32">Some add-ons turn on immediately. Sitemendr sets up external integrations and infrastructure, with progress shown here.</p></div>
    
   <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
   {categories.map((cat) => (
@@ -190,6 +201,7 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
   {filteredAddons.map((addon) => {
   const isPurchased = hasAddon(addon.id);
+  const addonStatus = isPurchased ? getAddonStatus(addon) : null;
    
   return (
   <div 
@@ -206,7 +218,8 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
   </div>
   <div className="text-right">
   <span className="text-[8px] font-semibold text-ai-blue block mb-1">{addon.category}</span>
-  <p className="text-2xl font-semibold text-white ">${addon.price}</p>
+  {addonStatus && <span className={`block text-[9px] font-semibold ${addonStatus === 'active' || addonStatus === 'fulfilled' ? 'text-expert-green' : addonStatus === 'in_progress' ? 'text-ai-blue' : 'text-amber-300'}`}>{addonStatus === 'active' ? 'Ready on site' : addonStatus === 'fulfilled' ? 'Setup complete' : addonStatus === 'in_progress' ? 'Setup in progress' : 'Sitemendr setup pending'}</span>}
+  <p className="text-2xl font-semibold text-white ">USD {addon.price.toLocaleString()}</p>
   </div>
   </div>
 
@@ -245,12 +258,12 @@ const AddonMarketplace: React.FC<AddonMarketplaceProps> = ({ subscription, onReq
   ) : isPurchased ? (
   <>
   <Check className="w-4 h-4" />
-  <span>Added</span>
+  <span>{addonStatus === 'active' ? 'Ready on site' : addonStatus === 'fulfilled' ? 'Setup complete' : addonStatus === 'in_progress' ? 'Setup in progress' : 'Setup pending'}</span>
   </>
   ) : (
   <>
   <Cpu className="w-4 h-4" />
-  <span>Add to workspace</span>
+  <span>Add to this site</span>
   </>
   )}
   </button>

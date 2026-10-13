@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Space_Grotesk } from 'next/font/google';
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -20,11 +19,6 @@ import {
   ShieldCheck,
   Wrench,
 } from 'lucide-react';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-});
 
 const heroImages = [
   'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=1200&h=900&fit=crop&crop=center',
@@ -114,7 +108,7 @@ const process = [
 
 export default function DevelopmentServices() {
   return (
-    <main className={`${spaceGrotesk.variable} min-h-screen overflow-hidden bg-[#05070a] text-white`}>
+    <main className="min-h-screen overflow-hidden bg-[#05070a] text-white">
       <section className="relative min-h-[720px] overflow-hidden border-b border-white/10 pt-20 md:min-h-[820px]">
         <Image
           src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=2200&h=1400&fit=crop&crop=center"

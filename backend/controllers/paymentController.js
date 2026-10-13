@@ -2,6 +2,7 @@ const { prisma } = require('../config/db');
 const axios = require('axios');
 const crypto = require('crypto');
 const { processSuccessfulPayment } = require('../services/paymentService');
+const { getAddon } = require('../services/addonCatalog');
 const logger = require('../config/logger');
 
 // Paystack configuration
@@ -9,6 +10,16 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY;
 const PAYSTACK_WEBHOOK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+const isAddonAttached = async (payment) => {
+  if (payment.serviceType !== 'addon' || !payment.metadata?.subscriptionId || !payment.metadata?.addonId) return undefined;
+  const site = await prisma.subscription.findFirst({
+    where: { id: payment.metadata.subscriptionId, userId: payment.userId },
+    select: { purchasedAddons: true }
+  });
+  const purchased = Array.isArray(site?.purchasedAddons) ? site.purchasedAddons : [];
+  return purchased.some(item => item === payment.metadata.addonId || item?.id === payment.metadata.addonId);
+};
 
 // Verify webhook signature
 const verifyWebhookSignature = (req) => {
@@ -35,6 +46,10 @@ exports.initializePayment = async (req, res) => {
     let email = req.body.email?.toLowerCase();
     let authenticatedUser = null;
 
+    if (serviceType === 'addon' && !req.user?.userId) {
+      return res.status(401).json({ success: false, message: 'Sign in before buying an add-on.' });
+    }
+
     // If authenticated, fallback to the user email when not provided
     if (req.user?.userId) {
       authenticatedUser = await prisma.user.findUnique({
@@ -57,10 +72,10 @@ exports.initializePayment = async (req, res) => {
     let finalDescription = description;
 
     const missing = [];
-    if (finalAmount === undefined || finalAmount === null) missing.push('amount');
+    if (serviceType !== 'addon' && (finalAmount === undefined || finalAmount === null)) missing.push('amount');
     if (!email) missing.push('email');
     if (!serviceType) missing.push('serviceType');
-    if (!finalDescription) missing.push('description');
+    if (serviceType !== 'addon' && !finalDescription) missing.push('description');
 
     if (missing.length) {
       return res.status(400).json({
@@ -117,6 +132,52 @@ exports.initializePayment = async (req, res) => {
       userId = user.id;
     }
 
+    if (serviceType === 'addon') {
+      const addon = getAddon(finalMetadata.addonId);
+      const subscriptionId = typeof finalMetadata.subscriptionId === 'string' ? finalMetadata.subscriptionId : '';
+      if (!addon || !subscriptionId) {
+        return res.status(400).json({ success: false, message: 'Choose a listed add-on and the site it should be attached to.' });
+      }
+      const subscription = await prisma.subscription.findFirst({
+        where: { id: subscriptionId, userId, status: 'active', suspended: false },
+        select: { id: true, purchasedAddons: true }
+      });
+      if (!subscription) {
+        return res.status(403).json({ success: false, message: 'Choose an active site in your workspace.' });
+      }
+      const currentAddons = Array.isArray(subscription.purchasedAddons) ? subscription.purchasedAddons : [];
+      if (currentAddons.some(item => item === addon.id || item?.id === addon.id)) {
+        return res.status(409).json({ success: false, message: 'This add-on is already attached to the selected site.' });
+      }
+      const pendingPurchase = await prisma.payment.findFirst({
+        where: {
+          userId,
+          serviceType: 'addon',
+          status: 'pending',
+          AND: [
+            { metadata: { path: ['addonId'], equals: addon.id } },
+            { metadata: { path: ['subscriptionId'], equals: subscriptionId } }
+          ]
+        },
+        select: { id: true, reference: true, amount: true, currency: true, serviceType: true, description: true, metadata: true, createdAt: true, gatewayResponse: true }
+      });
+      if (pendingPurchase) {
+        const authorizationUrl = pendingPurchase.gatewayResponse?.authorization_url;
+        if (authorizationUrl) {
+          return res.json({
+            success: true,
+            message: 'Resuming your pending add-on checkout.',
+            data: { payment: pendingPurchase, publicKey: PAYSTACK_PUBLIC_KEY, paystack: pendingPurchase.gatewayResponse }
+          });
+        }
+        return res.status(409).json({ success: false, message: 'A checkout for this add-on is still being prepared. Please try again shortly.' });
+      }
+
+      finalAmount = addon.price;
+      finalDescription = `Purchase of ${addon.name} Add-on`;
+      finalMetadata = { ...finalMetadata, addonId: addon.id, addonName: addon.name, subscriptionId };
+    }
+
     // Generate unique reference
     const reference = `sitemendr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const allowedPaystackChannels = new Set(['card', 'bank', 'bank_transfer', 'ussd', 'qr', 'mobile_money', 'eft']);
@@ -124,9 +185,93 @@ exports.initializePayment = async (req, res) => {
       ? finalMetadata.selectedPaymentChannels.filter(channel => allowedPaystackChannels.has(channel))
       : [];
 
-    const sourceCurrency = finalMetadata.currency || finalMetadata.defaultCurrency || 'USD';
-    const targetCurrency = sourceCurrency || process.env.PAYSTACK_CURRENCY || 'USD';
+    let sourceCurrency = finalMetadata.currency || finalMetadata.defaultCurrency || 'USD';
+    let targetCurrency = sourceCurrency || process.env.PAYSTACK_CURRENCY || 'USD';
     let paystackAmount = finalAmount;
+
+    if (serviceType === 'addon') {
+      sourceCurrency = 'USD';
+      targetCurrency = 'USD';
+      paystackAmount = finalAmount;
+      finalMetadata.currency = 'USD';
+    }
+
+    if (serviceType === 'build_agreement' && finalMetadata.projectRequestId) {
+      const request = await prisma.projectRequest.findFirst({
+        where: { id: finalMetadata.projectRequestId, userId, serviceType: 'build' },
+        select: { status: true, paymentAgreementStatus: true, quotedAmount: true, quoteCurrency: true, totalAgreedAmount: true, depositAmount: true, paymentAgreementType: true, paymentDueDate: true }
+      });
+      const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+        where: { projectRequestId: finalMetadata.projectRequestId, status: 'accepted' },
+        orderBy: { version: 'desc' },
+        select: { id: true, snapshot: true }
+      });
+      const expectedAmount = request?.depositAmount || request?.totalAgreedAmount || request?.quotedAmount || 0;
+      if (!request || request.status !== 'payment_agreement' || request.paymentAgreementStatus !== 'sent' || !acceptedQuote || finalMetadata.quoteVersionId !== acceptedQuote.id || finalMetadata.termsAccepted !== true) {
+        return res.status(409).json({ success: false, message: 'Accept the current quote and wait for the admin payment request before paying the deposit.' });
+      }
+      const expectedAmountMinor = Math.round(Number(expectedAmount) * 100);
+      const checkoutAmountMinor = Math.round(Number(finalAmount) * 100);
+      if (!Number.isFinite(expectedAmountMinor) || expectedAmountMinor <= 0 || checkoutAmountMinor !== expectedAmountMinor) {
+        return res.status(400).json({ success: false, message: 'The checkout amount does not match the agreed deposit.' });
+      }
+      finalAmount = expectedAmountMinor / 100;
+      const quoteCurrency = String(request.quoteCurrency || acceptedQuote.snapshot?.currency || 'USD').toUpperCase();
+      if (String(sourceCurrency).toUpperCase() !== quoteCurrency) {
+        return res.status(400).json({ success: false, message: 'The deposit currency must match the accepted quote.' });
+      }
+      sourceCurrency = quoteCurrency;
+      targetCurrency = quoteCurrency;
+      finalMetadata.quoteVersionId = acceptedQuote.id;
+      finalMetadata.acceptedTermsSnapshot = {
+        ...acceptedQuote.snapshot,
+        quoteVersionId: acceptedQuote.id,
+        totalAgreedAmount: request.totalAgreedAmount || request.quotedAmount,
+        depositAmount: expectedAmount,
+        currency: request.quoteCurrency,
+        paymentSchedule: request.paymentAgreementType,
+        paymentDueDate: request.paymentDueDate,
+        cancellationTerms: 'On confirmed cancellation, completed milestones and listed pre-approved non-recoverable costs already incurred are charged. Any prepaid amount above that is refunded.'
+      };
+    }
+
+    if (serviceType === 'build_final_balance') {
+      const projectRequestId = finalMetadata.projectRequestId;
+      if (!projectRequestId) return res.status(400).json({ success: false, message: 'A build request is required for final-balance checkout.' });
+      const request = await prisma.projectRequest.findFirst({
+        where: { id: projectRequestId, userId, serviceType: 'build' },
+        select: {
+          id: true, status: true, completionAcknowledgedAt: true, handoffIssuesReportedAt: true, finalPaymentConfirmedAt: true,
+          quotedAmount: true, totalAgreedAmount: true, depositAmount: true, quoteCurrency: true
+        }
+      });
+      const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+        where: { projectRequestId, status: 'accepted' },
+        orderBy: { version: 'desc' },
+        select: { id: true, snapshot: true }
+      });
+      if (!request || request.status !== 'handoff' || !request.completionAcknowledgedAt || request.handoffIssuesReportedAt || request.finalPaymentConfirmedAt || !acceptedQuote) {
+        return res.status(409).json({ success: false, message: 'Accept the live handoff before starting final-balance checkout.' });
+      }
+      const totalAgreed = Number(request.totalAgreedAmount || acceptedQuote.snapshot?.totalAgreedAmount || acceptedQuote.snapshot?.amount || request.quotedAmount || 0);
+      const deposit = Number(request.depositAmount || 0);
+      const expectedBalance = Math.max(Math.round((totalAgreed - deposit) * 100) / 100, 0);
+      const expectedBalanceMinor = Math.round(expectedBalance * 100);
+      const checkoutAmountMinor = Math.round(Number(finalAmount) * 100);
+      const quoteCurrency = String(request.quoteCurrency || acceptedQuote.snapshot?.currency || 'USD').toUpperCase();
+      if (!Number.isFinite(expectedBalanceMinor) || expectedBalanceMinor <= 0 || checkoutAmountMinor !== expectedBalanceMinor) {
+        return res.status(400).json({ success: false, message: 'The final payment amount does not match the unpaid balance on the accepted agreement.' });
+      }
+      if (String(sourceCurrency).toUpperCase() !== quoteCurrency) {
+        return res.status(400).json({ success: false, message: 'The final payment currency must match the accepted quote.' });
+      }
+      finalAmount = expectedBalance;
+      sourceCurrency = quoteCurrency;
+      targetCurrency = quoteCurrency;
+      finalMetadata.quoteCurrency = quoteCurrency;
+      finalMetadata.quoteVersionId = acceptedQuote.id;
+      finalMetadata.acceptedQuoteSnapshot = acceptedQuote.snapshot;
+    }
 
     // Only convert if explicitly configured to use NGN and input is USD
     if (sourceCurrency === 'USD' && targetCurrency === 'NGN') {
@@ -266,6 +411,11 @@ exports.initializePayment = async (req, res) => {
         throw new Error(paystackResponse.data.message || 'Paystack initialization failed');
       }
 
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { gatewayResponse: paystackResponse.data.data }
+      });
+
       res.json({
         success: true,
         data: {
@@ -318,6 +468,9 @@ exports.verifyPayment = async (req, res) => {
   try {
     const { reference } = req.params;
 
+    const storedPayment = await prisma.payment.findUnique({ where: { reference } });
+    if (!storedPayment) return res.status(404).json({ success: false, message: 'Payment reference not found.' });
+
     // Verify with Paystack
     const paystackResponse = await axios.get(
       `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
@@ -330,17 +483,40 @@ exports.verifyPayment = async (req, res) => {
 
     const { data } = paystackResponse.data;
 
-    // Update payment status
-    const payment = await prisma.payment.update({
-      where: { reference },
+    if (data.reference !== reference
+      || Math.round(Number(data.amount)) !== Math.round(Number(storedPayment.amount))
+      || String(data.currency || '').toUpperCase() !== String(storedPayment.currency || '').toUpperCase()) {
+      logger.error('Paystack verification did not match the stored payment', {
+        errorCode: 'PAYMENT_VERIFICATION_MISMATCH',
+        paymentId: storedPayment.id,
+        reference
+      });
+      return res.status(409).json({ success: false, message: 'The verified transaction does not match this payment record. Contact support before retrying.' });
+    }
+
+    if (storedPayment.status === 'completed') {
+      let addonProvisioned;
+      if (storedPayment.serviceType === 'addon') {
+        await processSuccessfulPayment(storedPayment.id);
+        addonProvisioned = await isAddonAttached(storedPayment);
+      }
+      return res.json({ success: true, data: { payment: storedPayment, paystack: data, addonProvisioned } });
+    }
+
+    // A verification callback and the Paystack webhook can arrive together.
+    // Only the first transition to completed should trigger provisioning.
+    const paymentTransition = await prisma.payment.updateMany({
+      where: { reference, status: { not: 'completed' } },
       data: {
         status: data.status === 'success' ? 'completed' : 'failed',
         gatewayResponse: data
       }
     });
+    const payment = await prisma.payment.findUnique({ where: { reference } });
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment reference not found.' });
 
     // If payment successful, trigger post-payment processing
-    if (data.status === 'success') {
+    if (data.status === 'success' && paymentTransition.count > 0) {
       try {
         await processSuccessfulPayment(payment.id);
         // NOTE: guest welcome email removed as part of notification cleanup.
@@ -353,11 +529,16 @@ exports.verifyPayment = async (req, res) => {
       }
     }
 
+    const addonProvisioned = data.status === 'success' && payment.serviceType === 'addon'
+      ? await isAddonAttached(payment)
+      : undefined;
+
     res.json({
       success: true,
       data: {
         payment,
-        paystack: data
+        paystack: data,
+        addonProvisioned
       }
     });
   } catch (error) {
@@ -399,14 +580,30 @@ exports.handleWebhook = async (req, res) => {
     if (event.event === 'charge.success') {
       const { reference } = event.data;
 
-      // Update payment status
-      const payment = await prisma.payment.update({
-        where: { reference },
+      const storedPayment = await prisma.payment.findUnique({ where: { reference } });
+      if (!storedPayment) {
+        logger.error('Successful Paystack webhook has no matching local payment', { reference });
+        return res.json({ received: true });
+      }
+      if (Math.round(Number(event.data.amount)) !== Math.round(Number(storedPayment.amount))
+        || String(event.data.currency || '').toUpperCase() !== String(storedPayment.currency || '').toUpperCase()) {
+        logger.error('Paystack webhook did not match the stored payment', {
+          errorCode: 'PAYMENT_WEBHOOK_MISMATCH',
+          paymentId: storedPayment.id,
+          reference
+        });
+        return res.json({ received: true });
+      }
+
+      // A webhook may race the browser verification callback or be retried.
+      const paymentTransition = await prisma.payment.updateMany({
+        where: { reference, status: { not: 'completed' } },
         data: {
           status: 'completed',
           gatewayResponse: event.data
         }
       });
+      const payment = await prisma.payment.findUnique({ where: { reference } });
 
       logger.info('Payment marked completed from webhook', {
         reference,
@@ -415,7 +612,7 @@ exports.handleWebhook = async (req, res) => {
 
       // Trigger post-payment processing
       try {
-        await processSuccessfulPayment(payment.id);
+        if (paymentTransition.count > 0) await processSuccessfulPayment(payment.id);
         // NOTE: guest welcome email removed as part of notification cleanup.
         // If this needs an email again later, wire it via notify() and the registry.
       } catch (processingError) {

@@ -308,6 +308,8 @@ model ProjectRequest {
   studioUpdates   StudioUpdate[]
   reviewMessages  ReviewChatMessage[]
   handoffMessages HandoffChatMessage[]
+  conversationMessages ProjectConversationMessage[]
+  quoteVersions    ProjectQuoteVersion[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   reviewedAt      DateTime?
@@ -355,6 +357,41 @@ model HandoffChatMessage {
 
   @@index([projectRequestId, createdAt])
   @@index([projectRequestId, senderRole, readByAdmin, readByClient])
+}
+
+model ProjectConversationMessage {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  senderId         String?
+  senderRole       String         @default("client")
+  message          String
+  kind             String         @default("message")
+  choices          Json?
+  selectedChoice   String?
+  attachments      Json?
+  eventData        Json?
+  readByAdmin      Boolean        @default(false)
+  readByClient     Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  @@index([projectRequestId, createdAt])
+  @@index([projectRequestId, senderRole, readByAdmin, readByClient])
+}
+
+model ProjectQuoteVersion {
+  id               String         @id @default(uuid())
+  projectRequestId String
+  projectRequest   ProjectRequest @relation(fields: [projectRequestId], references: [id], onDelete: Cascade)
+  version          Int
+  status           String         @default("sent")
+  snapshot         Json
+  acceptedAt       DateTime?
+  createdBy        String?
+  createdAt        DateTime       @default(now())
+
+  @@unique([projectRequestId, version])
+  @@index([projectRequestId, status, createdAt])
 }
 
 model StudioTask {

@@ -1,8 +1,11 @@
 const { prisma } = require('../config/db');
+const { getAddon } = require('./addonCatalog');
 const logger = require('../config/logger');
 const { generateTemplateAI } = require('../controllers/assessment');
 const { sendEmail } = require('../config/email');
 const { deployTemplate } = require('./deploymentService');
+const { recordProjectEvent } = require('./projectConversation');
+const { ensureCompletedBuildSite } = require('./projectSiteService');
 
 /**
  * Process a successful payment and trigger necessary provisioning
@@ -224,19 +227,53 @@ async function handleBuildAgreementPayment(payment) {
     return;
   }
 
+  const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+    where: { projectRequestId, status: 'accepted' },
+    orderBy: { version: 'desc' },
+    select: { id: true }
+  });
+  const expectedDepositMinor = Math.round(Number(request.depositAmount || request.totalAgreedAmount || request.quotedAmount || 0) * 100);
+  if (request.status !== 'payment_agreement'
+    || request.paymentAgreementStatus !== 'sent'
+    || !acceptedQuote
+    || payment.metadata?.quoteVersionId !== acceptedQuote.id
+    || payment.metadata?.termsAccepted !== true
+    || String(payment.currency || '').toUpperCase() !== String(request.quoteCurrency || 'USD').toUpperCase()
+    || !Number.isFinite(expectedDepositMinor)
+    || Number(payment.amount || 0) !== expectedDepositMinor) {
+    logger.error('Verified build deposit requires manual reconciliation; agreement state or amount no longer matches', {
+      paymentId: payment.id,
+      projectRequestId
+    });
+    return;
+  }
+
   const noteParts = [
     request.clientNotes,
     `Payment received through Paystack.\nReference: ${payment.reference}`
   ].filter(Boolean);
 
-  await prisma.projectRequest.update({
-    where: { id: request.id },
+  const agreementTransition = await prisma.projectRequest.updateMany({
+    where: { id: request.id, status: 'payment_agreement', paymentAgreementStatus: 'sent' },
     data: {
-      status: 'payment_agreement',
       paymentAgreementStatus: 'confirmed',
       paymentConfirmedAt: new Date(),
       clientNotes: noteParts.join('\n\n')
     }
+  });
+  if (agreementTransition.count !== 1) {
+    logger.error('Verified build deposit lost a concurrent agreement-state transition and needs manual reconciliation', {
+      paymentId: payment.id,
+      projectRequestId
+    });
+    return;
+  }
+
+  await recordProjectEvent(request.id, 'deposit_payment_verified', 'Deposit payment verified by Paystack.', {
+    amountMinor: payment.amount,
+    currency: payment.currency,
+    reference: payment.reference,
+    quoteVersionId: payment.metadata?.quoteVersionId || null
   });
 
   logger.info('Build agreement payment confirmed', {
@@ -273,25 +310,74 @@ async function handleBuildFinalBalancePayment(payment) {
     return;
   }
 
+  const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+    where: { projectRequestId, status: 'accepted' },
+    orderBy: { version: 'desc' },
+    select: { id: true, snapshot: true }
+  });
+  const agreedTotal = Number(request.totalAgreedAmount || acceptedQuote?.snapshot?.totalAgreedAmount || acceptedQuote?.snapshot?.amount || request.quotedAmount || 0);
+  const expectedBalance = Math.max(Math.round((agreedTotal - Number(request.depositAmount || 0)) * 100) / 100, 0);
+  const expectedBalanceMinor = Math.round(expectedBalance * 100);
+  if (request.status !== 'handoff'
+    || !request.completionAcknowledgedAt
+    || request.handoffIssuesReportedAt
+    || request.finalPaymentConfirmedAt
+    || !acceptedQuote
+    || payment.metadata?.quoteVersionId !== acceptedQuote.id
+    || String(payment.currency || '').toUpperCase() !== String(request.quoteCurrency || acceptedQuote.snapshot?.currency || 'USD').toUpperCase()
+    || !Number.isFinite(expectedBalanceMinor)
+    || Number(payment.amount || 0) !== expectedBalanceMinor) {
+    logger.error('Verified final balance requires manual reconciliation; handoff, quote, or amount no longer matches', {
+      paymentId: payment.id,
+      projectRequestId
+    });
+    return;
+  }
+
   const noteParts = [
     request.clientNotes,
     `Final balance payment received through Paystack.\nReference: ${payment.reference}`
   ].filter(Boolean);
 
-  await prisma.projectRequest.update({
-    where: { id: request.id },
+  const finalPaymentTransition = await prisma.projectRequest.updateMany({
+    where: {
+      id: request.id,
+      status: 'handoff',
+      completionAcknowledgedAt: { not: null },
+      handoffIssuesReportedAt: null,
+      finalPaymentConfirmedAt: null
+    },
     data: {
       finalPaymentConfirmedAt: new Date(),
-      status: 'completed',
-      completedAt: new Date(),
+      status: request.completionAcknowledgedAt ? 'completed' : 'handoff',
+      completedAt: request.completionAcknowledgedAt ? new Date() : request.completedAt,
       clientNotes: noteParts.join('\n\n')
     }
   });
+  if (finalPaymentTransition.count !== 1) {
+    logger.error('Verified final balance lost a concurrent handoff-state transition and needs manual reconciliation', {
+      paymentId: payment.id,
+      projectRequestId
+    });
+    return;
+  }
 
-  await prisma.buildMilestone.updateMany({
-    where: { projectRequestId: request.id },
-    data: { status: 'completed', progress: 100 }
+  if (request.completionAcknowledgedAt) {
+    await prisma.buildMilestone.updateMany({
+      where: { projectRequestId: request.id },
+      data: { status: 'completed', progress: 100 }
+    });
+  }
+
+  await recordProjectEvent(request.id, 'final_payment_verified', 'Final balance payment verified by Paystack.', {
+    amountMinor: payment.amount,
+    currency: payment.currency,
+    reference: payment.reference
   });
+  if (request.completionAcknowledgedAt) {
+    await recordProjectEvent(request.id, 'build_completed', 'Build completed after handoff acceptance and final payment were confirmed.');
+    await ensureCompletedBuildSite(request.id);
+  }
 
   logger.info('Build final balance payment confirmed', {
     paymentId: payment.id,
@@ -372,65 +458,40 @@ async function triggerAITemplateGeneration(subscription, payment) {
  */
 async function handleAddonProvisioning(payment) {
   const { metadata, userId } = payment;
-  if (!metadata?.addonId) return;
-
-  let subscriptionId = metadata.subscriptionId;
-
-  // Fallback: If no subscription ID provided, find the user's most recent active subscription
-  if (!subscriptionId) {
-    const latestSub = await prisma.subscription.findFirst({
-      where: { userId, status: 'active' },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true }
-    });
-    if (latestSub) {
-      subscriptionId = latestSub.id;
-      logger.info('Automatically linked addon to latest active subscription', { userId, subscriptionId });
-    }
-  }
-
-  if (!subscriptionId) {
-    logger.warn('Addon provisioning failed: No subscription found to attach it to', { userId, addonId: metadata.addonId });
+  const addon = getAddon(metadata?.addonId);
+  const subscriptionId = metadata?.subscriptionId;
+  if (!addon || !subscriptionId || payment.serviceType !== 'addon' || payment.status !== 'completed'
+    || Number(payment.amount) !== addon.price * 100 || String(payment.currency).toUpperCase() !== 'USD') {
+    logger.warn('Addon provisioning rejected because its payment or catalog details do not match', { paymentId: payment.id });
     return;
   }
 
   try {
-    // Mitigate schema mismatch by catching errors on missing columns
-    try {
-      const subscription = await prisma.subscription.findUnique({
-        where: { id: subscriptionId },
-        select: {
-          id: true,
-          purchasedAddons: true
-        }
+    const provisioned = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${subscriptionId}:${addon.id}`}))`;
+      const subscription = await tx.subscription.findFirst({
+        where: { id: subscriptionId, userId, status: 'active', suspended: false },
+        select: { id: true, purchasedAddons: true }
       });
+      if (!subscription) return false;
 
-      if (!subscription) return;
-
-      let purchasedAddons = subscription.purchasedAddons || [];
-      if (!Array.isArray(purchasedAddons)) purchasedAddons = [];
-
-      if (!purchasedAddons.find(a => a.id === metadata.addonId)) {
-        purchasedAddons.push({
-          id: metadata.addonId,
-          name: metadata.addonName,
-          purchasedAt: new Date(),
-          paymentId: payment.id
-        });
-
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: { purchasedAddons },
-          select: { id: true }
-        });
-      }
-    } catch (dbError) {
-      if (dbError.message.includes('purchasedAddons')) {
-        logger.warn('Skipping purchasedAddons update due to missing column in DB');
-        return;
-      }
-      throw dbError;
-    }
+      const purchasedAddons = Array.isArray(subscription.purchasedAddons) ? subscription.purchasedAddons : [];
+      if (purchasedAddons.some(item => item === addon.id || item?.id === addon.id)) return true;
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: { purchasedAddons: [...purchasedAddons, {
+          id: addon.id,
+          name: addon.name,
+          purchasedAt: new Date().toISOString(),
+          paymentId: payment.id,
+          fulfillmentMode: addon.fulfillmentMode,
+          fulfillmentStatus: addon.fulfillmentMode === 'automatic' ? 'active' : 'pending'
+        }] },
+        select: { id: true }
+      });
+      return true;
+    });
+    if (!provisioned) logger.error('Paid add-on could not be attached: selected site is unavailable', { paymentId: payment.id, subscriptionId });
   } catch (error) {
     logger.error('Addon provisioning error', { error: error.message });
   }

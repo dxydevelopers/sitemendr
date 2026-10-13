@@ -415,7 +415,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
   {activeTab === 'domains' && <ClientDomains dashboard={dashboard} projects={projects} />}
 
-  {activeTab === 'ecommerce' && (scopedProject ? <div className="animate-fade-in"><EcommerceManager subscriptionId={scopedProject.id} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
+  {activeTab === 'ecommerce' && (scopedProject ? <div className="animate-fade-in"><EcommerceManager subscriptionId={scopedProject.id} purchasedAddons={scopedProject.purchasedAddons} onBrowseAddons={() => openTab('addons')} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
 
   {activeTab === 'booking' && (scopedProject ? <div className="animate-fade-in"><BookingManager isAdmin={false} subscriptionId={scopedProject.id} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
 

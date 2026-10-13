@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Space_Grotesk } from 'next/font/google';
 import {
   ArrowUpRight,
   Code2,
@@ -12,11 +11,6 @@ import {
   ShoppingBag,
   Wrench,
 } from 'lucide-react';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-});
 
 const corePaths = [
   {
@@ -88,7 +82,7 @@ const pricingPaths = [
 
 export default function Services() {
   return (
-    <main className={`${spaceGrotesk.variable} min-h-screen overflow-hidden bg-[#05070a] text-white`}>
+    <main className="min-h-screen overflow-hidden bg-[#05070a] text-white">
       <section className="relative overflow-hidden border-b border-white/10 pt-20">
         <div className="absolute inset-0">
           <Image

@@ -160,6 +160,16 @@ export interface ReviewChatMessage {
   choices?: string[] | null;
   selectedChoice?: string | null;
   attachments?: Array<{ label?: string; url?: string }> | null;
+  eventData?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface ProjectQuoteVersion {
+  id: string;
+  version: number;
+  status: string;
+  snapshot: Record<string, unknown>;
+  acceptedAt?: string | null;
   createdAt: string;
 }
 
@@ -199,6 +209,7 @@ export interface ProjectRequest {
   completionAcknowledgedAt?: string;
   handoffIssuesReportedAt?: string;
   finalPaymentConfirmedAt?: string;
+  quoteVersions?: ProjectQuoteVersion[];
   completedAt?: string;
   buildMilestones?: BuildMilestone[];
   studioTasks?: StudioTask[];
