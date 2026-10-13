@@ -944,7 +944,10 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   <button type="button" onClick={() => handleSendClientReviewChat(currentBuildRecord.id)} disabled={reviewChatSending || !reviewChatDraft.trim()} className="inline-flex min-h-10 items-center gap-2 border border-ai-blue/30 px-3 py-2 text-[10px] font-semibold text-ai-blue transition hover:bg-ai-blue/10 hover:text-white disabled:opacity-40">
   {reviewChatSending ? 'Sending' : 'Send'}<Send className="h-3.5 w-3.5 shrink-0" />
   </button>
-  {(currentBuildRecord.completionAcknowledgedAt || reviewChatMessages.some(m => m.senderRole === 'admin')) && (
+  {currentBuildRecord.handoffIssuesReportedAt && !currentBuildRecord.completionAcknowledgedAt && (
+  <p className="text-xs font-semibold leading-5 text-amber-200/70">The team needs to confirm the issue is resolved before you can accept delivery again.</p>
+  )}
+  {!currentBuildRecord.handoffIssuesReportedAt && (currentBuildRecord.completionAcknowledgedAt || reviewChatMessages.some(m => m.senderRole === 'admin')) && (
   <button type="button" onClick={() => handleHandoffResponse(currentBuildRecord, 'complete')} disabled={handoffSubmitting} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 border border-expert-green/30 px-3 py-2 text-center text-[10px] font-semibold text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:opacity-40 sm:flex-none">
   {handoffSubmittingAction === 'complete' ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Check className="h-3.5 w-3.5 shrink-0" />} {currentBuildRecord.completionAcknowledgedAt ? 'Mark resolved' : 'Accept handoff'}
   </button>

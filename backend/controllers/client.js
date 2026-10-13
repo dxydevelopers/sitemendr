@@ -503,6 +503,12 @@ exports.respondToHandoff = async (req, res) => {
         message: 'This build is not waiting for handoff response'
       });
     }
+    if (action === 'complete' && request.handoffIssuesReportedAt) {
+      return res.status(409).json({
+        success: false,
+        message: 'The team must confirm the handoff issue is resolved before you can accept delivery again.'
+      });
+    }
 
     const label = action === 'complete'
       ? 'Client acknowledged handoff and completion.'
@@ -516,13 +522,19 @@ exports.respondToHandoff = async (req, res) => {
     const hasFinalBalance = remainingBalance > 0;
 
     const handoffTransition = await prisma.projectRequest.updateMany({
-      where: { id: request.id, userId, status: 'handoff' },
+      where: {
+        id: request.id,
+        userId,
+        status: 'handoff',
+        handoffIssuesReportedAt: request.handoffIssuesReportedAt || null,
+        completionAcknowledgedAt: request.completionAcknowledgedAt || null
+      },
       data: {
         status: action === 'complete' ? (hasFinalBalance && !request.finalPaymentConfirmedAt ? 'handoff' : 'completed') : 'handoff',
         completionAcknowledgedAt: action === 'complete' ? new Date() : null,
         completedAt: action === 'complete' && (!hasFinalBalance || request.finalPaymentConfirmedAt) ? new Date() : action === 'issue' ? null : request.completedAt,
         completionNotes: action === 'complete' ? (message || request.completionNotes) : request.completionNotes,
-        handoffIssuesReportedAt: action === 'issue' ? new Date() : null,
+        handoffIssuesReportedAt: action === 'issue' ? new Date() : request.handoffIssuesReportedAt,
         clientNotes: noteParts.join('\n\n')
       }
     });
@@ -666,8 +678,13 @@ exports.respondToStagingReview = async (req, res) => {
       `${label}${message ? `\nClient message: ${message}` : ''}`
     ].filter(Boolean);
 
-    const updated = await prisma.projectRequest.update({
-      where: { id: request.id },
+    const reviewTransition = await prisma.projectRequest.updateMany({
+      where: {
+        id: request.id,
+        userId,
+        status: 'staging_review',
+        OR: [{ stagingReviewStatus: 'sent' }, { stagingReviewStatus: null }]
+      },
       data: {
         status: 'staging_review',
         stagingReviewStatus: action === 'approve' ? 'approved' : 'changes_requested',
@@ -676,6 +693,13 @@ exports.respondToStagingReview = async (req, res) => {
         clientNotes: noteParts.join('\n\n')
       }
     });
+    if (reviewTransition.count !== 1) {
+      return res.status(409).json({
+        success: false,
+        message: 'This preview already has a decision. Wait for the team to send an updated preview.'
+      });
+    }
+    const updated = await prisma.projectRequest.findUnique({ where: { id: request.id } });
 
     const stagingMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Staging review');
     const launchMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Launch');

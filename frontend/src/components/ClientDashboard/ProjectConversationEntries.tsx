@@ -38,7 +38,7 @@ export default function ProjectConversationEntries({
             deposit_payment_verified: 'Deposit paid', production_started: 'Build started', milestone_updated: 'Milestone update',
             progress_update: 'Project update', preview_shared: 'Preview ready', preview_approved: 'Preview approved',
             preview_changes_requested: 'Changes requested', site_launched: 'Site launched', handoff_prepared: 'Handoff ready',
-            handoff_accepted: 'Handoff accepted', handoff_issue_reported: 'Handoff issue',
+            handoff_accepted: 'Handoff accepted', handoff_issue_reported: 'Handoff issue', handoff_issue_resolved: 'Handoff issue resolved',
             final_payment_verified: 'Final payment', build_completed: 'Build complete',
           };
           const eventLabel = eventLabels[eventType] || eventType.replace(/_/g, ' ');

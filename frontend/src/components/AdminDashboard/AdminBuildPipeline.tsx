@@ -52,6 +52,9 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   const selectedProjectRequest = selectedProjectRequestId
   ? projectRequests.find(r => r.id === selectedProjectRequestId) || null
   : null;
+  const hasAdminReplyToHandoffIssue = Boolean(selectedProjectRequest?.handoffIssuesReportedAt
+    && reviewChatMessages.some(message => message.senderRole === 'admin'
+      && new Date(message.createdAt).getTime() >= new Date(selectedProjectRequest.handoffIssuesReportedAt as string).getTime()));
   const [launchUrlDraft, setLaunchUrlDraft] = useState('');
 
   useEffect(() => {
@@ -932,6 +935,11 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <p className="mt-2 text-xs leading-5 text-white/46">{selectedProjectRequest.handoffIssuesReportedAt
     ? 'Review the conversation above and reply with the resolution. The client can accept the handoff again when they are satisfied. Any verified payment remains recorded.'
     : 'The client needs to accept the handoff before closeout and any remaining final balance become due. If they flag an issue, use the conversation above to resolve it.'}</p>
+  {selectedProjectRequest.handoffIssuesReportedAt && (
+  <button type="button" onClick={() => handleUpdateProjectRequest(selectedProjectRequest.id, { handoffIssuesReportedAt: null })} disabled={submitting || !hasAdminReplyToHandoffIssue} className="mt-4 flex min-h-10 w-full items-center justify-between gap-3 border border-expert-green/25 px-3 py-2 text-left text-[10px] font-semibold text-expert-green transition hover:bg-expert-green/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40">
+  {hasAdminReplyToHandoffIssue ? 'Confirm issue resolved' : 'Reply to the client before resolving'}<ChevronRight className="h-4 w-4 shrink-0" />
+  </button>
+  )}
   </div>
   )}
 

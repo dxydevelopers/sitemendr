@@ -57,12 +57,35 @@ const updateProjectPreviewUrl = async (projectRequestId, nextUrl) => {
     data: {
       stagingUrl: normalizedNextUrl,
       ...(current.status === 'staging_review' ? {
-        stagingReviewStatus: 'sent',
+        stagingReviewStatus: isPublicHttpUrl(normalizedNextUrl) ? 'sent' : 'not_sent',
         stagingReviewedAt: null,
         launchApprovedAt: null
       } : {})
     }
   });
+
+  if (current.status === 'staging_review' && isPublicHttpUrl(normalizedNextUrl)) {
+    const milestones = await prisma.buildMilestone.findMany({
+      where: { projectRequestId, title: { in: ['Staging review', 'Launch'] } },
+      select: { id: true, title: true }
+    });
+    await Promise.all(milestones.map((milestone) => prisma.buildMilestone.update({
+      where: { id: milestone.id },
+      data: milestone.title === 'Staging review'
+        ? { status: 'in_progress', progress: 80 }
+        : { status: 'pending', progress: 0 }
+    })));
+    const priorPreviewEvents = await prisma.projectConversationMessage.findMany({
+      where: { projectRequestId },
+      select: { eventData: true }
+    });
+    const version = priorPreviewEvents.filter(item => item.eventData?.type === 'preview_shared').length + 1;
+    await recordProjectEvent(projectRequestId, 'preview_shared', 'An updated preview is ready for client review.', {
+      status: 'staging_review',
+      previewUrl: normalizedNextUrl,
+      version
+    });
+  }
 };
 
 exports.getAddonPurchases = async (req, res) => {
@@ -1369,7 +1392,8 @@ exports.updateProjectRequest = async (req, res) => {
         paymentInstructions: true,
         status: true,
         stagingUrl: true,
-        stagingReviewStatus: true
+        stagingReviewStatus: true,
+        handoffIssuesReportedAt: true
       }
     });
     if (!currentTerms) return res.status(404).json({ success: false, message: 'Build request not found.' });
@@ -1616,11 +1640,6 @@ exports.updateProjectRequest = async (req, res) => {
     if (productionSourceNote !== undefined) data.productionSourceNote = productionSourceNote || null;
     if (stagingUrl !== undefined) {
       data.stagingUrl = stagingUrl || null;
-      if ((currentTerms.stagingUrl || null) !== (stagingUrl || null) && currentTerms.status === 'staging_review') {
-        data.stagingReviewStatus = 'sent';
-        data.stagingReviewedAt = null;
-        data.launchApprovedAt = null;
-      }
     }
     if (stagingNotes !== undefined) data.stagingNotes = stagingNotes;
     if (stagingReviewStatus !== undefined) {
@@ -1643,6 +1662,39 @@ exports.updateProjectRequest = async (req, res) => {
       if (stagingReviewStatus === 'approved') {
         data.launchApprovedAt = new Date();
       } else if (stagingReviewStatus === 'sent' || stagingReviewStatus === 'changes_requested' || stagingReviewStatus === 'not_sent') {
+        data.launchApprovedAt = null;
+      }
+    }
+    if (handoffIssuesReportedAt !== undefined) {
+      if (handoffIssuesReportedAt !== null) {
+        return res.status(400).json({ success: false, message: 'Handoff issues are recorded by the client. The admin can only confirm a reported issue is resolved.' });
+      }
+      if (currentTerms.status !== 'handoff' || !currentTerms.handoffIssuesReportedAt) {
+        return res.status(409).json({ success: false, message: 'There is no open handoff issue to resolve.' });
+      }
+      const adminReply = await prisma.projectConversationMessage.findFirst({
+        where: {
+          projectRequestId: id,
+          senderRole: 'admin',
+          createdAt: { gte: currentTerms.handoffIssuesReportedAt }
+        },
+        select: { id: true }
+      });
+      if (!adminReply) {
+        return res.status(409).json({ success: false, message: 'Reply to the client in the project conversation before confirming the issue is resolved.' });
+      }
+      data.handoffIssuesReportedAt = null;
+    }
+    const previewUrlChanged = stagingUrl !== undefined
+      && (currentTerms.stagingUrl || null) !== (stagingUrl || null);
+    if (previewUrlChanged && currentTerms.status === 'staging_review') {
+      data.stagingReviewStatus = stagingUrl ? 'sent' : 'not_sent';
+      data.stagingReviewedAt = null;
+      data.launchApprovedAt = null;
+    } else if (status === 'staging_review' && stagingReviewStatus === undefined) {
+      data.stagingReviewStatus = 'sent';
+      if (currentTerms.stagingReviewStatus !== 'sent') {
+        data.stagingReviewedAt = null;
         data.launchApprovedAt = null;
       }
     }
@@ -1764,12 +1816,6 @@ exports.updateProjectRequest = async (req, res) => {
           }
         });
       }
-      if (!data.stagingReviewStatus) {
-        await prisma.projectRequest.update({
-          where: { id },
-          data: { stagingReviewStatus: 'sent' }
-        });
-      }
       request = await prisma.projectRequest.findUnique({
         where: { id },
         include: projectRequestInclude
@@ -1854,6 +1900,12 @@ exports.updateProjectRequest = async (req, res) => {
       });
     }
 
+    if (handoffIssuesReportedAt === null && currentTerms.handoffIssuesReportedAt) {
+      await recordProjectEvent(id, 'handoff_issue_resolved', 'The admin confirmed the reported handoff issue was resolved.', {
+        resolvedAt: new Date().toISOString()
+      });
+    }
+
     const statusEvents = {
       in_development: ['production_started', 'Production started.'],
       staging_review: ['preview_shared', 'A preview is ready for client review.'],
@@ -1861,19 +1913,30 @@ exports.updateProjectRequest = async (req, res) => {
       handoff: ['handoff_prepared', 'The admin prepared the site handoff.'],
       completed: ['build_completed', 'Build completed after handoff and payment were confirmed.']
     };
-    if (statusEvents[status]) {
-      const [eventType, message] = statusEvents[status];
-      const priorPreviewEvents = status === 'staging_review'
+    const eventStatus = status || currentTerms.status;
+    const previewIsReviewable = request?.stagingReviewStatus === 'sent'
+      && (isPublicHttpUrl(request.stagingUrl)
+        || request.studioLinks?.some(link => link.type === 'preview' && isPublicHttpUrl(link.url)));
+    const shouldRecordStatusEvent = Boolean(statusEvents[eventStatus] && (
+      (status && status !== currentTerms.status)
+      || (eventStatus === 'staging_review' && (
+        previewIsReviewable && (previewUrlChanged
+          || (status === 'staging_review' && currentTerms.stagingReviewStatus !== 'sent'))
+      ))
+    ));
+    if (shouldRecordStatusEvent) {
+      const [eventType, message] = statusEvents[eventStatus];
+      const priorPreviewEvents = eventStatus === 'staging_review'
         ? await prisma.projectConversationMessage.findMany({ where: { projectRequestId: id }, select: { eventData: true } })
         : [];
-      const previewVersion = status === 'staging_review'
+      const previewVersion = eventStatus === 'staging_review'
         ? priorPreviewEvents.filter(item => item.eventData?.type === 'preview_shared').length + 1
         : undefined;
       await recordProjectEvent(id, eventType, message, {
-        status,
+        status: eventStatus,
         milestoneProgress: request.buildMilestones?.map(item => ({ name: item.title, status: item.status, progress: item.progress })) || [],
-        ...(status === 'staging_review' ? { previewUrl: request.stagingUrl, version: previewVersion } : {}),
-        ...(status === 'launched' ? { liveUrl: request.launchUrl } : {})
+        ...(eventStatus === 'staging_review' ? { previewUrl: request.stagingUrl, version: previewVersion } : {}),
+        ...(eventStatus === 'launched' ? { liveUrl: request.launchUrl } : {})
       });
     } else if (status === 'payment_agreement' && paymentAgreementStatus === 'sent') {
       await recordProjectEvent(id, 'payment_request_sent', 'The admin sent a deposit payment request.', {
