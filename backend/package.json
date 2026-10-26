@@ -12,6 +12,7 @@
                     "build:ts":  "tsc",
                     "type-check":  "tsc --noEmit",
                     "db:generate": "prisma generate",
+                    "db:migrate:support-message-threads": "node scripts/applySupportMessageThreads.js",
                     "postinstall": "prisma generate"
                 },
     "keywords":  [
@@ -67,6 +68,5 @@
                             "vitest":  "^1.1.0"
                         }
 }
-
 
 

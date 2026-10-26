@@ -13,7 +13,7 @@ const requestSelect = { id: true, userId: true, title: true, serviceType: true, 
 const event = (tx, id, type, message, data = {}) => tx.projectConversationMessage.create({ data: { projectRequestId: id, senderRole: 'system', kind: 'event', message, eventData: { type, ...data } } });
 
 exports.getClientRepairRequests = async (req, res) => {
-  const data = await prisma.projectRequest.findMany({ where: { userId: req.user.userId, serviceType: 'repair' }, include: requestSelect, orderBy: { updatedAt: 'desc' } });
+  const data = await prisma.projectRequest.findMany({ where: { userId: req.user.userId, serviceType: 'repair' }, select: requestSelect, orderBy: { updatedAt: 'desc' } });
   const invoices = data.length ? await prisma.billingInvoice.findMany({ where: { userId: req.user.userId, projectRequestId: { in: data.map(request => request.id) } }, orderBy: { issuedAt: 'desc' } }) : [];
   const byRequest = new Map();
   for (const invoice of invoices) byRequest.set(invoice.projectRequestId, [...(byRequest.get(invoice.projectRequestId) || []), invoice]);
