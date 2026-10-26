@@ -157,6 +157,9 @@ export function useAdminDashboard(initialTab?: string) {
     socketRef.current.on('new_support_message_from_user', () => {
       if (activeTabRef.current === 'tickets') window.dispatchEvent(new Event('sitemendr:support-ticket-update'));
     });
+    socketRef.current.on('support_ticket_updated', () => {
+      if (activeTabRef.current === 'tickets') window.dispatchEvent(new Event('sitemendr:support-ticket-update'));
+    });
     socketRef.current.on('project_request_updated', (data: { request?: ProjectRequest }) => {
       if (!data?.request) return;
       setProjectRequests(prev => {

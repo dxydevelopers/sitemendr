@@ -1,8 +1,32 @@
 const { prisma } = require('../config/db');
+const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
 const { notifyAdmins } = require('../services/socketService');
 const logger = require('../config/logger');
+
+const SUPPORT_CHAT_TOKEN_SCOPE = 'sitemendr_support_chat';
+
+exports.createLiveChatSession = async (req, res) => {
+  try {
+    if (!process.env.JWT_SECRET) return res.status(503).json({ success: false, message: 'Live support is temporarily unavailable.' });
+    const chatId = randomUUID();
+    await prisma.chatSession.create({
+      data: {
+        externalId: chatId,
+        status: 'bot',
+        type: 'general',
+        userId: req.user?.userId || null
+      }
+    });
+    const chatToken = jwt.sign({ scope: SUPPORT_CHAT_TOKEN_SCOPE, chatId }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    res.status(201).json({ success: true, data: { chatId, chatToken } });
+  } catch (error) {
+    logger.error('CREATE_LIVE_CHAT_SESSION_ERROR:', error);
+    res.status(503).json({ success: false, message: 'Live support is temporarily unavailable. Please try again shortly.' });
+  }
+};
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
@@ -250,18 +274,12 @@ exports.addMessage = async (req, res) => {
       return res.status(409).json({ success: false, message: 'This ticket is closed. Create a new ticket to continue.' });
     }
 
-    const newMessage = await prisma.supportMessage.create({
-      data: {
-        ticketId: id,
-        senderId: userId,
-        content,
-        isAdmin: false
-      }
-    });
-
-    await prisma.supportTicket.update({
-      where: { id },
-      data: { status: 'open' }
+    const newMessage = await prisma.$transaction(async transaction => {
+      const created = await transaction.supportMessage.create({
+        data: { ticketId: id, senderId: userId, content, isAdmin: false }
+      });
+      await transaction.supportTicket.update({ where: { id }, data: { status: 'open' } });
+      return created;
     });
 
     // Notify admins of new support message
@@ -294,7 +312,7 @@ exports.markTicketRead = async (req, res) => {
     });
 
     if (!ticket || ticket.userId !== userId) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
+      return res.status(404).json({ success: false, message: 'Ticket not found.' });
     }
 
     await prisma.supportMessage.updateMany({
@@ -318,39 +336,35 @@ exports.markTicketRead = async (req, res) => {
  */
 exports.chatWithSupport = async (req, res) => {
   try {
-    const { message, history = [], chatId } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ success: false, message: 'Message is required' });
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    const { history = [], chatId, chatToken } = req.body;
+    if (!message || message.length > 4000) {
+      return res.status(400).json({ success: false, message: 'Write a message of up to 4,000 characters.' });
+    }
+    if (!Array.isArray(history) || history.length > 10 || history.some(item =>
+      !item || !['user', 'assistant'].includes(item.sender) || typeof item.text !== 'string' || item.text.length > 2000
+    )) {
+      return res.status(400).json({ success: false, message: 'Chat history is invalid or too long.' });
     }
 
-    // Persist user message if chatId is provided
-    if (chatId) {
-      try {
-        let session = await prisma.chatSession.findUnique({
-          where: { externalId: chatId }
-        });
-
-        if (!session) {
-          session = await prisma.chatSession.create({
-            data: {
-              externalId: chatId,
-              status: 'active'
-            }
-          });
-        }
-
-        await prisma.chatMessage.create({
-          data: {
-            sessionId: session.id,
-            text: message,
-            sender: 'user',
-            timestamp: new Date()
-          }
-        });
-      } catch (dbErr) {
-        logger.error('ERROR_PERSISTING_USER_CHAT_MSG:', dbErr);
+    let session = null;
+    if (chatId !== undefined || chatToken !== undefined) {
+      if (typeof chatId !== 'string' || typeof chatToken !== 'string' || !process.env.JWT_SECRET) {
+        return res.status(401).json({ success: false, message: 'Your support chat session is invalid. Refresh the chat and try again.' });
       }
+      let capability;
+      try { capability = jwt.verify(chatToken, process.env.JWT_SECRET); } catch {
+        return res.status(401).json({ success: false, message: 'Your support chat session expired. Refresh the chat and try again.' });
+      }
+      if (capability.scope !== SUPPORT_CHAT_TOKEN_SCOPE || capability.chatId !== chatId) {
+        return res.status(403).json({ success: false, message: 'This support chat session is not available.' });
+      }
+      session = await prisma.chatSession.findUnique({ where: { externalId: chatId } });
+      if (!session || (req.user?.userId && session.userId && session.userId !== req.user.userId)) {
+        return res.status(403).json({ success: false, message: 'This support chat session is not available.' });
+      }
+      if (session.status === 'closed') return res.status(409).json({ success: false, message: 'This support conversation is closed. Open a support ticket for further help.' });
+      await prisma.chatMessage.create({ data: { sessionId: session.id, text: message, sender: 'user' } });
     }
 
     const messages = [
@@ -425,26 +439,8 @@ OPERATIONAL CONSTRAINTS:
       usedProvider = 'fallback';
     }
 
-    // Persist AI response if chatId is provided
-    if (chatId && aiMessage) {
-      try {
-        let session = await prisma.chatSession.findUnique({
-          where: { externalId: chatId }
-        });
-
-        if (session) {
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: session.id,
-              text: aiMessage,
-              sender: 'bot',
-              timestamp: new Date()
-            }
-          });
-        }
-      } catch (dbErr) {
-        logger.error('ERROR_PERSISTING_AI_CHAT_MSG:', dbErr);
-      }
+    if (session && aiMessage) {
+      await prisma.chatMessage.create({ data: { sessionId: session.id, text: aiMessage, sender: 'bot' } });
     }
 
     res.json({

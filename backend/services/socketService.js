@@ -1,17 +1,16 @@
-const { Server } = require("socket.io");
+const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-const logger = require("../config/logger");
-const { prisma, isDbConnected } = require("../config/db");
-const { withTimeout } = require("../utils/promise");
+const logger = require('../config/logger');
+const { prisma, isDbConnected } = require('../config/db');
+const { withTimeout } = require('../utils/promise');
 
-const normalizeOrigin = (value) => {
-  if (typeof value !== 'string') return value;
-  return value.replace(/\/$/, '');
-};
+const SUPPORT_CHAT_TOKEN_SCOPE = 'sitemendr_support_chat';
+const SUPPORT_CHAT_TYPES = new Set(['general', 'technical', 'billing', 'sales']);
+const normalizeOrigin = value => typeof value === 'string' ? value.replace(/\/$/, '') : value;
 
 let io;
 
-const initSocket = (server) => {
+const initSocket = server => {
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'http://localhost:3000',
@@ -21,286 +20,215 @@ const initSocket = (server) => {
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
+        if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) callback(null, true);
+        else callback(new Error('Not allowed by CORS'));
       },
-      methods: ["GET", "POST"],
+      methods: ['GET', 'POST'],
       credentials: true
     }
   });
 
+  // Connections may be anonymous for the public help widget, but private room
+  // access is granted only by a user JWT or a signed, chat-specific capability.
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next();
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const userId = decoded.userId || decoded.id;
-      if (typeof userId !== 'string' || !userId) return next(new Error('Unauthorized'));
-      socket.data.userId = userId;
-      next();
-    } catch {
-      next(new Error('Unauthorized'));
+    const { token, chatToken } = socket.handshake.auth || {};
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.userId || decoded.id;
+        if (typeof userId !== 'string' || !userId) return next(new Error('Unauthorized'));
+        socket.data.userId = userId;
+      } catch { return next(new Error('Unauthorized')); }
     }
+    if (chatToken) {
+      try {
+        const capability = jwt.verify(chatToken, process.env.JWT_SECRET);
+        if (capability.scope !== SUPPORT_CHAT_TOKEN_SCOPE || typeof capability.chatId !== 'string') return next(new Error('Unauthorized'));
+        socket.data.liveChatId = capability.chatId;
+      } catch { return next(new Error('Unauthorized')); }
+    }
+    next();
   });
 
-  logger.info("WebSocket server initialized");
-
-  io.on("connection", (socket) => {
+  logger.info('WebSocket server initialized');
+  io.on('connection', socket => {
     logger.info(`User connected: ${socket.id}`);
 
-    // Join a private room for the user to receive notifications
-    socket.on("join_user", () => {
-      const userId = socket.data.userId;
-      if (!userId) return;
-      socket.join(`user_${userId}`);
-      logger.info(`User ${socket.id} joined private room: user_${userId}`);
+    socket.on('join_user', () => {
+      if (socket.data.userId) socket.join(`user_${socket.data.userId}`);
     });
 
-    // Join a specific room based on session/user ID
-    socket.on("join_chat", async (data) => {
-      const chatId = typeof data === 'string' ? data : data.chatId;
-      const userId = typeof data === 'object' ? data.userId : null;
-      
-      socket.join(chatId);
-      logger.info(`User ${socket.id} joined chat: ${chatId}${userId ? ` (User: ${userId})` : ''}`);
-      
-      // Send message history to the user/agent joining
-      if (!isDbConnected()) {
-        logger.warn("Skipping chat history fetch - DB not connected", { chatId });
-        return;
+    socket.on('join_chat', async (data, acknowledge) => {
+      const respond = typeof acknowledge === 'function' ? acknowledge : () => {};
+      const chatId = typeof data === 'string' ? data : data?.chatId;
+      if (typeof chatId !== 'string' || chatId.length > 64 || (!socket.data.isAdmin && socket.data.liveChatId !== chatId)) {
+        return respond({ success: false, message: 'This support conversation is not available.' });
       }
+      if (!isDbConnected()) return respond({ success: false, message: 'Support chat is temporarily unavailable.' });
 
       try {
-        let session = await withTimeout(
-          prisma.chatSession.findUnique({
-            where: { externalId: chatId },
-            select: {
-              id: true,
-              userId: true,
-              messages: {
-                orderBy: { timestamp: 'asc' },
-                take: 100
-              }
-            }
-          }),
-          5000,
-          'Timeout fetching chat history'
-        );
-
-        // Link userId to session if it's missing
-        if (session && userId && !session.userId) {
-          await withTimeout(
-            prisma.chatSession.update({
-              where: { id: session.id },
-              data: { userId }
-            }),
-            3000,
-            'Timeout linking user to chat session'
-          );
+        const session = await withTimeout(prisma.chatSession.findUnique({
+          where: { externalId: chatId },
+          select: { id: true, userId: true, status: true, type: true, messages: { orderBy: { timestamp: 'asc' }, take: 100 } }
+        }), 5000, 'Timeout fetching chat history');
+        if (!session || (socket.data.userId && session.userId && session.userId !== socket.data.userId && !socket.data.isAdmin)) {
+          return respond({ success: false, message: 'This support conversation is not available.' });
         }
-        
-        if (session) {
-          socket.emit("chat_history", session.messages);
+        if (session.status === 'closed' && !socket.data.isAdmin) {
+          socket.emit('chat_closed', { chatId });
+          return respond({ success: false, message: 'This support conversation is closed.' });
         }
-      } catch (err) {
-        logger.error("Error fetching chat history", {
-          errorCode: 'SOCKET_CHAT_HISTORY_ERROR',
-          error: err.message,
-          chatId
-        });
+        if (!socket.data.isAdmin && socket.data.userId && !session.userId) {
+          await prisma.chatSession.update({ where: { id: session.id }, data: { userId: socket.data.userId } });
+        }
+        socket.join(chatId);
+        socket.emit('chat_history', session.messages);
+        respond({ success: true, status: session.status, type: session.type });
+      } catch (error) {
+        logger.error('SOCKET_CHAT_JOIN_ERROR:', { errorCode: 'SOCKET_CHAT_JOIN_ERROR', error: error.message, chatId });
+        respond({ success: false, message: 'Could not open this support conversation.' });
       }
     });
 
-    // Handle messages
-    socket.on("send_message", async (data) => {
-      // data: { chatId, text, sender, timestamp }
-      const { chatId, text, sender } = data;
-      
-      socket.to(chatId).emit("receive_message", data);
-      logger.info(`Message in ${chatId}: ${text}`);
-
-      // Persist message to database
-      if (!isDbConnected()) {
-        logger.warn("Skipping message persistence - DB not connected", { chatId });
-        return;
+    socket.on('send_message', async (data, acknowledge) => {
+      const respond = typeof acknowledge === 'function' ? acknowledge : () => {};
+      const chatId = data?.chatId;
+      const text = typeof data?.text === 'string' ? data.text.trim() : '';
+      if (typeof chatId !== 'string' || !socket.rooms.has(chatId) || (!socket.data.isAdmin && socket.data.liveChatId !== chatId)) {
+        return respond({ success: false, message: 'Join an authorized support conversation before sending.' });
       }
+      if (!text || text.length > 4000) return respond({ success: false, message: 'Write a message of up to 4,000 characters.' });
+      if (!isDbConnected()) return respond({ success: false, message: 'Message not sent because support chat is unavailable.' });
 
       try {
-        let session = await withTimeout(
-          prisma.chatSession.findUnique({
-            where: { externalId: chatId }
-          }),
-          3000,
-          'Timeout finding chat session'
-        );
-
-        if (!session) {
-          session = await withTimeout(
-            prisma.chatSession.create({
-              data: {
-                externalId: chatId,
-                status: 'active'
-              }
-            }),
-            3000,
-            'Timeout creating chat session'
-          );
+        const session = await withTimeout(prisma.chatSession.findUnique({ where: { externalId: chatId } }), 3000, 'Timeout finding chat session');
+        if (!session || session.status === 'closed' || (socket.data.userId && session.userId && session.userId !== socket.data.userId && !socket.data.isAdmin)) {
+          return respond({ success: false, message: 'This support conversation is not available.' });
         }
-
-        await withTimeout(
-          prisma.chatMessage.create({
-            data: {
-              sessionId: session.id,
-              text,
-              sender,
-              timestamp: new Date()
-            }
-          }),
-          3000,
-          'Timeout persisting chat message'
-        );
-      } catch (err) {
-        logger.error("Error persisting message", {
-          errorCode: 'SOCKET_MESSAGE_PERSIST_ERROR',
-          error: err.message,
-          chatId
-        });
+        if (!socket.data.isAdmin && !['waiting', 'active'].includes(session.status)) {
+          return respond({ success: false, message: 'Request a Sitemendr agent before sending a live message.' });
+        }
+        const saved = await withTimeout(prisma.chatMessage.create({
+          data: { sessionId: session.id, text, sender: socket.data.isAdmin ? 'agent' : 'user' }
+        }), 3000, 'Timeout persisting support message');
+        const message = { id: saved.id, chatId, text: saved.text, sender: saved.sender, timestamp: saved.timestamp };
+        socket.to(chatId).emit('receive_message', message);
+        respond({ success: true, data: message });
+      } catch (error) {
+        logger.error('SOCKET_MESSAGE_PERSIST_ERROR:', { errorCode: 'SOCKET_MESSAGE_PERSIST_ERROR', error: error.message, chatId });
+        respond({ success: false, message: 'Message could not be saved. Please try again.' });
       }
     });
 
-    // Handle agent handoff
-    socket.on("request_agent", async (data) => {
-      // data: { chatId, type: 'technical' | 'billing' | 'sales' }
-      const { chatId, type } = data;
-      logger.info(`Agent requested for ${chatId}: ${type}`);
-      
-      if (!isDbConnected()) {
-        logger.warn("Skipping agent request persistence - DB not connected", { chatId });
-      } else {
-        try {
-          await withTimeout(
-            prisma.chatSession.upsert({
-              where: { externalId: chatId },
-              update: { status: 'waiting', type },
-              create: { externalId: chatId, status: 'waiting', type }
-            }),
-            3000,
-            'Timeout updating chat session status'
-          );
-        } catch (err) {
-          logger.error("Error updating chat session status", {
-            errorCode: 'SOCKET_AGENT_REQUEST_ERROR',
-            error: err.message,
-            chatId
-          });
-        }
+    socket.on('request_agent', async (data, acknowledge) => {
+      const respond = typeof acknowledge === 'function' ? acknowledge : () => {};
+      const { chatId, type } = data || {};
+      if (socket.data.liveChatId !== chatId || !SUPPORT_CHAT_TYPES.has(type)) {
+        return respond({ success: false, message: 'This support request is invalid.' });
       }
-
-      // Notify admins (in a 'admin_room')
-      io.to("admin_room").emit("new_support_request", {
-        chatId: data.chatId,
-        type: data.type,
-        timestamp: new Date()
-      });
+      if (!isDbConnected()) return respond({ success: false, message: 'Support is temporarily unavailable. Please try again shortly.' });
+      try {
+        const session = await prisma.chatSession.findUnique({ where: { externalId: chatId }, select: { id: true, userId: true, status: true } });
+        if (!session || session.status === 'closed' || (socket.data.userId && session.userId && session.userId !== socket.data.userId)) {
+          return respond({ success: false, message: 'This support conversation is not available.' });
+        }
+        const updated = await prisma.chatSession.update({ where: { id: session.id }, data: { status: 'waiting', type } });
+        io.to('admin_room').emit('new_support_request', { chatId, type, timestamp: updated.updatedAt });
+        respond({ success: true });
+      } catch (error) {
+        logger.error('SOCKET_AGENT_REQUEST_ERROR:', { errorCode: 'SOCKET_AGENT_REQUEST_ERROR', error: error.message, chatId });
+        respond({ success: false, message: 'Your request could not be sent. Please try again.' });
+      }
     });
 
-    socket.on("admin_join", async () => {
-      if (!socket.data.userId) return;
+    socket.on('admin_join', async (acknowledge) => {
+      const respond = typeof acknowledge === 'function' ? acknowledge : () => {};
+      if (!socket.data.userId || !isDbConnected()) return respond({ success: false, message: 'Admin access is required.' });
       try {
         const user = await prisma.user.findUnique({ where: { id: socket.data.userId }, select: { role: true } });
         if (user?.role !== 'admin') {
           logger.warn('Rejected socket admin room join for a non-admin user', { socketId: socket.id });
-          return;
+          return respond({ success: false, message: 'Admin access is required.' });
         }
-      } catch (error) {
-        logger.warn('Could not verify socket admin room access', { socketId: socket.id, errorCode: error.code || 'SOCKET_ADMIN_AUTH_ERROR' });
-        return;
-      }
-      socket.join("admin_room");
-      logger.info(`Admin joined: ${socket.id}`);
-      
-      // Send list of active/waiting sessions to admin
-      if (!isDbConnected()) {
-        logger.warn("Skipping active sessions fetch - DB not connected");
-        return;
-      }
-
-      try {
-        const waitingSessions = await withTimeout(
-          prisma.chatSession.findMany({
-            where: { status: { in: ['waiting', 'active'] } },
-            orderBy: { updatedAt: 'desc' },
-            take: 50,
-            select: {
-              externalId: true,
-              type: true,
-              status: true,
-              updatedAt: true,
-              messages: {
-                take: 1,
-                orderBy: { timestamp: 'desc' },
-                select: { text: true }
-              }
-            }
-          }),
-          5000,
-          'Timeout fetching active sessions'
-        );
-        
-        socket.emit("active_sessions", waitingSessions.map(s => ({
-          chatId: s.externalId,
-          type: s.type,
-          status: s.status,
-          timestamp: s.updatedAt,
-          lastMessage: s.messages[0]?.text
+        socket.data.isAdmin = true;
+        socket.join('admin_room');
+        const selectSession = {
+          externalId: true, type: true, status: true, updatedAt: true,
+          messages: { take: 1, orderBy: { timestamp: 'desc' }, select: { text: true } }
+        };
+        const sessions = await withTimeout(Promise.all([
+          prisma.chatSession.findMany({ where: { status: { in: ['waiting', 'active'] } }, orderBy: { updatedAt: 'desc' }, take: 50, select: selectSession }),
+          prisma.chatSession.findMany({ where: { status: 'closed' }, orderBy: { updatedAt: 'desc' }, take: 25, select: selectSession })
+        ]).then(([active, closed]) => [...active, ...closed]), 5000, 'Timeout fetching support sessions');
+        socket.emit('active_sessions', sessions.map(session => ({
+          chatId: session.externalId,
+          type: session.type,
+          status: session.status,
+          timestamp: session.updatedAt,
+          lastMessage: session.messages[0]?.text
         })));
-      } catch (err) {
-        logger.error("Error fetching active sessions for admin", {
-          errorCode: 'SOCKET_ADMIN_FETCH_SESSIONS_ERROR',
-          error: err.message
-        });
+        respond({ success: true });
+      } catch (error) {
+        logger.warn('Could not initialize socket admin session', { socketId: socket.id, errorCode: error.code || 'SOCKET_ADMIN_AUTH_ERROR' });
+        respond({ success: false, message: 'Admin support could not be loaded.' });
       }
     });
 
-    socket.on("agent_joined", (data) => {
-      const { chatId, agentName, type } = data;
-      logger.info(`Agent ${agentName} joining chat ${chatId}`);
-      socket.to(chatId).emit("agent_joined", { agentName, type });
+    socket.on('agent_joined', async (data, acknowledge) => {
+      const respond = typeof acknowledge === 'function' ? acknowledge : () => {};
+      const chatId = data?.chatId;
+      if (!socket.data.isAdmin || typeof chatId !== 'string' || !isDbConnected()) {
+        return respond({ success: false, message: 'Admin access is required.' });
+      }
+      try {
+        const session = await prisma.chatSession.findUnique({ where: { externalId: chatId }, select: { id: true, type: true, status: true } });
+        if (!session) return respond({ success: false, message: 'Support conversation not found.' });
+        if (session.status === 'closed') return respond({ success: false, message: 'This conversation is already closed.' });
+        await prisma.chatSession.update({ where: { id: session.id }, data: { status: 'active' } });
+        socket.join(chatId);
+        io.to(chatId).emit('agent_joined', { agentName: 'Sitemendr support', type: session.type });
+        respond({ success: true });
+      } catch (error) {
+        logger.error('SOCKET_AGENT_JOIN_ERROR:', { errorCode: 'SOCKET_AGENT_JOIN_ERROR', error: error.message, chatId });
+        respond({ success: false, message: 'Could not join this conversation.' });
+      }
     });
 
-    socket.on("disconnect", () => {
-      logger.info(`User disconnected: ${socket.id}`);
+    socket.on('close_chat', async (data, acknowledge) => {
+      const respond = typeof acknowledge === 'function' ? acknowledge : () => {};
+      const chatId = data?.chatId;
+      if (!socket.data.isAdmin || typeof chatId !== 'string' || !isDbConnected()) {
+        return respond({ success: false, message: 'Admin access is required.' });
+      }
+      try {
+        const session = await prisma.chatSession.findUnique({ where: { externalId: chatId }, select: { id: true } });
+        if (!session) return respond({ success: false, message: 'Support conversation not found.' });
+        await prisma.chatSession.update({ where: { id: session.id }, data: { status: 'closed' } });
+        io.to(chatId).emit('chat_closed', { chatId });
+        respond({ success: true });
+      } catch (error) {
+        logger.error('SOCKET_CHAT_CLOSE_ERROR:', { errorCode: 'SOCKET_CHAT_CLOSE_ERROR', error: error.message, chatId });
+        respond({ success: false, message: 'Could not close this conversation.' });
+      }
     });
+
+    socket.on('disconnect', () => logger.info(`User disconnected: ${socket.id}`));
   });
 
   return io;
 };
 
 const getIO = () => {
-  if (!io) {
-    throw new Error("Socket.io not initialized!");
-  }
+  if (!io) throw new Error('Socket.io not initialized!');
   return io;
 };
 
 const notifyUser = (userId, event, data) => {
-  if (io) {
-    io.to(`user_${userId}`).emit(event, data);
-  }
+  if (io) io.to(`user_${userId}`).emit(event, data);
 };
 
 const notifyAdmins = (event, data) => {
-  if (io) {
-    io.to("admin_room").emit(event, data);
-  }
+  if (io) io.to('admin_room').emit(event, data);
 };
 
-module.exports = { 
-  initSocket, 
-  getIO, 
-  notifyUser, 
-  notifyAdmins 
-};
+module.exports = { initSocket, getIO, notifyUser, notifyAdmins };

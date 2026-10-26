@@ -236,16 +236,22 @@ class ApiClient {
     const cacheKey = `${options.method || 'GET'}:${endpoint}`;
     const now = Date.now();
     const CACHE_TTL = 30000; // 30 seconds
+    const isGetRequest = !options.method || options.method === 'GET';
+    const shouldCacheGet = isGetRequest && (
+      endpoint === '/auth/profile'
+      || endpoint === '/admin/dashboard/stats'
+      || endpoint === '/client/stats'
+      || endpoint.startsWith('/client/stats?')
+    );
 
-    if (!options.method || options.method === 'GET') {
+    if (shouldCacheGet) {
       if (this.cache[cacheKey] && (now - this.cache[cacheKey].timestamp < CACHE_TTL)) {
         return this.cache[cacheKey].data as T;
       }
-      
-      // If there's already a pending request for the same endpoint, return that instead of starting a new one
-      if (this.pendingRequests.has(cacheKey)) {
-        return this.pendingRequests.get(cacheKey) as Promise<T>;
-      }
+    }
+    // Coalesce overlapping GETs, but never serve cached support conversations or tickets.
+    if (isGetRequest && this.pendingRequests.has(cacheKey)) {
+      return this.pendingRequests.get(cacheKey) as Promise<T>;
     }
 
     const performRequest = async (): Promise<T> => {
@@ -327,7 +333,7 @@ class ApiClient {
         const data = responseText ? JSON.parse(responseText) : { success: true };
         
         // Save to cache if it's a candidate for caching
-        if (!options.method || options.method === 'GET') {
+        if (shouldCacheGet) {
           this.cache[cacheKey] = { data, timestamp: Date.now() };
         }
         
@@ -1134,10 +1140,17 @@ class ApiClient {
   }
 
   // Support Chat API
-  async chatWithSupport(message: string, history: Array<{ sender: string; text: string }> = [], chatId?: string) {
-    return this.request<{ success: boolean; message: string }>('/support/chat', {
+  async createSupportChatSession() {
+    return this.request<{ success: boolean; data: { chatId: string; chatToken: string }; message?: string }>('/support/live-chat/session', {
       method: 'POST',
-      body: JSON.stringify({ message, history, chatId }),
+      body: JSON.stringify({}),
+    });
+  }
+
+  async chatWithSupport(message: string, history: Array<{ sender: string; text: string }> = [], chatId?: string, chatToken?: string) {
+    return this.request<{ success: boolean; message: string; provider?: string }>('/support/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history, chatId, chatToken }),
     });
   }
 
@@ -1314,6 +1327,26 @@ class ApiClient {
     return this.request<{ success: boolean; data: Record<string, unknown>[] }>(`/admin/support${query ? `?${query}` : ''}`);
   }
 
+  async getAdminResources() {
+    return this.request<{ success: boolean; data: Array<{ id: string; title: string; description: string; type: string; url?: string | null }>; message?: string }>('/admin/resources');
+  }
+
+  async createAdminResource(data: { title: string; description: string; type: string; url: string }) {
+    return this.request<{ success: boolean; data: { id: string; title: string; description: string; type: string; url?: string | null }; message?: string }>('/admin/resources', {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminResource(id: string, data: { title: string; description: string; type: string; url: string }) {
+    return this.request<{ success: boolean; data: { id: string; title: string; description: string; type: string; url?: string | null }; message?: string }>(`/admin/resources/${id}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAdminResource(id: string) {
+    return this.request<{ success: boolean; message?: string }>(`/admin/resources/${id}`, { method: 'DELETE' });
+  }
+
   async getAdminClientConversations() {
     return this.request<{ success: boolean; data: Record<string, unknown>[] }>('/admin/messages');
   }
@@ -1338,14 +1371,14 @@ class ApiClient {
   }
 
   async updateSupportTicket(id: string, data: Record<string, unknown>) {
-    return this.request<{ success: boolean }>(`/admin/support/${id}`, {
+    return this.request<{ success: boolean; message?: string }>(`/admin/support/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async addAdminSupportMessage(id: string, content: string) {
-    return this.request<{ success: boolean; data: Record<string, unknown> }>(`/admin/support/${id}/messages`, {
+    return this.request<{ success: boolean; data: Record<string, unknown>; message?: string }>(`/admin/support/${id}/messages`, {
       method: 'POST',
       body: JSON.stringify({ content }),
     });

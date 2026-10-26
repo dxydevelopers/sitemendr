@@ -63,9 +63,30 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId, onRefre
   const [ticketNotice, setTicketNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const selectedTicketIdRef = useRef<string | null>(null);
+  selectedTicketIdRef.current = selectedTicket?.id || null;
 
   useEffect(() => {
   fetchTickets();
+  const handleTicketUpdate = async () => {
+    void fetchTickets();
+    const id = selectedTicketIdRef.current;
+    if (!id) return;
+    try {
+      const response = await apiClient.getClientSupportTicket(id);
+      if (!response.success || !response.data) return;
+      let updated = response.data as unknown as SupportTicket;
+      if (updated.messages.some(item => item.isAdmin && !item.isRead)) {
+        await apiClient.post(`/support/tickets/${id}/read`, {});
+        updated = { ...updated, messages: updated.messages.map(item => item.isAdmin ? { ...item, isRead: true } : item) };
+      }
+      setSelectedTicket(current => current?.id === id ? updated : current);
+    } catch (error) {
+      console.error('Failed to refresh the selected support ticket:', error);
+    }
+  };
+  window.addEventListener('sitemendr:support-ticket-update', handleTicketUpdate);
+  return () => window.removeEventListener('sitemendr:support-ticket-update', handleTicketUpdate);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subscriptionId]);
 
@@ -118,7 +139,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId, onRefre
   setChatInput('');
   setIsTyping(true);
   try {
-  const response = await apiClient.chatWithSupport(chatInput, aiChat);
+  const response = await apiClient.chatWithSupport(chatInput, aiChat.map(item => ({ sender: item.sender === 'user' ? 'user' : 'assistant', text: item.text })));
   if (response.success) setAIChat(prev => [...prev, { text: response.message, sender: 'ai', timestamp: new Date() }]);
   } catch (error) {
   console.error('AI Chat error:', error);

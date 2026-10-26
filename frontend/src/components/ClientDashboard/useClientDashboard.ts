@@ -297,9 +297,13 @@ export function useClientDashboard(initialTab?: string) {
       }
     });
 
-    socketRef.current.on('new_support_message', () => { void refreshSupportData(); });
+    const onSupportTicketUpdate = () => {
+      void refreshSupportData();
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('sitemendr:support-ticket-update'));
+    };
+    socketRef.current.on('new_support_message', onSupportTicketUpdate);
     socketRef.current.on('new_client_conversation_reply', () => { void refreshSupportData(); });
-    socketRef.current.on('support_ticket_updated', () => { void refreshSupportData(); });
+    socketRef.current.on('support_ticket_updated', onSupportTicketUpdate);
     socketRef.current.on('new_system_message', () => { void refreshSupportData(); });
 
     socketRef.current.on('project_request_updated', (data: { request?: ApiRecord }) => {

@@ -4,7 +4,7 @@
 
 import {
   Layout, FileText, Eye, Activity, Clock, Users, BarChart3, CreditCard,
-  Settings, MessageSquare, Folder, PenLine, Briefcase, PackagePlus, Wrench,
+  Settings, MessageSquare, Folder, PenLine, Briefcase, PackagePlus, Wrench, BookOpen,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ProjectRequest } from './AdminDashboard_types';
@@ -103,6 +103,7 @@ export const adminTabs: AdminTab[] = [
   { id: 'tickets', name: 'Tickets', icon: <MessageSquare className="w-4 h-4" /> },
   { id: 'live-support', name: 'Live Chat', icon: <MessageSquare className="w-4 h-4" /> },
   { id: 'comments', name: 'Comments', icon: <MessageSquare className="w-4 h-4" /> },
+  { id: 'resources', name: 'Client Resources', shortName: 'Resources', icon: <BookOpen className="w-4 h-4" /> },
   { id: 'media', name: 'Media Library', shortName: 'Media', icon: <Folder className="w-4 h-4" /> },
   { id: 'blog', name: 'Blog', icon: <PenLine className="w-4 h-4" /> },
   { id: 'portfolio', name: 'Portfolio', icon: <Briefcase className="w-4 h-4" /> },
@@ -114,7 +115,7 @@ export const adminTabGroups: AdminTabGroup[] = [
   { id: 'overview', label: 'Overview', accent: 'text-ai-blue', icon: <BarChart3 className="w-4 h-4" />, tabs: ['dashboard'] },
   { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'performance-requests', 'repair-requests', 'review', 'milestones', 'health', 'bookings'] },
   { id: 'clients', label: 'Clients', accent: 'text-expert-green', icon: <Users className="w-4 h-4" />, tabs: ['users', 'leads', 'assessments'] },
-  { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['messages', 'tickets', 'live-support', 'comments'] },
+  { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['messages', 'tickets', 'live-support', 'comments', 'resources'] },
   { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'addon-fulfillment', 'transactions', 'analytics'] },
   { id: 'content', label: 'Content', accent: 'text-ai-blue', icon: <PenLine className="w-4 h-4" />, tabs: ['media', 'blog', 'portfolio'] },
   { id: 'system', label: 'System', accent: 'text-white/70', icon: <Settings className="w-4 h-4" />, tabs: ['system'] },

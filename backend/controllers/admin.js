@@ -3049,6 +3049,9 @@ exports.updateSupportTicket = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Provide a status or priority to update.' });
     }
 
+    const existingTicket = await prisma.supportTicket.findUnique({ where: { id }, select: { id: true } });
+    if (!existingTicket) return res.status(404).json({ success: false, message: 'Ticket not found.' });
+
     const ticket = await prisma.supportTicket.update({
       where: { id },
       data: { ...(status !== undefined ? { status } : {}), ...(priority !== undefined ? { priority } : {}) }
@@ -3057,6 +3060,7 @@ exports.updateSupportTicket = async (req, res) => {
     notifyUser(ticket.userId, 'support_ticket_updated', {
       ticketId: ticket.id, status: ticket.status, priority: ticket.priority, updatedAt: ticket.updatedAt
     });
+    notifyAdmins('support_ticket_updated', { ticketId: ticket.id, status: ticket.status, priority: ticket.priority, updatedAt: ticket.updatedAt });
 
     res.json({
       success: true,
@@ -3127,19 +3131,15 @@ exports.addSupportTicketMessage = async (req, res) => {
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found.' });
     if (ticket.status === 'closed') return res.status(409).json({ success: false, message: 'This ticket is closed.' });
 
-    const message = await prisma.supportMessage.create({
-      data: {
-        ticketId: id,
-        senderId: req.user.userId, // Admin ID
-        content: content.trim(),
-        isAdmin: true,
-        isRead: false
+    const message = await prisma.$transaction(async transaction => {
+      const created = await transaction.supportMessage.create({
+        data: { ticketId: id, senderId: req.user.userId, content: content.trim(), isAdmin: true, isRead: false }
+      });
+      if (ticket.status === 'open' || ticket.status === 'resolved') {
+        await transaction.supportTicket.update({ where: { id }, data: { status: 'pending' } });
       }
+      return created;
     });
-
-    if (ticket.status === 'open' || ticket.status === 'resolved') {
-      await prisma.supportTicket.update({ where: { id }, data: { status: 'pending' } });
-    }
 
     // Notify the user of the new support message (in-app only — email removed as part of notification cleanup)
     try {
@@ -3149,6 +3149,7 @@ exports.addSupportTicketMessage = async (req, res) => {
           messageId: message.id,
           timestamp: message.createdAt
         });
+        notifyAdmins('support_ticket_updated', { ticketId: id, userId: ticket.userId, timestamp: message.createdAt });
         // NOTE: support response email removed as part of notification cleanup.
         // If this needs an email again later, wire it via notify() and the registry.
       }
@@ -3166,6 +3167,79 @@ exports.addSupportTicketMessage = async (req, res) => {
       success: false,
       message: 'Failed to send message'
     });
+  }
+};
+
+// Client resource library management
+const validateResourceInput = (body = {}) => {
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  const description = typeof body.description === 'string' ? body.description.trim() : '';
+  const type = typeof body.type === 'string' ? body.type.trim().toLowerCase() : '';
+  const url = typeof body.url === 'string' ? body.url.trim() : '';
+  const allowedTypes = ['documentation', 'guide', 'video', 'tool', 'other'];
+  if (!title || title.length > 140) return { error: 'Title is required and must be 140 characters or fewer.' };
+  if (description.length > 1000) return { error: 'Description must be 1,000 characters or fewer.' };
+  if (!allowedTypes.includes(type)) return { error: 'Choose a valid resource type.' };
+  if (url) {
+    if (url.length > 2048) return { error: 'Resource link must be 2,048 characters or fewer.' };
+    if (!url.startsWith('/') && !/^https?:\/\//i.test(url)) return { error: 'Use a site path or an http/https link.' };
+    if (url.startsWith('/')) {
+      if (url.startsWith('//') || /[\r\n]/.test(url)) return { error: 'Enter a valid site path.' };
+    } else {
+      try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return { error: 'Use an http/https link.' };
+      } catch { return { error: 'Enter a valid resource link.' }; }
+    }
+  }
+  return { data: { title, description, type, url: url || null } };
+};
+
+exports.getAdminResources = async (_req, res) => {
+  try {
+    const resources = await prisma.resource.findMany({ orderBy: [{ createdAt: 'desc' }, { title: 'asc' }] });
+    res.json({ success: true, data: resources });
+  } catch (error) {
+    logger.error('GET_ADMIN_RESOURCES_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve resources.' });
+  }
+};
+
+exports.createAdminResource = async (req, res) => {
+  const validated = validateResourceInput(req.body);
+  if (validated.error) return res.status(400).json({ success: false, message: validated.error });
+  try {
+    const resource = await prisma.resource.create({ data: validated.data });
+    res.status(201).json({ success: true, data: resource });
+  } catch (error) {
+    logger.error('CREATE_ADMIN_RESOURCE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to create resource.' });
+  }
+};
+
+exports.updateAdminResource = async (req, res) => {
+  const validated = validateResourceInput(req.body);
+  if (validated.error) return res.status(400).json({ success: false, message: validated.error });
+  try {
+    const exists = await prisma.resource.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!exists) return res.status(404).json({ success: false, message: 'Resource not found.' });
+    const resource = await prisma.resource.update({ where: { id: req.params.id }, data: validated.data });
+    res.json({ success: true, data: resource });
+  } catch (error) {
+    logger.error('UPDATE_ADMIN_RESOURCE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update resource.' });
+  }
+};
+
+exports.deleteAdminResource = async (req, res) => {
+  try {
+    const exists = await prisma.resource.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!exists) return res.status(404).json({ success: false, message: 'Resource not found.' });
+    await prisma.resource.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('DELETE_ADMIN_RESOURCE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to remove resource.' });
   }
 };
 

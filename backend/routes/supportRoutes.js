@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const supportController = require('../controllers/supportController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 
 // AI Chat
 router.post('/chat', supportController.chatWithSupport);
+router.post('/live-chat/session', optionalAuth, supportController.createLiveChatSession);
 
 // All other support routes require authentication
 router.use(authenticate);

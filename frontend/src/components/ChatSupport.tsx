@@ -34,6 +34,15 @@ interface Message {
   timestamp: Date;
 }
 
+interface SupportChatCredentials { chatId: string; chatToken: string }
+
+const isUnexpiredSupportToken = (token: string) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now() + 60_000;
+  } catch { return false; }
+};
+
 const ChatSupport: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -47,44 +56,67 @@ const ChatSupport: React.FC = () => {
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const [chatCredentials, setChatCredentials] = useState<SupportChatCredentials | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [isAgentConnected, setIsAgentConnected] = useState(false);
+  const [isHumanSupportRequested, setIsHumanSupportRequested] = useState(false);
+  const [isChatClosed, setIsChatClosed] = useState(false);
   const [agentType, setAgentType] = useState<string | null>(null);
-  const [chatId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('sitemendr_chat_id');
-      if (stored) return stored;
-      const newId = Math.random().toString(36).substring(7);
-      localStorage.setItem('sitemendr_chat_id', newId);
-      return newId;
-    }
-    return Math.random().toString(36).substring(7);
-  });
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const initialize = async () => {
+      const cachedChatId = localStorage.getItem('sitemendr_chat_id');
+      const cachedChatToken = localStorage.getItem('sitemendr_chat_token');
+      if (cachedChatId && cachedChatToken && isUnexpiredSupportToken(cachedChatToken)) {
+        setChatCredentials({ chatId: cachedChatId, chatToken: cachedChatToken });
+        return;
+      }
+      try {
+        const response = await apiClient.createSupportChatSession();
+        if (!response.success || !response.data?.chatId || !response.data?.chatToken) throw new Error(response.message || 'Support chat is temporarily unavailable.');
+        if (cancelled) return;
+        localStorage.setItem('sitemendr_chat_id', response.data.chatId);
+        localStorage.setItem('sitemendr_chat_token', response.data.chatToken);
+        setChatCredentials(response.data);
+        setChatError('');
+      } catch (error) {
+        if (!cancelled) setChatError(error instanceof Error ? error.message : 'Support chat is temporarily unavailable.');
+      }
+    };
+    void initialize();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!chatCredentials) return;
     // Initialize socket connection
     let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     // Remove /api from the end for socket connection if using API URL as fallback
     if (!process.env.NEXT_PUBLIC_SOCKET_URL && socketUrl.includes('/api')) {
       socketUrl = socketUrl.replace(/\/api$/, '');
     }
-    socketRef.current = io(socketUrl);
+    const authToken = localStorage.getItem('sitemendr_auth_token') || localStorage.getItem('token');
+    socketRef.current = io(socketUrl, { auth: { chatToken: chatCredentials.chatToken, ...(authToken ? { token: authToken } : {}) } });
 
     socketRef.current.on('connect', () => {
-      // Get userId from localStorage if available
-      let userId = null;
-      if (typeof window !== 'undefined') {
-        const userData = localStorage.getItem('sitemendr_client_user') || localStorage.getItem('user');
-        if (userData) {
-          try {
-            const parsedUser = JSON.parse(userData);
-            if (parsedUser.role !== 'admin') userId = parsedUser.id;
-          } catch {}
+      setIsSocketConnected(true);
+      socketRef.current?.emit('join_chat', { chatId: chatCredentials.chatId }, (result: { success: boolean; status?: string; type?: string; message?: string }) => {
+        if (!result?.success) setChatError(result?.message || 'Could not open support chat.');
+        else {
+          setChatError('');
+          const humanRequested = result.status === 'waiting' || (result.status === 'active' && result.type !== 'general');
+          setIsHumanSupportRequested(humanRequested);
+          setIsAgentConnected(humanRequested && result.status === 'active');
+          setAgentType(humanRequested ? result.type || null : null);
         }
-      }
-      socketRef.current?.emit('join_chat', { chatId, userId });
+      });
     });
+    socketRef.current.on('disconnect', () => setIsSocketConnected(false));
+    socketRef.current.on('connect_error', () => { setIsSocketConnected(false); setChatError('Live chat is disconnected. Check your connection and try again.'); });
 
     socketRef.current.on('chat_history', (history: ChatHistoryItem[]) => {
       if (history.length > 0) {
@@ -98,11 +130,22 @@ const ChatSupport: React.FC = () => {
     });
 
     socketRef.current.on('receive_message', (data: ChatMessageData) => {
-      setMessages(prev => [...prev, { ...data, timestamp: new Date(data.timestamp) }]);
+      setMessages(prev => prev.some(item => item.id === data.id) ? prev : [...prev, { ...data, timestamp: new Date(data.timestamp) }]);
+    });
+
+    socketRef.current.on('message_sent', (data: ChatMessageData) => {
+      setMessages(prev => prev.some(item => item.id === data.id) ? prev : [...prev, { ...data, timestamp: new Date(data.timestamp) }]);
+    });
+
+    socketRef.current.on('chat_closed', () => {
+      setIsChatClosed(true);
+      setIsAgentConnected(false);
+      setIsHumanSupportRequested(false);
     });
 
     socketRef.current.on('agent_joined', (data: { agentName: string, type: string }) => {
       setIsAgentConnected(true);
+      setIsHumanSupportRequested(true);
       setAgentType(data.type);
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
@@ -115,7 +158,7 @@ const ChatSupport: React.FC = () => {
     return () => {
       socketRef.current?.disconnect();
     };
-  }, [chatId]);
+  }, [chatCredentials]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -129,28 +172,45 @@ const ChatSupport: React.FC = () => {
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    
-    if (!message.trim() || isLoading) return;
+    const content = message.trim();
+    if (!content || isLoading) return;
+    if (isChatClosed) { setChatError('This support conversation has been closed. Please open a support ticket for further help.'); return; }
+    if (!chatCredentials) {
+      setChatError('Support chat is still connecting. Please try again in a moment.');
+      return;
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),
-      text: message,
+      text: content,
       sender: 'user',
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
     setMessage('');
 
-    if (isAgentConnected) {
-      socketRef.current?.emit('send_message', {
-        ...userMsg,
-        chatId
+    if (isAgentConnected || isHumanSupportRequested) {
+      if (!socketRef.current?.connected) {
+        setChatError('Live chat is disconnected. Your message was not sent.');
+        setMessage(content);
+        return;
+      }
+      setIsLoading(true);
+      socketRef.current.emit('send_message', { chatId: chatCredentials.chatId, text: content }, (result: { success: boolean; data?: ChatMessageData; message?: string }) => {
+        setIsLoading(false);
+        if (!result?.success || !result.data) {
+          setChatError(result?.message || 'Your message could not be sent.');
+          setMessage(content);
+          return;
+        }
+        setChatError('');
+        setMessages(prev => prev.some(item => item.id === result.data?.id) ? prev : [...prev, { ...result.data!, timestamp: new Date(result.data!.timestamp) }]);
       });
       return;
     }
 
     setIsLoading(true);
+    setMessages(prev => [...prev, userMsg]);
 
     try {
       // Prepare history for API (last 5 messages for context)
@@ -161,7 +221,8 @@ const ChatSupport: React.FC = () => {
           text: msg.text
         }));
 
-      const response = await apiClient.chatWithSupport(message, history, chatId);
+      const response = await apiClient.chatWithSupport(content, history, chatCredentials.chatId, chatCredentials.chatToken);
+      if (!response.success) throw new Error(response.message || 'The assistant could not respond.');
       
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -171,12 +232,7 @@ const ChatSupport: React.FC = () => {
       };
 
       setMessages(prev => [...prev, botMsg]);
-
-      // Emit user message to socket even if no agent is connected for persistence
-      socketRef.current?.emit('send_message', {
-        ...userMsg,
-        chatId
-      });
+      setChatError('');
     } catch (error) {
       console.error('Chat error:', error);
       const errorMsg: Message = {
@@ -192,19 +248,28 @@ const ChatSupport: React.FC = () => {
   };
 
   const requestHumanAgent = (type: 'technical' | 'billing' | 'sales') => {
+    if (!chatCredentials || !socketRef.current?.connected) {
+      setChatError('Live chat is disconnected. Please try again when connected.');
+      return;
+    }
     setIsLoading(true);
-    socketRef.current?.emit('request_agent', { chatId, type });
-    
-    setTimeout(() => {
+    setChatError('');
+    socketRef.current.emit('request_agent', { chatId: chatCredentials.chatId, type }, (result: { success: boolean; message?: string }) => {
+      if (!result?.success) {
+        setChatError(result?.message || 'Your request could not be sent.');
+        setIsLoading(false);
+        return;
+      }
+      setIsHumanSupportRequested(true);
       const botMsg: Message = {
         id: Date.now().toString(),
-        text: `I've forwarded your request to our ${type} team. A human agent will be with you shortly. You can continue to chat with me in the meantime.`,
+        text: `Your request is in the ${type} support queue. A Sitemendr agent will join this conversation here.`,
         sender: 'bot',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMsg]);
       setIsLoading(false);
-    }, 1000);
+    });
   };
 
   if (!isOpen) {
@@ -237,12 +302,12 @@ const ChatSupport: React.FC = () => {
           </div>
           <div>
             <h3 className="font-semibold text-sm">
-              {isAgentConnected ? `Agent (${agentType})` : 'Sitemendr Assistant'}
+              {isAgentConnected ? `Support agent · ${agentType}` : isHumanSupportRequested ? `Support queue · ${agentType}` : 'Sitemendr Assistant'}
             </h3>
             <div className="flex items-center gap-1">
               <span className={`w-2 h-2 rounded-full ${isAgentConnected ? 'bg-blue-400' : 'bg-expert-green'}`}></span>
               <span className="text-[10px] text-white/80">
-                {isAgentConnected ? 'Human Agent Online' : 'AI Assistant Online'}
+                {isAgentConnected ? 'Human agent online' : isHumanSupportRequested ? 'Waiting for an agent' : 'AI assistant online'}
               </span>
             </div>
           </div>
@@ -316,7 +381,7 @@ const ChatSupport: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          {!isAgentConnected && (
+          {!isAgentConnected && !isChatClosed && (
             <div className="px-4 py-2 bg-dark-bg/80 flex flex-wrap gap-2 border-t border-white/5">
               {['Pricing', 'Technical Support', 'Billing', 'Talk to Human'].map((topic) => (
                 <button
@@ -340,25 +405,28 @@ const ChatSupport: React.FC = () => {
 
           {/* Input */}
           <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-darker-bg">
+            {chatError && <p role="alert" className="mb-3 rounded-lg border border-rose-300/15 bg-rose-300/[.05] px-3 py-2 text-xs text-rose-200">{chatError}</p>}
+            {isChatClosed && <p role="status" className="mb-3 rounded-lg border border-white/10 bg-white/[.03] px-3 py-2 text-xs text-white/55">This conversation is closed. Please sign in to your workspace to open a support ticket.</p>}
             <div className="relative">
               <input
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your message..."
+                disabled={isChatClosed}
                 className="w-full pl-4 pr-12 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white focus:ring-2 focus:ring-ai-blue outline-none transition-all placeholder:text-white/30"
               />
               <button
                 type="submit"
-                disabled={!message.trim() || isLoading}
+                disabled={!message.trim() || isLoading || isChatClosed}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-ai-blue text-white rounded-lg disabled:opacity-50 disabled:bg-gray-600 transition-all hover:scale-105"
               >
                 <Send size={16} />
               </button>
             </div>
             <p className="text-[9px] text-center text-white/30 mt-2 flex items-center justify-center gap-1 uppercase tracking-widest">
-              <span className="w-1 h-1 bg-ai-blue rounded-full animate-pulse"></span>
-              Live Support Active
+              <span className={`w-1 h-1 rounded-full ${isSocketConnected ? 'bg-ai-blue animate-pulse' : 'bg-amber-300'}`}></span>
+              {isSocketConnected ? 'Support chat connected' : 'Connecting to support'}
             </p>
           </form>
         </>

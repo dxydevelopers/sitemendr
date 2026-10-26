@@ -25,6 +25,7 @@ import AdminSystem from './AdminSystem';
 import AdminAddonFulfillment from './AdminAddonFulfillment';
 import AdminPerformanceRequests from './AdminPerformanceRequests';
 import AdminRepairRequests from './AdminRepairRequests';
+import AdminResources from './AdminResources';
 
 const AssessmentModal = dynamic(() => import('../AssessmentModal'), { ssr: false });
 const SupportManager = dynamic(() => import('../dashboard/SupportManager'), { ssr: false });
@@ -225,6 +226,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   {activeTab === 'tickets' && <div className="animate-fade-in"><SupportManager /></div>}
   {activeTab === 'live-support' && <div className="animate-fade-in"><LiveSupportManager /></div>}
   {activeTab === 'comments' && <div className="animate-fade-in"><CommentManager /></div>}
+  {activeTab === 'resources' && <div className="animate-fade-in"><AdminResources /></div>}
   </main>
   </div>
 

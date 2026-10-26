@@ -9,6 +9,18 @@ const { checkPaymentStatus, enforcePaymentForAPI } = require('../middleware/paym
 
 // All client routes require authentication
 router.use(authenticate);
+
+// Support and messages must remain reachable so clients can contact the team
+// even when payment enforcement pauses site-management features.
+router.get('/messages', clientController.getMessages);
+router.post('/messages', clientController.sendMessage);
+router.post('/messages/:id/replies', clientController.replyToMessage);
+router.post('/messages/:id/read', clientController.markMessageRead);
+router.put('/messages/:id', clientController.updateMessage);
+router.get('/resources', clientController.getResources);
+router.get('/support', supportController.getUserTickets);
+router.post('/support', supportController.createTicket);
+
 router.use(checkPaymentStatus);
 
 // Discovery routes - allowed even if payment is pending
@@ -38,16 +50,6 @@ router.get('/billing', clientController.getBilling);
 router.get('/billing/contract/:id', clientController.getContractBilling);
 router.get('/billing/invoices/:id/pdf', billingDocumentsController.invoicePdf);
 router.get('/billing/receipts/:id/pdf', billingDocumentsController.receiptPdf);
-
-// Support and messages remain available even when active site management is locked.
-router.get('/messages', clientController.getMessages);
-router.post('/messages', clientController.sendMessage);
-router.post('/messages/:id/replies', clientController.replyToMessage);
-router.post('/messages/:id/read', clientController.markMessageRead);
-router.put('/messages/:id', clientController.updateMessage);
-router.get('/resources', clientController.getResources);
-router.get('/support', supportController.getUserTickets);
-router.post('/support', supportController.createTicket);
 
 // Active management routes - require valid payment status
 router.use(enforcePaymentForAPI);

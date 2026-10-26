@@ -75,6 +75,10 @@ router.put('/project-requests/:id/studio/blockers/:blockerId', adminController.u
 router.post('/project-requests/:id/studio/updates', adminController.createStudioUpdate);
 
 // Support tickets
+router.get('/resources', adminController.getAdminResources);
+router.post('/resources', adminController.createAdminResource);
+router.put('/resources/:id', adminController.updateAdminResource);
+router.delete('/resources/:id', adminController.deleteAdminResource);
 router.get('/messages', adminController.getClientConversations);
 router.post('/messages/:id/read', adminController.markClientConversationRead);
 router.post('/messages/:id/replies', adminController.replyToClientConversation);
