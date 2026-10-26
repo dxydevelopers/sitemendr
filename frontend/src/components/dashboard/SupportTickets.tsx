@@ -49,6 +49,8 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'chat' | 'create' | 'details'>('list');
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [ticketDetailLoading, setTicketDetailLoading] = useState(false);
+  const [ticketDetailError, setTicketDetailError] = useState('');
   const [newTicket, setNewTicket] = useState({ subject: '', message: '', priority: 'medium' });
   const [aiChat, setAIChat] = useState<AIChatMessage[]>([
   { text: "Hello! I'm the Sitemendr AI Assistant. How can I help you today?", sender: 'ai', timestamp: new Date() },
@@ -116,15 +118,32 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   };
 
   const handleSelectTicket = async (ticket: SupportTicket) => {
-  setSelectedTicket(ticket);
   setView('details');
-  const hasUnread = ticket.messages.some(m => m.isAdmin && !m.isRead);
+  setTicketDetailLoading(true);
+  setTicketDetailError('');
+  let selected = ticket;
+  try {
+  const response = await apiClient.getClientSupportTicket(ticket.id);
+  if (response.success && response.data) {
+  selected = response.data as unknown as SupportTicket;
+  } else {
+  setTicketDetailError(response.message || 'Could not load the full conversation.');
+  }
+  } catch {
+  setTicketDetailError('Could not load the full conversation.');
+  }
+  setSelectedTicket(selected);
+  setTicketDetailLoading(false);
+  const hasUnread = selected.messages.some(m => m.isAdmin && !m.isRead);
   if (hasUnread) {
   try {
   await apiClient.post(`/support/tickets/${ticket.id}/read`, {});
   setTickets(tickets.map(t => t.id === ticket.id
-  ? { ...t, messages: t.messages.map(m => m.isAdmin ? { ...m, isRead: true } : m) }
+  ? { ...t, messages: selected.messages.map(m => m.isAdmin ? { ...m, isRead: true } : m) }
   : t));
+  setSelectedTicket(current => current?.id === ticket.id
+  ? { ...current, messages: current.messages.map(m => m.isAdmin ? { ...m, isRead: true } : m) }
+  : current);
   } catch (error) {
   console.error('Failed to mark ticket as read:', error);
   }
@@ -230,8 +249,15 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   )
   )}
 
-  {view === 'details' && selectedTicket && (
+  {view === 'details' && ticketDetailLoading && (
+  <div className="flex h-64 items-center justify-center gap-3 text-sm text-white/45">
+  <Loader2 className="h-4 w-4 animate-spin text-ai-blue" /> Loading conversation...
+  </div>
+  )}
+
+  {view === 'details' && !ticketDetailLoading && selectedTicket && (
   <div className="flex h-full flex-col">
+  {ticketDetailError && <p role="alert" className="border-b border-amber-300/15 bg-amber-300/[0.04] px-6 py-3 text-xs text-amber-200">{ticketDetailError} Showing the latest message available.</p>}
   <div className="flex flex-col gap-2 border-b border-white/[0.08] p-6 sm:flex-row sm:items-center sm:justify-between">
   <div>
   <div className="flex items-center gap-3">

@@ -87,6 +87,7 @@ export interface AdminTabGroup { id: string; label: string; accent: string; icon
 export const adminTabs: AdminTab[] = [
   { id: 'dashboard', name: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
   { id: 'project-requests', name: 'Build Pipeline', shortName: 'Build', icon: <FileText className="w-4 h-4" /> },
+  { id: 'performance-requests', name: 'Performance Requests', shortName: 'Performance', icon: <Activity className="w-4 h-4" /> },
   { id: 'review', name: 'Reviews & Approvals', shortName: 'Approvals', icon: <Eye className="w-4 h-4" /> },
   { id: 'milestones', name: 'Milestones', icon: <Activity className="w-4 h-4" /> },
   { id: 'health', name: 'Repair & Care', shortName: 'Care', icon: <Activity className="w-4 h-4" /> },
@@ -109,7 +110,7 @@ export const adminTabs: AdminTab[] = [
 
 export const adminTabGroups: AdminTabGroup[] = [
   { id: 'overview', label: 'Overview', accent: 'text-ai-blue', icon: <BarChart3 className="w-4 h-4" />, tabs: ['dashboard'] },
-  { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'review', 'milestones', 'health', 'bookings'] },
+  { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'performance-requests', 'review', 'milestones', 'health', 'bookings'] },
   { id: 'clients', label: 'Clients', accent: 'text-expert-green', icon: <Users className="w-4 h-4" />, tabs: ['users', 'leads', 'assessments'] },
   { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['tickets', 'live-support', 'comments'] },
   { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'addon-fulfillment', 'transactions', 'analytics'] },

@@ -3,20 +3,21 @@ const logger = require('../config/logger');
 
 exports.renderSite = async (req, res, next) => {
   try {
-    const host = req.headers.host;
+    const host = String(req.headers.host || '').toLowerCase().split(':')[0].replace(/\.$/, '');
     const mainDomain = process.env.MAIN_DOMAIN || 'sitemendr.com';
     const apiDomain = process.env.API_DOMAIN || 'api.sitemendr.com';
+    const canonicalHost = host.startsWith('www.') ? host.slice(4) : host;
 
     // Skip if it's the main domain or API domain
-    if (host === mainDomain || host === apiDomain || host === 'localhost:5000') {
+    if (host === mainDomain || host === apiDomain || host === 'localhost' || canonicalHost === mainDomain) {
       return next();
     }
 
     let subscription;
 
     // Check if it's a subdomain of sitemendr.com
-    if (host.endsWith(`.${mainDomain}`)) {
-      const subdomain = host.split('.')[0];
+      if (canonicalHost.endsWith(`.${mainDomain}`)) {
+      const subdomain = canonicalHost.split('.')[0];
       subscription = await prisma.subscription.findFirst({
         where: {
           siteName: {
@@ -33,7 +34,8 @@ exports.renderSite = async (req, res, next) => {
       // Check for custom domain
       const customDomain = await prisma.customDomain.findFirst({
         where: {
-          domain: host,
+          domain: canonicalHost,
+          status: { in: ['verified', 'active'] },
           subscription: {
             status: { in: ['active', 'suspended'] }
           }

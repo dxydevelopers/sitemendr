@@ -115,6 +115,10 @@ app.use('/uploads', express.static(uploadsDir));
 
 // Database connection
 connectDB().then((connected) => {
+  if (!process.env.PAGESPEED_API_KEY) {
+    logger.warn('PageSpeed scans are disabled until PAGESPEED_API_KEY is configured');
+  }
+
   // Initialize Background Tasks
   if (process.env.DISABLE_AUTOMATION === 'true') {
     logger.warn('Automation disabled via DISABLE_AUTOMATION');

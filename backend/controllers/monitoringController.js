@@ -3,14 +3,47 @@ const axios = require('axios');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
 const logger = require('../config/logger');
+const { getSiteManagementLockReason } = require('../services/siteManagement');
+const { checkPublicSiteAvailability, mergeSubscriptionPerformanceData, saveSiteAvailabilityCheck } = require('../services/publicSiteProbe');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
+
+function normalizePerformanceInsights(value) {
+  const actionPlan = Array.isArray(value?.actionPlan)
+    ? value.actionPlan.slice(0, 5).flatMap(item => {
+        const task = typeof item?.task === 'string' ? item.task.trim().slice(0, 500) : '';
+        if (!task) return [];
+        const impact = typeof item.impact === 'string' ? item.impact.trim().slice(0, 80) : '';
+        return [{ task, impact: impact || 'Review' }];
+      })
+    : [];
+  return {
+    summary: typeof value?.summary === 'string' ? value.summary.trim().slice(0, 1200) : '',
+    actionPlan
+  };
+}
+
+function getLighthouseRecommendations(lighthouse) {
+  const auditRefs = Array.isArray(lighthouse?.categories?.performance?.auditRefs)
+    ? lighthouse.categories.performance.auditRefs
+    : [];
+  return auditRefs
+    .filter(reference => reference?.weight > 0)
+    .map(reference => ({ reference, audit: lighthouse.audits?.[reference.id] }))
+    .filter(({ audit }) => audit && audit.score != null && audit.score < 1 && audit.scoreDisplayMode !== 'notApplicable')
+    .sort((left, right) => (right.reference.weight || 0) - (left.reference.weight || 0))
+    .slice(0, 5)
+    .map(({ reference, audit }) => ({
+      task: `${audit.title || 'Review Lighthouse opportunity'}${audit.displayValue ? `: ${audit.displayValue}` : ''}`.slice(0, 500),
+      impact: reference.weight >= 0.1 ? 'High potential' : 'Potential'
+    }));
+}
 
 /**
  * Analyze a website's performance and provide AI-driven insights
@@ -18,6 +51,10 @@ const groq = new Groq({
 exports.analyzeSitePerformance = async (req, res) => {
   try {
     const { url, subscriptionId } = req.body;
+    const strategy = req.body?.strategy || 'mobile';
+    if (!['mobile', 'desktop'].includes(strategy)) {
+      return res.status(400).json({ success: false, message: 'Choose a mobile or desktop scan.' });
+    }
     const userId = req.user.userId;
 
     if (!url) {
@@ -37,6 +74,9 @@ exports.analyzeSitePerformance = async (req, res) => {
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
       return res.status(400).json({ success: false, message: 'Only public HTTP or HTTPS site URLs can be scanned.' });
     }
+    if (parsedUrl.username || parsedUrl.password) {
+      return res.status(400).json({ success: false, message: 'Remove sign-in details from the site URL before scanning.' });
+    }
 
     const ownedSite = await prisma.subscription.findFirst({
         where: { id: subscriptionId, userId },
@@ -53,6 +93,10 @@ exports.analyzeSitePerformance = async (req, res) => {
     if (!ownedSite) {
       return res.status(403).json({ success: false, message: 'This site is not available in your workspace.' });
     }
+    const managementLockReason = await getSiteManagementLockReason(userId, subscriptionId);
+    if (managementLockReason) {
+      return res.status(403).json({ success: false, message: managementLockReason });
+    }
 
     const allowedHosts = new Set([
       ownedSite.domain,
@@ -65,14 +109,24 @@ exports.analyzeSitePerformance = async (req, res) => {
       return res.status(403).json({ success: false, message: 'The scan URL must belong to the selected site.' });
     }
 
+    // Scans are for public pages. Query strings can contain one-time tokens
+    // or private search values, so preserve the page path but omit query and
+    // fragment data before sending the URL to Google or an AI provider.
+    parsedUrl.search = '';
+    parsedUrl.hash = '';
+    const scanUrl = parsedUrl.toString();
+
     if (!process.env.PAGESPEED_API_KEY) {
       return res.status(503).json({ success: false, message: 'Real performance scans are not configured yet.' });
     }
 
-    logger.info(`Analyzing performance for: ${url}`);
+    // Avoid writing query tokens or credentials from a client-provided URL to
+    // application logs. Ownership has already been validated against this host.
+    logger.info('Analyzing site performance', { subscriptionId, host: parsedUrl.hostname });
     let performanceMetrics;
+    let scanConditions = {};
     try {
-      const psiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${process.env.PAGESPEED_API_KEY}&category=performance`;
+      const psiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(scanUrl)}&key=${process.env.PAGESPEED_API_KEY}&category=performance&strategy=${strategy}`;
       const response = await axios.get(psiUrl, { timeout: 30000 });
       const lighthouse = response.data.lighthouseResult;
 
@@ -80,19 +134,38 @@ exports.analyzeSitePerformance = async (req, res) => {
         throw new Error('PageSpeed returned no performance score');
       }
 
+      scanConditions = {
+        strategy,
+        formFactor: lighthouse.configSettings?.formFactor || strategy,
+        lighthouseVersion: lighthouse.lighthouseVersion || null,
+        fetchTime: lighthouse.fetchTime || null,
+        environment: lighthouse.environment || null
+      };
+
+      const fieldInp = response.data.loadingExperience?.metrics?.INTERACTION_TO_NEXT_PAINT?.percentile
+        ?? response.data.originLoadingExperience?.metrics?.INTERACTION_TO_NEXT_PAINT?.percentile;
       performanceMetrics = {
         score: Math.round(lighthouse.categories.performance.score * 100),
         vitals: {
           fcp: lighthouse.audits['first-contentful-paint']?.displayValue || null,
           lcp: lighthouse.audits['largest-contentful-paint']?.displayValue || null,
           cls: lighthouse.audits['cumulative-layout-shift']?.displayValue || null,
-          tti: lighthouse.audits['interactive']?.displayValue || null
+          inp: fieldInp != null && Number.isFinite(Number(fieldInp))
+            ? `${Math.round(Number(fieldInp))} ms`
+            : lighthouse.audits['interaction-to-next-paint']?.displayValue
+              || lighthouse.audits['experimental-interaction-to-next-paint']?.displayValue
+              || null,
+          tbt: lighthouse.audits['total-blocking-time']?.displayValue || null
         },
         issues: lighthouse.audits['diagnostics']?.details?.items?.slice(0, 3).map(i => i.label) || []
       };
+      performanceMetrics.recommendations = getLighthouseRecommendations(lighthouse);
       logger.info('Successfully fetched real PageSpeed metrics');
     } catch (psiError) {
-      logger.error('PageSpeed API call failed:', psiError.message);
+      logger.error('PageSpeed API call failed', {
+        status: psiError.response?.status || null,
+        errorCode: psiError.code || null
+      });
       return res.status(502).json({ success: false, message: 'The performance provider could not return a real scan. Please try again later.' });
     }
 
@@ -100,6 +173,7 @@ exports.analyzeSitePerformance = async (req, res) => {
     let aiInsights = { summary: '', actionPlan: [] };
 
     try {
+      if (!openai) throw new Error('OPENAI_API_KEY is not configured');
       const aiResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -109,7 +183,7 @@ exports.analyzeSitePerformance = async (req, res) => {
           },
           {
             role: "user",
-            content: `Website URL: ${url}\nMetrics: ${JSON.stringify(performanceMetrics)}`
+            content: `Website URL: ${scanUrl}\nMetrics: ${JSON.stringify(performanceMetrics)}`
           }
         ],
         response_format: { type: "json_object" }
@@ -120,6 +194,7 @@ exports.analyzeSitePerformance = async (req, res) => {
       logger.error('OpenAI performance analysis error, trying Groq:', openaiError.message);
       
       try {
+        if (!groq) throw new Error('GROQ_API_KEY is not configured');
         const groqResponse = await groq.chat.completions.create({
           model: "llama-3.3-70b-versatile",
           messages: [
@@ -129,7 +204,7 @@ exports.analyzeSitePerformance = async (req, res) => {
             },
             {
               role: "user",
-              content: `Website URL: ${url}\nMetrics: ${JSON.stringify(performanceMetrics)}`
+              content: `Website URL: ${scanUrl}\nMetrics: ${JSON.stringify(performanceMetrics)}`
             }
           ],
           response_format: { type: "json_object" }
@@ -142,34 +217,87 @@ exports.analyzeSitePerformance = async (req, res) => {
       }
     }
 
+    aiInsights = normalizePerformanceInsights(aiInsights);
+    if (!aiInsights.actionPlan.length && performanceMetrics.recommendations.length) {
+      aiInsights.actionPlan = performanceMetrics.recommendations;
+      aiInsights.summary = aiInsights.summary || 'These opportunities were identified by Lighthouse. Review the suggested changes against your site goals.';
+    }
+
     const timestamp = new Date().toISOString();
+    let scan;
     try {
-      await prisma.subscription.update({
-        where: { id: subscriptionId },
-        data: {
-          performanceData: {
+      const savedScan = await prisma.$transaction(async tx => {
+        await mergeSubscriptionPerformanceData(tx, subscriptionId, {
+          provider: 'pagespeed',
+          strategy,
+          url: scanUrl,
+          metrics: performanceMetrics,
+          insights: aiInsights,
+          timestamp
+        });
+        return tx.performanceScan.create({
+          data: {
+            subscriptionId,
             provider: 'pagespeed',
-            url: parsedUrl.toString(),
+            url: scanUrl,
+            strategy,
+            score: performanceMetrics.score,
             metrics: performanceMetrics,
-            insights: aiInsights,
-            timestamp
+            recommendations: Array.isArray(aiInsights.actionPlan) ? aiInsights.actionPlan : [],
+            issues: performanceMetrics.issues,
+            conditions: scanConditions,
+            scannedAt: new Date(timestamp)
           }
-        }
+        });
       });
+      scan = savedScan;
       logger.info(`Performance report for subscription ${subscriptionId} saved.`);
     } catch (dbError) {
       logger.error(`Failed to save performance report for subscription ${subscriptionId}:`, dbError);
-      return res.status(500).json({ success: false, message: 'The real scan completed, but Sitemendr could not save its results. Please try again.' });
+      const missingHistoryTable = dbError?.code === 'P2021'
+        || dbError?.meta?.code === '42P01'
+        || /PerformanceScan.*does not exist|relation .*PerformanceScan.* does not exist/i.test(String(dbError?.message || ''));
+      if (!missingHistoryTable) {
+        return res.status(500).json({ success: false, message: 'The real scan completed, but Sitemendr could not save its results. Please try again.' });
+      }
+
+      // Keep the existing latest-report feature usable until the additive
+      // scan-history table is installed. This fallback writes only the
+      // subscription's current report and never changes existing history.
+      try {
+        await mergeSubscriptionPerformanceData(prisma, subscriptionId, {
+          provider: 'pagespeed',
+          strategy,
+          url: scanUrl,
+          metrics: performanceMetrics,
+          insights: aiInsights,
+          timestamp
+        });
+      } catch (fallbackError) {
+        logger.error(`Failed to save latest performance report for subscription ${subscriptionId}:`, fallbackError);
+        return res.status(500).json({ success: false, message: 'The real scan completed, but Sitemendr could not save its results. Please try again.' });
+      }
+
+      logger.warn(`Performance scan history is unavailable for subscription ${subscriptionId}; saved latest report only.`);
+      return res.json({
+        success: true,
+        data: { url: scanUrl, strategy, metrics: performanceMetrics, aiInsights, timestamp, scanId: null },
+        historyAvailable: false,
+        message: 'Scan complete. Saved the latest report; scan history will be available after storage setup.'
+      });
     }
 
     res.json({
       success: true,
       data: {
-        url: parsedUrl.toString(),
+        url: scanUrl,
+        strategy,
         metrics: performanceMetrics,
         aiInsights,
-        timestamp
-      }
+        timestamp,
+        scanId: scan.id
+      },
+      historyAvailable: true
     });
   } catch (error) {
     logger.error('Performance analysis error:', error);
@@ -182,39 +310,41 @@ exports.analyzeSitePerformance = async (req, res) => {
  */
 exports.checkSiteUptime = async (req, res) => {
   try {
-    const { url } = req.query;
+    const subscriptionId = typeof req.query.subscriptionId === 'string' ? req.query.subscriptionId : '';
+    if (!subscriptionId) return res.status(400).json({ success: false, message: 'Select one of your sites first.' });
+    const site = await prisma.subscription.findFirst({
+      where: { id: subscriptionId, userId: req.user.userId },
+      select: { id: true, domain: true, customDomains: { select: { domain: true } }, projectRequests: {
+        where: { serviceType: 'build', status: 'completed' }, select: { launchUrl: true }
+      } }
+    });
+    if (!site) return res.status(404).json({ success: false, message: 'Site not found.' });
+    const lockReason = await getSiteManagementLockReason(req.user.userId, subscriptionId);
+    if (lockReason) return res.status(403).json({ success: false, message: lockReason });
 
-    if (!url) {
-      return res.status(400).json({ success: false, message: 'URL is required' });
-    }
+    const hosts = [...(site.domain ? [site.domain] : []), ...site.customDomains.map(item => item.domain), ...site.projectRequests.map(item => {
+      try { return new URL(item.launchUrl).hostname; } catch { return null; }
+    })].filter(Boolean).map(host => String(host).toLowerCase().replace(/^www\./, ''));
+    const host = hosts[0];
+    if (!host) return res.status(409).json({ success: false, message: 'Add a domain to this site before checking uptime.' });
 
-    const start = Date.now();
+    const result = await checkPublicSiteAvailability(host);
+    let saved = true;
     try {
-      const response = await axios.get(url, { timeout: 10000 });
-      const responseTime = Date.now() - start;
-
-      res.json({
-        success: true,
-        data: {
-          url,
-          status: 'UP',
-          statusCode: response.status,
-          responseTime: `${responseTime}ms`,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (err) {
-      res.json({
-        success: true,
-        data: {
-          url,
-          status: 'DOWN',
-          error: err.message,
-          timestamp: new Date().toISOString()
-        }
-      });
+      await saveSiteAvailabilityCheck(prisma, subscriptionId, result, 'manual');
+    } catch (saveError) {
+      saved = false;
+      logger.error('UPTIME_RESULT_SAVE_FAILED', { subscriptionId, error: saveError.message });
     }
+    res.json({
+      success: true,
+      data: { ...result, saved },
+      ...(!saved ? { message: 'Availability was checked, but the latest result could not be saved.' } : {})
+    });
   } catch (error) {
+    if (['INVALID_SITE_URL', 'UNSAFE_SITE_URL', 'UNSAFE_SITE_ADDRESS'].includes(error?.code)) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     logger.error('Uptime check error:', error);
     res.status(500).json({ success: false, message: 'Failed to check uptime' });
   }

@@ -10,7 +10,7 @@ import { apiClient } from '@/lib/api';
 export default function PaymentCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'processing' | 'failed'>('loading');
   const [message, setMessage] = useState('');
   const [paymentData, setPaymentData] = useState<{ reference?: string } | null>(null);
 
@@ -19,15 +19,19 @@ export default function PaymentCallbackPage() {
       try {
         const data = await apiClient.verifyPayment(reference);
         
-        if (data.success) {
+        if (data.success && data.data?.payment?.status === 'completed') {
           setStatus('success');
           setMessage('Payment verified successfully!');
-          setPaymentData(data.data);
+          setPaymentData({ reference: data.data.payment.reference });
           
           // Redirect to success page after 2 seconds
           setTimeout(() => {
             router.push(`/payment/success?reference=${reference}`);
           }, 2000);
+        } else if (data.success && ['pending', 'processing'].includes(data.data?.payment?.status || '')) {
+          setStatus('processing');
+          setMessage('Paystack is still confirming this payment. Your invoice will remain processing until confirmation arrives.');
+          setPaymentData({ reference: data.data.payment.reference });
         } else {
           setStatus('failed');
           setMessage(data.message || 'Payment verification failed');
@@ -85,6 +89,15 @@ export default function PaymentCallbackPage() {
             </>
           )}
 
+          {status === 'processing' && (
+            <>
+              <div className="w-16 h-16 mx-auto"><Loader className="w-full h-full animate-spin text-amber-300" /></div>
+              <h1 className="text-2xl font-black uppercase tracking-tight">Payment Processing</h1>
+              <p className="text-medium-gray">{message}</p>
+              {paymentData?.reference && <p className="font-mono text-sm text-white/50">Reference: {paymentData.reference}</p>}
+            </>
+          )}
+
           {status === 'success' && (
             <>
               <div className="w-16 h-16 mx-auto">
@@ -112,6 +125,11 @@ export default function PaymentCallbackPage() {
           )}
 
           <div className="flex flex-col gap-4 mt-8">
+            {status === 'processing' && (
+              <Link href="/dashboard?tab=billing" className="w-full py-3 bg-ai-blue text-white font-black text-sm uppercase tracking-widest rounded-xl">
+                Return to Billing
+              </Link>
+            )}
             {status === 'success' && (
               <Link 
                 href="/dashboard"

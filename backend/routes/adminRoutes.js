@@ -43,6 +43,10 @@ router.delete('/assessments/:id', adminController.deleteAssessment);
 
 // Build request management
 router.get('/project-requests', adminController.getProjectRequests);
+router.post('/project-requests/:id/performance-quote', adminController.createPerformanceQuote);
+router.get('/project-requests/:id/performance-scans', adminController.getPerformanceScansForRequest);
+router.get('/performance/availability', adminController.getPerformanceAvailabilityOverview);
+router.post('/project-requests/:id/performance-review', adminController.submitPerformanceForReview);
 router.put('/project-requests/:id', adminController.updateProjectRequest);
 router.get('/project-requests/:id/conversation', adminController.getProjectConversation);
 router.post('/project-requests/:id/conversation', adminController.createProjectConversationMessage);

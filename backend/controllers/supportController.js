@@ -24,6 +24,16 @@ exports.createTicket = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Message is required' });
     }
 
+    if (subscriptionId) {
+      const ownedSite = await prisma.subscription.findFirst({
+        where: { id: subscriptionId, userId },
+        select: { id: true }
+      });
+      if (!ownedSite) {
+        return res.status(403).json({ success: false, message: 'This site is not available in your workspace.' });
+      }
+    }
+
     // Check user subscription for priority boost
     const subscription = await prisma.subscription.findFirst({
       where: { userId, status: 'active' },

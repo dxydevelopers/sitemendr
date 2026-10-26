@@ -1,8 +1,16 @@
 const { runSuspensionAutomation } = require('../scripts/suspensionAutomation');
 const { verifyDomains } = require('../scripts/dnsWorker');
 const { provisionSSL } = require('../scripts/sslWorker');
+const { monitorUptime } = require('../scripts/uptimeWorker');
 const logger = require('../config/logger');
 const { isDbConnected } = require('../config/db');
+const {
+  runInvoiceReminders,
+  reconcileCompletedPaymentBillingRecords,
+  reconcilePayableBuildInvoices
+} = require('./billingRecords');
+const { reconcileCompletedPerformancePayments } = require('./paymentService');
+const { UPTIME_CHECK_INTERVAL_MINUTES, AVAILABILITY_HISTORY_RETENTION_DAYS } = require('./performancePolicy');
 
 /**
  * Initialize automated operational tasks
@@ -21,6 +29,21 @@ exports.initAutomation = async () => {
     logger.info('Running initial SSL provisioning...');
     await provisionSSL();
 
+    logger.info('Running initial client-site availability monitoring...');
+    await monitorUptime();
+
+    logger.info('Applying Performance availability history retention policy...');
+    await cleanupAvailabilityHistory();
+
+    logger.info('Reconciling completed payment billing records...');
+    await reconcileCompletedPaymentBillingRecords();
+    logger.info('Reconciling completed Performance payments...');
+    await reconcileCompletedPerformancePayments();
+    await reconcilePayableBuildInvoices();
+
+    logger.info('Running initial billing reminder pass...');
+    await runInvoiceReminders();
+
     logger.info('Initial background tasks completed successfully');
   } catch (err) {
     logger.error('One or more initial automation tasks failed', { 
@@ -30,6 +53,49 @@ exports.initAutomation = async () => {
   }
 
   const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  const DOMAIN_CHECK_INTERVAL = 15 * 60 * 1000;
+  const HTTPS_CHECK_INTERVAL = 30 * 60 * 1000;
+  const UPTIME_CHECK_INTERVAL = UPTIME_CHECK_INTERVAL_MINUTES * 60 * 1000;
+  const BILLING_REMINDER_INTERVAL = 60 * 60 * 1000;
+
+  const dnsTimer = setInterval(async () => {
+    try {
+      await verifyDomains();
+    } catch (error) {
+      logger.error('Scheduled DNS verification failed', { error: error.message });
+    }
+  }, DOMAIN_CHECK_INTERVAL);
+  dnsTimer.unref();
+
+  const httpsTimer = setInterval(async () => {
+    try {
+      await provisionSSL();
+    } catch (error) {
+      logger.error('Scheduled HTTPS readiness check failed', { error: error.message });
+    }
+  }, HTTPS_CHECK_INTERVAL);
+  httpsTimer.unref();
+
+  const uptimeTimer = setInterval(async () => {
+    try {
+      await monitorUptime();
+    } catch (error) {
+      logger.error('Scheduled client-site availability monitoring failed', { error: error.message });
+    }
+  }, UPTIME_CHECK_INTERVAL);
+  uptimeTimer.unref();
+
+  const billingTimer = setInterval(async () => {
+    try {
+      await reconcileCompletedPaymentBillingRecords();
+      await reconcileCompletedPerformancePayments();
+      await reconcilePayableBuildInvoices();
+      await runInvoiceReminders();
+    } catch (error) {
+      logger.error('Scheduled billing reminders failed', { error: error.message });
+    }
+  }, BILLING_REMINDER_INTERVAL);
+  billingTimer.unref();
   
   setInterval(async () => {
     logger.info('Starting scheduled daily operational tasks');
@@ -39,22 +105,53 @@ exports.initAutomation = async () => {
       const suspensionResults = await runSuspensionAutomation();
       logger.info('Suspension audit completed', suspensionResults);
 
-      // 2. DNS Audit
-      await verifyDomains();
-      logger.info('DNS Audit completed');
-
-      // 3. SSL Renewal/Provisioning Audit
-      await provisionSSL();
-      logger.info('SSL Audit completed');
-
-      // 4. Maintenance Audit
+      // 2. Maintenance Audit
       await runMaintenanceAudit();
+
+      // Keep detailed uptime history bounded while preserving scan reports.
+      await cleanupAvailabilityHistory();
 
     } catch (error) {
       logger.error('Scheduled operational tasks failed', { error: error.message });
     }
   }, TWENTY_FOUR_HOURS);
 };
+
+exports.runPerformanceHistoryRetention = cleanupAvailabilityHistory;
+
+async function cleanupAvailabilityHistory() {
+  try {
+    const { prisma } = require('../config/db');
+    const cutoff = new Date(Date.now() - AVAILABILITY_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const batchSize = 5000;
+    let totalDeleted = 0;
+
+    while (true) {
+      const expiredRows = await prisma.siteAvailabilityCheck.findMany({
+        where: { checkedAt: { lt: cutoff } },
+        orderBy: { checkedAt: 'asc' },
+        take: batchSize,
+        select: { id: true }
+      });
+      if (!expiredRows.length) break;
+
+      const deleted = await prisma.siteAvailabilityCheck.deleteMany({
+        where: { id: { in: expiredRows.map(row => row.id) }, checkedAt: { lt: cutoff } }
+      });
+      totalDeleted += deleted.count;
+      if (expiredRows.length < batchSize) break;
+    }
+
+    logger.info('Performance availability history retention pass complete', {
+      retentionDays: AVAILABILITY_HISTORY_RETENTION_DAYS,
+      deletedChecks: totalDeleted
+    });
+  } catch (error) {
+    logger.warn('Performance availability history retention pass failed', {
+      errorCode: error.code || 'AVAILABILITY_RETENTION_ERROR'
+    });
+  }
+}
 
 async function runMaintenanceAudit() {
   logger.info('Starting system maintenance audit');

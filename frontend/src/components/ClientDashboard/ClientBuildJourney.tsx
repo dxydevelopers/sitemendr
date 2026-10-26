@@ -48,7 +48,7 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   handoffSubmitting,
   handoffSubmittingAction, handleHandoffResponse, handleViewAssessment,
   handoffChatStarted, handleOpenHandoffChat,
-  finalPaymentSubmitting, handleFinalBalancePayment,
+  finalPaymentSubmitting, handleFinalBalancePayment, handleCancellationCloseoutPayment,
   } = dashboard;
 
   const averageProgress = projects.length
@@ -64,6 +64,9 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   const currentBuildRecord = selectedProjectRecord || projects[0] || null;
   const currentBuildStatus = normalizeBuildStatus(currentBuildRecord?.status);
   const hasPendingLifecycleRequest = reviewChatMessages.some(item => item.eventData?.lifecycleStatus === 'pending' && ['pause', 'cancel'].includes(String(item.eventData?.lifecycleType)));
+  const cancellationConfirmedEvent = [...reviewChatMessages].reverse().find(item => item.eventData?.type === 'cancel_confirmed' && item.eventData?.lifecycleStatus === 'confirmed');
+  const cancellationSettlement = cancellationConfirmedEvent?.eventData?.cancellationSettlement as { balanceDue?: number; currency?: string } | undefined;
+  const cancellationBalanceDue = Number(cancellationSettlement?.balanceDue || 0);
   const pausedFromStatus = currentBuildStatus === 'paused'
     ? String(reviewChatMessages.find(item => item.eventData?.lifecycleType === 'pause' && item.eventData?.lifecycleStatus === 'confirmed')?.eventData?.previousStatus || 'in_development')
     : undefined;
@@ -430,6 +433,10 @@ export default function ClientBuildJourney({ dashboard, onStartRequest }: Client
   <div className="mx-5 border-b border-amber-300/20 px-0 py-5 sm:mx-8 lg:mx-10">
   <p className="mb-3 text-[10px] font-semibold text-amber-300">Cancellation closeout</p>
   {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="client" /> : <p className="text-sm leading-6 text-white/50">The admin’s cancellation settlement will appear here.</p>}
+  {cancellationBalanceDue > 0 && currentBuildRecord && <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+  <div><p className="text-xs font-semibold text-white/78">Closeout balance due</p><p className="mt-1 text-lg font-semibold text-amber-200">{formatCurrencyAmount(cancellationSettlement?.currency || agreementCurrency, cancellationBalanceDue)}</p><p className="mt-1 text-[10px] leading-5 text-white/42">Pay securely through Sitemendr to complete the cancellation settlement.</p></div>
+  <button type="button" onClick={() => handleCancellationCloseoutPayment(currentBuildRecord, activeAgreementPaymentMethod, cancellationBalanceDue)} disabled={finalPaymentSubmitting} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-amber-300/30 px-4 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 disabled:opacity-50"><CreditCard className="h-4 w-4" />{finalPaymentSubmitting ? 'Opening secure checkout…' : 'Pay closeout balance'}</button>
+  </div>}
   </div>
   )}
 

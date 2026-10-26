@@ -26,8 +26,9 @@ import {
 } from './utils';
 import type {
   ClientStats, ClientProject, ClientActivity, BillingItem, MessageItem,
+  BillingInvoiceItem, BillingReceiptItem, BillingRefundItem,
   SupportTicket, ResourceItem, BookingItem, CustomDomain, UserData,
-  ApiRecord, ClientAssessment, ReviewChatMessage, AnalysisResult,
+  ApiRecord, ClientAssessment, ReviewChatMessage, AnalysisResult, DomainDnsTargets,
 } from './ClientDashboard_types';
 
 const sortProjectConversation = (messages: ReviewChatMessage[]) => [...messages].sort((a, b) => {
@@ -45,11 +46,16 @@ export function useClientDashboard(initialTab?: string) {
   const [projects, setProjects] = useState<ClientProject[]>([]);
   const [activities, setActivities] = useState<ClientActivity[]>([]);
   const [billing, setBilling] = useState<BillingItem[]>([]);
+  const [billingInvoices, setBillingInvoices] = useState<BillingInvoiceItem[]>([]);
+  const [billingReceipts, setBillingReceipts] = useState<BillingReceiptItem[]>([]);
+  const [billingRefunds, setBillingRefunds] = useState<BillingRefundItem[]>([]);
+  const [billingUnavailable, setBillingUnavailable] = useState(false);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [domains, setDomains] = useState<CustomDomain[]>([]);
+  const [domainDnsTargets, setDomainDnsTargets] = useState<DomainDnsTargets>({ a: '' });
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserData | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -59,9 +65,10 @@ export function useClientDashboard(initialTab?: string) {
     setSelectedProjectId(projectId);
   }, []);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analyzingProjectId, setAnalyzingProjectId] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analysisProjectId, setAnalysisProjectId] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<{ projectId: string; message: string } | null>(null);
+  const performanceScanInFlightRef = useRef(false);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [selectedAssessment, setSelectedAssessment] = useState<ClientAssessment | null>(null);
   const [activeBuildChapter, setActiveBuildChapter] = useState<string | null>(null);
@@ -192,7 +199,14 @@ export function useClientDashboard(initialTab?: string) {
       if (safeActivitiesRes.success && activityList) setActivities(activityList);
 
       const billingList = readApiArray<BillingItem>(safeBillingRes, ['data', 'billing']);
+      setBillingUnavailable(!safeBillingRes.success || !billingList);
       if (safeBillingRes.success && billingList) setBilling(billingList);
+      const invoiceList = readApiArray<BillingInvoiceItem>(safeBillingRes, ['invoices']);
+      if (safeBillingRes.success && invoiceList) setBillingInvoices(invoiceList);
+      const receiptList = readApiArray<BillingReceiptItem>(safeBillingRes, ['receipts']);
+      if (safeBillingRes.success && receiptList) setBillingReceipts(receiptList);
+      const refundList = readApiArray<BillingRefundItem>(safeBillingRes, ['refunds']);
+      if (safeBillingRes.success && refundList) setBillingRefunds(refundList);
 
       const messageList = readApiArray<MessageItem>(safeMessagesRes, ['messages', 'data']);
       if (safeMessagesRes.success && messageList) setMessages(messageList);
@@ -205,6 +219,10 @@ export function useClientDashboard(initialTab?: string) {
 
       const domainList = readApiArray<CustomDomain>(safeDomainsRes, ['domains', 'data']);
       if (safeDomainsRes.success && domainList) setDomains(domainList);
+      if (safeDomainsRes.success && safeDomainsRes.dnsTargets && typeof safeDomainsRes.dnsTargets === 'object') {
+        const targets = safeDomainsRes.dnsTargets as DomainDnsTargets;
+        if (typeof targets.a === 'string') setDomainDnsTargets({ a: targets.a });
+      }
 
       if (Array.isArray(safeBookingsRes)) setBookings(safeBookingsRes as BookingItem[]);
 
@@ -249,7 +267,8 @@ export function useClientDashboard(initialTab?: string) {
       normalizedUrl = normalizedUrl.replace(/\/api$/, '');
     }
 
-    socketRef.current = io(normalizedUrl);
+    const authToken = localStorage.getItem('sitemendr_auth_token') || localStorage.getItem('token');
+    socketRef.current = io(normalizedUrl, { auth: authToken ? { token: authToken } : {} });
 
     socketRef.current.on('connect', () => {
       if (typeof window !== 'undefined') {
@@ -257,7 +276,7 @@ export function useClientDashboard(initialTab?: string) {
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
-            if (parsedUser.role !== 'admin') socketRef.current?.emit('join_user', parsedUser.id);
+            if (parsedUser.role !== 'admin') socketRef.current?.emit('join_user');
           } catch { /* ignore malformed local user data */ }
         }
       }
@@ -300,6 +319,12 @@ export function useClientDashboard(initialTab?: string) {
         setActiveBuildChapter(null);
       }
     });
+    socketRef.current.on('performance_request_updated', (data: { request?: ApiRecord }) => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:performance-request-updated', { detail: data }));
+    });
+    socketRef.current.on('site_availability_alert', (data: Record<string, unknown>) => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:site-availability-alert', { detail: data }));
+    });
 
     socketRef.current.on('build_site_linked', () => { void fetchData(); });
     socketRef.current.on('addon_fulfillment_updated', () => {
@@ -308,6 +333,7 @@ export function useClientDashboard(initialTab?: string) {
 
     socketRef.current.on('project_conversation_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
       if (!data?.message) return;
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:project-conversation-message', { detail: data }));
       if (['deposit_payment_verified', 'final_payment_verified'].includes(String(data.message.eventData?.type || ''))) {
         // Payment callbacks may run in another tab or from a webhook. Reload
         // the request so its agreement status and client-facing journey update.
@@ -405,21 +431,23 @@ export function useClientDashboard(initialTab?: string) {
     setTimeout(() => setPasswordMessage({ text: '', type: '' }), 3000);
   };
 
-  const handleAnalyzeSite = async (projectId: string, url: string) => {
+  const handleAnalyzeSite = async (projectId: string, url: string, strategy: 'mobile' | 'desktop' = 'mobile') => {
+    if (performanceScanInFlightRef.current) return;
+    performanceScanInFlightRef.current = true;
     setIsAnalyzing(true);
-    setAnalyzingProjectId(projectId);
+    setAnalysisError(null);
     try {
-      const res = await apiClient.analyzePerformance(url, projectId);
+      const res = await apiClient.analyzePerformance(url, projectId, strategy);
       if (!res.success || !res.data) {
         throw new Error(res.message || 'The performance scan could not be completed.');
       }
       setAnalysisResult(res.data as unknown as AnalysisResult);
       setAnalysisProjectId(projectId);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Audit failed.');
+      setAnalysisError({ projectId, message: error instanceof Error ? error.message : 'The performance scan could not be completed.' });
     } finally {
+      performanceScanInFlightRef.current = false;
       setIsAnalyzing(false);
-      setAnalyzingProjectId(null);
     }
   };
 
@@ -694,7 +722,7 @@ export function useClientDashboard(initialTab?: string) {
         const managedSite = request?.subscriptionId
           ? refreshedProjects.find(item => item.id === request.subscriptionId && item.recordType === 'project')
           : undefined;
-        if (managedSite) router.push(`/dashboard/mysites?site=${encodeURIComponent(managedSite.id)}&view=overview`);
+        if (managedSite) router.push(`/dashboard?tab=mysites&site=${encodeURIComponent(managedSite.id)}&view=overview`);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to respond to handoff.');
@@ -749,6 +777,7 @@ export function useClientDashboard(initialTab?: string) {
         description: `${project.name} final balance payment`,
         metadata: {
           projectRequestId: project.id,
+          quoteVersionId: project.quoteVersions?.find(quote => quote.status === 'accepted')?.id,
           paymentStage: 'final_balance',
           buildTitle: project.name,
           checkoutRoute: 'inline_checkout',
@@ -782,7 +811,7 @@ export function useClientDashboard(initialTab?: string) {
                 ? refreshedProjects.find(item => item.id === request.subscriptionId && item.recordType === 'project')
                 : undefined;
               if (request?.status === 'completed' && managedSite) {
-                router.push(`/dashboard/mysites?site=${encodeURIComponent(managedSite.id)}&view=overview`);
+                router.push(`/dashboard?tab=mysites&site=${encodeURIComponent(managedSite.id)}&view=overview`);
               } else {
                 updateSelectedProjectId(project.id);
               }
@@ -829,6 +858,91 @@ export function useClientDashboard(initialTab?: string) {
     }
   };
 
+  const handleCancellationCloseoutPayment = async (
+    project: ClientProject,
+    selectedMethod: { id: string; label: string; gateway: string; channels?: string[] },
+    balanceAmount: number,
+  ) => {
+    if (!project?.id || finalPaymentSubmitting) return;
+    if (selectedMethod.gateway !== 'paystack') {
+      alert(`${selectedMethod.label} needs its own payment gateway setup before it can process this payment.`);
+      return;
+    }
+    if (!(balanceAmount > 0) || !user?.email) {
+      alert(balanceAmount > 0 ? 'Your account email is required before checkout can start.' : 'There is no cancellation balance to pay.');
+      return;
+    }
+    setFinalPaymentSubmitting(true);
+    let checkoutOpened = false;
+    let checkoutSettled = false;
+    let checkoutFallbackTimer: number | null = null;
+    try {
+      const res = await apiClient.initializePayment({
+        amount: balanceAmount,
+        serviceType: 'build_cancellation_closeout',
+        description: `${project.name} cancellation closeout`,
+        metadata: {
+          projectRequestId: project.id,
+          paymentStage: 'cancellation_closeout',
+          checkoutRoute: 'inline_checkout',
+          selectedPaymentMethod: selectedMethod.id,
+          selectedPaymentChannels: selectedMethod.channels || [],
+          currency: project.quoteCurrency || user?.defaultCurrency || 'USD',
+        },
+      });
+      const publicKey = res.data?.publicKey;
+      const reference = res.data?.paystack?.reference || res.data?.payment?.reference;
+      const accessCode = res.data?.paystack?.access_code;
+      if (!res.success || !publicKey || !reference) throw new Error(res.message || 'Cancellation checkout could not be started.');
+      await loadPaystackInline();
+      if (!window.PaystackPop) throw new Error('Paystack checkout is not available.');
+      checkoutOpened = true;
+      const popup = new window.PaystackPop();
+      const callbacks = {
+        onSuccess: async (response: { reference?: string; trxref?: string }) => {
+          checkoutSettled = true;
+          if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+          try {
+            await apiClient.verifyPayment(response.reference || response.trxref || reference);
+            await fetchData(project.id);
+            updateSelectedProjectId(project.id);
+          } catch (error) {
+            alert(error instanceof Error ? error.message : 'Payment was completed, but verification needs support review.');
+          } finally {
+            setFinalPaymentSubmitting(false);
+          }
+        },
+        onCancel: () => {
+          checkoutSettled = true;
+          if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+          setFinalPaymentSubmitting(false);
+        },
+        onError: (error: { message?: string }) => {
+          checkoutSettled = true;
+          if (checkoutFallbackTimer) window.clearTimeout(checkoutFallbackTimer);
+          setFinalPaymentSubmitting(false);
+          alert(error.message || 'Payment checkout could not be opened.');
+        },
+      };
+      if (accessCode) popup.resumeTransaction(accessCode, callbacks);
+      else popup.newTransaction({
+        key: publicKey,
+        email: user.email,
+        amount: res.data?.payment?.amount || Math.round(balanceAmount * 100),
+        currency: res.data?.payment?.currency || project.quoteCurrency || user?.defaultCurrency || 'USD',
+        ref: reference,
+        channels: selectedMethod.channels || ['card', 'bank', 'bank_transfer', 'ussd', 'qr', 'mobile_money', 'eft', 'apple_pay'],
+        metadata: { projectRequestId: project.id, checkoutRoute: 'inline_checkout', selectedPaymentMethod: selectedMethod.id },
+        ...callbacks,
+      });
+      checkoutFallbackTimer = window.setTimeout(() => { if (!checkoutSettled) setFinalPaymentSubmitting(false); }, 8000);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to start cancellation closeout payment.');
+    } finally {
+      if (!checkoutOpened) setFinalPaymentSubmitting(false);
+    }
+  };
+
   const handleLogoutAction = (onLogout?: () => void) => {
     apiClient.logout();
     if (onLogout) onLogout();
@@ -839,27 +953,31 @@ export function useClientDashboard(initialTab?: string) {
     setVerifyingDomainId(domainId);
     try {
       const res = await apiClient.verifyDomainDNS(domainId);
-      if (res.success && res.verified) {
-        alert('Domain verified successfully!');
-        fetchData();
-      } else {
-        alert(res.message || 'Verification failed. Please check your DNS records.');
+      if (res.success) {
+        setDomains(current => current.map(domain => domain.id === domainId ? {
+          ...domain,
+          status: res.verified ? 'verified' : 'pending',
+          sslEnabled: res.sslEnabled ?? domain.sslEnabled,
+          sslExpiresAt: res.sslExpiresAt ?? domain.sslExpiresAt,
+        } : domain));
       }
+      return res;
     } catch {
-      alert('Verification failed.');
+      return { success: false, verified: false, message: 'We could not check DNS. Please try again.' };
     } finally {
       setVerifyingDomainId(null);
     }
   };
 
   const handleDeleteDomain = async (domainId: string) => {
-    if (!confirm('Are you sure you want to delete this domain?')) return;
-    try {
-      await apiClient.delete(`/client/domains/${domainId}`);
+    const domain = domains.find(item => item.id === domainId)?.domain || 'this domain';
+    if (!confirm(`Remove ${domain} from Sitemendr? This only removes its connection to the site. It does not cancel the registration or change DNS at your domain provider. The site will stop opening on this domain.`)) return;
+    const res = await apiClient.delete<{ success: boolean; message?: string }>(`/client/domains/${domainId}`);
+    if (res.success) {
       alert('Domain deleted.');
-      fetchData();
-    } catch {
-      alert('Failed to delete domain.');
+      setDomains(current => current.filter(item => item.id !== domainId));
+    } else {
+      alert(res.message || 'Failed to delete domain.');
     }
   };
 
@@ -872,12 +990,12 @@ export function useClientDashboard(initialTab?: string) {
     openSidebarGroup, setOpenSidebarGroup,
     mobileRailGroup, setMobileRailGroup,
     // data
-    stats, projects, setProjects, activities, billing, messages, tickets, resources, bookings, domains,
+    stats, projects, setProjects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, bookings, domains, setDomains, domainDnsTargets,
     loading, user, fetchError, fetchData,
     // project selection / build journey
     selectedProjectId, setSelectedProjectId,
     activeBuildChapter, setActiveBuildChapter,
-    isAnalyzing, analyzingProjectId, analysisResult, analysisProjectId, handleAnalyzeSite,
+    isAnalyzing, analysisResult, analysisProjectId, analysisError, handleAnalyzeSite,
     exportingId, handleExportCodebase,
     selectedAssessment, showAssessmentModal, setShowAssessmentModal, handleViewAssessment,
     showProjectRequestModal, setShowProjectRequestModal,
@@ -891,7 +1009,7 @@ export function useClientDashboard(initialTab?: string) {
     reviewChatDraft, setReviewChatDraft, reviewChatLoading, reviewChatSending, handleSendClientReviewChat, handleProjectLifecycleRequest,
     handoffSubmitting, handoffSubmittingAction, handleHandoffResponse,
     handoffChatStarted, handleOpenHandoffChat,
-    finalPaymentSubmitting, handleFinalBalancePayment,
+    finalPaymentSubmitting, handleFinalBalancePayment, handleCancellationCloseoutPayment,
     // settings
     profileData, setProfileData, profileMessage, handleUpdateProfile,
     passwordData, setPasswordData, passwordMessage, handleChangePassword,

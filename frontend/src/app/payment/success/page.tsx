@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api';
 
 interface PaymentDetail {
   reference: string;
+  status?: string;
   amount: number;
   currency?: string;
   serviceType?: string;
@@ -35,6 +36,10 @@ export default function PaymentSuccessPage() {
         const data = await apiClient.verifyPayment(reference) as { success: boolean, data: { payment: PaymentDetail; addonProvisioned?: boolean } };
         
         if (data.success) {
+          if (data.data.payment.status !== 'completed') {
+            router.replace('/dashboard?tab=billing');
+            return;
+          }
           setPaymentData(data.data.payment);
           if (data.data.payment.serviceType === 'addon') setAddonProvisioned(data.data.addonProvisioned === true);
           if (data.data.payment.metadata?.isNewGuest) {

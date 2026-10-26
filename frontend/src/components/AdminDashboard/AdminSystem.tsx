@@ -101,7 +101,7 @@ export default function AdminSystem({
 
   {selectedSiteForVitals && siteVitals ? (
   <PerformanceAudit
-  data={{ metrics: { score: siteVitals.performance, vitals: { fcp: siteVitals.coreWebVitals?.fcp || siteVitals.coreWebVitals?.lcp, tti: siteVitals.coreWebVitals?.tti || '1.2s', cls: siteVitals.coreWebVitals?.cls, lcp: siteVitals.coreWebVitals?.lcp } } }}
+  data={{ metrics: { score: siteVitals.performance, vitals: { fcp: siteVitals.coreWebVitals?.fcp || siteVitals.coreWebVitals?.lcp, inp: siteVitals.coreWebVitals?.inp, cls: siteVitals.coreWebVitals?.cls, lcp: siteVitals.coreWebVitals?.lcp } } }}
   isRefreshing={loadingVitals}
   onRefresh={async () => { if (selectedSiteForVitals) { setLoadingVitals(true); const vitals = await fetchSiteVitals(selectedSiteForVitals); setSiteVitals(vitals); setLoadingVitals(false); } }}
   />

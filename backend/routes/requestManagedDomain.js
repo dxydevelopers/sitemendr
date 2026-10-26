@@ -30,11 +30,11 @@ router.post("/", async (req, res) => {
     // via notify() and the registry.
 
     logger.info(`DOMAIN_REQUEST_SUCCESS: Request for ${domainInterest} by ${email}`);
-    return res.status(200).json({ message: "Request recorded." });
+    return res.status(200).json({ success: true, message: "Request recorded." });
 
   } catch (error) {
     logger.error("DOMAIN_REQUEST_FAILED", { error, email, domainInterest });
-    return res.status(500).json({ message: "Server error while processing domain request." });
+    return res.status(500).json({ success: false, message: "Server error while processing domain request." });
   }
 });
 

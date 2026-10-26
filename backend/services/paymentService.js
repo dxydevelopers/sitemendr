@@ -6,6 +6,8 @@ const { sendEmail } = require('../config/email');
 const { deployTemplate } = require('./deploymentService');
 const { recordProjectEvent } = require('./projectConversation');
 const { ensureCompletedBuildSite } = require('./projectSiteService');
+const { issueReceiptForPayment } = require('./billingRecords');
+const { notifyUser, notifyAdmins } = require('./socketService');
 
 /**
  * Process a successful payment and trigger necessary provisioning
@@ -20,6 +22,24 @@ exports.processSuccessfulPayment = async (paymentId) => {
     if (!payment || payment.status !== 'completed') {
       logger.error('Payment not found or not completed in processSuccessfulPayment', { paymentId });
       return;
+    }
+
+    try {
+      await issueReceiptForPayment(payment);
+    } catch (receiptError) {
+      // Receipt bookkeeping must not prevent a verified payment from advancing its service.
+      logger.error('BILLING_RECEIPT_ISSUE_FAILED', { paymentId, error: receiptError.message });
+    }
+
+    if (payment.invoiceId) {
+      try {
+        await prisma.billingInvoice.updateMany({
+          where: { id: payment.invoiceId, status: { not: 'paid' } },
+          data: { status: 'paid', paidAt: payment.updatedAt || new Date(), voidedAt: null, nextReminderAt: null }
+        });
+      } catch (invoiceError) {
+        logger.error('BILLING_INVOICE_SETTLEMENT_FAILED', { paymentId, invoiceId: payment.invoiceId, error: invoiceError.message });
+      }
     }
 
     const { userId, serviceType, metadata } = payment;
@@ -43,11 +63,18 @@ exports.processSuccessfulPayment = async (paymentId) => {
     }
     // 3. Handle Build agreement deposit/payment
     else if (serviceType === 'build_agreement') {
-      await handleBuildAgreementPayment(payment);
+      if (!await handleLateCancelledBuildPayment(payment)) await handleBuildAgreementPayment(payment);
     }
     // 4. Handle Build final balance payment
     else if (serviceType === 'build_final_balance') {
-      await handleBuildFinalBalancePayment(payment);
+      if (!await handleLateCancelledBuildPayment(payment)) await handleBuildFinalBalancePayment(payment);
+    }
+    // 5. Handle a payment against an approved cancellation closeout invoice.
+    else if (serviceType === 'build_cancellation_closeout') {
+      await handleBuildCancellationCloseoutPayment(payment);
+    }
+    else if (serviceType === 'performance_payment') {
+      await handlePerformancePayment(payment);
     }
 
     logger.info('Payment processing completed successfully', { paymentId, serviceType });
@@ -59,6 +86,248 @@ exports.processSuccessfulPayment = async (paymentId) => {
     });
   }
 };
+
+exports.reconcileCompletedPerformancePayments = async (limit = 100) => {
+  const safeLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 100, 1), 500);
+  let pending;
+  try {
+    pending = await prisma.$queryRawUnsafe(
+    `SELECT p."id"
+     FROM "Payment" p
+     JOIN "BillingInvoice" i ON i."id" = p."invoiceId"
+     JOIN "ProjectRequest" r ON r."id" = i."projectRequestId"
+     WHERE p."status" = 'completed'
+       AND p."serviceType" = 'performance_payment'
+       AND r."serviceType" = 'performance'
+       AND p."userId" = r."userId"
+       AND p."metadata"->>'projectRequestId' = r."id"
+       AND (
+         (p."metadata"->>'paymentStage' = 'balance' AND (
+           r."status" = 'awaiting_final_payment'
+           OR (r."status" = 'completed' AND NOT EXISTS (
+             SELECT 1 FROM "ProjectConversationMessage" m
+             WHERE m."projectRequestId" = r."id"
+               AND m."eventData"->>'paymentReference' = p."reference"
+           ))
+         ))
+         OR (COALESCE(p."metadata"->>'paymentStage', 'quote') <> 'balance' AND (
+           r."status" = 'awaiting_payment'
+           OR (r."status" IN ('in_progress', 'ready_for_review', 'awaiting_final_payment', 'completed') AND NOT EXISTS (
+             SELECT 1 FROM "ProjectConversationMessage" m
+             WHERE m."projectRequestId" = r."id"
+               AND m."eventData"->>'paymentReference' = p."reference"
+           ))
+         ))
+       )
+     ORDER BY p."updatedAt" ASC
+     LIMIT $1`,
+      safeLimit
+    );
+  } catch (error) {
+    logger.error('PERFORMANCE_PAYMENT_RECONCILIATION_QUERY_FAILED', { error: error.message });
+    return { checked: 0, attempted: 0, failed: true };
+  }
+
+  for (const payment of pending) {
+    // The handler is idempotent: it repairs the request/event pair without
+    // duplicating receipts, invoices, or conversation events.
+    await exports.processSuccessfulPayment(payment.id);
+  }
+  return { checked: pending.length, attempted: pending.length };
+};
+
+async function handlePerformancePayment(payment) {
+  const requestId = payment.metadata?.projectRequestId;
+  const quoteVersionId = payment.metadata?.quoteVersionId;
+  const paymentStage = payment.metadata?.paymentStage === 'balance' ? 'balance' : 'quote';
+  const expectedRequestStatus = paymentStage === 'balance' ? 'awaiting_final_payment' : 'awaiting_payment';
+  if (!requestId || !quoteVersionId || !payment.invoiceId || payment.metadata?.termsAccepted !== true) {
+    logger.error('Verified Performance payment is missing its accepted invoice context', { paymentId: payment.id });
+    return;
+  }
+
+  const [request, quote, invoice] = await Promise.all([
+    prisma.projectRequest.findFirst({
+      where: { id: requestId, userId: payment.userId, serviceType: 'performance' },
+      select: { id: true, userId: true, status: true, title: true }
+    }),
+    prisma.projectQuoteVersion.findFirst({ where: { id: quoteVersionId, projectRequestId: requestId, status: 'accepted' }, select: { id: true, version: true, snapshot: true } }),
+    prisma.billingInvoice.findFirst({ where: { id: payment.invoiceId, projectRequestId: requestId, status: 'paid' }, select: { id: true, amountMinor: true, currency: true, stage: true } })
+  ]);
+  const quoteSnapshot = quote?.snapshot && typeof quote.snapshot === 'object' ? quote.snapshot : {};
+  const expectedAmount = paymentStage === 'balance'
+    ? Math.max(0, Math.round((Number(quoteSnapshot.totalAgreedAmount || quoteSnapshot.amount || 0) - Number(quoteSnapshot.depositAmount || 0)) * 100))
+    : invoice?.amountMinor;
+  if (!request || !quote || !invoice
+    || invoice.stage !== (paymentStage === 'balance' ? `performance_balance_${quote.version}` : `performance_quote_${quote.version}`)
+    || invoice.amountMinor !== Math.round(Number(payment.amount || 0))
+    || (paymentStage === 'balance' && invoice.amountMinor !== expectedAmount)
+    || String(invoice.currency).toUpperCase() !== String(payment.currency || '').toUpperCase()) {
+    logger.error('Verified Performance payment does not match its accepted invoice; reconciliation is required', {
+      paymentId: payment.id,
+      requestId
+    });
+    return;
+  }
+
+  const targetRequestStatus = paymentStage === 'balance' ? 'completed' : 'in_progress';
+  const recoverableRequestStatuses = paymentStage === 'balance'
+    ? [expectedRequestStatus, targetRequestStatus]
+    : [expectedRequestStatus, targetRequestStatus, 'ready_for_review', 'awaiting_final_payment', 'completed'];
+  const eventType = paymentStage === 'balance' ? 'performance_balance_verified' : 'performance_payment_verified';
+  const result = await prisma.$transaction(async tx => {
+    const currentRequest = await tx.projectRequest.findFirst({
+      where: { id: requestId, userId: payment.userId, serviceType: 'performance' },
+      select: { status: true }
+    });
+    if (!currentRequest || !recoverableRequestStatuses.includes(currentRequest.status)) return null;
+
+    let transitioned = false;
+    if (currentRequest.status === expectedRequestStatus) {
+      const changed = await tx.projectRequest.updateMany({
+        where: { id: requestId, userId: payment.userId, serviceType: 'performance', status: expectedRequestStatus },
+        data: paymentStage === 'balance'
+          ? { status: 'completed', finalPaymentConfirmedAt: new Date(), completedAt: new Date() }
+          : { status: 'in_progress', paymentAgreementStatus: 'confirmed', paymentConfirmedAt: new Date() }
+      });
+      if (changed.count !== 1) return null;
+      transitioned = true;
+    }
+
+    // The provider callback and webhook can race, and a prior attempt may have
+    // committed the status update before event delivery failed. Key the event
+    // to the immutable payment reference so retries repair it without dupes.
+    const priorEvent = await tx.projectConversationMessage.findFirst({
+      where: {
+        projectRequestId: requestId,
+        kind: 'event',
+        eventData: { path: ['paymentReference'], equals: payment.reference }
+      },
+      select: { id: true }
+    });
+    const event = priorEvent ? null : await tx.projectConversationMessage.create({
+      data: {
+        projectRequestId: requestId,
+        senderRole: 'system',
+        kind: 'event',
+        message: paymentStage === 'balance' ? 'Final balance verified. This Performance request is complete.' : 'Payment verified. Sitemendr can begin the approved Performance work.',
+        eventData: {
+          type: eventType,
+          invoiceId: invoice.id,
+          paymentReference: payment.reference,
+          amountMinor: payment.amount,
+          currency: payment.currency,
+          quoteVersionId: quote.id
+        }
+      }
+    });
+    return { transitioned, event };
+  });
+  if (!result) return;
+  if (!result.event) {
+    if (result.transitioned) logger.warn('Performance payment state transitioned but its event already existed', { paymentId: payment.id, requestId });
+    return;
+  }
+
+  const event = result.event;
+  const updatedRequest = await prisma.projectRequest.findUnique({ where: { id: requestId } });
+  notifyUser(payment.userId, 'project_conversation_message', { requestId, message: event });
+  notifyAdmins('project_conversation_message', { requestId, message: event });
+  notifyUser(payment.userId, 'performance_request_updated', { request: updatedRequest });
+  notifyAdmins('performance_request_updated', { request: updatedRequest });
+}
+
+async function handleLateCancelledBuildPayment(payment) {
+  const projectRequestId = payment.metadata?.projectRequestId;
+  if (!projectRequestId) return false;
+  const result = await prisma.$transaction(async tx => {
+    const rows = await tx.$queryRawUnsafe(
+      `SELECT "id", "eventData" FROM "ProjectConversationMessage"
+       WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'type' = 'cancel_confirmed'
+       AND "eventData"->>'lifecycleStatus' = 'confirmed' ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`,
+      projectRequestId
+    );
+    const row = rows[0];
+    const settlement = row?.eventData?.cancellationSettlement;
+    if (!row || !settlement) return false;
+    const paymentReferences = Array.isArray(settlement.paymentReferences) ? settlement.paymentReferences : [];
+    if (paymentReferences.includes(payment.reference)) return true;
+    const currency = String(payment.currency || 'USD').toUpperCase();
+    if (String(settlement.currency || 'USD').toUpperCase() !== currency) {
+      logger.error('CANCELLED_BUILD_PAYMENT_CURRENCY_MISMATCH', { paymentId: payment.id, projectRequestId });
+      return true;
+    }
+    const paidTotal = Math.round((Number(settlement.paidTotal || 0) + Number(payment.amount || 0) / 100) * 100) / 100;
+    const chargeTotal = Number(settlement.chargeTotal || 0);
+    const refundDue = Math.max(Math.round((paidTotal - chargeTotal) * 100) / 100, 0);
+    const balanceDue = Math.max(Math.round((chargeTotal - paidTotal) * 100) / 100, 0);
+    const refundedTotal = Number(settlement.refundedTotal || 0);
+    const updatedSettlement = {
+      ...settlement,
+      paidTotal,
+      refundDue,
+      balanceDue,
+      paymentReferences: [...paymentReferences, payment.reference],
+      refundStatus: refundDue > refundedTotal ? (refundedTotal > 0 ? 'partial' : 'pending') : refundDue > 0 ? 'processed' : 'not_due',
+      latePaymentReference: payment.reference,
+      latePaymentAt: new Date().toISOString()
+    };
+    await tx.$executeRawUnsafe(
+      `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{cancellationSettlement}', $2::jsonb, true) WHERE "id" = $1`,
+      row.id, JSON.stringify(updatedSettlement)
+    );
+    if (refundDue > refundedTotal) {
+      const activeRefund = await tx.billingRefund.findFirst({
+        // A late payment can create a new refund obligation after the prior
+        // cancellation refund was fully recorded. Reopen the existing project
+        // refund record so the client sees one cumulative cancellation refund.
+        where: { projectRequestId },
+        orderBy: { createdAt: 'asc' }
+      });
+      const refundAmountMinor = Math.round(refundDue * 100);
+      const processedAmountMinor = Math.round(refundedTotal * 100);
+      const refundStatus = processedAmountMinor > 0 ? 'partial' : 'pending';
+      if (activeRefund) {
+        await tx.billingRefund.update({
+          where: { id: activeRefund.id },
+          data: { amountMinor: refundAmountMinor, processedAmountMinor, status: refundStatus, snapshot: { refundDue, refundedTotal, reason: 'Build cancellation settlement' } }
+        });
+      } else {
+        const lastRefundReference = typeof settlement.lastRefundReference === 'string'
+          ? settlement.lastRefundReference
+          : null;
+        await tx.billingRefund.create({
+          data: {
+            refundNumber: `SMF-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`,
+            userId: payment.userId,
+            projectRequestId,
+            invoiceId: payment.invoiceId || null,
+            amountMinor: refundAmountMinor,
+            processedAmountMinor,
+            currency,
+            status: refundStatus,
+            externalReference: lastRefundReference,
+            externalReferences: lastRefundReference ? [lastRefundReference] : [],
+            processedAt: settlement.lastRefundAt ? new Date(settlement.lastRefundAt) : null,
+            sourcePaymentReferences: updatedSettlement.paymentReferences,
+            snapshot: { refundDue, refundedTotal, reason: 'Build cancellation settlement' }
+          }
+        });
+      }
+    }
+    return { updatedSettlement };
+  });
+  if (!result) return false;
+  if (result.updatedSettlement) {
+    await recordProjectEvent(projectRequestId, 'cancelled_build_payment_reconciled', 'A payment completed while the build was being cancelled. The cancellation settlement was updated.', {
+      paymentReference: payment.reference,
+      amountMinor: payment.amount,
+      currency: payment.currency,
+      cancellationSettlement: result.updatedSettlement
+    });
+  }
+  return true;
+}
 
 /**
  * Handle subscription activation, extension, and AI template generation
@@ -385,6 +654,55 @@ async function handleBuildFinalBalancePayment(payment) {
     reference: payment.reference
   });
 }
+
+async function handleBuildCancellationCloseoutPayment(payment) {
+  const projectRequestId = payment.metadata?.projectRequestId;
+  if (!projectRequestId || !payment.invoiceId) {
+    logger.error('CANCELLATION_CLOSEOUT_PAYMENT_MISSING_LINK', { paymentId: payment.id });
+    return;
+  }
+  const amount = Number(payment.amount || 0) / 100;
+  const currency = String(payment.currency || 'USD').toUpperCase();
+  const outcome = await prisma.$transaction(async tx => {
+    const rows = await tx.$queryRawUnsafe(
+      `SELECT "id", "eventData" FROM "ProjectConversationMessage"
+       WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'type' = 'cancel_confirmed'
+       AND "eventData"->>'lifecycleStatus' = 'confirmed' ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`,
+      projectRequestId
+    );
+    const row = rows[0];
+    const settlement = row?.eventData?.cancellationSettlement;
+    if (!row || !settlement || String(settlement.currency || 'USD').toUpperCase() !== currency) return null;
+    const remaining = Number(settlement.balanceDue || 0);
+    if (remaining <= 0 || Math.round(amount * 100) !== Math.round(remaining * 100)) return null;
+    const paidTotal = Math.round((Number(settlement.paidTotal || 0) + amount) * 100) / 100;
+    const balanceDue = Math.max(Math.round((Number(settlement.chargeTotal || 0) - paidTotal) * 100) / 100, 0);
+    const updatedSettlement = {
+      ...settlement,
+      paidTotal,
+      balanceDue,
+      closeoutPaidAt: new Date().toISOString(),
+      closeoutPaymentReference: payment.reference,
+      paymentReferences: [...new Set([...(Array.isArray(settlement.paymentReferences) ? settlement.paymentReferences : []), payment.reference])]
+    };
+    const updatedRows = await tx.$queryRawUnsafe(
+      `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{cancellationSettlement}', $2::jsonb, true)
+       WHERE "id" = $1 RETURNING "projectRequestId"`,
+      row.id, JSON.stringify(updatedSettlement)
+    );
+    return updatedRows.length ? { settlement: updatedSettlement } : null;
+  });
+  if (!outcome) {
+    logger.error('CANCELLATION_CLOSEOUT_SETTLEMENT_UPDATE_SKIPPED', { paymentId: payment.id, projectRequestId });
+    return;
+  }
+  await recordProjectEvent(
+    projectRequestId,
+    'cancellation_closeout_payment_verified',
+    'Cancellation closeout payment verified by Paystack.',
+    { paymentReference: payment.reference, amount, currency, cancellationSettlement: outcome.settlement }
+  );
+}
 async function triggerAITemplateGeneration(subscription, payment) {
   try {
     const { metadata, userId } = payment;
@@ -468,7 +786,7 @@ async function handleAddonProvisioning(payment) {
 
   try {
     const provisioned = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${subscriptionId}:${addon.id}`}))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${subscriptionId}:${addon.id}`})) IS NULL`;
       const subscription = await tx.subscription.findFirst({
         where: { id: subscriptionId, userId, status: 'active', suspended: false },
         select: { id: true, purchasedAddons: true }

@@ -1,29 +1,29 @@
 // components/client-dashboard/MySites.tsx
 //
-// The "My Sites" list: everything the client actually owns and operates,
-// as opposed to Projects (which is the build lifecycle, still in motion).
-// Completed Build requests are linked to their managed-site record after
-// handoff acceptance and payment closeout.
+// My Sites includes paid builds while they are in development, then keeps the
+// site available after handoff so the client can manage it.
 
 'use client';
 
-import { Globe, CircleCheck, CircleAlert, ChevronRight } from 'lucide-react';
+import { Globe, CircleCheck, CircleAlert, ChevronRight, Clock3 } from 'lucide-react';
 import type { ClientProject } from './ClientDashboard_types';
 import { normalizeBuildStatus } from './utils';
 import { DrillList } from '@/components/ui/DrillShell';
 
-const LIVE_STATUSES = ['launched', 'handoff', 'completed'];
+const SITE_STATUSES = ['active', 'completed', 'suspended'];
 
 const statusLabel: Record<string, string> = {
   launched: 'Live',
-  handoff: 'Handoff pending',
+  active: 'Active',
   completed: 'Live',
+  suspended: 'Suspended',
 };
 
 const statusTone: Record<string, string> = {
   launched: 'text-expert-green',
-  handoff: 'text-amber-300',
+  active: 'text-expert-green',
   completed: 'text-expert-green',
+  suspended: 'text-amber-300',
 };
 
 export default function MySites({
@@ -33,7 +33,17 @@ export default function MySites({
   projects: ClientProject[];
   onOpenSite: (siteId: string) => void;
 }) {
-  const sites = projects.filter((p) => p.recordType === 'project' && LIVE_STATUSES.includes(normalizeBuildStatus(p.status)));
+  const sites = projects.filter((project) => {
+    if (project.recordType === 'request') {
+      return project.serviceType === 'build'
+        && Boolean(project.paymentConfirmedAt)
+        && !project.subscriptionId
+        && !['cancelled', 'archived'].includes(normalizeBuildStatus(project.status));
+    }
+    if (project.recordType !== 'project') return false;
+    if (project.canManageSite === false) return Boolean(project.paymentConfirmedAt);
+    return SITE_STATUSES.includes(normalizeBuildStatus(project.status));
+  });
 
   if (!sites.length) {
   return (
@@ -43,7 +53,7 @@ export default function MySites({
   <Globe className="h-5 w-5" />
   </div>
   <h1 className="text-xl font-semibold text-white">No live sites yet</h1>
-  <p className="text-sm font-medium text-white/44">Completed builds appear here after handoff acceptance and payment closeout, ready for site management.</p>
+  <p className="text-sm font-medium text-white/44">A site appears here after its first build payment. You can follow its progress here and manage it after handoff and payment closeout.</p>
   </div>
   </div>
   );
@@ -54,17 +64,18 @@ export default function MySites({
   <DrillList
   items={sites.map((site) => {
   const status = normalizeBuildStatus(site.status);
-  const needsAttention = status === 'handoff' && !site.completionAcknowledgedAt;
+  const isInDevelopment = site.recordType === 'request' || site.canManageSite === false;
+  const needsAttention = status === 'suspended';
   return {
   id: site.id,
   icon: <Globe className="h-4 w-4" />,
   label: site.name,
-  meta: site.siteUrl ? site.siteUrl.replace(/^https?:\/\//, '') : undefined,
+  meta: site.siteUrl ? site.siteUrl.replace(/^https?:\/\//, '') : isInDevelopment ? `${site.progress}% build progress` : undefined,
   trailing: (
   <span className="flex min-w-0 items-center gap-2 sm:gap-3">
-  <span className={`flex min-w-0 items-center gap-1.5 text-[10px] font-medium leading-tight sm:text-[11px] ${statusTone[status] || 'text-white/50'}`}>
-  {needsAttention ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
-  <span className="max-w-[9ch] whitespace-normal text-left sm:max-w-none sm:whitespace-nowrap">{needsAttention ? 'Needs your review' : statusLabel[status] || status}</span>
+  <span className={`flex min-w-0 items-center gap-1.5 text-[10px] font-medium leading-tight sm:text-[11px] ${isInDevelopment ? 'text-sky-200' : statusTone[status] || 'text-white/50'}`}>
+  {isInDevelopment ? <Clock3 className="h-3.5 w-3.5" /> : needsAttention ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
+  <span className="max-w-[12ch] whitespace-normal text-left sm:max-w-none sm:whitespace-nowrap">{isInDevelopment ? 'In development' : needsAttention ? 'Needs your review' : statusLabel[status] || status}</span>
   </span>
   <ChevronRight className="hidden h-4 w-4 shrink-0 text-white/22 sm:block" />
   </span>

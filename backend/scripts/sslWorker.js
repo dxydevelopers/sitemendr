@@ -1,143 +1,92 @@
+const tls = require('tls');
 const { prisma } = require('../config/db');
-const axios = require('axios');
 const logger = require('../config/logger');
 
-/**
- * SSL Worker - Provisions certificates for custom domains
- * Interfaces with Cloudflare API for automated SSL management
- */
-async function provisionSSL() {
-  logger.info('Starting SSL Provisioning Worker');
-  
-  const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-  const CLOUDFLARE_ZONE_ID = process.env.CLOUDFLARE_ZONE_ID;
-  const isProduction = process.env.NODE_ENV === 'production';
+function inspectHttpsCertificate(hostname, timeoutMs = 8000) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
 
-  if (!CLOUDFLARE_API_TOKEN || CLOUDFLARE_API_TOKEN === 'your_cloudflare_token_for_dns_automation') {
-    logger.warn('Cloudflare API Token missing or placeholder - skipping real SSL provisioning');
-    // Maintain mock for development if no token provided
-    if (isProduction) { return; }
-    return await runMockProvisioning();
-  }
-
-  if (!CLOUDFLARE_ZONE_ID || CLOUDFLARE_ZONE_ID === 'your_cloudflare_zone_id') {
-    logger.warn('Cloudflare Zone ID missing or placeholder - skipping real SSL provisioning');
-    if (isProduction) { return; }
-    return await runMockProvisioning();
-  }
-
-  try {
-    const domains = await prisma.customDomain.findMany({
-      where: {
-        status: 'active',
-        OR: [
-          { sslEnabled: false },
-          { sslExpiresAt: { lt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }
-        ]
-      }
+    const socket = tls.connect({
+      host: hostname,
+      port: 443,
+      servername: hostname,
+      rejectUnauthorized: true,
+      timeout: timeoutMs
     });
 
-    logger.info(`Checking SSL for ${domains.length} domains requiring attention`);
+    socket.once('secureConnect', () => {
+      const certificate = socket.getPeerCertificate();
+      const validTo = certificate?.valid_to ? new Date(certificate.valid_to) : null;
+      const valid = socket.authorized && validTo instanceof Date
+        && !Number.isNaN(validTo.valueOf()) && validTo > new Date();
+      finish({ valid, validTo: valid ? validTo : null, error: valid ? null : socket.authorizationError || 'No valid certificate' });
+      socket.end();
+    });
+    socket.once('timeout', () => {
+      finish({ valid: false, validTo: null, error: 'Connection timed out' });
+      socket.destroy();
+    });
+    socket.once('error', error => finish({ valid: false, validTo: null, error: error.message }));
+  });
+}
 
-    for (const domainRecord of domains) {
-      const { domain } = domainRecord;
-      logger.info(`Provisioning SSL for ${domain} via Cloudflare API`);
+/**
+ * Reports real HTTPS certificate readiness for both the root and www host.
+ * Certificate issuance belongs to the web infrastructure; this worker only
+ * records the externally observable result and never marks mock SSL as ready.
+ */
+async function provisionSSL() {
+  try {
+    const domains = await prisma.customDomain.findMany({
+      where: { status: { in: ['verified', 'active'] } },
+      select: { id: true, domain: true, sslEnabled: true, sslExpiresAt: true }
+    });
 
-      try {
-        // 1. Ensure SSL setting is 'Full' or 'Strict' in Cloudflare
-        await axios.patch(
-          `https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/settings/ssl`,
-          { value: 'full' },
-          { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } }
-        );
+    for (const domain of domains) {
+      const rootHost = domain.domain.toLowerCase();
+      const checks = await Promise.all([
+        inspectHttpsCertificate(rootHost),
+        inspectHttpsCertificate(`www.${rootHost}`)
+      ]);
+      const isReady = checks.every(check => check.valid);
+      const expiries = checks.filter(check => check.valid).map(check => check.validTo);
+      const expiresAt = isReady ? new Date(Math.min(...expiries.map(date => date.valueOf()))) : null;
 
-        // 2. Enable Always Use HTTPS
-        await axios.patch(
-          `https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/settings/always_use_https`,
-          { value: 'on' },
-          { headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` } }
-        );
-
-        // 3. Mock success metadata for internal tracking (Cloudflare handles the actual cert)
-        const sslEnabled = true;
-        const sslExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-
+      if (domain.sslEnabled !== isReady || domain.sslExpiresAt?.valueOf() !== expiresAt?.valueOf()) {
         await prisma.customDomain.update({
-          where: { id: domainRecord.id },
-          data: {
-            sslEnabled,
-            sslExpiresAt,
-            updatedAt: new Date()
-          }
-        });
-
-        logger.info(`SSL configuration updated for ${domain}`, {
-          errorCode: 'SSL_PROVISIONED',
-          domain
-        });
-      } catch (provisionError) {
-        logger.error(`Cloudflare SSL config failed for ${domain}`, {
-          errorCode: 'SSL_PROVISIONING_ERROR',
-          domain,
-          error: provisionError.response?.data?.errors || provisionError.message
+          where: { id: domain.id },
+          data: { sslEnabled: isReady, sslExpiresAt: expiresAt }
         });
       }
+
+      logger.info('HTTPS certificate readiness checked', {
+        domain: rootHost,
+        rootHttpsReady: checks[0].valid,
+        wwwHttpsReady: checks[1].valid,
+        sslEnabled: isReady,
+        errors: checks.filter(check => !check.valid).map(check => check.error)
+      });
     }
   } catch (error) {
-    logger.error('SSL Worker Error', {
+    logger.error('HTTPS certificate readiness worker failed', {
       errorCode: 'SSL_WORKER_CRITICAL_ERROR',
       error: error.message
     });
   }
 }
 
-async function runMockProvisioning() {
-  if (process.env.NODE_ENV === 'production') {
-    logger.warn('Mock SSL provisioning is disabled in production');
-    return;
-  }
-  // Original mock logic for development environments without API keys
-  try {
-    const domains = await prisma.customDomain.findMany({
-      where: {
-        status: 'active',
-        OR: [
-          { sslEnabled: false },
-          { sslExpiresAt: { lt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }
-        ]
-      }
-    });
-
-    for (const domainRecord of domains) {
-      const { domain } = domainRecord;
-      const sslEnabled = true;
-      const sslExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-
-      await prisma.customDomain.update({
-        where: { id: domainRecord.id },
-        data: { sslEnabled, sslExpiresAt, updatedAt: new Date() }
-      });
-      logger.info(`MOCK: SSL provisioned for ${domain}`);
-    }
-  } catch (err) {
-    logger.error('Mock SSL Error', { error: err.message });
-  }
-}
-
 if (require.main === module) {
   provisionSSL()
     .then(() => process.exit(0))
-    .catch(err => {
-      logger.error('SSL Worker Startup Error', {
-        errorCode: 'SSL_WORKER_STARTUP_ERROR',
-        error: err.message
-      });
+    .catch(error => {
+      logger.error('HTTPS readiness worker startup failed', { error: error.message });
       process.exit(1);
     });
 }
 
-module.exports = { provisionSSL };
-
-
-
-
+module.exports = { provisionSSL, inspectHttpsCertificate };

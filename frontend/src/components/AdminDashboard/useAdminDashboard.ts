@@ -141,7 +141,8 @@ export function useAdminDashboard(initialTab?: string) {
     if (!process.env.NEXT_PUBLIC_SOCKET_URL && normalizedUrl.includes('/api')) {
       normalizedUrl = normalizedUrl.replace(/\/api$/, '');
     }
-    socketRef.current = io(normalizedUrl);
+    const authToken = localStorage.getItem('sitemendr_auth_token') || localStorage.getItem('token');
+    socketRef.current = io(normalizedUrl, { auth: authToken ? { token: authToken } : {} });
 
     socketRef.current.on('connect', () => { socketRef.current?.emit('admin_join'); });
 
@@ -163,11 +164,21 @@ export function useAdminDashboard(initialTab?: string) {
           : [data.request as ProjectRequest, ...prev];
       });
     });
+    socketRef.current.on('performance_request_created', (data: { request?: ProjectRequest }) => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:performance-request-updated', { detail: data }));
+    });
+    socketRef.current.on('performance_request_updated', (data: { request?: ProjectRequest }) => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:performance-request-updated', { detail: data }));
+    });
+    socketRef.current.on('site_availability_alert', (data: Record<string, unknown>) => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:site-availability-alert', { detail: data }));
+    });
     socketRef.current.on('build_site_linked', () => {
       if (activeTabRef.current === 'project-requests') fetchData();
     });
     socketRef.current.on('project_conversation_message', (data: { requestId?: string; message?: ReviewChatMessage }) => {
       if (!data?.message) return;
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sitemendr:project-conversation-message', { detail: data }));
       if (['deposit_payment_verified', 'final_payment_verified'].includes(String(data.message.eventData?.type || ''))) {
         // The payment callback may run in another tab or from a webhook.
         // Refresh build requests even when the admin is on another dashboard tab.

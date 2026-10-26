@@ -1,4 +1,5 @@
 const { Server } = require("socket.io");
+const jwt = require('jsonwebtoken');
 const logger = require("../config/logger");
 const { prisma, isDbConnected } = require("../config/db");
 const { withTimeout } = require("../utils/promise");
@@ -31,13 +32,29 @@ const initSocket = (server) => {
     }
   });
 
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next();
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.userId || decoded.id;
+      if (typeof userId !== 'string' || !userId) return next(new Error('Unauthorized'));
+      socket.data.userId = userId;
+      next();
+    } catch {
+      next(new Error('Unauthorized'));
+    }
+  });
+
   logger.info("WebSocket server initialized");
 
   io.on("connection", (socket) => {
     logger.info(`User connected: ${socket.id}`);
 
     // Join a private room for the user to receive notifications
-    socket.on("join_user", (userId) => {
+    socket.on("join_user", () => {
+      const userId = socket.data.userId;
+      if (!userId) return;
       socket.join(`user_${userId}`);
       logger.info(`User ${socket.id} joined private room: user_${userId}`);
     });
@@ -191,6 +208,17 @@ const initSocket = (server) => {
     });
 
     socket.on("admin_join", async () => {
+      if (!socket.data.userId) return;
+      try {
+        const user = await prisma.user.findUnique({ where: { id: socket.data.userId }, select: { role: true } });
+        if (user?.role !== 'admin') {
+          logger.warn('Rejected socket admin room join for a non-admin user', { socketId: socket.id });
+          return;
+        }
+      } catch (error) {
+        logger.warn('Could not verify socket admin room access', { socketId: socket.id, errorCode: error.code || 'SOCKET_ADMIN_AUTH_ERROR' });
+        return;
+      }
       socket.join("admin_room");
       logger.info(`Admin joined: ${socket.id}`);
       

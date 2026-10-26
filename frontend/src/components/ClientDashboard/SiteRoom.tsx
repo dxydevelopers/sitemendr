@@ -27,13 +27,14 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { LifeBuoy, Globe as GlobeIcon, ExternalLink } from 'lucide-react';
-import type { ClientProject, CustomDomain, BillingItem, AnalysisResult } from './ClientDashboard_types';
+import { LifeBuoy, Globe as GlobeIcon, ExternalLink, LockKeyhole } from 'lucide-react';
+import type { ClientProject, CustomDomain, BillingItem, BillingInvoiceItem, BillingReceiptItem, BillingRefundItem, AnalysisResult } from './ClientDashboard_types';
 import type { UseClientDashboardReturn } from './useClientDashboard';
 import { apiClient } from '@/lib/api';
 import SiteDomain from './SiteDomain';
 import SiteBilling from './SiteBilling';
 import AddonMarketplace from '../dashboard/AddonMarketplace';
+import { normalizeBuildStatus } from './utils';
 
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
 const SupportTickets = dynamic(() => import('../dashboard/SupportTickets'), { ssr: false });
@@ -48,11 +49,12 @@ const ROOM_TABS: { id: RoomView; label: string }[] = [
   { id: 'performance', label: 'Performance' },
   { id: 'support', label: 'Support' },
 ];
+const DEVELOPMENT_TABS: { id: RoomView; label: string }[] = ROOM_TABS.filter(tab => ['overview', 'domain'].includes(tab.id));
 
-function UnderlineTabs({ active, onChange }: { active: RoomView; onChange: (v: RoomView) => void }) {
+function UnderlineTabs({ active, onChange, tabs = ROOM_TABS }: { active: RoomView; onChange: (v: RoomView) => void; tabs?: { id: RoomView; label: string }[] }) {
   return (
   <div className="flex min-w-0 gap-5 overflow-x-auto border-b border-white/[0.08] px-1 sm:gap-6">
-  {ROOM_TABS.map((tab) => (
+  {tabs.map((tab) => (
   <button
   key={tab.id}
   type="button"
@@ -71,6 +73,7 @@ function UnderlineTabs({ active, onChange }: { active: RoomView; onChange: (v: R
 
 function OverviewTab({ site }: { site: ClientProject }) {
   const statusLabels: Record<string, string> = {
+    active: 'Active',
     completed: 'Live',
     launched: 'Live',
     handoff: 'Handoff pending',
@@ -116,28 +119,64 @@ function OverviewTab({ site }: { site: ClientProject }) {
 export default function SiteRoom({
   site,
   dashboard,
+  invoices,
+  receipts,
+  refunds,
+  onOpenBuildJourney,
   view,
   onChangeView,
 }: {
   site: ClientProject;
   dashboard: UseClientDashboardReturn;
+  invoices: BillingInvoiceItem[];
+  receipts: BillingReceiptItem[];
+  refunds: BillingRefundItem[];
+  onOpenBuildJourney: (projectRequestId: string) => void;
   view: RoomView;
   onChangeView: (v: RoomView) => void;
 }) {
-  const { domains, billing, projects, analysisResult, analysisProjectId, analyzingProjectId, isAnalyzing, handleAnalyzeSite } = dashboard;
+  const { domains, billing, billingUnavailable, projects, analysisResult, analysisProjectId, isAnalyzing, handleAnalyzeSite } = dashboard;
   const [savedAnalysis, setSavedAnalysis] = useState<AnalysisResult | null>(null);
+  const linkedBuildRequest = projects.find(project => project.recordType === 'request' && (project.id === site.id || project.subscriptionId === site.id));
+  const siteIsInHandoff = ['launched', 'handoff'].includes(normalizeBuildStatus(site.status))
+    || ['launched', 'handoff'].includes(normalizeBuildStatus(linkedBuildRequest?.status || ''));
+  const siteIsReadOnly = site.recordType === 'request' || site.canManageSite === false || siteIsInHandoff;
+  const siteStatus = normalizeBuildStatus(site.status);
+  const readOnlyTitle = siteIsInHandoff
+    ? 'Complete your site handoff'
+    : siteStatus === 'completed'
+      ? 'Finish payment closeout to manage your site'
+      : 'Your site is in development';
+  const readOnlyMessage = siteIsInHandoff
+    ? 'Review and accept the handoff in Build Journey, then settle any remaining agreed balance. Domain setup and site tools unlock when both are complete.'
+    : siteStatus === 'completed'
+      ? 'The build is complete. Domain setup and site tools unlock after you accept the handoff and complete the agreed payment.'
+      : 'Your build is linked here so you can follow its progress. Domain setup and the other site tools unlock after handoff acceptance and payment closeout.';
+  const visibleTabs = siteIsReadOnly ? DEVELOPMENT_TABS : ROOM_TABS;
+  const visibleView = visibleTabs.some(tab => tab.id === view) ? view : 'overview';
+
+  const openBuildJourney = () => {
+    if (!linkedBuildRequest) return;
+    dashboard.setSelectedProjectId(linkedBuildRequest.id);
+    dashboard.setActiveBuildChapter(null);
+    dashboard.router.push('/dashboard?tab=projects');
+  };
 
   useEffect(() => {
-    if (view !== 'performance') return;
+    if (view !== 'performance' || siteIsReadOnly) return;
     let active = true;
     setSavedAnalysis(null);
     apiClient.getSiteVitals(site.id).then((response) => {
-      if (!active || !response.success || !response.vitals || typeof response.vitals !== 'object') return;
-      const metrics = response.vitals as AnalysisResult['metrics'];
-      if (typeof metrics?.score !== 'number') return;
+      if (!active || !response.success) return;
+      const metrics = response.vitals && typeof response.vitals === 'object'
+        ? response.vitals as AnalysisResult['metrics']
+        : undefined;
+      if (typeof metrics?.score !== 'number' && !response.availability?.status) return;
       setSavedAnalysis({
         metrics,
+        strategy: response.strategy || 'mobile',
         aiInsights: response.aiInsights as AnalysisResult['aiInsights'],
+        availability: response.availability,
         timestamp: typeof response.timestamp === 'string' ? response.timestamp : undefined,
         insights: ''
       });
@@ -145,15 +184,19 @@ export default function SiteRoom({
       if (active) setSavedAnalysis(null);
     });
     return () => { active = false; };
-  }, [site.id, view]);
+  }, [site.id, view, siteIsReadOnly]);
 
   const siteDomains = domains.filter((domain: CustomDomain) => domain.siteId === site.id);
-  const relatedRequestIds = projects.filter(project => project.subscriptionId === site.id).map(project => project.id);
-  const siteBilling = billing.filter((item: BillingItem) =>
-    item.metadata?.subscriptionId === site.id
-    || item.metadata?.projectRequestId === site.id
-    || relatedRequestIds.includes(String(item.metadata?.projectRequestId || ''))
-  );
+  const relatedBuildRequests = projects.filter(project => project.recordType === 'request' && project.subscriptionId === site.id);
+  const relatedRequestIds = relatedBuildRequests.map(project => project.id);
+  const siteBilling = billing.filter((item: BillingItem) => item.metadata?.subscriptionId === site.id
+    || relatedRequestIds.includes(String(item.metadata?.projectRequestId || '')));
+  const siteInvoices = invoices.filter(invoice => invoice.snapshot?.subscriptionId === site.id
+    || Boolean(invoice.projectRequestId && relatedRequestIds.includes(invoice.projectRequestId)));
+  const siteInvoiceIds = new Set(siteInvoices.map(invoice => invoice.id));
+  const siteReceipts = receipts.filter(receipt => siteInvoiceIds.has(String(receipt.invoiceId || ''))
+    || siteBilling.some(payment => payment.id === receipt.paymentId));
+  const siteRefunds = refunds.filter(refund => Boolean(refund.projectRequestId && relatedRequestIds.includes(refund.projectRequestId)));
 
   return (
   <div className="animate-fade-in space-y-6">
@@ -166,43 +209,62 @@ export default function SiteRoom({
   </div>
   </div>
 
-  <button
+  {!siteIsReadOnly && <button
   type="button"
   onClick={() => onChangeView('support')}
   className="inline-flex items-center gap-2 self-start bg-ai-blue px-5 py-2.5 text-[10px] font-semibold text-white transition hover:bg-white hover:text-black sm:self-auto"
   >
   <LifeBuoy className="h-4 w-4" /> Request a fix
-  </button>
+  </button>}
   </div>
 
-  <UnderlineTabs active={view} onChange={onChangeView} />
+  <>
+  {siteIsReadOnly && (
+  <section className="flex flex-col gap-4 border border-sky-300/15 bg-sky-300/[0.035] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+  <div className="flex min-w-0 items-start gap-3">
+  <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-sky-200" />
+  <div className="min-w-0">
+  <p className="text-sm font-semibold text-white">{readOnlyTitle}</p>
+  <p className="mt-1 max-w-2xl text-xs leading-5 text-white/55">{readOnlyMessage}</p>
+  </div>
+  </div>
+  {linkedBuildRequest && <button type="button" onClick={openBuildJourney} className="inline-flex min-h-10 shrink-0 items-center justify-center border border-sky-300/25 px-4 text-xs font-semibold text-sky-100 transition hover:bg-sky-300/10">Continue in Build Journey</button>}
+  </section>
+  )}
+
+  <UnderlineTabs active={visibleView} onChange={onChangeView} tabs={visibleTabs} />
 
   <div className="pt-2">
-  {view === 'overview' && <OverviewTab site={site} />}
+  {visibleView === 'overview' && <OverviewTab site={site} />}
 
-  {view === 'domain' && (
+  {visibleView === 'domain' && (
   <SiteDomain site={site} domains={siteDomains} dashboard={dashboard} />
   )}
 
-  {view === 'addons' && (
+  {!siteIsReadOnly && visibleView === 'addons' && (
   <AddonMarketplace subscription={site} onRequestCustom={() => onChangeView('support')} />
   )}
 
-  {view === 'billing' && <SiteBilling site={site} billing={siteBilling} />}
+  {!siteIsReadOnly && visibleView === 'billing' && <SiteBilling site={site} billing={siteBilling} invoices={siteInvoices} receipts={siteReceipts} refunds={siteRefunds} unavailable={billingUnavailable} onRefreshBilling={dashboard.fetchData} onOpenBuildJourney={onOpenBuildJourney} onOpenAddons={() => onChangeView('addons')} />}
 
-  {view === 'performance' && (
+  {!siteIsReadOnly && visibleView === 'performance' && (
   <PerformanceAudit
+  key={site.id}
+  subscriptionId={site.id}
   data={analysisProjectId === site.id ? analysisResult : savedAnalysis}
-  isRefreshing={isAnalyzing && analyzingProjectId === site.id}
-  onRefresh={() => {
-  if (site.siteUrl) handleAnalyzeSite(site.id, site.siteUrl);
+  isRefreshing={isAnalyzing}
+  errorMessage={dashboard.analysisError?.projectId === site.id ? dashboard.analysisError.message : null}
+  disabledReason={!site.siteUrl ? 'A live deployment is required before this site can be scanned.' : null}
+  onRefresh={(strategy) => {
+  if (site.siteUrl) handleAnalyzeSite(site.id, site.siteUrl, strategy);
   }}
   onRequestOptimization={() => onChangeView('support')}
   />
   )}
 
-  {view === 'support' && <SupportTickets subscriptionId={site.id} />}
+  {!siteIsReadOnly && visibleView === 'support' && <SupportTickets subscriptionId={site.id} />}
   </div>
+  </>
   </div>
   );
 }

@@ -32,6 +32,9 @@ model User {
   updatedAt               DateTime         @updatedAt
   blogPosts               BlogPost[]
   payments                Payment[]
+    billingInvoices         BillingInvoice[]
+    billingReceipts         BillingReceipt[]
+    billingRefunds          BillingRefund[]
   leadsAssigned           Lead[]           @relation("AssignedTo")
   leadsOwned              Lead[]           @relation("Owner")
   customDomains           CustomDomain[]
@@ -210,11 +213,90 @@ model Payment {
   serviceType     String
   description     String
   invoiceId       String?
+    invoice         BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+    receipt         BillingReceipt?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
+  @@index([invoiceId])
+}
+
+model BillingInvoice {
+  id                 String          @id @default(uuid())
+  invoiceNumber      String          @unique
+  userId             String
+  user               User            @relation(fields: [userId], references: [id])
+  projectRequestId   String?
+  subscriptionId     String?
+  subscription       Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  stage              String
+  serviceType        String
+  description        String
+  amountMinor        Int
+  currency           String
+  status             String          @default("open")
+  issuedAt           DateTime        @default(now())
+  dueAt              DateTime?
+  paidAt             DateTime?
+  voidedAt           DateTime?
+  reminderCount      Int             @default(0)
+  lastReminderAt     DateTime?
+  nextReminderAt    DateTime?
+  snapshot           Json?
+  payments           Payment[]
+  receipts           BillingReceipt[]
+  refunds            BillingRefund[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@unique([projectRequestId, stage])
+  @@unique([subscriptionId, stage])
+  @@index([userId, issuedAt])
+  @@index([status, dueAt])
+  @@index([status, nextReminderAt])
+}
+
+model BillingReceipt {
+  id            String         @id @default(uuid())
+  receiptNumber String         @unique
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  paymentId     String         @unique
+  payment       Payment        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  invoiceId     String?
+  invoice       BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  amountMinor   Int
+  currency      String
+  issuedAt      DateTime       @default(now())
+  snapshot      Json?
+  createdAt     DateTime       @default(now())
+
+  @@index([userId, issuedAt])
+}
+
+model BillingRefund {
+  id            String         @id @default(uuid())
+  refundNumber  String         @unique
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  projectRequestId String?
+  invoiceId     String?
+  invoice       BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  amountMinor   Int
+  currency      String
+  status        String         @default("pending")
+  externalReference String?    @unique
+  externalReferences Json?
+  sourcePaymentReferences Json?
+  processedAmountMinor Int    @default(0)
+  processedAt   DateTime?
+  snapshot      Json?
+  createdAt     DateTime       @default(now())
+
+  @@index([userId, processedAt])
+  @@index([projectRequestId, processedAt])
 }
 
 model Subscription {
@@ -242,6 +324,8 @@ model Subscription {
   reviewNotes     String?
   revisionCount   Int            @default(0)
   performanceData Json?
+  performanceScans PerformanceScan[]
+  availabilityChecks SiteAvailabilityCheck[]
   purchasedAddons Json?
   customDomains   CustomDomain[]
   milestones      Milestone[]
@@ -254,6 +338,7 @@ model Subscription {
   pages          Page[]
   themeSettings  ThemeSettings?
   projectRequests ProjectRequest[]
+  billingInvoices BillingInvoice[]
 
   @@index([userId, status, createdAt])
   @@index([status, createdAt])
@@ -267,6 +352,7 @@ model ProjectRequest {
   assessment      Assessment?   @relation(fields: [assessmentId], references: [id])
   subscriptionId  String?
   subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  performanceContext Json?
   title           String
   businessName    String?
   serviceType     String        @default("build")
@@ -319,6 +405,48 @@ model ProjectRequest {
 
   @@index([serviceType, status, updatedAt])
   @@index([userId, updatedAt])
+}
+
+model PerformanceScan {
+  id               String         @id @default(uuid())
+  subscriptionId   String
+  subscription     Subscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  provider         String
+  url              String
+  strategy         String         @default("mobile")
+  score            Int?
+  metrics          Json
+  recommendations  Json?
+  issues            Json?
+  conditions        Json?
+  scannedAt         DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+
+  @@index([subscriptionId, scannedAt])
+}
+
+model SiteAvailabilityCheck {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  status         String
+  statusCode     Int?
+  responseTimeMs Int?
+  error          String?
+  source         String       @default("scheduled")
+  checkedAt      DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId, checkedAt])
+  @@index([subscriptionId, source, checkedAt])
+  @@index([checkedAt])
+}
+
+model SiteAvailabilityMonitorLease {
+  id        String   @id
+  ownerId   String
+  leaseUntil DateTime
+  updatedAt DateTime @updatedAt
 }
 
 model ReviewChatMessage {

@@ -119,7 +119,7 @@ export interface EnforcementSettings {
 
 export interface SiteVitals {
   performance?: number;
-  coreWebVitals?: { fcp?: string; tti?: string; cls?: string; lcp?: string };
+  coreWebVitals?: { fcp?: string; inp?: string; cls?: string; lcp?: string };
 }
 
 export interface Assessment {

@@ -504,7 +504,7 @@ class ApiClient {
   }
 
   async verifyPayment(reference: string) {
-    return this.request<{ success: boolean; data: { reference?: string }; message?: string }>(`/payments/verify/${reference}`);
+    return this.request<{ success: boolean; data: { payment: { reference?: string; status?: string }; paystack?: Record<string, unknown>; addonProvisioned?: boolean }; message?: string }>(`/payments/verify/${reference}`);
   }
 
   // Assessment API methods
@@ -555,8 +555,51 @@ class ApiClient {
       success: boolean;
       vitals: Record<string, unknown> | null;
       aiInsights?: Record<string, unknown>;
+      strategy?: 'mobile' | 'desktop' | null;
       timestamp?: string;
+      availability?: {
+        status: 'UP' | 'DOWN' | null;
+        latency: number | null;
+        statusCode: number | null;
+        lastChecked: string | null;
+        error: string | null;
+      };
     }>(`/client/vitals/${subscriptionId}`);
+  }
+
+  async getPerformanceScans(subscriptionId: string) {
+    return this.request<{ success: boolean; data: Array<Record<string, unknown>>; historyAvailable?: boolean; message?: string }>(
+      `/client/performance/${subscriptionId}/scans`
+    );
+  }
+
+  async getSiteAvailabilityHistory(subscriptionId: string) {
+    return this.request<{
+      success: boolean;
+      data: Array<{ id: string; status: 'UP' | 'DOWN'; statusCode: number | null; responseTimeMs: number | null; error: string | null; source: 'scheduled' | 'manual'; checkedAt: string }>;
+      historyAvailable?: boolean;
+      summary?: { periodDays: number; retentionDays?: number; scheduledChecks: number; uptimePercent: number | null };
+      message?: string;
+    }>(`/client/performance/${subscriptionId}/availability`);
+  }
+
+  async getPerformanceRequests(subscriptionId: string) {
+    return this.request<{ success: boolean; data: Array<Record<string, unknown>>; message?: string }>(
+      `/client/performance/${subscriptionId}/requests`
+    );
+  }
+
+  async createPerformanceRequest(subscriptionId: string, request: {
+    goal: string;
+    scanId?: string;
+    findingIndex?: number;
+    evidenceLinks?: string[];
+    notes?: string;
+  }) {
+    return this.request<{ success: boolean; data: Record<string, unknown>; message: string }>(
+      `/client/performance/${subscriptionId}/requests`,
+      { method: 'POST', body: JSON.stringify(request) }
+    );
   }
 
   async getClientProjects() {
@@ -618,6 +661,18 @@ class ApiClient {
     });
   }
 
+  async respondToPerformanceQuote(requestId: string, data: { action: 'accept' | 'decline' | 'discuss'; message?: string; termsAccepted?: boolean }) {
+    return this.request<{ success: boolean; data?: Record<string, unknown>; invoice?: Record<string, unknown>; message?: string }>(`/client/project-requests/${requestId}/performance-quote-response`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
+  async respondToPerformanceReview(requestId: string, data: { action: 'accept' | 'changes'; message?: string }) {
+    return this.request<{ success: boolean; data?: Record<string, unknown>; invoice?: Record<string, unknown>; message?: string }>(`/client/project-requests/${requestId}/performance-review-response`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
   async respondToBriefClarification(requestId: string, message: string) {
     return this.request<{ success: boolean; message: string; data?: unknown }>(`/client/project-requests/${requestId}/brief-clarification`, {
       method: 'POST',
@@ -637,7 +692,7 @@ class ApiClient {
   }
 
   async getClientProjectConversation(requestId: string) {
-    return this.request<{ success: boolean; data: unknown[] }>(`/client/project-requests/${requestId}/conversation`);
+    return this.request<{ success: boolean; data: unknown[]; message?: string }>(`/client/project-requests/${requestId}/conversation`);
   }
 
   async sendClientReviewChat(requestId: string, data: Record<string, unknown>) {
@@ -782,7 +837,33 @@ class ApiClient {
   }
 
   async getClientBilling() {
-    return this.request<{ success: boolean; data: unknown[] }>('/client/billing');
+    return this.request<{ success: boolean; billing: unknown[]; invoices?: unknown[]; receipts?: unknown[]; refunds?: unknown[] }>('/client/billing');
+  }
+
+  async downloadClientBillingPdf(kind: 'invoice' | 'receipt', id: string) {
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('sitemendr_auth_token') || localStorage.getItem('token')
+      : null;
+    if (!token) throw new Error('Sign in again to download this billing document.');
+    const endpoint = kind === 'invoice' ? 'invoices' : 'receipts';
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/api/client/billing/${endpoint}/${encodeURIComponent(id)}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.message || `Could not download the ${kind}.`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    const suggestedName = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1];
+    link.download = suggestedName || `${kind}-${id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
 
   async getContractBilling(contractId: string) {
@@ -814,7 +895,7 @@ class ApiClient {
   }
 
   async getClientSupportTicket(id: string) {
-    return this.request<{ success: boolean; data: Record<string, unknown> }>(`/support/tickets/${id}`);
+    return this.request<{ success: boolean; data: Record<string, unknown>; message?: string }>(`/support/tickets/${id}`);
   }
 
   async createSupportTicket(ticketData: Record<string, unknown>) {
@@ -836,20 +917,42 @@ class ApiClient {
   }
 
   async addCustomDomain(domainData: Record<string, unknown>) {
-    return this.request('/client/domains', {
+    return this.request<{
+      success: boolean;
+      message?: string;
+      domain?: { id: string; domain: string; setup: string; status?: string };
+    }>('/client/domains', {
       method: 'POST',
       body: JSON.stringify(domainData),
     });
   }
 
+  async moveCustomDomain(domainId: string, siteId: string) {
+    return this.request<{ success: boolean; message?: string }>(`/client/domains/${domainId}/site`, {
+      method: 'PATCH',
+      body: JSON.stringify({ siteId }),
+    });
+  }
+
   async verifyDomainDNS(domainId: string) {
-    return this.request<{ success: boolean; verified: boolean; message: string; records?: string[] }>(`/client/domains/${domainId}/verify`, {
+    return this.request<{
+      success: boolean;
+      verified: boolean;
+      sslEnabled?: boolean;
+      sslExpiresAt?: string | null;
+      message: string;
+      checks?: {
+        root: { hostname: string; verified: boolean; aRecords: string[] };
+        www: { hostname: string; verified: boolean; aRecords: string[] };
+      };
+      targets?: { a: string };
+    }>(`/client/domains/${domainId}/verify`, {
       method: 'POST',
     });
   }
 
   async requestManagedDomain(email: string, domainInterest: string) {
-    return this.request<{ message: string }>('/request-managed-domain', {
+    return this.request<{ success: boolean; message: string }>('/request-managed-domain', {
       method: 'POST',
       body: JSON.stringify({ email, domainInterest }),
     });
@@ -1002,11 +1105,15 @@ class ApiClient {
   }
 
   // Monitoring API
-  async checkUptime() {
-    return this.request<{ success: boolean; data: unknown }>('/monitoring/uptime');
+  async checkUptime(subscriptionId: string) {
+    return this.request<{
+      success: boolean;
+      data?: { url: string; status: 'UP' | 'DOWN'; statusCode?: number; responseTime?: string; timestamp: string; error?: string; saved?: boolean };
+      message?: string;
+    }>(`/monitoring/uptime?subscriptionId=${encodeURIComponent(subscriptionId)}`);
   }
 
-  async analyzePerformance(url: string, subscriptionId?: string) {
+  async analyzePerformance(url: string, subscriptionId?: string, strategy: 'mobile' | 'desktop' = 'mobile') {
     return this.request<{
       success: boolean;
       data?: Record<string, unknown>;
@@ -1014,7 +1121,7 @@ class ApiClient {
       status?: number;
     }>('/monitoring/analyze', {
       method: 'POST',
-      body: JSON.stringify({ url, subscriptionId }),
+      body: JSON.stringify({ url, subscriptionId, strategy }),
     });
   }
 
@@ -1278,8 +1385,49 @@ class ApiClient {
     return this.request('/admin/assessments');
   }
 
-  async getAdminProjectRequests() {
-    return this.request('/admin/project-requests');
+  async getAdminProjectRequests(serviceType: 'build' | 'performance' = 'build') {
+    return this.request(`/admin/project-requests?serviceType=${serviceType}`);
+  }
+
+  async createAdminPerformanceQuote(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data?: Record<string, unknown>; quote?: Record<string, unknown>; message?: string }>(`/admin/project-requests/${requestId}/performance-quote`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminPerformanceScans(requestId: string) {
+    return this.request<{ success: boolean; data: Array<Record<string, unknown>>; historyAvailable?: boolean }>(`/admin/project-requests/${requestId}/performance-scans`);
+  }
+
+  async getAdminPerformanceAvailability() {
+    return this.request<{
+      success: boolean;
+      historyAvailable?: boolean;
+      policy?: { checkIntervalMinutes: number; summaryDays: number; retentionDays: number; cleanupEnabled: boolean };
+      data: Array<{
+        subscriptionId: string;
+        siteName: string;
+        domain: string | null;
+        clientName: string | null;
+        clientEmail: string | null;
+        status: 'UP' | 'DOWN' | null;
+        lastChecked: string | null;
+        statusCode: number | null;
+        responseTimeMs: number | null;
+        scheduledChecks: number;
+        observedUptimePercent: number | null;
+        summaryDays?: number;
+        retentionDays?: number;
+        recentTransitions?: Array<{ previousStatus: 'UP' | 'DOWN'; status: 'UP' | 'DOWN'; checkedAt: string }>;
+      }>;
+      message?: string;
+    }>('/admin/performance/availability');
+  }
+
+  async submitAdminPerformanceReview(requestId: string, data: { completionNote: string; followupScanId?: string }) {
+    return this.request<{ success: boolean; data?: Record<string, unknown>; message?: string }>(`/admin/project-requests/${requestId}/performance-review`, {
+      method: 'POST', body: JSON.stringify(data),
+    });
   }
 
   async updateAdminProjectRequest(id: string, data: Record<string, unknown>) {
@@ -1294,7 +1442,7 @@ class ApiClient {
   }
 
   async getAdminProjectConversation(requestId: string) {
-    return this.request<{ success: boolean; data: unknown[] }>(`/admin/project-requests/${requestId}/conversation`);
+    return this.request<{ success: boolean; data: unknown[]; message?: string }>(`/admin/project-requests/${requestId}/conversation`);
   }
 
   async sendAdminReviewChat(requestId: string, data: Record<string, unknown>) {

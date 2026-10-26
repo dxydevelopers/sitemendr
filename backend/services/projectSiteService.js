@@ -9,7 +9,8 @@ const { notifyUser, notifyAdmins } = require('./socketService');
 async function ensureCompletedBuildSite(projectRequestId) {
   let createdSite = false;
   const site = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectRequestId}))`;
+    // Return a boolean so Prisma does not try to deserialize PostgreSQL's void lock result.
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectRequestId})) IS NULL`;
     const request = await tx.projectRequest.findFirst({
       where: { id: projectRequestId, serviceType: 'build' },
       select: {

@@ -6,7 +6,13 @@ const { verifyDomains } = require('../scripts/dnsWorker');
 const logger = require('../config/logger');
 const { recordProjectEvent } = require('../services/projectConversation');
 const { ensureCompletedBuildSite } = require('../services/projectSiteService');
+const { issueBuildInvoice } = require('../services/billingRecords');
 const { ADDONS, getAddon } = require('../services/addonCatalog');
+const { isBuildManagementUnlocked } = require('../services/siteManagement');
+const { AVAILABILITY_SUMMARY_DAYS, AVAILABILITY_HISTORY_RETENTION_DAYS, UPTIME_CHECK_INTERVAL_MINUTES } = require('../services/performancePolicy');
+
+const isPerformanceContextMigrationPending = error => error?.code === 'P2022'
+  && /performanceContext/i.test(`${error?.meta?.column || ''} ${error?.message || ''}`);
 
 const runInBatches = async (tasks, batchSize = 3) => {
   const results = [];
@@ -148,7 +154,7 @@ exports.updateAddonFulfillment = async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${siteId}:${addonId}`}))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${siteId}:${addonId}`})) IS NULL`;
       const site = await tx.subscription.findUnique({
         where: { id: siteId },
         select: { id: true, userId: true, purchasedAddons: true }
@@ -921,11 +927,15 @@ const resetBuildStartMilestones = async (projectRequestId) => {
 exports.getProjectRequests = async (req, res) => {
   try {
     const { status } = req.query;
+    const serviceType = typeof req.query.serviceType === 'string' ? req.query.serviceType : 'build';
+    if (!['build', 'performance'].includes(serviceType)) {
+      return res.status(400).json({ success: false, message: 'Choose a supported project request type.' });
+    }
     const requestedLimit = Number.parseInt(req.query.limit, 10);
     const limit = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(requestedLimit, 1), 200)
       : 100;
-    const where = { serviceType: 'build' };
+    const where = { serviceType };
     if (status && status !== 'all') where.status = status;
 
     const requests = await prisma.projectRequest.findMany({
@@ -940,11 +950,334 @@ exports.getProjectRequests = async (req, res) => {
       data: requests
     });
   } catch (error) {
+    if (isPerformanceContextMigrationPending(error)) {
+      return res.status(503).json({ success: false, message: 'Performance request storage is not ready yet. Apply the pending Performance migration.' });
+    }
     logger.error('GET_PROJECT_REQUESTS_ERROR:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve build requests'
     });
+  }
+};
+
+exports.createPerformanceQuote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const scope = typeof req.body?.scope === 'string' ? req.body.scope.trim() : '';
+    const timeline = typeof req.body?.timeline === 'string' ? req.body.timeline.trim() : '';
+    const amount = Number(req.body?.amount);
+    const currency = typeof req.body?.currency === 'string' ? req.body.currency.trim().toUpperCase() : '';
+    const paymentSchedule = req.body?.paymentSchedule;
+    const depositAmount = Number(req.body?.depositAmount || 0);
+    const paymentDueDate = req.body?.paymentDueDate ? new Date(req.body.paymentDueDate) : null;
+
+    if (!scope || scope.length > 5000) return res.status(400).json({ success: false, message: 'Add the agreed work scope (up to 5000 characters).' });
+    if (!timeline || timeline.length > 240) return res.status(400).json({ success: false, message: 'Add an estimated delivery timeline (up to 240 characters).' });
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) return res.status(400).json({ success: false, message: 'Enter a valid quote amount.' });
+    if (!/^[A-Z]{3}$/.test(currency)) return res.status(400).json({ success: false, message: 'Enter a valid three-letter currency.' });
+    if (!['full_upfront', 'deposit_balance'].includes(paymentSchedule)) return res.status(400).json({ success: false, message: 'Choose full payment or deposit with a remaining balance.' });
+    if (!paymentDueDate || Number.isNaN(paymentDueDate.getTime())) return res.status(400).json({ success: false, message: 'Set a payment due date so invoice reminders can follow the agreed terms.' });
+    const todayUtc = new Date();
+    todayUtc.setUTCHours(0, 0, 0, 0);
+    if (paymentDueDate < todayUtc) return res.status(400).json({ success: false, message: 'The payment due date must be today or later.' });
+    if (paymentSchedule === 'full_upfront' && depositAmount !== 0) return res.status(400).json({ success: false, message: 'A full-upfront quote should not include a separate deposit.' });
+    if (paymentSchedule === 'deposit_balance' && (!Number.isFinite(depositAmount) || depositAmount <= 0 || depositAmount >= amount)) {
+      return res.status(400).json({ success: false, message: 'The deposit must be greater than zero and less than the total quote.' });
+    }
+
+    const initialRequest = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'performance' },
+      select: { id: true, userId: true, title: true, status: true }
+    });
+    if (!initialRequest) return res.status(404).json({ success: false, message: 'Performance request not found.' });
+    if (!['submitted', 'scope_and_quote', 'declined'].includes(initialRequest.status)) {
+      return res.status(409).json({ success: false, message: 'This request is no longer waiting for a proposal.' });
+    }
+
+    const result = await prisma.$transaction(async tx => {
+      const current = await tx.projectRequest.findFirst({
+        where: { id, serviceType: 'performance', status: { in: ['submitted', 'scope_and_quote', 'declined'] } },
+        select: { id: true, userId: true, title: true, status: true }
+      });
+      if (!current) throw Object.assign(new Error('The request stage changed. Refresh and review the latest status.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+      const latest = await tx.projectQuoteVersion.findFirst({ where: { projectRequestId: id }, orderBy: { version: 'desc' }, select: { version: true } });
+      await tx.projectQuoteVersion.updateMany({ where: { projectRequestId: id, status: 'sent' }, data: { status: 'superseded' } });
+      const quote = await tx.projectQuoteVersion.create({
+        data: {
+          projectRequestId: id,
+          version: (latest?.version || 0) + 1,
+          status: 'sent',
+          createdBy: req.user?.userId || null,
+          snapshot: {
+            serviceType: 'performance',
+            projectTitle: current.title,
+            scope,
+            amount,
+            totalAgreedAmount: amount,
+            currency,
+            timeline,
+            paymentSchedule,
+            paymentDueDate: paymentDueDate?.toISOString() || null,
+            depositAmount: paymentSchedule === 'deposit_balance' ? depositAmount : 0,
+            balanceAmount: paymentSchedule === 'deposit_balance' ? Math.round((amount - depositAmount) * 100) / 100 : 0
+          }
+        }
+      });
+      const updated = await tx.projectRequest.updateMany({
+        where: { id, status: current.status },
+        data: {
+          status: 'scope_and_quote',
+          quotedAmount: amount,
+          totalAgreedAmount: amount,
+          depositAmount: paymentSchedule === 'deposit_balance' ? depositAmount : 0,
+          quoteCurrency: currency,
+          timeline,
+          paymentAgreementType: paymentSchedule,
+          paymentAgreementStatus: 'pending',
+          paymentDueDate,
+          approvedAt: null,
+          rejectedAt: null
+        }
+      });
+      if (updated.count !== 1) throw Object.assign(new Error('The request stage changed while saving the proposal.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+      const event = await tx.projectConversationMessage.create({
+        data: {
+          projectRequestId: id,
+          senderId: req.user?.userId || null,
+          senderRole: 'system',
+          kind: 'event',
+          message: `Sitemendr sent proposal version ${quote.version} for review.`,
+          eventData: { type: 'performance_quote_sent', quoteVersionId: quote.id, version: quote.version, amount, currency }
+        }
+      });
+      const request = await tx.projectRequest.findUnique({ where: { id } });
+      return { request, quote, event };
+    });
+
+    notifyUser(result.request.userId, 'project_conversation_message', { requestId: id, message: result.event });
+    notifyAdmins('project_conversation_message', { requestId: id, message: result.event });
+    notifyUser(result.request.userId, 'performance_request_updated', { request: result.request });
+    notifyAdmins('performance_request_updated', { request: result.request });
+    res.status(201).json({ success: true, data: result.request, quote: result.quote, message: 'Proposal sent to the client.' });
+  } catch (error) {
+    if (error.code === 'PERFORMANCE_STATE_CHANGED') return res.status(409).json({ success: false, message: error.message });
+    if (error.code === 'P2002') return res.status(409).json({ success: false, message: 'A proposal version was created at the same time. Refresh the request and try again.' });
+    logger.error('CREATE_PERFORMANCE_QUOTE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send the Performance proposal.' });
+  }
+};
+
+exports.getPerformanceScansForRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'performance' },
+      select: { id: true, subscriptionId: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Performance request not found.' });
+    if (!request.subscriptionId) return res.json({ success: true, data: [] });
+    const scans = await prisma.performanceScan.findMany({
+      where: { subscriptionId: request.subscriptionId },
+      orderBy: { scannedAt: 'desc' },
+      take: 20
+    });
+    res.json({ success: true, data: scans });
+  } catch (error) {
+    if (error?.code === 'P2021' || error?.meta?.code === '42P01') {
+      return res.json({ success: true, data: [], historyAvailable: false });
+    }
+    logger.error('GET_ADMIN_PERFORMANCE_SCANS_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load site scan history.' });
+  }
+};
+
+exports.getPerformanceAvailabilityOverview = async (req, res) => {
+  try {
+    const since = new Date(Date.now() - AVAILABILITY_SUMMARY_DAYS * 24 * 60 * 60 * 1000);
+    const subscriptions = await prisma.subscription.findMany({
+      where: { status: 'active' },
+      select: {
+        id: true,
+        userId: true,
+        siteName: true,
+        customName: true,
+        domain: true,
+        performanceData: true,
+        user: { select: { name: true, email: true } },
+        customDomains: {
+          where: { status: { in: ['verified', 'active'] } },
+          select: { domain: true },
+          orderBy: { createdAt: 'asc' }
+        },
+        projectRequests: {
+          where: { serviceType: 'build' },
+          orderBy: { updatedAt: 'desc' },
+          take: 1,
+          select: {
+            status: true,
+            completionAcknowledgedAt: true,
+            handoffIssuesReportedAt: true,
+            finalPaymentConfirmedAt: true,
+            paymentConfirmedAt: true,
+            totalAgreedAmount: true,
+            quotedAmount: true,
+            depositAmount: true,
+            launchUrl: true
+          }
+        },
+        availabilityChecks: {
+          where: { checkedAt: { gte: since } },
+          orderBy: { checkedAt: 'desc' },
+          take: 100,
+          select: { status: true, statusCode: true, responseTimeMs: true, checkedAt: true }
+        }
+      }
+    });
+    const eligibleSites = subscriptions.filter(site => isBuildManagementUnlocked(site.projectRequests[0]));
+    const availabilityBySubscription = new Map();
+    let historyAvailable = true;
+    try {
+      const groupedChecks = await prisma.siteAvailabilityCheck.groupBy({
+        by: ['subscriptionId', 'status'],
+        where: { source: 'scheduled', checkedAt: { gte: since } },
+        _count: { _all: true }
+      });
+      for (const row of groupedChecks) {
+        const summary = availabilityBySubscription.get(row.subscriptionId) || { checked: 0, up: 0 };
+        summary.checked += row._count._all;
+        if (row.status === 'UP') summary.up += row._count._all;
+        availabilityBySubscription.set(row.subscriptionId, summary);
+      }
+    } catch (historyError) {
+      if (historyError?.code !== 'P2021' && historyError?.meta?.code !== '42P01') throw historyError;
+      historyAvailable = false;
+    }
+
+    let cleanupEnabled = false;
+    try {
+      await prisma.siteAvailabilityCheck.count({ where: { checkedAt: { lt: new Date(Date.now() - AVAILABILITY_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000) } } });
+      cleanupEnabled = true;
+    } catch (cleanupError) {
+      if (cleanupError?.code !== 'P2021' && cleanupError?.meta?.code !== '42P01') throw cleanupError;
+    }
+
+    res.json({
+      success: true,
+      historyAvailable,
+      policy: {
+        checkIntervalMinutes: UPTIME_CHECK_INTERVAL_MINUTES,
+        summaryDays: AVAILABILITY_SUMMARY_DAYS,
+        retentionDays: AVAILABILITY_HISTORY_RETENTION_DAYS,
+        cleanupEnabled
+      },
+      data: eligibleSites.map(site => {
+        const sample = availabilityBySubscription.get(site.id) || { checked: 0, up: 0 };
+        const current = site.availabilityChecks[0] || null;
+        let previousStatus = null;
+        const recentTransitions = [...site.availabilityChecks].reverse().flatMap(check => {
+          const transition = previousStatus && check.status !== previousStatus
+            && (check.status === 'DOWN' || previousStatus === 'DOWN')
+            ? { previousStatus, status: check.status, checkedAt: check.checkedAt }
+            : null;
+          previousStatus = check.status;
+          return transition ? [transition] : [];
+        }).reverse().slice(0, 5);
+        const latestPerformance = site.performanceData && typeof site.performanceData === 'object' ? site.performanceData : {};
+        const build = site.projectRequests[0];
+        const domain = site.domain || site.customDomains[0]?.domain || (build?.status === 'completed' ? build.launchUrl : null);
+        return {
+          subscriptionId: site.id,
+          siteName: site.siteName || site.customName || domain || 'Client site',
+          domain,
+          clientName: site.user.name,
+          clientEmail: site.user.email,
+          status: current?.status || (latestPerformance.status === 'UP' || latestPerformance.status === 'DOWN' ? latestPerformance.status : null),
+          lastChecked: current?.checkedAt || latestPerformance.lastChecked || null,
+          statusCode: current?.statusCode || latestPerformance.statusCode || null,
+          responseTimeMs: current?.responseTimeMs || latestPerformance.latency || null,
+          recentTransitions,
+          scheduledChecks: sample.checked,
+          summaryDays: AVAILABILITY_SUMMARY_DAYS,
+          retentionDays: AVAILABILITY_HISTORY_RETENTION_DAYS,
+          observedUptimePercent: sample.checked ? Math.round((sample.up / sample.checked) * 10000) / 100 : null
+        };
+      })
+    });
+  } catch (error) {
+    logger.error('GET_ADMIN_PERFORMANCE_AVAILABILITY_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Performance availability overview could not be loaded.' });
+  }
+};
+
+exports.submitPerformanceForReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const completionNote = typeof req.body?.completionNote === 'string' ? req.body.completionNote.trim() : '';
+    const followupScanId = typeof req.body?.followupScanId === 'string' ? req.body.followupScanId : null;
+    if (!completionNote || completionNote.length > 5000) {
+      return res.status(400).json({ success: false, message: 'Add a completion summary of up to 5000 characters.' });
+    }
+    if (!followupScanId) {
+      return res.status(400).json({ success: false, message: 'Run and attach a follow-up scan from this site before submitting the work for client review.' });
+    }
+    const request = await prisma.projectRequest.findFirst({
+      where: { id, serviceType: 'performance' },
+      select: { id: true, userId: true, subscriptionId: true, status: true, title: true, performanceContext: true, paymentConfirmedAt: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Performance request not found.' });
+    if (request.status !== 'in_progress') return res.status(409).json({ success: false, message: 'Only work in progress can be sent for client review.' });
+
+    const scan = await prisma.performanceScan.findFirst({
+      where: { id: followupScanId, subscriptionId: request.subscriptionId },
+      select: { id: true, score: true, url: true, strategy: true, metrics: true, scannedAt: true }
+    });
+    if (!scan) return res.status(400).json({ success: false, message: 'Select a follow-up scan from this site.' });
+    if (request.paymentConfirmedAt && scan.scannedAt <= request.paymentConfirmedAt) {
+      return res.status(400).json({ success: false, message: 'A follow-up scan must be from after the Performance payment was verified.' });
+    }
+    const baselineStrategy = request.performanceContext?.baseline?.strategy;
+    if (baselineStrategy && scan.strategy !== baselineStrategy) {
+      return res.status(400).json({ success: false, message: `Use a ${baselineStrategy} follow-up scan to compare it with the original baseline.` });
+    }
+
+    const result = await prisma.$transaction(async tx => {
+      const changed = await tx.projectRequest.updateMany({
+        where: { id, serviceType: 'performance', status: 'in_progress' },
+      data: {
+        status: 'ready_for_review',
+        completionNotes: completionNote,
+        performanceContext: {
+          ...(request.performanceContext && typeof request.performanceContext === 'object' ? request.performanceContext : {}),
+          completion: { note: completionNote, followupScan: scan }
+        }
+      }
+      });
+      if (changed.count !== 1) throw Object.assign(new Error('The request stage changed. Refresh and try again.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+      const event = await tx.projectConversationMessage.create({
+        data: {
+          projectRequestId: id,
+          senderId: req.user?.userId || null,
+          senderRole: 'system',
+          kind: 'event',
+          message: 'Sitemendr submitted the improvement for your review.',
+          eventData: { type: 'performance_ready_for_review', completionNote, followupScan: scan }
+        }
+      });
+      return { event, request: await tx.projectRequest.findUnique({ where: { id } }) };
+    });
+    notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: result.event });
+    notifyAdmins('project_conversation_message', { requestId: id, message: result.event });
+    notifyUser(request.userId, 'performance_request_updated', { request: result.request });
+    notifyAdmins('performance_request_updated', { request: result.request });
+    res.json({ success: true, data: result.request, message: 'Performance work sent to the client for review.' });
+  } catch (error) {
+    if (isPerformanceContextMigrationPending(error)) {
+      return res.status(503).json({ success: false, message: 'Performance request storage is not ready yet. Apply the pending Performance migration.' });
+    }
+    if (error.code === 'PERFORMANCE_STATE_CHANGED') return res.status(409).json({ success: false, message: error.message });
+    logger.error('SUBMIT_PERFORMANCE_FOR_REVIEW_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send Performance work for review.' });
   }
 };
 
@@ -1086,10 +1419,10 @@ exports.getProjectConversation = async (req, res) => {
   try {
     const { id } = req.params;
     const request = await prisma.projectRequest.findFirst({
-      where: { id, serviceType: 'build' },
+      where: { id, serviceType: { in: ['build', 'performance'] } },
       select: { id: true }
     });
-    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+    if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
 
     const messages = await getProjectConversation(id);
     await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByAdmin" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'client'`, id);
@@ -1112,10 +1445,10 @@ exports.createProjectConversationMessage = async (req, res) => {
     }
 
     const request = await prisma.projectRequest.findFirst({
-      where: { id, serviceType: 'build' },
+      where: { id, serviceType: { in: ['build', 'performance'] } },
       select: { id: true, userId: true }
     });
-    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+    if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
 
     const rows = await prisma.$queryRawUnsafe(
       `INSERT INTO "ProjectConversationMessage"
@@ -1156,7 +1489,7 @@ exports.decideProjectLifecycleRequest = async (req, res) => {
       : !['pause', 'cancel'].includes(lifecycleType) || eventData.lifecycleStatus !== 'pending')) {
       return res.status(404).json({ success: false, message: 'Pending pause or cancellation request not found.' });
     }
-    const request = await prisma.projectRequest.findFirst({ where: { id, serviceType: 'build' }, select: { id: true, userId: true, status: true, quoteCurrency: true } });
+    const request = await prisma.projectRequest.findFirst({ where: { id, serviceType: 'build' }, select: { id: true, userId: true, title: true, businessName: true, status: true, quoteCurrency: true } });
     if (!request) return res.status(404).json({ success: false, message: 'Build request not found.' });
     if ((isResume || isReopen) && !message.trim()) return res.status(400).json({ success: false, message: 'Add a reason for reopening or resuming the build.' });
     const lifecycleStatus = isResume ? 'resumed' : isReopen ? 'reopened' : decision === 'confirm' ? 'confirmed' : 'declined';
@@ -1240,29 +1573,165 @@ exports.decideProjectLifecycleRequest = async (req, res) => {
     }
     if (isResume) {
       if (request.status !== 'paused' || !buildRequestStatuses.includes(eventData.previousStatus)) return res.status(409).json({ success: false, message: 'The paused build cannot be resumed from its saved stage.' });
-      await prisma.projectRequest.update({ where: { id }, data: { status: eventData.previousStatus } });
     } else if (isReopen) {
       const settlement = eventData.cancellationSettlement || {};
       if (request.status !== 'cancelled' || !buildRequestStatuses.includes(eventData.previousStatus)) return res.status(409).json({ success: false, message: 'This cancelled build cannot be reopened from its saved stage.' });
       if (Number(settlement.refundedTotal || 0) > 0) return res.status(409).json({ success: false, message: 'A refund has already been recorded. Create a new build agreement to continue work.' });
+      const closeoutInvoice = await prisma.billingInvoice.findUnique({ where: { projectRequestId_stage: { projectRequestId: id, stage: 'cancellation_closeout' } }, select: { id: true, status: true } });
+      if (closeoutInvoice?.status === 'paid') return res.status(409).json({ success: false, message: 'The cancellation closeout has already been paid. Create a new build agreement to continue work.' });
+      if (closeoutInvoice?.status === 'processing') return res.status(409).json({ success: false, message: 'A cancellation closeout payment is still being verified. Resolve that checkout before reopening the build.' });
       cancellationSettlement = { ...settlement, settlementStatus: 'reversed', refundStatus: 'voided' };
-      await prisma.projectRequest.update({ where: { id }, data: { status: eventData.previousStatus } });
     } else if (decision === 'confirm') {
       if (request.status !== eventData.previousStatus) return res.status(409).json({ success: false, message: 'The project stage changed after this request was sent. Review the latest stage before confirming.' });
-      const nextStatus = lifecycleType === 'pause' ? 'paused' : 'cancelled';
-      await prisma.projectRequest.update({ where: { id }, data: { status: nextStatus } });
     }
-    const updatedEventRows = cancellationSettlement
-      ? await prisma.$queryRawUnsafe(
-        `UPDATE "ProjectConversationMessage"
-         SET "eventData" = jsonb_set(jsonb_set("eventData", '{lifecycleStatus}', to_jsonb($2::text), true), '{cancellationSettlement}', $3::jsonb, true),
-             "readByClient" = false WHERE "id" = $1 RETURNING ${projectConversationSelect}`,
-        messageId, lifecycleStatus, JSON.stringify(cancellationSettlement)
-      )
-      : await prisma.$queryRawUnsafe(
-        `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{lifecycleStatus}', to_jsonb($2::text), true), "readByClient" = false WHERE "id" = $1 RETURNING ${projectConversationSelect}`,
-        messageId, lifecycleStatus
-      );
+    const updatedEventRows = await prisma.$transaction(async (tx) => {
+      if (isResume || isReopen || decision === 'confirm') {
+        const nextStatus = isResume || isReopen
+          ? eventData.previousStatus
+          : lifecycleType === 'pause' ? 'paused' : 'cancelled';
+        const expectedStatus = isResume ? 'paused' : isReopen ? 'cancelled' : eventData.previousStatus;
+        const transition = await tx.projectRequest.updateMany({
+          where: { id, userId: request.userId, status: expectedStatus },
+          data: { status: nextStatus }
+        });
+        if (transition.count !== 1) {
+          const error = new Error('The project stage changed while this decision was being recorded.');
+          error.code = 'LIFECYCLE_STATE_CHANGED';
+          throw error;
+        }
+      }
+
+      const rows = cancellationSettlement
+        ? await tx.$queryRawUnsafe(
+          `UPDATE "ProjectConversationMessage"
+           SET "eventData" = jsonb_set(jsonb_set("eventData", '{lifecycleStatus}', to_jsonb($2::text), true), '{cancellationSettlement}', $3::jsonb, true),
+               "readByClient" = false WHERE "id" = $1 RETURNING ${projectConversationSelect}`,
+          messageId, lifecycleStatus, JSON.stringify(cancellationSettlement)
+        )
+        : await tx.$queryRawUnsafe(
+          `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{lifecycleStatus}', to_jsonb($2::text), true), "readByClient" = false WHERE "id" = $1 RETURNING ${projectConversationSelect}`,
+          messageId, lifecycleStatus
+        );
+      if (!rows.length) {
+        const error = new Error('The lifecycle request could not be found.');
+        error.code = 'LIFECYCLE_STATE_CHANGED';
+        throw error;
+      }
+
+      if (decision === 'confirm' && lifecycleType === 'cancel' && Number(cancellationSettlement?.refundDue) > 0) {
+        const sourcePayments = await tx.payment.findMany({
+          where: { userId: request.userId, status: 'completed', serviceType: { in: ['build_agreement', 'build_final_balance'] }, metadata: { path: ['projectRequestId'], equals: id } },
+          select: { reference: true, invoiceId: true }
+        });
+        const invoiceIds = [...new Set(sourcePayments.map(payment => payment.invoiceId).filter(Boolean))];
+        await tx.billingRefund.create({
+          data: {
+            refundNumber: `SMF-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`,
+            userId: request.userId,
+            projectRequestId: id,
+            invoiceId: invoiceIds.length === 1 ? invoiceIds[0] : null,
+            amountMinor: Math.round(Number(cancellationSettlement.refundDue) * 100),
+            currency: String(cancellationSettlement.currency || request.quoteCurrency || 'USD').toUpperCase(),
+            status: 'pending',
+            sourcePaymentReferences: sourcePayments.map(payment => payment.reference),
+            snapshot: { refundDue: Number(cancellationSettlement.refundDue), chargeTotal: Number(cancellationSettlement.chargeTotal || 0), reason: 'Build cancellation settlement' }
+          }
+        });
+      }
+
+      if (decision === 'confirm' && lifecycleType === 'cancel' && Number(cancellationSettlement?.balanceDue) > 0) {
+        await tx.billingInvoice.upsert({
+          where: { projectRequestId_stage: { projectRequestId: id, stage: 'cancellation_closeout' } },
+          create: {
+            invoiceNumber: `SMI-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`,
+            userId: request.userId,
+            projectRequestId: id,
+            stage: 'cancellation_closeout',
+            serviceType: 'build',
+            description: `Build cancellation closeout - ${request.title || 'Website project'}`,
+            amountMinor: Math.round(Number(cancellationSettlement.balanceDue) * 100),
+            currency: String(cancellationSettlement.currency || request.quoteCurrency || 'USD').toUpperCase(),
+            status: 'open',
+            snapshot: { projectRequestId: id, projectName: request.title || 'Website project', cancellationCloseout: true, chargeTotal: cancellationSettlement.chargeTotal, paidTotal: cancellationSettlement.paidTotal }
+          },
+          update: {
+            amountMinor: Math.round(Number(cancellationSettlement.balanceDue) * 100),
+            currency: String(cancellationSettlement.currency || request.quoteCurrency || 'USD').toUpperCase(),
+            status: 'open',
+            voidedAt: null,
+            paidAt: null,
+            snapshot: { projectRequestId: id, projectName: request.title || 'Website project', cancellationCloseout: true, chargeTotal: cancellationSettlement.chargeTotal, paidTotal: cancellationSettlement.paidTotal }
+          }
+        });
+      }
+
+      if (decision === 'confirm' && lifecycleType === 'cancel') {
+        const unpaidInvoices = await tx.billingInvoice.findMany({
+          where: { projectRequestId: id, serviceType: 'build', stage: { in: ['deposit', 'final_balance'] }, status: { in: ['open', 'overdue', 'processing'] } },
+          select: { id: true, snapshot: true }
+        });
+        const invoiceIds = unpaidInvoices.map(invoice => invoice.id);
+        if (invoiceIds.length) {
+          await tx.payment.updateMany({
+            where: { invoiceId: { in: invoiceIds }, status: { in: ['pending', 'processing'] } },
+            data: { status: 'superseded' }
+          });
+          for (const invoice of unpaidInvoices) {
+            const snapshot = invoice.snapshot && typeof invoice.snapshot === 'object' && !Array.isArray(invoice.snapshot) ? invoice.snapshot : {};
+            await tx.billingInvoice.update({
+              where: { id: invoice.id },
+              data: { status: 'void', voidedAt: new Date(), nextReminderAt: null, snapshot: { ...snapshot, billingVoidReason: 'project_cancelled' } }
+            });
+          }
+        }
+      }
+
+      if (isReopen) {
+        await tx.billingRefund.updateMany({
+          where: { projectRequestId: id, status: { in: ['pending', 'partial'] } },
+          data: { status: 'voided' }
+        });
+        const closeoutInvoice = await tx.billingInvoice.findUnique({
+          where: { projectRequestId_stage: { projectRequestId: id, stage: 'cancellation_closeout' } },
+          select: { id: true, status: true, snapshot: true }
+        });
+        if (closeoutInvoice && ['open', 'overdue', 'processing'].includes(closeoutInvoice.status)) {
+          const snapshot = closeoutInvoice.snapshot && typeof closeoutInvoice.snapshot === 'object' && !Array.isArray(closeoutInvoice.snapshot) ? closeoutInvoice.snapshot : {};
+          await tx.billingInvoice.update({
+            where: { id: closeoutInvoice.id },
+            data: { status: 'void', voidedAt: new Date(), nextReminderAt: null, snapshot: { ...snapshot, billingVoidReason: 'project_reopened' } }
+          });
+        }
+        const cancelledInvoices = await tx.billingInvoice.findMany({
+          where: { projectRequestId: id, serviceType: 'build', stage: { in: ['deposit', 'final_balance'] }, status: 'void', snapshot: { path: ['billingVoidReason'], equals: 'project_cancelled' } },
+          select: { id: true, dueAt: true, snapshot: true }
+        });
+        const now = new Date();
+        for (const invoice of cancelledInvoices) {
+          const dueAt = invoice.dueAt ? new Date(invoice.dueAt) : null;
+          const snapshot = invoice.snapshot && typeof invoice.snapshot === 'object' && !Array.isArray(invoice.snapshot) ? invoice.snapshot : {};
+          const nextReminderAt = dueAt
+            ? new Date(Math.max(now.getTime() + 24 * 60 * 60 * 1000, dueAt.getTime() - 24 * 60 * 60 * 1000))
+            : null;
+          await tx.billingInvoice.update({
+            where: { id: invoice.id },
+            data: {
+              status: dueAt && dueAt < now ? 'overdue' : 'open',
+              voidedAt: null,
+              reminderCount: 0,
+              lastReminderAt: null,
+              nextReminderAt,
+              snapshot: { ...snapshot, billingVoidReason: null }
+            }
+          });
+        }
+      }
+      return rows;
+    }).catch(error => {
+      if (error.code === 'LIFECYCLE_STATE_CHANGED') return null;
+      throw error;
+    });
+    if (!updatedEventRows) return res.status(409).json({ success: false, message: 'The lifecycle request changed while this decision was being recorded. Refresh and try again.' });
     if (updatedEventRows[0]) {
       notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: updatedEventRows[0] });
       notifyAdmins('project_conversation_message', { requestId: id, message: updatedEventRows[0] });
@@ -1299,7 +1768,10 @@ exports.recordCancellationRefund = async (req, res) => {
     const duplicate = await prisma.$queryRawUnsafe(
       `SELECT "id" FROM "ProjectConversationMessage" WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'refundReference' = $2 LIMIT 1`, id, reference
     );
-    if (duplicate.length) return res.status(409).json({ success: false, message: 'That refund reference has already been recorded.' });
+    const priorBillingRefunds = await prisma.billingRefund.findMany({ where: { projectRequestId: id }, select: { externalReference: true, externalReferences: true } });
+    const referenceAlreadyUsed = priorBillingRefunds.some(refund => refund.externalReference === reference
+      || (Array.isArray(refund.externalReferences) && refund.externalReferences.includes(reference)));
+    if (duplicate.length || referenceAlreadyUsed) return res.status(409).json({ success: false, message: 'That refund reference has already been recorded.' });
     const refundedTotal = Number(settlement.refundedTotal || 0);
     const remainingBefore = Math.max(Number(settlement.refundDue) - refundedTotal, 0);
     if (amount > remainingBefore) return res.status(400).json({ success: false, message: 'The refund amount is greater than the remaining amount due.' });
@@ -1313,12 +1785,85 @@ exports.recordCancellationRefund = async (req, res) => {
       lastRefundAmount: amount,
       lastRefundAt: new Date().toISOString()
     };
-    const updatedRows = await prisma.$queryRawUnsafe(
-      `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{cancellationSettlement}', $2::jsonb, true)
-       WHERE "id" = $1 AND COALESCE("eventData"->'cancellationSettlement'->>'refundedTotal', '0') = $3
-       RETURNING ${projectConversationSelect}`,
-      settlementEvent.id, JSON.stringify(updatedSettlement), String(settlement.refundedTotal || 0)
-    );
+    const updatedRows = await prisma.$transaction(async (tx) => {
+      // Reserve the external reference under the same row lock as the
+      // settlement update. The preflight check above provides a quick error;
+      // this guard closes the race between two concurrent admin submissions.
+      const lockedRows = await tx.$queryRawUnsafe(
+        `SELECT "id" FROM "ProjectConversationMessage" WHERE "id" = $1 FOR UPDATE`, settlementEvent.id
+      );
+      if (!lockedRows.length) return [];
+      const duplicateInLedger = await tx.billingRefund.findMany({
+        where: { projectRequestId: id },
+        select: { externalReference: true, externalReferences: true }
+      });
+      if (duplicateInLedger.some(refund => refund.externalReference === reference
+        || (Array.isArray(refund.externalReferences) && refund.externalReferences.includes(reference)))) return [];
+
+      const refundRecord = await tx.billingRefund.findFirst({
+        where: { projectRequestId: id, status: { in: ['pending', 'partial'] } },
+        orderBy: { createdAt: 'asc' }
+      });
+      const originalPayments = refundRecord ? [] : await tx.payment.findMany({
+        where: { userId: request.userId, status: 'completed', serviceType: { in: ['build_agreement', 'build_final_balance'] }, metadata: { path: ['projectRequestId'], equals: id } },
+        select: { reference: true, invoiceId: true },
+        orderBy: { createdAt: 'asc' }
+      });
+      const invoiceIds = [...new Set(originalPayments.map(payment => payment.invoiceId).filter(Boolean))];
+      const rows = await tx.$queryRawUnsafe(
+        `UPDATE "ProjectConversationMessage" SET "eventData" = jsonb_set("eventData", '{cancellationSettlement}', $2::jsonb, true)
+         WHERE "id" = $1
+         AND COALESCE("eventData"->'cancellationSettlement'->>'refundedTotal', '0')::numeric = $3::numeric
+         AND COALESCE("eventData"->'cancellationSettlement'->>'paidTotal', '0')::numeric = $4::numeric
+         AND COALESCE("eventData"->'cancellationSettlement'->>'refundDue', '0')::numeric = $5::numeric
+         RETURNING ${projectConversationSelect}`,
+        settlementEvent.id, JSON.stringify(updatedSettlement), Number(settlement.refundedTotal || 0), Number(settlement.paidTotal || 0), Number(settlement.refundDue || 0)
+      );
+      if (!rows.length) return [];
+      if (refundRecord) {
+        const priorReferences = Array.isArray(refundRecord.externalReferences) ? refundRecord.externalReferences : [];
+        const recordedReferences = [...new Set([
+          ...priorReferences,
+          ...(typeof settlement.lastRefundReference === 'string' ? [settlement.lastRefundReference] : [])
+        ])];
+        const refundUpdate = await tx.billingRefund.updateMany({
+          where: { id: refundRecord.id, processedAmountMinor: Math.round(refundedTotal * 100), status: { in: ['pending', 'partial'] } },
+          data: {
+            amountMinor: Math.round(Number(settlement.refundDue) * 100),
+            processedAmountMinor: Math.round(nextRefundedTotal * 100),
+            status: remainingAfter === 0 ? 'processed' : 'partial',
+            externalReference: reference,
+            externalReferences: [...recordedReferences, reference],
+            processedAt: new Date(),
+            snapshot: { refundDue: Number(settlement.refundDue), refundedTotal: nextRefundedTotal, reason: 'Build cancellation settlement' }
+          }
+        });
+        if (!refundUpdate.count) {
+          const error = new Error('The refund record changed during processing.');
+          error.code = 'BILLING_REFUND_CHANGED';
+          throw error;
+        }
+      } else {
+        await tx.billingRefund.create({
+          data: {
+            refundNumber: `SMF-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`,
+            userId: request.userId,
+            projectRequestId: id,
+            invoiceId: invoiceIds.length === 1 ? invoiceIds[0] : null,
+            amountMinor: Math.round(Number(settlement.refundDue) * 100),
+            processedAmountMinor: Math.round(nextRefundedTotal * 100),
+            currency: String(settlement.currency || 'USD').toUpperCase(),
+            status: remainingAfter === 0 ? 'processed' : 'partial',
+            externalReference: reference,
+            externalReferences: [reference],
+            sourcePaymentReferences: originalPayments.map(payment => payment.reference),
+            processedAt: new Date(),
+            snapshot: { refundDue: Number(settlement.refundDue), refundedTotal: nextRefundedTotal, reason: settlement.reason || 'Build cancellation settlement' }
+          }
+        });
+      }
+      return rows;
+    });
     if (!updatedRows.length) return res.status(409).json({ success: false, message: 'The refund record changed just now. Reload the conversation and try again.' });
     if (updatedRows[0]) {
       notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: updatedRows[0] });
@@ -1339,6 +1884,9 @@ exports.recordCancellationRefund = async (req, res) => {
     res.json({ success: true, data: updated, message: `Refund recorded. ${remainingAfter > 0 ? `${settlement.currency} ${remainingAfter} remains.` : 'The cancellation refund is fully recorded.'}` });
   } catch (error) {
     logger.error('RECORD_CANCELLATION_REFUND_ERROR:', error);
+    if (error.code === 'BILLING_REFUND_CHANGED' || error.code === 'P2002') {
+      return res.status(409).json({ success: false, message: 'That refund was already updated or its reference was recorded. Reload the cancellation settlement.' });
+    }
     res.status(500).json({ success: false, message: 'Failed to record the cancellation refund.' });
   }
 };
@@ -1778,6 +2326,10 @@ exports.updateProjectRequest = async (req, res) => {
       notifyUser(request.userId, 'project_conversation_message', { requestId: id, message: event });
       notifyAdmins('project_conversation_message', { requestId: id, message: event });
       request = await prisma.projectRequest.findUnique({ where: { id }, include: projectRequestInclude });
+    }
+
+    if (status === 'payment_agreement' && paymentAgreementStatus === 'sent') {
+      await issueBuildInvoice(request, 'deposit');
     }
 
     if (status === 'in_development') {

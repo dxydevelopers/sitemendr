@@ -2,6 +2,7 @@ const { runSuspensionAutomation } = require('./suspensionAutomation');
 const { verifyDomains } = require('./dnsWorker');
 const { provisionSSL } = require('./sslWorker');
 const { monitorUptime } = require('./uptimeWorker');
+const { runPerformanceHistoryRetention } = require('../services/automationService');
 const { connectDB } = require('../config/db');
 const logger = require('../config/logger');
 const dotenv = require('dotenv');
@@ -28,6 +29,9 @@ const runCron = async () => {
     
     // Run Uptime monitoring
     await monitorUptime();
+
+    // Retain only the approved detailed Performance uptime window.
+    await runPerformanceHistoryRetention();
     
     logger.info('Cron job completed successfully', {
       errorCode: 'CRON_COMPLETED',

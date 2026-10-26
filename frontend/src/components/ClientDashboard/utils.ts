@@ -75,8 +75,10 @@ const normalizeSiteUrl = (value: unknown): string | undefined => {
 export const mapApiProjectToClientProject = (p: ApiRecord): ClientProject => ({
   id: String(p.id || ''),
   recordType: p.recordType === 'request' || p.recordType === 'project' ? p.recordType : undefined,
+  canManageSite: typeof p.canManageSite === 'boolean' ? p.canManageSite : undefined,
   assessmentId: typeof p.assessmentId === 'string' ? p.assessmentId : undefined,
   subscriptionId: typeof p.subscriptionId === 'string' ? p.subscriptionId : undefined,
+  serviceType: typeof p.serviceType === 'string' ? p.serviceType : undefined,
   name: String(p.name || p.title || p.siteName || p.customName || 'Untitled Project'),
   status: String(p.status || (p.suspended === false ? 'active' : 'suspended')).toLowerCase(),
   progress: typeof p.progress === 'number' ? p.progress : 0,

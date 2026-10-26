@@ -1,5 +1,4 @@
 const { prisma } = require('../config/db');
-const dns = require('dns').promises;
 const { notifyUser, notifyAdmins } = require('../services/socketService');
 const OpenAI = require('openai');
 const Groq = require('groq-sdk');
@@ -7,14 +6,33 @@ const logger = require('../config/logger');
 const { convertCurrencyAmount, normalizeCurrency } = require('../utils/currency');
 const { recordProjectEvent } = require('../services/projectConversation');
 const { ensureCompletedBuildSite } = require('../services/projectSiteService');
+const { verifyDomainDns, getHostingDomainTarget } = require('../services/domainDnsService');
+const { issueBuildInvoice } = require('../services/billingRecords');
+const { isBuildManagementUnlocked, getSiteManagementLockReason } = require('../services/siteManagement');
+const { AVAILABILITY_SUMMARY_DAYS, AVAILABILITY_HISTORY_RETENTION_DAYS } = require('../services/performancePolicy');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+const getStoredAvailability = performanceData => ({
+  status: performanceData?.status === 'UP' || performanceData?.status === 'DOWN' ? performanceData.status : null,
+  latency: Number.isFinite(Number(performanceData?.latency)) && Number(performanceData?.latency) > 0
+    ? Number(performanceData.latency)
+    : null,
+  statusCode: Number.isFinite(Number(performanceData?.statusCode)) && Number(performanceData?.statusCode) > 0
+    ? Number(performanceData.statusCode)
+    : null,
+  lastChecked: typeof performanceData?.lastChecked === 'string' ? performanceData.lastChecked : null,
+  error: typeof performanceData?.error === 'string' ? performanceData.error : null
 });
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+const isPerformanceContextMigrationPending = error => error?.code === 'P2022'
+  && /performanceContext/i.test(`${error?.meta?.column || ''} ${error?.message || ''}`);
+
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+const groq = process.env.GROQ_API_KEY
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
 
 const reviewChatSelect = `"id","projectRequestId","senderId","senderRole","message","kind","choices","selectedChoice","attachments","readByAdmin","readByClient","createdAt"`;
 
@@ -73,6 +91,7 @@ const mapProjectRequestForClient = (request) => {
   return {
     id: request.id,
     recordType: 'request',
+    canManageSite: false,
     assessmentId: request.assessmentId,
     subscriptionId: request.subscriptionId,
     serviceType: request.serviceType,
@@ -134,42 +153,26 @@ exports.getDashboardStats = async (req, res) => {
         userId,
         ...(subscriptionId && { id: subscriptionId })
       },
-      select: {
-        id: true,
-        tier: true,
-        status: true,
-        expiresAt: true,
-        performanceData: true
-      }
+      select: { id: true, performanceData: true }
     });
 
-    const activeNodes = subscriptions.length;
-    
-    // Use stored performance data if available, otherwise generate stable simulated data
-    let uptime = 99.9;
-    let latency = 14;
-    let securityLevel = 'MAX';
-
-    if (activeNodes > 0) {
-      const sub = subscriptions[0]; // Primary or filtered subscription
-      const perf = sub.performanceData || {};
-      
-      uptime = perf.uptime || (sub.status === 'suspended' ? 98.4 : 99.9);
-      latency = perf.latency || (sub.tier === 'enterprise' ? 8 : (sub.status === 'suspended' ? 24 : 14));
-      securityLevel = perf.securityLevel || (sub.tier === 'enterprise' ? 'ELITE' : 'MAX');
-
-      // Add very minor jitter if it's live data
-      uptime = parseFloat((uptime + (Math.random() * 0.01 - 0.005)).toFixed(2));
-      latency = Math.round(latency + (Math.random() * 2 - 1));
-    }
+    const selectedPerformance = subscriptionId && subscriptions[0]?.performanceData && typeof subscriptions[0].performanceData === 'object'
+      ? subscriptions[0].performanceData
+      : null;
+    const measuredLatency = Number(selectedPerformance?.latency);
 
     res.json({
       success: true,
       stats: {
-        activeNodes,
-        uptime,
-        securityLevel,
-        latency
+        activeNodes: subscriptions.length,
+        uptime: null,
+        securityLevel: null,
+        latency: Number.isFinite(measuredLatency) && measuredLatency > 0 ? measuredLatency : null,
+        availabilityStatus: selectedPerformance?.status === 'UP' || selectedPerformance?.status === 'DOWN'
+          ? selectedPerformance.status
+          : null,
+        lastChecked: typeof selectedPerformance?.lastChecked === 'string' ? selectedPerformance.lastChecked : null,
+        metricsAvailable: Boolean(selectedPerformance?.lastChecked)
       }
     });
   } catch (error) {
@@ -205,7 +208,9 @@ exports.getSiteVitals = async (req, res) => {
         success: true,
         vitals: subscription.performanceData.metrics,
         aiInsights: subscription.performanceData.insights,
-        timestamp: subscription.performanceData.timestamp
+        strategy: subscription.performanceData.strategy || 'mobile',
+        timestamp: subscription.performanceData.timestamp,
+        availability: getStoredAvailability(subscription.performanceData)
       });
     }
 
@@ -213,11 +218,522 @@ exports.getSiteVitals = async (req, res) => {
       success: true,
       vitals: null,
       aiInsights: null,
-      timestamp: null
+      strategy: null,
+      timestamp: null,
+      availability: getStoredAvailability(subscription.performanceData)
     });
   } catch (error) {
     logger.error('Failed to get site vitals', { error: error.message });
     res.status(500).json({ success: false, message: 'Failed to retrieve vitals' });
+  }
+};
+
+exports.getPerformanceScans = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+    const userId = req.user.userId;
+    const subscription = await prisma.subscription.findFirst({
+      where: { id: subscriptionId, userId },
+      select: { id: true }
+    });
+    if (!subscription) return res.status(404).json({ success: false, message: 'Site not found.' });
+
+    const scans = await prisma.performanceScan.findMany({
+      where: { subscriptionId },
+      orderBy: { scannedAt: 'desc' },
+      take: 50
+    });
+    res.json({ success: true, data: scans });
+  } catch (error) {
+    if (error?.code === 'P2021' || error?.meta?.code === '42P01') {
+      return res.json({ success: true, data: [], historyAvailable: false });
+    }
+    logger.error('GET_CLIENT_PERFORMANCE_SCANS_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load performance scan history.' });
+  }
+};
+
+exports.getSiteAvailabilityHistory = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+    const userId = req.user.userId;
+    const subscription = await prisma.subscription.findFirst({
+      where: { id: subscriptionId, userId },
+      select: { id: true }
+    });
+    if (!subscription) return res.status(404).json({ success: false, message: 'Site not found.' });
+
+    const since = new Date(Date.now() - AVAILABILITY_SUMMARY_DAYS * 24 * 60 * 60 * 1000);
+    const [checks, scheduledTotal, scheduledUp] = await Promise.all([
+      prisma.siteAvailabilityCheck.findMany({
+        where: { subscriptionId, checkedAt: { gte: since } },
+        orderBy: { checkedAt: 'desc' },
+        take: 100,
+        select: { id: true, status: true, statusCode: true, responseTimeMs: true, error: true, source: true, checkedAt: true }
+      }),
+      prisma.siteAvailabilityCheck.count({
+        where: { subscriptionId, source: 'scheduled', checkedAt: { gte: since } }
+      }),
+      prisma.siteAvailabilityCheck.count({
+        where: { subscriptionId, source: 'scheduled', status: 'UP', checkedAt: { gte: since } }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      data: checks,
+      summary: {
+        periodDays: AVAILABILITY_SUMMARY_DAYS,
+        retentionDays: AVAILABILITY_HISTORY_RETENTION_DAYS,
+        scheduledChecks: scheduledTotal,
+        uptimePercent: scheduledTotal ? Math.round((scheduledUp / scheduledTotal) * 10000) / 100 : null
+      }
+    });
+  } catch (error) {
+    if (error?.code === 'P2021' || error?.meta?.code === '42P01') {
+      return res.json({ success: true, data: [], historyAvailable: false, summary: { periodDays: AVAILABILITY_SUMMARY_DAYS, retentionDays: AVAILABILITY_HISTORY_RETENTION_DAYS, scheduledChecks: 0, uptimePercent: null } });
+    }
+    logger.error('GET_CLIENT_SITE_AVAILABILITY_HISTORY_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Site availability history could not be loaded.' });
+  }
+};
+
+exports.getPerformanceRequests = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+    const userId = req.user.userId;
+    const subscription = await prisma.subscription.findFirst({
+      where: { id: subscriptionId, userId },
+      select: { id: true }
+    });
+    if (!subscription) return res.status(404).json({ success: false, message: 'Site not found.' });
+
+    const requests = await prisma.projectRequest.findMany({
+      where: { userId, subscriptionId, serviceType: 'performance' },
+      select: {
+        id: true,
+        title: true,
+        businessName: true,
+        serviceType: true,
+        summary: true,
+        status: true,
+        quotedAmount: true,
+        quoteCurrency: true,
+        paymentAgreementType: true,
+        paymentAgreementStatus: true,
+        performanceContext: true,
+        completionNotes: true,
+        createdAt: true,
+        updatedAt: true,
+        quoteVersions: { orderBy: { version: 'desc' } }
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50
+    });
+    const invoices = requests.length ? await prisma.billingInvoice.findMany({
+      where: {
+        userId,
+        projectRequestId: { in: requests.map(request => request.id) },
+        stage: { startsWith: 'performance_' }
+      },
+      orderBy: { issuedAt: 'desc' }
+    }) : [];
+    const invoicesByRequest = new Map();
+    for (const invoice of invoices) {
+      if (!invoicesByRequest.has(invoice.projectRequestId)) invoicesByRequest.set(invoice.projectRequestId, []);
+      invoicesByRequest.get(invoice.projectRequestId).push(invoice);
+    }
+    res.json({ success: true, data: requests.map(request => ({ ...request, invoices: invoicesByRequest.get(request.id) || [] })) });
+  } catch (error) {
+    if (isPerformanceContextMigrationPending(error)) {
+      return res.status(503).json({ success: false, message: 'Performance request storage is not ready yet. Apply the pending Performance migration.' });
+    }
+    logger.error('GET_CLIENT_PERFORMANCE_REQUESTS_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to load performance requests.' });
+  }
+};
+
+exports.createPerformanceRequest = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+    const userId = req.user.userId;
+    const goal = typeof req.body?.goal === 'string' ? req.body.goal.trim() : '';
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes.trim() : '';
+    const scanId = typeof req.body?.scanId === 'string' ? req.body.scanId : null;
+    const findingIndex = req.body?.findingIndex;
+    const evidenceLinksInput = Array.isArray(req.body?.evidenceLinks) ? req.body.evidenceLinks : [];
+
+    if (!goal || goal.length > 3000) {
+      return res.status(400).json({ success: false, message: 'Describe the improvement you want (up to 3000 characters).' });
+    }
+    if (notes.length > 3000) return res.status(400).json({ success: false, message: 'Notes must be 3000 characters or fewer.' });
+    if (evidenceLinksInput.length > 5) return res.status(400).json({ success: false, message: 'Add up to five evidence links.' });
+
+    const evidenceLinks = [];
+    for (const candidate of evidenceLinksInput) {
+      if (typeof candidate !== 'string' || candidate.length > 2048) {
+        return res.status(400).json({ success: false, message: 'Each evidence item must be a valid HTTPS link.' });
+      }
+      try {
+        const evidenceUrl = new URL(candidate);
+        if (evidenceUrl.protocol !== 'https:') throw new Error('Unsupported protocol');
+        evidenceLinks.push(evidenceUrl.toString());
+      } catch {
+        return res.status(400).json({ success: false, message: 'Each evidence item must be a valid HTTPS link.' });
+      }
+    }
+
+    const subscription = await prisma.subscription.findFirst({
+      where: { id: subscriptionId, userId },
+      select: { id: true, siteName: true, customName: true, domain: true }
+    });
+    if (!subscription) return res.status(404).json({ success: false, message: 'Site not found.' });
+
+    const lockReason = await getSiteManagementLockReason(userId, subscriptionId);
+    if (lockReason) return res.status(403).json({ success: false, message: lockReason });
+
+    let scan = null;
+    let selectedFinding = null;
+    if (scanId) {
+      scan = await prisma.performanceScan.findFirst({
+        where: { id: scanId, subscriptionId },
+        select: {
+          id: true,
+          url: true,
+          provider: true,
+          strategy: true,
+          score: true,
+          metrics: true,
+          recommendations: true,
+          issues: true,
+          conditions: true,
+          scannedAt: true
+        }
+      });
+      if (!scan) return res.status(400).json({ success: false, message: 'Choose a scan from this site.' });
+
+      if (findingIndex !== undefined && findingIndex !== null) {
+        const recommendations = Array.isArray(scan.recommendations) ? scan.recommendations : [];
+        if (!Number.isInteger(findingIndex) || findingIndex < 0 || findingIndex >= recommendations.length) {
+          return res.status(400).json({ success: false, message: 'Choose a finding from the selected scan.' });
+        }
+        selectedFinding = recommendations[findingIndex];
+      }
+    } else if (findingIndex !== undefined && findingIndex !== null) {
+      return res.status(400).json({ success: false, message: 'A scan is required when selecting a finding.' });
+    }
+
+    const findingTitle = typeof selectedFinding?.task === 'string' ? selectedFinding.task.trim() : '';
+    const title = `Performance improvement: ${(findingTitle || goal).slice(0, 100)}`;
+    const performanceContext = {
+      goal,
+      notes: notes || null,
+      evidenceLinks,
+      baseline: scan ? {
+        scanId: scan.id,
+        url: scan.url,
+        provider: scan.provider,
+        strategy: scan.strategy,
+        score: scan.score,
+        metrics: scan.metrics,
+        scannedAt: scan.scannedAt.toISOString(),
+        finding: selectedFinding
+      } : null
+    };
+
+    const request = await prisma.projectRequest.create({
+      data: {
+        userId,
+        subscriptionId,
+        serviceType: 'performance',
+        title,
+        businessName: subscription.siteName || subscription.customName || subscription.domain || 'Client site',
+        summary: goal,
+        status: 'submitted',
+        performanceContext,
+        conversationMessages: {
+          create: {
+            senderId: userId,
+            senderRole: 'client',
+            message: goal,
+            attachments: evidenceLinks.length ? evidenceLinks.map(url => ({ type: 'link', url })) : null,
+            eventData: { type: 'performance_request_submitted', scanId: scan?.id || null }
+          }
+        }
+      },
+      select: {
+        id: true,
+        userId: true,
+        subscriptionId: true,
+        title: true,
+        businessName: true,
+        serviceType: true,
+        summary: true,
+        status: true,
+        performanceContext: true,
+        createdAt: true,
+        updatedAt: true,
+        conversationMessages: { orderBy: { createdAt: 'asc' }, take: 1 }
+      }
+    });
+    const payload = { request };
+    notifyAdmins('performance_request_created', payload);
+    if (request.conversationMessages?.[0]) {
+      notifyAdmins('project_conversation_message', { requestId: request.id, message: request.conversationMessages[0] });
+    }
+    res.status(201).json({ success: true, data: request, message: 'Performance request sent to Sitemendr.' });
+  } catch (error) {
+    if (isPerformanceContextMigrationPending(error)) {
+      return res.status(503).json({ success: false, message: 'Performance request storage is not ready yet. Apply the pending Performance migration.' });
+    }
+    logger.error('CREATE_CLIENT_PERFORMANCE_REQUEST_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to create performance request.' });
+  }
+};
+
+exports.respondToPerformanceQuote = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.userId;
+    const action = req.body?.action;
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    const termsAccepted = req.body?.termsAccepted === true;
+    if (!['accept', 'decline', 'discuss'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Choose accept, decline, or discuss for this proposal.' });
+    }
+    if (action === 'discuss' && (!message || message.length > 4000)) {
+      return res.status(400).json({ success: false, message: 'Add a short message to discuss the proposal.' });
+    }
+    if (action === 'accept' && !termsAccepted) {
+      return res.status(400).json({ success: false, message: 'Confirm the proposal scope and payment terms before accepting.' });
+    }
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id: requestId, userId, serviceType: 'performance' },
+      select: { id: true, userId: true, title: true, status: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Performance request not found.' });
+    if (action === 'accept' && request.status === 'awaiting_payment') {
+      const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+        where: { projectRequestId: requestId, status: 'accepted' },
+        orderBy: { version: 'desc' },
+        select: { version: true }
+      });
+      const existingInvoice = acceptedQuote ? await prisma.billingInvoice.findUnique({
+        where: { projectRequestId_stage: { projectRequestId: requestId, stage: `performance_quote_${acceptedQuote.version}` } }
+      }) : null;
+      if (existingInvoice) return res.json({ success: true, data: request, invoice: existingInvoice, message: 'Proposal already accepted. Continue to payment.' });
+    }
+    const quote = await prisma.projectQuoteVersion.findFirst({
+      where: { projectRequestId: requestId, status: 'sent' },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, snapshot: true }
+    });
+
+    if (action === 'discuss') {
+      if (!quote || request.status !== 'scope_and_quote') return res.status(409).json({ success: false, message: 'There is no current proposal to discuss.' });
+      const chatMessage = await prisma.projectConversationMessage.create({
+        data: { projectRequestId: requestId, senderId: userId, senderRole: 'client', message }
+      });
+      notifyAdmins('project_conversation_message', { requestId, message: chatMessage });
+      res.json({ success: true, data: chatMessage, message: 'Your question was added to the proposal conversation.' });
+      return;
+    }
+
+    if (action === 'decline') {
+      if (!quote || request.status !== 'scope_and_quote') return res.status(409).json({ success: false, message: 'There is no current proposal to decline.' });
+      const outcome = await prisma.$transaction(async tx => {
+        const quoteTransition = await tx.projectQuoteVersion.updateMany({ where: { id: quote.id, status: 'sent' }, data: { status: 'declined' } });
+        const requestTransition = await tx.projectRequest.updateMany({ where: { id: requestId, userId, status: 'scope_and_quote' }, data: { status: 'declined', rejectedAt: new Date() } });
+        if (quoteTransition.count !== 1 || requestTransition.count !== 1) throw Object.assign(new Error('The proposal changed before your response was saved.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+        return tx.projectConversationMessage.create({
+          data: {
+            projectRequestId: requestId,
+            senderId: userId,
+            senderRole: 'client',
+            message: message || 'I have declined this proposal.',
+            eventData: { type: 'performance_quote_declined', quoteVersionId: quote.id, version: quote.version }
+          }
+        });
+      });
+      notifyAdmins('project_conversation_message', { requestId, message: outcome });
+      const updated = await prisma.projectRequest.findUnique({ where: { id: requestId } });
+      notifyAdmins('performance_request_updated', { request: updated });
+      notifyUser(userId, 'performance_request_updated', { request: updated });
+      return res.json({ success: true, data: updated, message: 'Proposal declined.' });
+    }
+
+    if (!quote || request.status !== 'scope_and_quote') return res.status(409).json({ success: false, message: 'There is no current proposal waiting for acceptance.' });
+
+    const snapshot = quote.snapshot && typeof quote.snapshot === 'object' ? quote.snapshot : {};
+    const totalAmount = Number(snapshot.totalAgreedAmount || snapshot.amount || 0);
+    const paymentSchedule = snapshot.paymentSchedule;
+    const invoiceAmount = paymentSchedule === 'deposit_balance' ? Number(snapshot.depositAmount || 0) : totalAmount;
+    const currency = String(snapshot.currency || 'USD').toUpperCase();
+    const amountMinor = Math.round(invoiceAmount * 100);
+    if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) {
+      return res.status(409).json({ success: false, message: 'The proposal does not contain valid payment terms. Ask Sitemendr to review it.' });
+    }
+
+    const result = await prisma.$transaction(async tx => {
+      const quoteTransition = await tx.projectQuoteVersion.updateMany({ where: { id: quote.id, status: 'sent' }, data: { status: 'accepted', acceptedAt: new Date() } });
+      const requestTransition = await tx.projectRequest.updateMany({
+        where: { id: requestId, userId, status: 'scope_and_quote' },
+        data: {
+          status: 'awaiting_payment',
+          approvedAt: new Date(),
+          paymentAgreementStatus: 'sent',
+          paymentConfirmedAt: null,
+          finalPaymentConfirmedAt: null
+        }
+      });
+      if (quoteTransition.count !== 1 || requestTransition.count !== 1) throw Object.assign(new Error('The proposal changed before your acceptance was saved.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+      const now = new Date();
+      const dueAt = snapshot.paymentDueDate ? new Date(snapshot.paymentDueDate) : null;
+      const invoice = await tx.billingInvoice.create({
+        data: {
+          invoiceNumber: `SMI-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`,
+          userId,
+          projectRequestId: requestId,
+          stage: `performance_quote_${quote.version}`,
+          serviceType: 'performance',
+          description: `Performance improvement payment - ${request.title}`,
+          amountMinor,
+          currency,
+          status: 'open',
+          issuedAt: now,
+          dueAt,
+          nextReminderAt: dueAt ? new Date(Math.max(now.getTime() + 24 * 60 * 60 * 1000, dueAt.getTime() - 24 * 60 * 60 * 1000)) : null,
+          snapshot: {
+            projectRequestId: requestId,
+            projectName: request.title,
+            quoteVersionId: quote.id,
+            quoteVersion: quote.version,
+            acceptedQuote: snapshot,
+            paymentStage: paymentSchedule === 'deposit_balance' ? 'deposit' : 'full'
+          }
+        }
+      });
+      const event = await tx.projectConversationMessage.create({
+        data: {
+          projectRequestId: requestId,
+          senderId: userId,
+          senderRole: 'system',
+          kind: 'event',
+          message: `Client accepted proposal version ${quote.version}. The invoice is ready for payment.`,
+          eventData: { type: 'performance_quote_accepted', quoteVersionId: quote.id, version: quote.version, invoiceId: invoice.id, amountMinor, currency }
+        }
+      });
+      const updated = await tx.projectRequest.findUnique({ where: { id: requestId } });
+      return { invoice, event, request: updated };
+    });
+
+    notifyAdmins('project_conversation_message', { requestId, message: result.event });
+    notifyUser(userId, 'project_conversation_message', { requestId, message: result.event });
+    notifyAdmins('performance_request_updated', { request: result.request });
+    notifyUser(userId, 'performance_request_updated', { request: result.request });
+    res.json({ success: true, data: result.request, invoice: result.invoice, message: 'Proposal accepted. Review the invoice to begin payment.' });
+  } catch (error) {
+    if (error.code === 'PERFORMANCE_STATE_CHANGED') return res.status(409).json({ success: false, message: error.message });
+    logger.error('RESPOND_TO_PERFORMANCE_QUOTE_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to respond to the Performance proposal.' });
+  }
+};
+
+exports.respondToPerformanceReview = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.userId;
+    const action = req.body?.action;
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (!['accept', 'changes'].includes(action)) return res.status(400).json({ success: false, message: 'Choose whether to accept the work or request changes.' });
+    if (action === 'changes' && (!message || message.length > 4000)) return res.status(400).json({ success: false, message: 'Describe the changes you need (up to 4000 characters).' });
+
+    const request = await prisma.projectRequest.findFirst({
+      where: { id: requestId, userId, serviceType: 'performance' },
+      select: { id: true, userId: true, title: true, subscriptionId: true, status: true }
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Performance request not found.' });
+    const quote = await prisma.projectQuoteVersion.findFirst({
+      where: { projectRequestId: requestId, status: 'accepted' }, orderBy: { version: 'desc' },
+      select: { id: true, version: true, snapshot: true }
+    });
+    if (!quote) return res.status(409).json({ success: false, message: 'The accepted Performance proposal could not be found.' });
+
+    if (action === 'accept' && request.status === 'awaiting_final_payment') {
+      const invoice = await prisma.billingInvoice.findUnique({ where: { projectRequestId_stage: { projectRequestId: requestId, stage: `performance_balance_${quote.version}` } } });
+      if (invoice) return res.json({ success: true, data: request, invoice, message: 'Work is accepted. The final balance invoice is ready.' });
+    }
+    if (action === 'accept' && request.status === 'completed') {
+      return res.json({ success: true, data: request, message: 'This Performance request is already complete.' });
+    }
+    if (request.status !== 'ready_for_review') return res.status(409).json({ success: false, message: 'This Performance work is not waiting for review.' });
+
+    if (action === 'changes') {
+      const result = await prisma.$transaction(async tx => {
+        const changed = await tx.projectRequest.updateMany({ where: { id: requestId, userId, serviceType: 'performance', status: 'ready_for_review' }, data: { status: 'in_progress' } });
+        if (changed.count !== 1) throw Object.assign(new Error('The review stage changed. Refresh and try again.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+        const chatMessage = await tx.projectConversationMessage.create({
+          data: { projectRequestId: requestId, senderId: userId, senderRole: 'client', message, eventData: { type: 'performance_changes_requested', quoteVersionId: quote.id } }
+        });
+        return { chatMessage, updated: await tx.projectRequest.findUnique({ where: { id: requestId } }) };
+      });
+      notifyAdmins('project_conversation_message', { requestId, message: result.chatMessage });
+      notifyUser(userId, 'performance_request_updated', { request: result.updated });
+      notifyAdmins('performance_request_updated', { request: result.updated });
+      return res.json({ success: true, data: result.updated, message: 'Your change request was sent to Sitemendr.' });
+    }
+
+    const snapshot = quote.snapshot && typeof quote.snapshot === 'object' ? quote.snapshot : {};
+    const paymentSchedule = snapshot.paymentSchedule;
+    const balanceAmount = Math.max(0, Math.round((Number(snapshot.totalAgreedAmount || snapshot.amount || 0) - Number(snapshot.depositAmount || 0)) * 100) / 100);
+    let invoice = null;
+    const outcome = await prisma.$transaction(async tx => {
+      const shouldInvoiceBalance = paymentSchedule === 'deposit_balance' && balanceAmount > 0;
+      const changed = await tx.projectRequest.updateMany({
+        where: { id: requestId, userId, serviceType: 'performance', status: 'ready_for_review' },
+        data: shouldInvoiceBalance
+          ? { status: 'awaiting_final_payment' }
+          : { status: 'completed', completedAt: new Date(), finalPaymentConfirmedAt: new Date() }
+      });
+      if (changed.count !== 1) throw Object.assign(new Error('The review stage changed. Refresh and try again.'), { code: 'PERFORMANCE_STATE_CHANGED' });
+
+      if (paymentSchedule === 'deposit_balance' && balanceAmount > 0) {
+        invoice = await tx.billingInvoice.findUnique({ where: { projectRequestId_stage: { projectRequestId: requestId, stage: `performance_balance_${quote.version}` } } });
+        if (!invoice) {
+          const now = new Date();
+          const dueAt = snapshot.balanceDueDate ? new Date(snapshot.balanceDueDate) : now;
+          invoice = await tx.billingInvoice.create({
+            data: {
+              invoiceNumber: `SMI-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`,
+              userId, projectRequestId: requestId, stage: `performance_balance_${quote.version}`, serviceType: 'performance',
+              description: `Performance improvement balance - ${request.title}`, amountMinor: Math.round(balanceAmount * 100),
+              currency: String(snapshot.currency || 'USD').toUpperCase(), status: 'open', issuedAt: now,
+              dueAt,
+              nextReminderAt: new Date(Math.max(now.getTime() + 24 * 60 * 60 * 1000, dueAt.getTime() - 24 * 60 * 60 * 1000)),
+              snapshot: { projectRequestId: requestId, projectName: request.title, quoteVersionId: quote.id, quoteVersion: quote.version, paymentStage: 'balance', acceptedQuote: snapshot }
+            }
+          });
+        }
+      }
+      const event = await tx.projectConversationMessage.create({
+        data: {
+          projectRequestId: requestId, senderId: userId, senderRole: 'system', kind: 'event',
+          message: invoice ? 'Client accepted the completed Performance work. The final balance invoice is ready.' : 'Client accepted the completed Performance work.',
+          eventData: { type: 'performance_work_accepted', quoteVersionId: quote.id, invoiceId: invoice?.id || null }
+        }
+      });
+      return { event, updated: await tx.projectRequest.findUnique({ where: { id: requestId } }) };
+    });
+    notifyAdmins('project_conversation_message', { requestId, message: outcome.event });
+    notifyUser(userId, 'project_conversation_message', { requestId, message: outcome.event });
+    notifyUser(userId, 'performance_request_updated', { request: outcome.updated });
+    notifyAdmins('performance_request_updated', { request: outcome.updated });
+    return res.json({ success: true, data: outcome.updated, invoice, message: invoice ? 'Work accepted. Pay the final balance to complete this request.' : 'Work accepted. This Performance request is complete.' });
+  } catch (error) {
+    if (error.code === 'PERFORMANCE_STATE_CHANGED') return res.status(409).json({ success: false, message: error.message });
+    logger.error('RESPOND_TO_PERFORMANCE_REVIEW_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to record the Performance review.' });
   }
 };
 
@@ -288,7 +804,7 @@ exports.getProjects = async (req, res) => {
           projectRequests: {
             // A completed build can be returned to handoff if an issue is
             // reopened. Keep its linked-site projection in sync with that state.
-            where: { serviceType: 'build', status: { in: ['completed', 'handoff'] } },
+            where: { serviceType: 'build' },
             orderBy: { updatedAt: 'desc' },
             take: 1,
             select: {
@@ -297,10 +813,13 @@ exports.getProjects = async (req, res) => {
               launchApprovedAt: true,
               completionAcknowledgedAt: true,
               handoffIssuesReportedAt: true,
+              finalPaymentConfirmedAt: true,
+              paymentConfirmedAt: true,
               completedAt: true,
               quoteCurrency: true,
               totalAgreedAmount: true,
-              quotedAmount: true
+              quotedAmount: true,
+              depositAmount: true
             }
           },
           template: {
@@ -357,6 +876,7 @@ exports.getProjects = async (req, res) => {
       return {
         id: sub.id,
         recordType: 'project',
+        canManageSite: isBuildManagementUnlocked(linkedBuild),
         name: sub.siteName || sub.customName || 'Untitled Project',
         businessName: sub.siteName || sub.customName || undefined,
         progress: progress,
@@ -367,6 +887,7 @@ exports.getProjects = async (req, res) => {
         launchUrl: linkedBuild?.launchUrl || undefined,
         launchApprovedAt: linkedBuild?.launchApprovedAt?.toISOString?.() || undefined,
         completionAcknowledgedAt: linkedBuild?.completionAcknowledgedAt?.toISOString?.() || undefined,
+        paymentConfirmedAt: linkedBuild?.paymentConfirmedAt?.toISOString?.() || undefined,
         handoffIssuesReportedAt: linkedBuild?.handoffIssuesReportedAt?.toISOString?.() || undefined,
         completedAt: linkedBuild?.completedAt?.toISOString?.() || undefined,
         quotedAmount: linkedBuild?.totalAgreedAmount ?? linkedBuild?.quotedAmount ?? sub.price ?? undefined,
@@ -546,6 +1067,9 @@ exports.respondToHandoff = async (req, res) => {
     const handoffMilestone = request.buildMilestones.find((milestone) => milestone.title === 'Handoff');
 
     if (action === 'complete') {
+      if (hasFinalBalance && !request.finalPaymentConfirmedAt) {
+        await issueBuildInvoice({ ...request, totalAgreedAmount: request.totalAgreedAmount || request.quotedAmount }, 'final_balance');
+      }
       await prisma.buildMilestone.updateMany({
         where: { projectRequestId: request.id },
         data: { status: 'completed', progress: 100 }
@@ -1061,10 +1585,10 @@ exports.getProjectConversation = async (req, res) => {
     const userId = req.user.userId;
     const { requestId } = req.params;
     const request = await prisma.projectRequest.findFirst({
-      where: { id: requestId, userId, serviceType: 'build' },
+      where: { id: requestId, userId, serviceType: { in: ['build', 'performance'] } },
       select: { id: true }
     });
-    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+    if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
 
     const messages = await getProjectConversation(requestId);
     await prisma.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "readByClient" = true WHERE "projectRequestId" = $1 AND "senderRole" = 'admin'`, requestId);
@@ -1086,10 +1610,10 @@ exports.createProjectConversationMessage = async (req, res) => {
     if (!cleanedMessage && !attachments) return res.status(400).json({ success: false, message: 'Message is required' });
 
     const request = await prisma.projectRequest.findFirst({
-      where: { id: requestId, userId, serviceType: 'build' },
+      where: { id: requestId, userId, serviceType: { in: ['build', 'performance'] } },
       select: { id: true }
     });
-    if (!request) return res.status(404).json({ success: false, message: 'Build request not found' });
+    if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
 
     const rows = await prisma.$queryRawUnsafe(
       `INSERT INTO "ProjectConversationMessage"
@@ -1294,23 +1818,55 @@ exports.getBilling = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const [payments, user] = await Promise.all([
+    const [payments, user, invoices, receipts, refunds] = await Promise.all([
       prisma.payment.findMany({
-        where: {
-          userId,
-          status: { notIn: ['pending', 'superseded'] }
-        },
+        where: { userId },
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.user.findUnique({ where: { id: userId }, select: { defaultCurrency: true } })
+      prisma.user.findUnique({ where: { id: userId }, select: { defaultCurrency: true } }),
+      prisma.billingInvoice.findMany({ where: { userId }, include: { user: { select: { name: true, email: true } } }, orderBy: { issuedAt: 'desc' } }),
+      prisma.billingReceipt.findMany({ where: { userId }, include: { user: { select: { name: true, email: true } } }, orderBy: { issuedAt: 'desc' } }),
+      prisma.billingRefund.findMany({ where: { userId }, orderBy: { processedAt: 'desc' } })
     ]);
 
     const preferredCurrency = user?.defaultCurrency || 'USD';
+    const buildRequestIds = [...new Set(payments
+      .filter(payment => ['build_agreement', 'build_final_balance'].includes(payment.serviceType))
+      .map(payment => payment.metadata?.projectRequestId)
+      .filter((id) => typeof id === 'string'))];
+    const buildRequests = buildRequestIds.length
+      ? await prisma.projectRequest.findMany({
+          where: { id: { in: buildRequestIds }, userId, serviceType: 'build' },
+          select: { id: true, title: true, businessName: true, subscriptionId: true }
+        })
+      : [];
+    const buildById = new Map(buildRequests.map(request => [request.id, request]));
     const billing = payments.map((payment) => {
       const majorUnitAmount = (payment.amount || 0) / 100;
       const showConverted = normalizeCurrency(payment.currency) !== normalizeCurrency(preferredCurrency);
+      const projectRequestId = payment.metadata?.projectRequestId;
+      const buildRequest = typeof projectRequestId === 'string' ? buildById.get(projectRequestId) : undefined;
       return {
-        ...payment,
+        id: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        paymentMethod: payment.paymentMethod,
+        gateway: payment.gateway,
+        description: payment.description,
+        reference: payment.reference,
+        serviceType: payment.serviceType,
+        invoiceId: payment.invoiceId,
+        createdAt: payment.createdAt,
+        updatedAt: payment.updatedAt,
+        metadata: {
+          ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
+          ...(buildRequest ? {
+            projectRequestId: buildRequest.id,
+            projectName: buildRequest.businessName || buildRequest.title,
+            subscriptionId: buildRequest.subscriptionId || undefined
+          } : {})
+        },
         preferredCurrency,
         convertedAmount: showConverted ? convertCurrencyAmount(majorUnitAmount, payment.currency, preferredCurrency) : null,
         ...extractChannelInfo(payment)
@@ -1319,7 +1875,10 @@ exports.getBilling = async (req, res) => {
 
     res.json({
       success: true,
-      billing
+      billing,
+      invoices,
+      receipts,
+      refunds
     });
   } catch (error) {
     logger.error('Failed to get billing info', {
@@ -1577,6 +2136,8 @@ exports.getDomains = async (req, res) => {
         createdAt: true,
         updatedAt: true,
         status: true,
+        sslEnabled: true,
+        sslExpiresAt: true,
         subscription: {
           select: {
             siteName: true,
@@ -1589,7 +2150,10 @@ exports.getDomains = async (req, res) => {
 
     res.json({
       success: true,
-      domains
+      domains,
+      dnsTargets: {
+        a: getHostingDomainTarget()
+      }
     });
   } catch (error) {
     logger.error('Failed to get domains', {
@@ -1607,12 +2171,34 @@ exports.getDomains = async (req, res) => {
 exports.addDomain = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { domain, siteId, setup } = req.body;
+    const { domain: rawDomain, siteId, setup } = req.body;
 
-    if (!domain || !siteId) {
+    if (!rawDomain || !siteId) {
       return res.status(400).json({
         success: false,
         message: 'Domain name and site selection are required'
+      });
+    }
+
+    // Accept a pasted URL, but persist only its normalized hostname.
+    const domain = String(rawDomain)
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split(/[/?#]/)[0]
+      .replace(/\.$/, '');
+    const labels = domain.split('.');
+    const isValidDomain = domain.length <= 253
+      && labels.length >= 2
+      && labels.every(label => label.length > 0
+        && label.length <= 63
+        && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label));
+
+    if (!isValidDomain) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a valid domain name, such as yourbusiness.co.ke'
       });
     }
 
@@ -1630,6 +2216,23 @@ exports.addDomain = async (req, res) => {
         success: false,
         message: 'Invalid project selection'
       });
+    }
+
+    const lockReason = await getSiteManagementLockReason(userId, subscription.id);
+    if (lockReason) {
+      return res.status(409).json({ success: false, message: lockReason });
+    }
+
+    const existingDomain = await prisma.customDomain.findFirst({
+      where: { domain: { equals: domain, mode: 'insensitive' } },
+      select: { id: true, userId: true, siteId: true }
+    });
+
+    if (existingDomain) {
+      const message = existingDomain.userId === userId
+        ? 'This domain is already connected to one of your sites.'
+        : 'This domain is already connected to another account.';
+      return res.status(409).json({ success: false, message });
     }
 
     const data = {
@@ -1659,6 +2262,9 @@ exports.addDomain = async (req, res) => {
       domain: { ...newDomain, status: 'pending' }
     });
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ success: false, message: 'This domain is already connected.' });
+    }
     logger.error('Failed to add domain', {
       errorCode: 'ADD_DOMAIN_ERROR',
       error: error.message
@@ -1667,6 +2273,45 @@ exports.addDomain = async (req, res) => {
       success: false,
       message: 'Failed to connect custom domain'
     });
+  }
+};
+
+// Move an existing domain connection to another site in the same client account.
+exports.moveDomainToSite = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { domainId } = req.params;
+    const { siteId } = req.body;
+    if (!siteId) return res.status(400).json({ success: false, message: 'Choose a site for this domain.' });
+
+    const domain = await prisma.customDomain.findFirst({
+      where: { id: domainId, userId },
+      select: { id: true, siteId: true, domain: true }
+    });
+    if (!domain) return res.status(404).json({ success: false, message: 'Domain not found.' });
+
+    const [sourceLock, targetSite] = await Promise.all([
+      getSiteManagementLockReason(userId, domain.siteId),
+      prisma.subscription.findFirst({
+        where: { id: siteId, userId },
+        select: { id: true }
+      })
+    ]);
+    if (sourceLock) return res.status(409).json({ success: false, message: sourceLock });
+    if (!targetSite) return res.status(403).json({ success: false, message: 'That site is not available in your account.' });
+
+    const targetLock = await getSiteManagementLockReason(userId, targetSite.id);
+    if (targetLock) return res.status(409).json({ success: false, message: targetLock });
+
+    if (targetSite.id === domain.siteId) {
+      return res.json({ success: true, message: 'This domain is already connected to that site.' });
+    }
+
+    await prisma.customDomain.update({ where: { id: domain.id }, data: { siteId: targetSite.id } });
+    return res.json({ success: true, message: `${domain.domain} is now connected to the selected site.` });
+  } catch (error) {
+    logger.error('Failed to move domain connection', { errorCode: 'MOVE_DOMAIN_ERROR', error: error.message });
+    return res.status(500).json({ success: false, message: 'Could not move this domain. Please try again.' });
   }
 };
 
@@ -1690,28 +2335,14 @@ exports.verifyDomainDNS = async (req, res) => {
       });
     }
 
-    const domain = customDomain.domain;
-    const serverIP = process.env.INFRA_IP || '102.0.21.24';
-    const targetCname = process.env.INFRA_CNAME || 'nodes.sitemendr.com';
+    const lockReason = await getSiteManagementLockReason(userId, customDomain.siteId);
+    if (lockReason) {
+      return res.status(409).json({ success: false, message: lockReason });
+    }
 
     try {
-      let records = [];
-      let isVerified = false;
-
-      try {
-        records = await dns.resolve4(domain);
-        isVerified = records.includes(serverIP);
-      } catch { /* Try the supported CNAME setup below. */ }
-
-      if (!isVerified) {
-        try {
-          const cnameRecords = await dns.resolveCname(domain);
-          records = [...records, ...cnameRecords];
-          isVerified = cnameRecords.some(record => record.replace(/\.$/, '').toLowerCase() === targetCname.replace(/\.$/, '').toLowerCase());
-        } catch { /* No matching CNAME is published yet. */ }
-      }
-
-      if (isVerified) {
+      const result = await verifyDomainDns(customDomain.domain);
+      if (result.verified) {
         await prisma.customDomain.update({
           where: { id: domainId },
           data: { status: 'verified' }
@@ -1720,15 +2351,23 @@ exports.verifyDomainDNS = async (req, res) => {
         return res.json({
           success: true,
           verified: true,
-          message: 'DNS verified successfully. Your site is now live on this domain.',
-          records
+          sslEnabled: customDomain.sslEnabled,
+          sslExpiresAt: customDomain.sslExpiresAt,
+          message: 'Both the root domain and www are pointing to Sitemendr. HTTPS readiness is checked separately.',
+          checks: result.checks,
+          targets: { a: result.targetIp }
         });
       } else {
+        await prisma.customDomain.update({
+          where: { id: domainId },
+          data: { status: 'pending', sslEnabled: false, sslExpiresAt: null }
+        });
         return res.json({
           success: true,
           verified: false,
-          message: `DNS verification failed. Expected an A record for ${serverIP} or a CNAME to ${targetCname}, but found ${records.join(', ') || 'no matching records'}.`,
-          records
+          message: 'DNS is not ready yet. Check the root and www records below, save any changes, then verify again.',
+          checks: result.checks,
+          targets: { a: result.targetIp }
         });
       }
     } catch (dnsError) {
@@ -1740,7 +2379,7 @@ exports.verifyDomainDNS = async (req, res) => {
       return res.json({
         success: true,
         verified: false,
-        message: 'Could not resolve domain. Please ensure you have added the A record and allowed time for propagation (up to 24-48 hours).',
+        message: 'We could not check DNS right now. Confirm the records are saved, allow time for DNS propagation, and try again.',
         error: dnsError.code
       });
     }
@@ -1754,6 +2393,36 @@ exports.verifyDomainDNS = async (req, res) => {
       success: false,
       message: 'Failed to verify domain'
     });
+  }
+};
+
+// Remove a custom domain owned by the client, once the site is available for management.
+exports.deleteDomain = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { domainId } = req.params;
+    const customDomain = await prisma.customDomain.findFirst({
+      where: { id: domainId, userId },
+      select: { id: true, siteId: true }
+    });
+
+    if (!customDomain) {
+      return res.status(404).json({ success: false, message: 'Domain not found' });
+    }
+
+    const lockReason = await getSiteManagementLockReason(userId, customDomain.siteId);
+    if (lockReason) {
+      return res.status(409).json({ success: false, message: lockReason });
+    }
+
+    await prisma.customDomain.delete({ where: { id: customDomain.id } });
+    return res.json({ success: true, message: 'Domain removed' });
+  } catch (error) {
+    logger.error('Failed to remove domain', {
+      errorCode: 'DELETE_DOMAIN_ERROR',
+      error: error.message
+    });
+    return res.status(500).json({ success: false, message: 'Failed to remove domain' });
   }
 };
 
@@ -1920,6 +2589,7 @@ exports.optimizeContent = async (req, res) => {
 
     let optimizedContent;
     try {
+      if (!openai) throw new Error('OPENAI_API_KEY is not configured');
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
@@ -1930,6 +2600,7 @@ exports.optimizeContent = async (req, res) => {
       logger.error('OpenAI content optimization failed, trying Groq', { error: oaError.message });
       
       try {
+        if (!groq) throw new Error('GROQ_API_KEY is not configured');
         const groqCompletion = await groq.chat.completions.create({
           model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt }],
@@ -2178,7 +2849,24 @@ exports.getContractBilling = async (req, res) => {
 
     const request = await prisma.projectRequest.findFirst({
       where: { id, userId, serviceType: 'build' },
-      select: { id: true, title: true, businessName: true, status: true, totalAgreedAmount: true, quoteCurrency: true, completedAt: true }
+      select: {
+        id: true,
+        subscriptionId: true,
+        title: true,
+        businessName: true,
+        status: true,
+        paymentAgreementStatus: true,
+        paymentDueDate: true,
+        paymentConfirmedAt: true,
+        finalPaymentConfirmedAt: true,
+        completionAcknowledgedAt: true,
+        handoffIssuesReportedAt: true,
+        depositAmount: true,
+        totalAgreedAmount: true,
+        quotedAmount: true,
+        quoteCurrency: true,
+        completedAt: true
+      }
     });
 
     if (!request) {
@@ -2198,13 +2886,57 @@ exports.getContractBilling = async (req, res) => {
         userId,
         metadata: { path: ['projectRequestId'], equals: id }
       },
+      select: {
+        id: true,
+        reference: true,
+        amount: true,
+        currency: true,
+        status: true,
+        paymentMethod: true,
+        gateway: true,
+        description: true,
+        serviceType: true,
+        invoiceId: true,
+        metadata: true,
+        gatewayResponse: true,
+        createdAt: true,
+        updatedAt: true
+      },
       orderBy: { createdAt: 'desc' }
     });
 
+    const acceptedQuote = await prisma.projectQuoteVersion.findFirst({
+      where: { projectRequestId: id, status: 'accepted' },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, snapshot: true, acceptedAt: true }
+    });
+    const totalAgreedAmount = Number(request.totalAgreedAmount || acceptedQuote?.snapshot?.totalAgreedAmount || acceptedQuote?.snapshot?.amount || request.quotedAmount || 0);
+    const depositAmount = Number(request.depositAmount || acceptedQuote?.snapshot?.depositAmount || 0);
+    const paidAmount = payments
+      .filter(payment => payment.status === 'completed')
+      .reduce((total, payment) => total + Number(payment.amount || 0) / 100, 0);
+    const remainingBalance = Math.max(Math.round((totalAgreedAmount - paidAmount) * 100) / 100, 0);
+
     res.json({
       success: true,
-      contract: { ...request, cancellationSettlement: settlementEvents[0]?.cancellationSettlement || null },
-      payments: payments.map((payment) => ({ ...payment, ...extractChannelInfo(payment) }))
+      contract: {
+        ...request,
+        totalAgreedAmount,
+        depositAmount,
+        paidAmount,
+        remainingBalance,
+        acceptedQuote: acceptedQuote ? {
+          id: acceptedQuote.id,
+          version: acceptedQuote.version,
+          acceptedAt: acceptedQuote.acceptedAt,
+          snapshot: acceptedQuote.snapshot
+        } : null,
+        cancellationSettlement: settlementEvents[0]?.cancellationSettlement || null
+      },
+      payments: payments.map((payment) => {
+        const { gatewayResponse, ...safePayment } = payment;
+        return { ...safePayment, ...extractChannelInfo(payment) };
+      })
     });
   } catch (error) {
     logger.error('Failed to get contract billing', {
