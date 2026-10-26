@@ -7,6 +7,7 @@ const analyticsController = require('../controllers/analyticsController');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validator');
 const logger = require('../config/logger');
+const repairController = require('../controllers/repairController');
 
 // All admin routes require authentication and admin role
 router.use((req, res, next) => {
@@ -43,6 +44,12 @@ router.delete('/assessments/:id', adminController.deleteAssessment);
 
 // Build request management
 router.get('/project-requests', adminController.getProjectRequests);
+router.post('/repair/requests/:id/diagnosis-fee', repairController.setRepairDiagnosisFee);
+router.post('/repair/requests/:id/proposal', repairController.sendRepairProposal);
+router.post('/repair/requests/:id/review', repairController.submitRepairForReview);
+router.post('/repair/requests/:id/status', repairController.updateRepairStatus);
+router.post('/repair/requests/:id/cancellation/:messageId', repairController.decideRepairCancellation);
+router.post('/repair/requests/:id/cancellation-refund', repairController.recordRepairCancellationRefund);
 router.post('/project-requests/:id/performance-quote', adminController.createPerformanceQuote);
 router.get('/project-requests/:id/performance-scans', adminController.getPerformanceScansForRequest);
 router.get('/performance/availability', adminController.getPerformanceAvailabilityOverview);

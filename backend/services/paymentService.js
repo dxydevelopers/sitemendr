@@ -76,6 +76,9 @@ exports.processSuccessfulPayment = async (paymentId) => {
     else if (serviceType === 'performance_payment') {
       await handlePerformancePayment(payment);
     }
+    else if (serviceType === 'repair_payment') {
+      await handleRepairPayment(payment);
+    }
 
     logger.info('Payment processing completed successfully', { paymentId, serviceType });
   } catch (error) {
@@ -135,6 +138,103 @@ exports.reconcileCompletedPerformancePayments = async (limit = 100) => {
   }
   return { checked: pending.length, attempted: pending.length };
 };
+
+exports.reconcileCompletedRepairPayments = async (limit = 100) => {
+  const safeLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 100, 1), 500);
+  let rows;
+  try {
+    rows = await prisma.$queryRawUnsafe(
+      `SELECT p."id" FROM "Payment" p
+       JOIN "BillingInvoice" i ON i."id" = p."invoiceId"
+       JOIN "ProjectRequest" r ON r."id" = i."projectRequestId"
+       WHERE p."status" = 'completed' AND p."serviceType" = 'repair_payment'
+         AND r."serviceType" = 'repair' AND p."userId" = r."userId"
+         AND p."metadata"->>'projectRequestId' = r."id"
+         AND (
+           (i."stage" = 'repair_diagnosis' AND r."status" = 'awaiting_diagnosis_payment')
+           OR (i."stage" LIKE 'repair_quote_%' AND r."status" = 'awaiting_payment')
+           OR (i."stage" LIKE 'repair_change_%' AND r."status" = 'awaiting_payment')
+           OR (i."stage" LIKE 'repair_balance_%' AND r."status" = 'awaiting_final_payment')
+           OR (i."stage" = 'repair_cancellation_closeout' AND r."status" = 'cancelled')
+           OR NOT EXISTS (SELECT 1 FROM "ProjectConversationMessage" m
+             WHERE m."projectRequestId" = r."id" AND m."eventData"->>'paymentReference' = p."reference")
+         )
+       ORDER BY p."updatedAt" ASC LIMIT $1`, safeLimit
+    );
+  } catch (error) {
+    logger.error('REPAIR_PAYMENT_RECONCILIATION_QUERY_FAILED', { error: error.message });
+    return { checked: 0, attempted: 0, failed: true };
+  }
+  for (const row of rows) await exports.processSuccessfulPayment(row.id);
+  return { checked: rows.length, attempted: rows.length };
+};
+
+async function handleRepairPayment(payment) {
+  const requestId = payment.metadata?.projectRequestId;
+  if (!requestId || !payment.invoiceId) return;
+  const [request, invoice] = await Promise.all([
+    prisma.projectRequest.findFirst({ where: { id: requestId, userId: payment.userId, serviceType: 'repair' } }),
+    prisma.billingInvoice.findFirst({ where: { id: payment.invoiceId, projectRequestId: requestId, userId: payment.userId, serviceType: 'repair', status: 'paid' } })
+  ]);
+  if (!request || !invoice || invoice.amountMinor !== Math.round(Number(payment.amount)) || invoice.currency !== payment.currency) {
+    logger.error('REPAIR_PAYMENT_INVOICE_MISMATCH', { paymentId: payment.id, requestId });
+    return;
+  }
+  if (invoice.stage === 'repair_cancellation_closeout' && request.status === 'cancelled') {
+    const settlementEvent = await prisma.projectConversationMessage.findFirst({ where: { projectRequestId: requestId, kind: 'event', eventData: { path: ['type'], equals: 'repair_cancel_confirmed' } }, orderBy: { createdAt: 'desc' } });
+    const settlement = settlementEvent?.eventData?.settlement;
+    if (!settlement || Math.round(Number(settlement.balanceDue || 0) * 100) !== invoice.amountMinor) {
+      logger.error('REPAIR_CANCELLATION_CLOSEOUT_MISMATCH', { paymentId: payment.id, requestId });
+      return;
+    }
+    const existingEvent = await prisma.projectConversationMessage.findFirst({ where: { projectRequestId: requestId, kind: 'event', eventData: { path: ['paymentReference'], equals: payment.reference } }, select: { id: true } });
+    if (existingEvent) return;
+    await prisma.$transaction(async tx => {
+      const locked = await tx.$queryRawUnsafe(`SELECT "id","eventData" FROM "ProjectConversationMessage" WHERE "id"=$1 FOR UPDATE`, settlementEvent.id);
+      if (!locked.length) return;
+      const lockedSettlement = locked[0].eventData?.settlement || {};
+      if (Math.round(Number(lockedSettlement.balanceDue || 0) * 100) !== invoice.amountMinor) return;
+      const updatedSettlement = { ...lockedSettlement, balanceDue: 0, closeoutPaymentReference: payment.reference, closeoutPaidAt: new Date().toISOString() };
+      await tx.$executeRawUnsafe(`UPDATE "ProjectConversationMessage" SET "eventData"=jsonb_set("eventData", '{settlement}', $2::jsonb, true) WHERE "id"=$1`, settlementEvent.id, JSON.stringify(updatedSettlement));
+      await tx.projectConversationMessage.create({ data: { projectRequestId: requestId, senderRole: 'system', kind: 'event', message: `Repair cancellation closeout paid: ${invoice.currency} ${invoice.amountMinor / 100}.`, eventData: { type: 'repair_cancellation_closeout_paid', invoiceId: invoice.id, paymentReference: payment.reference, amountMinor: payment.amount, currency: payment.currency } } });
+    });
+    const refreshedRequest = await prisma.projectRequest.findUnique({ where: { id: requestId } });
+    notifyUser(payment.userId, 'repair_request_updated', { request: refreshedRequest });
+    notifyAdmins('repair_request_updated', { request: refreshedRequest });
+    return;
+  }
+  let targetStatus, eventType, message;
+  if (invoice.stage === 'repair_diagnosis' && request.status === 'awaiting_diagnosis_payment') {
+    targetStatus = 'diagnosing'; eventType = 'repair_diagnosis_payment_verified'; message = 'Diagnosis fee verified. Sitemendr can begin the external-site diagnosis.';
+  } else if (invoice.stage.startsWith('repair_quote_') && request.status === 'awaiting_payment') {
+    const quote = await prisma.projectQuoteVersion.findFirst({ where: { projectRequestId: requestId, status: 'accepted' }, orderBy: { version: 'desc' } });
+    if (!quote || invoice.stage !== `repair_quote_${quote.version}`) return;
+    targetStatus = 'in_progress'; eventType = 'repair_payment_verified'; message = 'Repair payment verified. Sitemendr can begin the approved work.';
+  } else if (invoice.stage.startsWith('repair_change_') && request.status === 'awaiting_payment') {
+    const quote = await prisma.projectQuoteVersion.findFirst({ where: { projectRequestId: requestId, status: 'accepted' }, orderBy: { version: 'desc' } });
+    if (!quote || invoice.stage !== `repair_change_${quote.version}`) return;
+    targetStatus = 'in_progress'; eventType = 'repair_change_payment_verified'; message = 'The approved change order payment is verified. Sitemendr can continue the repair.';
+  } else if (invoice.stage.startsWith('repair_balance_') && request.status === 'awaiting_final_payment') {
+    targetStatus = 'completed'; eventType = 'repair_balance_verified'; message = 'Repair balance verified. This request is complete.';
+  } else if (['diagnosing', 'in_progress', 'completed'].includes(request.status)) {
+    // The callback can be retried after the transition; the event below is idempotent.
+    targetStatus = request.status;
+  } else return;
+
+  const result = await prisma.$transaction(async tx => {
+    if (request.status !== targetStatus) {
+      const changed = await tx.projectRequest.updateMany({ where: { id: requestId, userId: payment.userId, serviceType: 'repair', status: request.status }, data: { status: targetStatus, ...(targetStatus === 'completed' ? { completedAt: new Date(), finalPaymentConfirmedAt: new Date() } : targetStatus === 'in_progress' ? { paymentConfirmedAt: new Date() } : {}) } });
+      if (changed.count !== 1) return null;
+    }
+    const existing = await tx.projectConversationMessage.findFirst({ where: { projectRequestId: requestId, kind: 'event', eventData: { path: ['paymentReference'], equals: payment.reference } }, select: { id: true } });
+    if (existing) return null;
+    return tx.projectConversationMessage.create({ data: { projectRequestId: requestId, senderRole: 'system', kind: 'event', message: message || 'Repair payment confirmed.', eventData: { type: eventType || 'repair_payment_verified', invoiceId: invoice.id, paymentReference: payment.reference, amountMinor: payment.amount, currency: payment.currency } } });
+  });
+  if (!result) return;
+  const updated = await prisma.projectRequest.findUnique({ where: { id: requestId } });
+  notifyUser(payment.userId, 'repair_request_updated', { request: updated });
+  notifyAdmins('repair_request_updated', { request: updated });
+}
 
 async function handlePerformancePayment(payment) {
   const requestId = payment.metadata?.projectRequestId;

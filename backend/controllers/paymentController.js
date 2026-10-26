@@ -56,6 +56,9 @@ exports.initializePayment = async (req, res) => {
     if (serviceType === 'performance_payment' && !req.user?.userId) {
       return res.status(401).json({ success: false, message: 'Sign in before paying a Performance invoice.' });
     }
+    if (serviceType === 'repair_payment' && !req.user?.userId) {
+      return res.status(401).json({ success: false, message: 'Sign in before paying a Repair invoice.' });
+    }
 
     // If authenticated, fallback to the user email when not provided
     if (req.user?.userId) {
@@ -360,6 +363,43 @@ exports.initializePayment = async (req, res) => {
       performanceInvoiceId = invoice.id;
     }
 
+    let repairInvoiceId = null;
+    if (serviceType === 'repair_payment') {
+      const { projectRequestId, invoiceId: requestedInvoiceId } = finalMetadata;
+      const request = projectRequestId && await prisma.projectRequest.findFirst({
+        where: { id: projectRequestId, userId, serviceType: 'repair' },
+        select: { id: true, status: true }
+      });
+      const invoice = requestedInvoiceId && await prisma.billingInvoice.findFirst({
+        where: { id: requestedInvoiceId, projectRequestId, userId, serviceType: 'repair' },
+        select: { id: true, stage: true, amountMinor: true, currency: true, status: true, description: true }
+      });
+      if (!request || !invoice || ['paid', 'void'].includes(invoice.status)) {
+        return res.status(409).json({ success: false, message: 'This Repair invoice is no longer payable.' });
+      }
+      const diagnosis = invoice.stage === 'repair_diagnosis';
+      const cancellationCloseout = invoice.stage === 'repair_cancellation_closeout';
+      if (diagnosis ? request.status !== 'awaiting_diagnosis_payment' : cancellationCloseout ? request.status !== 'cancelled' : !['awaiting_payment', 'awaiting_final_payment'].includes(request.status)) {
+        return res.status(409).json({ success: false, message: 'This Repair request is not at the payment stage for that invoice.' });
+      }
+      if (!diagnosis && !cancellationCloseout) {
+        const quote = await prisma.projectQuoteVersion.findFirst({ where: { id: finalMetadata.quoteVersionId, projectRequestId, status: 'accepted' }, select: { id: true, version: true } });
+        const expectedStage = invoice.stage.startsWith('repair_balance_') ? `repair_balance_${quote?.version}` : invoice.stage.startsWith('repair_change_') ? `repair_change_${quote?.version}` : `repair_quote_${quote?.version}`;
+        if (!quote || invoice.stage !== expectedStage || finalMetadata.termsAccepted !== true) {
+          return res.status(409).json({ success: false, message: 'Accept the latest Repair proposal and its terms before paying.' });
+        }
+      }
+      if (Math.round(Number(finalAmount) * 100) !== invoice.amountMinor || String(sourceCurrency).toUpperCase() !== invoice.currency) {
+        return res.status(400).json({ success: false, message: 'The checkout amount and currency must match this Repair invoice.' });
+      }
+      finalAmount = invoice.amountMinor / 100;
+      sourceCurrency = invoice.currency;
+      targetCurrency = invoice.currency;
+      finalDescription = invoice.description;
+      finalMetadata = { ...finalMetadata, invoiceId: invoice.id, currency: invoice.currency };
+      repairInvoiceId = invoice.id;
+    }
+
     if (serviceType === 'build_cancellation_closeout') {
       const projectRequestId = finalMetadata.projectRequestId;
       if (!projectRequestId) return res.status(400).json({ success: false, message: 'A cancelled build is required for closeout payment.' });
@@ -404,7 +444,7 @@ exports.initializePayment = async (req, res) => {
     }
 
     // Link this checkout attempt to the durable invoice for its payable build stage.
-    let invoiceId = performanceInvoiceId;
+    let invoiceId = performanceInvoiceId || repairInvoiceId;
     if (serviceType === 'addon') {
       const invoice = await issueAddonInvoice({
         userId,
@@ -446,9 +486,18 @@ exports.initializePayment = async (req, res) => {
     }
 
     let payment;
-    if (serviceType === 'performance_payment') {
+    if (serviceType === 'performance_payment' || serviceType === 'repair_payment') {
       const checkout = await prisma.$transaction(async tx => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`performance-invoice:${invoiceId}`})) IS NULL`;
+        if (serviceType === 'repair_payment') {
+          const lockedRequest = await tx.$queryRawUnsafe(`SELECT "status" FROM "ProjectRequest" WHERE "id"=$1 AND "userId"=$2 AND "serviceType"='repair' FOR UPDATE`, finalMetadata.projectRequestId, userId);
+          const currentStatus = lockedRequest[0]?.status;
+          const stage = await tx.billingInvoice.findUnique({ where: { id: invoiceId }, select: { stage: true } });
+          const expectedStatus = stage?.stage === 'repair_diagnosis' ? 'awaiting_diagnosis_payment'
+            : stage?.stage === 'repair_cancellation_closeout' ? 'cancelled'
+              : stage?.stage?.startsWith('repair_balance_') ? 'awaiting_final_payment' : 'awaiting_payment';
+          if (!currentStatus || currentStatus !== expectedStatus) return { kind: 'unavailable' };
+        }
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${serviceType}:${invoiceId}`})) IS NULL`;
         const payableInvoice = await tx.billingInvoice.findFirst({
           where: {
             id: invoiceId,
@@ -463,7 +512,7 @@ exports.initializePayment = async (req, res) => {
         if (!payableInvoice) return { kind: 'unavailable' };
 
         const openAttempts = await tx.payment.findMany({
-          where: { userId, invoiceId, serviceType: 'performance_payment', status: { in: ['pending', 'processing'] } },
+          where: { userId, invoiceId, serviceType, status: { in: ['pending', 'processing'] } },
           orderBy: { createdAt: 'desc' },
           select: { id: true, reference: true, amount: true, currency: true, serviceType: true, description: true, metadata: true, invoiceId: true, createdAt: true, gatewayResponse: true }
         });
@@ -733,6 +782,8 @@ exports.verifyPayment = async (req, res) => {
         // Retry idempotent request/event reconciliation if an earlier callback
         // recorded payment success but failed while advancing the request.
         await processSuccessfulPayment(storedPayment.id);
+      } else if (storedPayment.serviceType === 'repair_payment') {
+        await processSuccessfulPayment(storedPayment.id);
       }
       return res.json({ success: true, data: { payment: storedPayment, paystack: data, addonProvisioned } });
     }
@@ -778,7 +829,7 @@ exports.verifyPayment = async (req, res) => {
     // Performance reconciliation is idempotent and can repair a prior partial
     // callback, while other services still provision only on the first transition.
     if (verifiedStatus === 'success'
-      && (paymentTransition.count > 0 || payment.serviceType === 'performance_payment')) {
+      && (paymentTransition.count > 0 || ['performance_payment', 'repair_payment'].includes(payment.serviceType))) {
       try {
         await processSuccessfulPayment(payment.id);
         // NOTE: guest welcome email removed as part of notification cleanup.
@@ -874,7 +925,7 @@ exports.handleWebhook = async (req, res) => {
 
       // Trigger post-payment processing
       try {
-        if (paymentTransition.count > 0 || payment.serviceType === 'performance_payment') {
+        if (paymentTransition.count > 0 || ['performance_payment', 'repair_payment'].includes(payment.serviceType)) {
           await processSuccessfulPayment(payment.id);
         }
         // NOTE: guest welcome email removed as part of notification cleanup.

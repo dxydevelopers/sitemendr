@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const clientController = require('../controllers/client');
+const repairController = require('../controllers/repairController');
 const billingDocumentsController = require('../controllers/billingDocumentsController');
 const { authenticate } = require('../middleware/auth');
 const { checkPaymentStatus, enforcePaymentForAPI } = require('../middleware/paymentEnforcement');
@@ -16,6 +17,11 @@ router.post('/project-requests/:requestId/brief-clarification', clientController
 router.post('/project-requests/:requestId/quote-response', clientController.respondToProjectQuote);
 router.post('/project-requests/:requestId/performance-quote-response', clientController.respondToPerformanceQuote);
 router.post('/project-requests/:requestId/performance-review-response', clientController.respondToPerformanceReview);
+router.get('/repair/requests', repairController.getClientRepairRequests);
+router.post('/repair/requests', repairController.createRepairRequest);
+router.post('/repair/requests/:requestId/proposal-response', repairController.respondToRepairProposal);
+router.post('/repair/requests/:requestId/review-response', repairController.respondToRepairReview);
+router.post('/repair/requests/:requestId/cancellation', repairController.requestRepairCancellation);
 router.get('/project-requests/:requestId/conversation', clientController.getProjectConversation);
 router.post('/project-requests/:requestId/conversation', clientController.createProjectConversationMessage);
 router.post('/project-requests/:requestId/lifecycle-request', clientController.createProjectLifecycleRequest);
@@ -42,6 +48,7 @@ router.get('/performance/:subscriptionId/requests', clientController.getPerforma
 router.post('/performance/:subscriptionId/requests', clientController.createPerformanceRequest);
 router.get('/messages', clientController.getMessages);
 router.post('/messages', clientController.sendMessage);
+router.post('/messages/:id/replies', clientController.replyToMessage);
 router.post('/messages/:id/read', clientController.markMessageRead);
 router.put('/messages/:id', clientController.updateMessage);
 router.get('/resources', clientController.getResources);

@@ -928,7 +928,7 @@ exports.getProjectRequests = async (req, res) => {
   try {
     const { status } = req.query;
     const serviceType = typeof req.query.serviceType === 'string' ? req.query.serviceType : 'build';
-    if (!['build', 'performance'].includes(serviceType)) {
+    if (!['build', 'performance', 'repair'].includes(serviceType)) {
       return res.status(400).json({ success: false, message: 'Choose a supported project request type.' });
     }
     const requestedLimit = Number.parseInt(req.query.limit, 10);
@@ -940,10 +940,22 @@ exports.getProjectRequests = async (req, res) => {
 
     const requests = await prisma.projectRequest.findMany({
       where,
-      include: projectRequestInclude,
+      include: serviceType === 'repair' ? {
+        ...projectRequestInclude,
+        subscription: { select: { id: true, siteName: true, customName: true, domain: true } },
+        conversationMessages: { orderBy: { createdAt: 'asc' } }
+      } : projectRequestInclude,
       orderBy: { updatedAt: 'desc' },
       take: limit
     });
+
+    if (serviceType === 'repair' && requests.length) {
+      const invoices = await prisma.billingInvoice.findMany({
+        where: { projectRequestId: { in: requests.map(request => request.id) } },
+        orderBy: { issuedAt: 'desc' }
+      });
+      for (const request of requests) request.billingInvoices = invoices.filter(invoice => invoice.projectRequestId === request.id);
+    }
 
     res.json({
       success: true,
@@ -1419,7 +1431,7 @@ exports.getProjectConversation = async (req, res) => {
   try {
     const { id } = req.params;
     const request = await prisma.projectRequest.findFirst({
-      where: { id, serviceType: { in: ['build', 'performance'] } },
+      where: { id, serviceType: { in: ['build', 'performance', 'repair'] } },
       select: { id: true }
     });
     if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
@@ -1445,7 +1457,7 @@ exports.createProjectConversationMessage = async (req, res) => {
     }
 
     const request = await prisma.projectRequest.findFirst({
-      where: { id, serviceType: { in: ['build', 'performance'] } },
+      where: { id, serviceType: { in: ['build', 'performance', 'repair'] } },
       select: { id: true, userId: true }
     });
     if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });

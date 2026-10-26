@@ -353,6 +353,7 @@ model ProjectRequest {
   subscriptionId  String?
   subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
   performanceContext Json?
+  repairContext     Json?
   title           String
   businessName    String?
   serviceType     String        @default("build")
@@ -645,14 +646,20 @@ model NotificationRule {
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  subject   String
-  content   String
-  isRead    Boolean  @default(false)
-  sender    String   @default("System")
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  threadId    String?
+  thread      Message? @relation("MessageThread", fields: [threadId], references: [id], onDelete: Cascade)
+  replies     Message[] @relation("MessageThread")
+  subject     String
+  content     String
+  isRead      Boolean  @default(false)
+  sender      String   @default("System")
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([threadId, createdAt])
 }
 
 model SupportTicket {

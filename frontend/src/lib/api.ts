@@ -18,6 +18,16 @@ export interface User {
   createdAt?: string;
 }
 
+export interface RepairRequestRecord {
+  id: string; title: string; status: string; priority?: string; summary?: string; createdAt: string; updatedAt?: string;
+  subscriptionId?: string | null; repairContext?: Record<string, any> | null;
+  subscription?: { siteName?: string | null; customName?: string | null; domain?: string | null } | null;
+  quoteVersions?: Array<{ id: string; version: number; status: string; snapshot?: Record<string, any> }>;
+  conversationMessages?: Array<{ id: string; senderRole: string; message: string; createdAt: string; eventData?: Record<string, any> }>;
+  billingInvoices?: Array<{ id: string; stage: string; description: string; amountMinor: number; currency: string; status: string }>;
+  user?: { name?: string; email?: string };
+}
+
 export interface NotificationRule {
   id: string;
   slug: string;
@@ -501,6 +511,26 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(paymentData),
     });
+  }
+
+  async getClientRepairRequests() {
+    return this.request<{ success: boolean; data: RepairRequestRecord[]; message?: string }>('/client/repair/requests');
+  }
+
+  async createRepairRequest(data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data?: RepairRequestRecord; message?: string }>('/client/repair/requests', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async respondToRepairProposal(requestId: string, action: 'accept' | 'decline', termsAccepted = false) {
+    return this.request<{ success: boolean; data?: { status: string }; message?: string }>(`/client/repair/requests/${requestId}/proposal-response`, { method: 'POST', body: JSON.stringify({ action, termsAccepted }) });
+  }
+
+  async respondToRepairReview(requestId: string, action: 'accept' | 'changes' | 'extend', message = '') {
+    return this.request<{ success: boolean; data?: { status: string }; message?: string }>(`/client/repair/requests/${requestId}/review-response`, { method: 'POST', body: JSON.stringify({ action, message }) });
+  }
+
+  async requestRepairCancellation(requestId: string, message: string) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/client/repair/requests/${requestId}/cancellation`, { method: 'POST', body: JSON.stringify({ message }) });
   }
 
   async verifyPayment(reference: string) {
@@ -1385,8 +1415,32 @@ class ApiClient {
     return this.request('/admin/assessments');
   }
 
-  async getAdminProjectRequests(serviceType: 'build' | 'performance' = 'build') {
+  async getAdminProjectRequests(serviceType: 'build' | 'performance' | 'repair' = 'build') {
     return this.request(`/admin/project-requests?serviceType=${serviceType}`);
+  }
+
+  async setRepairDiagnosisFee(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/repair/requests/${requestId}/diagnosis-fee`, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async sendRepairProposal(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/repair/requests/${requestId}/proposal`, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async submitRepairForReview(requestId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/repair/requests/${requestId}/review`, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateRepairStatus(requestId: string, status: string, message = '') {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/repair/requests/${requestId}/status`, { method: 'POST', body: JSON.stringify({ status, message }) });
+  }
+
+  async decideRepairCancellation(requestId: string, messageId: string, data: Record<string, unknown>) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/repair/requests/${requestId}/cancellation/${messageId}`, { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async recordRepairCancellationRefund(requestId: string, amount: number, reference: string) {
+    return this.request<{ success: boolean; data?: unknown; message?: string }>(`/admin/repair/requests/${requestId}/cancellation-refund`, { method: 'POST', body: JSON.stringify({ amount, reference }) });
   }
 
   async createAdminPerformanceQuote(requestId: string, data: Record<string, unknown>) {

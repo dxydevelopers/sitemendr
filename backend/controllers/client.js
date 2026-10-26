@@ -1585,7 +1585,7 @@ exports.getProjectConversation = async (req, res) => {
     const userId = req.user.userId;
     const { requestId } = req.params;
     const request = await prisma.projectRequest.findFirst({
-      where: { id: requestId, userId, serviceType: { in: ['build', 'performance'] } },
+      where: { id: requestId, userId, serviceType: { in: ['build', 'performance', 'repair'] } },
       select: { id: true }
     });
     if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
@@ -1610,7 +1610,7 @@ exports.createProjectConversationMessage = async (req, res) => {
     if (!cleanedMessage && !attachments) return res.status(400).json({ success: false, message: 'Message is required' });
 
     const request = await prisma.projectRequest.findFirst({
-      where: { id: requestId, userId, serviceType: { in: ['build', 'performance'] } },
+      where: { id: requestId, userId, serviceType: { in: ['build', 'performance', 'repair'] } },
       select: { id: true }
     });
     if (!request) return res.status(404).json({ success: false, message: 'Project request not found' });
@@ -1898,7 +1898,8 @@ exports.getMessages = async (req, res) => {
     const userId = req.user.userId;
 
     const messages = await prisma.message.findMany({
-      where: { userId },
+      where: { userId, threadId: null },
+      include: { replies: { orderBy: { createdAt: 'asc' } } },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -1922,7 +1923,12 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { subject, content } = req.body;
+    const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+
+    if (!subject || !content || subject.length > 180 || content.length > 10000) {
+      return res.status(400).json({ success: false, message: 'Add a subject and message (up to 10,000 characters).' });
+    }
 
     const message = await prisma.message.create({
       data: {
@@ -1958,14 +1964,42 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+exports.replyToMessage = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id } = req.params;
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length > 10000) {
+      return res.status(400).json({ success: false, message: 'Write a reply of up to 10,000 characters.' });
+    }
+
+    const parent = await prisma.message.findFirst({ where: { id, userId, threadId: null } });
+    if (!parent) return res.status(404).json({ success: false, message: 'Conversation not found.' });
+
+    const reply = await prisma.message.create({
+      data: { userId, threadId: parent.id, subject: parent.subject, content, sender: 'USER', isRead: true }
+    });
+    notifyAdmins('new_client_message', {
+      messageId: reply.id, threadId: parent.id, userId, subject: parent.subject, timestamp: reply.createdAt
+    });
+    res.status(201).json({ success: true, message: reply });
+  } catch (error) {
+    logger.error('Failed to reply to client conversation', { error: error.message });
+    res.status(500).json({ success: false, message: 'Failed to send reply' });
+  }
+};
+
 // Mark message as read
 exports.markMessageRead = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
 
+    const message = await prisma.message.findFirst({ where: { id, userId, threadId: null } });
+    if (!message) return res.status(404).json({ success: false, message: 'Conversation not found' });
+
     await prisma.message.updateMany({
-      where: { id, userId },
+      where: { OR: [{ id }, { threadId: id }], userId, sender: { not: 'USER' } },
       data: { isRead: true }
     });
 
@@ -1991,7 +2025,7 @@ exports.updateMessage = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Message not found' });
     }
 
-    if (message.sender !== 'USER') {
+    if (message.sender !== 'USER' || message.threadId) {
       return res.status(403).json({ success: false, message: 'Cannot edit system messages' });
     }
 
@@ -2044,10 +2078,7 @@ exports.getSupportTickets = async (req, res) => {
     const tickets = await prisma.supportTicket.findMany({
       where,
       include: {
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        }
+        messages: { orderBy: { createdAt: 'desc' }, take: 1 }
       },
       orderBy: { createdAt: 'desc' }
     });

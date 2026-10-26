@@ -13,7 +13,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3, Rocket, MessageSquare, CreditCard, BookOpen, LifeBuoy, Terminal,
   Zap, Globe, ArrowLeft, FileText, ShoppingBag, LogOut, User,
-  Bell, Settings, Plus, Clock, Menu, X, PanelLeftClose, PanelLeftOpen,
+  Bell, Settings, Plus, Clock, Menu, X, PanelLeftClose, PanelLeftOpen, Wrench,
 } from 'lucide-react';
 import { useClientDashboard } from './useClientDashboard';
 import { apiClient } from '@/lib/api';
@@ -27,6 +27,7 @@ import ClientMerchant from './ClientMerchant';
 import ClientBilling from './ClientBilling';
 import ClientSettings from './ClientSettings';
 import ClientDomains from './ClientDomains';
+import RepairWorkspace from './RepairWorkspace';
 import { DrillList } from '@/components/ui/DrillShell';
 
 const SupportTickets = dynamic(() => import('../dashboard/SupportTickets'), { ssr: false });
@@ -119,23 +120,6 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   if (urlTab !== activeTab) setActiveTab(urlTab);
   }, [pathname, searchParams, activeTab, setActiveTab]);
 
-  if (loading && !stats) {
-  return (
-  <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center p-4">
-  <div className="flex flex-col items-center gap-8">
-  <div className="relative">
-  <div className="w-24 h-24 border-4 border-ai-blue/10 rounded-full animate-spin border-t-ai-blue shadow-[0_0_30px_rgba(0,102,255,0.2)]"></div>
-  <div className="absolute inset-0 flex items-center justify-center"><Terminal className="w-8 h-8 text-ai-blue animate-pulse" /></div>
-  </div>
-  <div className="flex flex-col items-center gap-2">
-  <h2 className="text-xl font-semibold text-white">Loading</h2>
-  <p className="text-[10px] font-mono text-medium-gray animate-pulse">Preparing your Sitemendr workspace...</p>
-  </div>
-  </div>
-  </div>
-  );
-  }
-
   const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
   const unreadMessages = messages.filter(m => !m.isRead).length;
   const overviewProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : projects.find(p => p.isCurrent) || projects[0];
@@ -149,6 +133,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   const manageNav: DashboardNavItem[] = [
   { id: 'business', label: 'Merchant', icon: <ShoppingBag className="w-5 h-5" /> },
   { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" />, count: openTickets + unreadMessages },
+  { id: 'repair', label: 'Repair', icon: <Wrench className="w-5 h-5" /> },
   ];
   const accountNav: DashboardNavItem[] = [
   { id: 'settings-hub', label: 'Settings', icon: <Settings className="w-5 h-5" />, count: billing.length },
@@ -268,6 +253,23 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
     });
     return () => { active = false; };
   }, [activeTab, scopedProject?.id, analysisProjectId, analysisResult]);
+
+  if (loading && !stats) {
+  return (
+  <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center p-4">
+  <div className="flex flex-col items-center gap-8">
+  <div className="relative">
+  <div className="w-24 h-24 border-4 border-ai-blue/10 rounded-full animate-spin border-t-ai-blue shadow-[0_0_30px_rgba(0,102,255,0.2)]"></div>
+  <div className="absolute inset-0 flex items-center justify-center"><Terminal className="w-8 h-8 text-ai-blue animate-pulse" /></div>
+  </div>
+  <div className="flex flex-col items-center gap-2">
+  <h2 className="text-xl font-semibold text-white">Loading</h2>
+  <p className="text-[10px] font-mono text-medium-gray animate-pulse">Preparing your Sitemendr workspace...</p>
+  </div>
+  </div>
+  </div>
+  );
+  }
 
   const renderNavSection = (label: string, items: DashboardNavItem[]) => (
   <div className="space-y-1">
@@ -461,6 +463,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   {activeTab === 'booking' && (scopedProject ? <div className="animate-fade-in"><BookingManager isAdmin={false} subscriptionId={scopedProject.id} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
 
   {activeTab === 'tickets' && <div className="animate-fade-in"><SupportTickets /></div>}
+  {activeTab === 'repair' && <div className="animate-fade-in"><RepairWorkspace projects={projects} /></div>}
 
   {activeTab === 'support' && (
   <div className="animate-fade-in w-full min-w-0">

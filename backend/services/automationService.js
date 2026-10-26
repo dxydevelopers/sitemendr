@@ -9,7 +9,8 @@ const {
   reconcileCompletedPaymentBillingRecords,
   reconcilePayableBuildInvoices
 } = require('./billingRecords');
-const { reconcileCompletedPerformancePayments } = require('./paymentService');
+const { reconcileCompletedPerformancePayments, reconcileCompletedRepairPayments } = require('./paymentService');
+const { runRepairReviewReminders } = require('./repairAutomation');
 const { UPTIME_CHECK_INTERVAL_MINUTES, AVAILABILITY_HISTORY_RETENTION_DAYS } = require('./performancePolicy');
 
 /**
@@ -39,6 +40,9 @@ exports.initAutomation = async () => {
     await reconcileCompletedPaymentBillingRecords();
     logger.info('Reconciling completed Performance payments...');
     await reconcileCompletedPerformancePayments();
+    logger.info('Reconciling completed Repair payments...');
+    await reconcileCompletedRepairPayments();
+    await runRepairReviewReminders();
     await reconcilePayableBuildInvoices();
 
     logger.info('Running initial billing reminder pass...');
@@ -89,6 +93,8 @@ exports.initAutomation = async () => {
     try {
       await reconcileCompletedPaymentBillingRecords();
       await reconcileCompletedPerformancePayments();
+      await reconcileCompletedRepairPayments();
+      await runRepairReviewReminders();
       await reconcilePayableBuildInvoices();
       await runInvoiceReminders();
     } catch (error) {

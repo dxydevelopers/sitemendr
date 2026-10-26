@@ -24,6 +24,7 @@ import AdminContent from './AdminContent';
 import AdminSystem from './AdminSystem';
 import AdminAddonFulfillment from './AdminAddonFulfillment';
 import AdminPerformanceRequests from './AdminPerformanceRequests';
+import AdminRepairRequests from './AdminRepairRequests';
 
 const AssessmentModal = dynamic(() => import('../AssessmentModal'), { ssr: false });
 const SupportManager = dynamic(() => import('../dashboard/SupportManager'), { ssr: false });
@@ -175,6 +176,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
   {activeTab === 'project-requests' && <AdminBuildPipeline dashboard={dashboard} />}
   {activeTab === 'performance-requests' && <AdminPerformanceRequests />}
+  {activeTab === 'repair-requests' && <AdminRepairRequests />}
 
   {(activeTab === 'leads' || activeTab === 'users' || activeTab === 'assessments') && (
   <AdminClients
