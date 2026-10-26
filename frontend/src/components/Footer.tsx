@@ -62,7 +62,6 @@ const contactGroups = [
     title: 'Phone',
     icon: Phone,
     items: [
-      { value: '+254 140 112 399', href: 'tel:+254140112399' },
       { value: '+254 140 122 685', href: 'tel:+254140122685' },
       { value: '+1 618 215 2617', href: 'tel:+16182152617' },
     ],
@@ -71,7 +70,6 @@ const contactGroups = [
     title: 'WhatsApp',
     icon: MessagesSquare,
     items: [
-      { value: '+254 140 112 399', href: 'https://wa.me/254140112399' },
       { value: '+254 140 122 685', href: 'https://wa.me/254140122685' },
       { value: '+1 618 215 2617', href: 'https://wa.me/16182152617' },
     ],

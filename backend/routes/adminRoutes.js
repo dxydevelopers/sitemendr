@@ -75,7 +75,11 @@ router.put('/project-requests/:id/studio/blockers/:blockerId', adminController.u
 router.post('/project-requests/:id/studio/updates', adminController.createStudioUpdate);
 
 // Support tickets
+router.get('/messages', adminController.getClientConversations);
+router.post('/messages/:id/read', adminController.markClientConversationRead);
+router.post('/messages/:id/replies', adminController.replyToClientConversation);
 router.get('/support', adminController.getAllSupportTickets);
+router.post('/support/:id/read', adminController.markSupportTicketRead);
 router.get('/support/:id', adminController.getSupportTicket);
 router.put('/support/:id', adminController.updateSupportTicket);
 router.post('/support/:id/messages', [

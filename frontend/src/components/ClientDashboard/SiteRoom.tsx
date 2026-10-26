@@ -262,7 +262,7 @@ export default function SiteRoom({
   />
   )}
 
-  {!siteIsReadOnly && visibleView === 'support' && <SupportTickets subscriptionId={site.id} />}
+  {!siteIsReadOnly && visibleView === 'support' && <SupportTickets subscriptionId={site.id} onRefresh={dashboard.refreshSupportData} />}
   </div>
   </>
   </div>

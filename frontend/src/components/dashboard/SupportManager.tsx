@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../../lib/api';
 import { MessageSquare, Search, Send, User, Cpu } from 'lucide-react';
 
@@ -19,18 +19,27 @@ interface SupportTicket {
   user?: { email: string };
   client?: { email: string };
   messages?: SupportMessage[];
+  _count?: { messages: number };
 }
 
 const SupportManager: React.FC = () => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('ALL');
+  const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [response, setResponse] = useState('');
+  const selectedTicketIdRef = useRef<string | null>(null);
+  selectedTicketIdRef.current = selectedTicket?.id || null;
 
   useEffect(() => {
-  fetchTickets();
+  void fetchTickets();
+  const refreshSupport = () => {
+    void fetchTickets();
+    if (selectedTicketIdRef.current) void fetchTicketDetails(selectedTicketIdRef.current);
+  };
+  window.addEventListener('sitemendr:support-ticket-update', refreshSupport);
+  return () => window.removeEventListener('sitemendr:support-ticket-update', refreshSupport);
   }, []);
 
   const fetchTickets = async () => {
@@ -47,7 +56,11 @@ const SupportManager: React.FC = () => {
   const fetchTicketDetails = async (id: string) => {
   try {
   const res = await apiClient.getAdminSupportTicket(id) as unknown as { success: boolean; data: SupportTicket };
-  if (res.success) setSelectedTicket(res.data);
+  if (res.success) {
+  setSelectedTicket(res.data);
+  await apiClient.markAdminSupportTicketRead(id);
+  fetchTickets();
+  }
   } catch (error) {
   console.error('Failed to fetch ticket details', error);
   }
@@ -55,10 +68,12 @@ const SupportManager: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, status: string) => {
   try {
-  await apiClient.updateSupportTicket(id, { status });
+  const normalizedStatus = status.toLowerCase();
+  const result = await apiClient.updateSupportTicket(id, { status: normalizedStatus });
+  if (!result.success) throw new Error('Ticket status could not be updated.');
   fetchTickets();
   if (selectedTicket?.id === id) {
-  setSelectedTicket({ ...selectedTicket, status });
+  setSelectedTicket({ ...selectedTicket, status: normalizedStatus });
   }
   } catch (error) {
   console.error('Failed to update ticket', error);
@@ -73,9 +88,7 @@ const SupportManager: React.FC = () => {
   if (res.success) {
   setResponse('');
   fetchTicketDetails(selectedTicket.id);
-  if (selectedTicket.status.toLowerCase() === 'open') {
-  handleUpdateStatus(selectedTicket.id, 'replied');
-  }
+  fetchTickets();
   }
   } catch (error) {
   console.error('Failed to send response', error);
@@ -84,8 +97,8 @@ const SupportManager: React.FC = () => {
 
   const filteredTickets = tickets.filter(t => {
   const matchesFilter = filter.toUpperCase() === 'ALL' || t.status.toUpperCase() === filter.toUpperCase();
-  const matchesSearch = t.subject.toLowerCase().includes(search.toLowerCase()) || 
-  t.client?.email?.toLowerCase().includes(search.toLowerCase());
+  const matchesSearch = t.subject.toLowerCase().includes(search.toLowerCase()) ||
+  t.user?.email?.toLowerCase().includes(search.toLowerCase()) || t.client?.email?.toLowerCase().includes(search.toLowerCase());
   return matchesFilter && matchesSearch;
   });
 
@@ -113,7 +126,7 @@ const SupportManager: React.FC = () => {
   />
   </div>
   <div className="flex gap-2">
-  {['all', 'open', 'replied', 'resolved'].map(f => (
+  {['all', 'open', 'pending', 'resolved', 'closed'].map(f => (
   <button
   key={f}
   onClick={() => setFilter(f)}
@@ -162,6 +175,7 @@ const SupportManager: React.FC = () => {
   </div>
   <h4 className="text-[11px] font-semibold mb-1 truncate">{t.subject}</h4>
   <p className="text-[9px] text-medium-gray font-medium truncate">{t.user?.email || t.client?.email}</p>
+  {Boolean(t._count?.messages) && <span className="mt-2 inline-flex rounded-full bg-sky-300/10 px-2 py-1 text-[9px] font-semibold text-sky-200">{t._count?.messages} unread client {t._count?.messages === 1 ? 'reply' : 'replies'}</span>}
   </button>
   ))
   )}
@@ -183,17 +197,17 @@ const SupportManager: React.FC = () => {
   <p className="text-[9px] font-mono text-medium-gray ">TICKET_ID: {selectedTicket.id.slice(0,8)}</p>
   </div>
   <div className="flex gap-3">
-  {selectedTicket.status.toUpperCase() !== 'RESOLVED' && (
+  {selectedTicket.status.toLowerCase() !== 'resolved' && selectedTicket.status.toLowerCase() !== 'closed' && (
   <button 
-  onClick={() => handleUpdateStatus(selectedTicket.id, 'RESOLVED')}
+  onClick={() => handleUpdateStatus(selectedTicket.id, 'resolved')}
   className="px-6 py-2.5 bg-expert-green text-dark-bg font-semibold text-[9px] rounded-xl hover:scale-105 transition-all"
   >
   Mark Resolved
   </button>
   )}
-  {selectedTicket.status.toUpperCase() === 'RESOLVED' && (
+  {['resolved', 'closed'].includes(selectedTicket.status.toLowerCase()) && (
   <button 
-  onClick={() => handleUpdateStatus(selectedTicket.id, 'OPEN')}
+  onClick={() => handleUpdateStatus(selectedTicket.id, 'open')}
   className="px-6 py-2.5 bg-white/10 text-white font-semibold text-[9px] rounded-xl hover:bg-white/20 transition-all"
   >
   Reopen Ticket
@@ -235,25 +249,15 @@ const SupportManager: React.FC = () => {
   </div>
   </div>
 
+  {selectedTicket.status.toLowerCase() !== 'closed' ? (
   <div className="p-8 bg-white/[0.01] border-t border-white/5">
-  <div className="relative">
-  <textarea
-  placeholder="Compose your response..."
-  className="w-full bg-white/[0.02] border border-white/5 rounded-[24px] p-6 pr-20 text-[11px] font-medium focus:outline-none focus:border-ai-blue/50 resize-none"
-  rows={3}
-  value={response}
-  onChange={(e) => setResponse(e.target.value)}
-  />
-  <button 
-  onClick={handleSendResponse}
-  disabled={!response.trim()}
-  className="absolute bottom-6 right-6 p-4 bg-ai-blue text-white rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-xl shadow-ai-blue/20 disabled:opacity-50"
-  >
-  <Send className="w-5 h-5" />
-  </button>
+    <div className="relative">
+      <textarea placeholder="Compose your response..." className="w-full bg-white/[0.02] border border-white/5 rounded-[24px] p-6 pr-20 text-[11px] font-medium focus:outline-none focus:border-ai-blue/50 resize-none" rows={3} value={response} onChange={(e) => setResponse(e.target.value)} />
+      <button onClick={handleSendResponse} disabled={!response.trim()} className="absolute bottom-6 right-6 p-4 bg-ai-blue text-white rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-xl shadow-ai-blue/20 disabled:opacity-50"><Send className="w-5 h-5" /></button>
+    </div>
+    <p className="mt-4 text-[8px] font-mono text-medium-gray text-center opacity-50">Authorized Personnel Only - System Logs Active</p>
   </div>
-  <p className="mt-4 text-[8px] font-mono text-medium-gray text-center opacity-50">Authorized Personnel Only - System Logs Active</p>
-  </div>
+  ) : <div className="border-t border-white/5 p-6 text-center text-xs text-white/40">This ticket is closed. Reopen it before sending another reply.</div>}
   </>
   ) : (
   <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center p-20">

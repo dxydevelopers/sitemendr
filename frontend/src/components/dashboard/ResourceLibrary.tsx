@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BookOpen, FileText, Video, Download, ExternalLink, Shield, Zap, Search as SearchIcon, ArrowRight } from 'lucide-react';
+import { BookOpen, FileText, Video, ExternalLink, Shield, Zap, Search as SearchIcon, ArrowRight } from 'lucide-react';
 
 interface ResourceItem {
   id: string;
   title: string;
   type: string;
-  url: string;
+  url?: string | null;
   description?: string;
   category?: string;
 }
@@ -22,7 +22,9 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredResources = resources.filter(res => {
-  const matchesFilter = activeFilter === 'ALL' || res.type.toUpperCase() === activeFilter;
+  const type = res.type.toUpperCase();
+  const filterType = type === 'TOOL' ? 'OTHER' : type;
+  const matchesFilter = activeFilter === 'ALL' || filterType === activeFilter;
   const matchesSearch = res.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
   res.description?.toLowerCase().includes(searchQuery.toLowerCase());
   return matchesFilter && matchesSearch;
@@ -45,7 +47,7 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   />
   </div>
   <div className="flex max-w-full shrink-0 overflow-x-auto bg-white/5 p-1 rounded-xl border border-white/5">
-  {['ALL', 'DOCUMENTATION', 'GUIDE', 'VIDEO'].map((tag) => (
+  {['ALL', 'DOCUMENTATION', 'GUIDE', 'VIDEO', 'OTHER'].map((tag) => (
   <button 
   key={tag} 
   onClick={() => setActiveFilter(tag)}
@@ -63,6 +65,9 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
   {filteredResources.length > 0 ? (
   filteredResources.map((resource) => (
+  (() => {
+  const display = getResourcePresentation(resource);
+  return (
   <div key={resource.id} className="bg-white/[0.01] border border-white/5 p-5 sm:p-7 rounded-2xl hover:bg-white/[0.03] hover:border-white/20 transition-all group relative overflow-hidden flex flex-col h-full">
   <div className="absolute top-0 right-0 p-8 opacity-[0.02] group-hover:opacity-10 transition-opacity">
   {resource.type.toLowerCase().includes('video') ? (
@@ -79,27 +84,24 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   </div>
 
   <div className="space-y-2 mb-6">
-  <span className="text-[8px] font-semibold text-ai-blue block">{resource.type}</span>
-  <h3 className="text-sm font-semibold text-white leading-tight">{resource.title}</h3>
+  <span className="text-[8px] font-semibold text-ai-blue block">{display.type}</span>
+  <h3 className="text-sm font-semibold text-white leading-tight">{display.title}</h3>
   <p className="text-[11px] text-white/30 font-medium line-clamp-2 leading-relaxed">
-  {resource.description || 'Access documentation, guides, and files connected to your Sitemendr workspace.'}
+  {display.description || 'Access documentation, guides, and files connected to your Sitemendr workspace.'}
   </p>
   </div>
 
   <div className="flex items-center justify-between mt-auto pt-6 border-t border-white/5">
-  <a 
-  href={resource.url} 
-  target="_blank" 
-  rel="noopener noreferrer"
-  className="flex items-center gap-2 text-[10px] font-semibold text-ai-blue hover:text-white transition-colors"
-  >
-  Open resource <ExternalLink className="w-3.5 h-3.5" />
-  </a>
-  <a href={resource.url} download target="_blank" rel="noopener noreferrer" aria-label={`Download ${resource.title}`} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-white/40 hover:text-white border border-white/5">
-  <Download className="w-4 h-4" />
-  </a>
+  {(() => {
+    const href = getResourceHref(resource.url, resource.title);
+    return href ? <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} className="flex items-center gap-2 text-[10px] font-semibold text-ai-blue hover:text-white transition-colors">
+      Open resource <ExternalLink className="w-3.5 h-3.5" />
+    </a> : <span className="text-[10px] font-medium text-white/35">Content is being prepared</span>;
+  })()}
   </div>
   </div>
+  );
+  })()
   ))
   ) : (
   <div className="col-span-full p-10 sm:p-16 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
@@ -138,5 +140,46 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   </div>
   );
 };
+
+function getResourceHref(value?: string | null, title?: string) {
+  if (!value) return null;
+  if (value.startsWith('/')) return value;
+  try {
+    const url = new URL(value);
+    if (!['https:', 'http:'].includes(url.protocol)) return null;
+    if (url.hostname === 'example.com' || url.hostname.endsWith('.example.com')) return title?.startsWith('SEO Best Practices') ? '/resources/seo-basics' : null;
+    if (url.hostname === 'youtube.com' && url.pathname.includes('sitemendr-walkthrough')) return '/resources/getting-started';
+    if (url.hostname === 'docs.zencoder.ai') {
+      if (title === 'Visual Editor Mastery') return '/resources/editor';
+      if (title === 'E-commerce Deployment') return '/resources/commerce';
+      if (title === 'Security & Compliance Matrix') return '/resources/security';
+      if (title === 'Performance Optimization AI') return '/resources/performance';
+      if (title === 'Domain Integration Protocol') return '/resources/domains';
+      if (title === 'Getting Started with Sitemendr') return '/resources/getting-started';
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function getResourcePresentation(resource: ResourceItem) {
+  if (resource.title === 'SEO Best Practices 2024') return {
+    title: 'Search visibility basics', type: 'Guide',
+    description: 'A practical checklist for helping search engines understand and show your website.'
+  };
+  if (resource.title === 'Dashboard Overview Video') return {
+    title: 'Getting started with your workspace', type: 'Guide',
+    description: 'Find project updates, contact the team, and manage a finished site.'
+  };
+  if (resource.title === 'Visual Editor Mastery') return { title: 'Working with your site editor', type: 'Guide', description: 'Make focused changes and review a site safely before publishing.' };
+  if (resource.title === 'E-commerce Deployment') return { title: 'Commerce setup basics', type: 'Guide', description: 'Keep product, checkout, fulfillment, and customer updates connected.' };
+  if (resource.title === 'Security & Compliance Matrix') return { title: 'Security and account safety', type: 'Guide', description: 'Practical steps for protecting account access and connected services.' };
+  if (resource.title === 'Performance Optimization AI') return { title: 'Performance optimization tips', type: 'Guide', description: 'Understand site checks, read point-in-time results, and ask for help with a specific issue.' };
+  if (resource.title === 'Domain Integration Protocol') return { title: 'Custom domain setup', type: 'Guide', description: 'Register a domain with a provider you choose, then connect and verify it in Sitemendr.' };
+  if (resource.title === 'Getting Started with Sitemendr') return { title: 'Getting started with your workspace', type: 'Guide', description: 'Find project updates, contact the team, and manage a finished site.' };
+  const type = resource.type.toLowerCase() === 'tool' ? 'Guide' : resource.type;
+  return { title: resource.title, type, description: resource.description };
+}
 
 export default ResourceLibrary;

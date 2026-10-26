@@ -148,12 +148,14 @@ export function useAdminDashboard(initialTab?: string) {
 
     socketRef.current.on('new_client_message', () => {
       if (activeTabRef.current === 'dashboard') fetchData();
+      if (activeTabRef.current === 'messages') window.dispatchEvent(new Event('sitemendr:client-message'));
     });
     socketRef.current.on('new_support_ticket', () => {
-      if (activeTabRef.current === 'tickets' || activeTabRef.current === 'dashboard') fetchData();
+      if (activeTabRef.current === 'dashboard') fetchData();
+      if (activeTabRef.current === 'tickets') window.dispatchEvent(new Event('sitemendr:support-ticket-update'));
     });
     socketRef.current.on('new_support_message_from_user', () => {
-      if (activeTabRef.current === 'tickets') fetchData();
+      if (activeTabRef.current === 'tickets') window.dispatchEvent(new Event('sitemendr:support-ticket-update'));
     });
     socketRef.current.on('project_request_updated', (data: { request?: ProjectRequest }) => {
       if (!data?.request) return;

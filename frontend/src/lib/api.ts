@@ -908,6 +908,13 @@ class ApiClient {
     return this.request<{ success: boolean; messages: Record<string, unknown>[] }>('/client/messages');
   }
 
+  async replyToClientMessage(id: string, content: string) {
+    return this.request<{ success: boolean; message: Record<string, unknown> }>(`/client/messages/${id}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
   async sendClientMessage(subject: string, content: string) {
     return this.request<{ success: boolean; message: Record<string, unknown> }>('/client/messages', {
       method: 'POST',
@@ -916,12 +923,12 @@ class ApiClient {
   }
 
   async getClientResources() {
-    return this.request<{ success: boolean; data: unknown[] }>('/client/resources');
+    return this.request<{ success: boolean; resources: unknown[] }>('/client/resources');
   }
 
   async getClientSupportTickets(subscriptionId?: string) {
     const query = subscriptionId ? `?subscriptionId=${subscriptionId}` : '';
-    return this.request<{ success: boolean; data: Record<string, unknown>[] }>(`/client/support${query}`);
+    return this.request<{ success: boolean; data: Record<string, unknown>[] }>(`/support/tickets${query}`);
   }
 
   async getClientSupportTicket(id: string) {
@@ -1307,8 +1314,27 @@ class ApiClient {
     return this.request<{ success: boolean; data: Record<string, unknown>[] }>(`/admin/support${query ? `?${query}` : ''}`);
   }
 
+  async getAdminClientConversations() {
+    return this.request<{ success: boolean; data: Record<string, unknown>[] }>('/admin/messages');
+  }
+
+  async replyToAdminClientConversation(id: string, content: string) {
+    return this.request<{ success: boolean; data: Record<string, unknown> }>(`/admin/messages/${id}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async markAdminClientConversationRead(id: string) {
+    return this.request<{ success: boolean }>(`/admin/messages/${id}/read`, { method: 'POST', body: JSON.stringify({}) });
+  }
+
   async getAdminSupportTicket(id: string) {
     return this.request<{ success: boolean; data: Record<string, unknown> }>(`/admin/support/${id}`);
+  }
+
+  async markAdminSupportTicketRead(id: string) {
+    return this.request<{ success: boolean }>(`/admin/support/${id}/read`, { method: 'POST', body: JSON.stringify({}) });
   }
 
   async updateSupportTicket(id: string, data: Record<string, unknown>) {

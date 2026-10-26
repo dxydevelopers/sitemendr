@@ -1936,7 +1936,7 @@ exports.sendMessage = async (req, res) => {
         subject,
         content,
         sender: 'USER',
-        isRead: true 
+        isRead: false
       }
     });
 
@@ -1977,7 +1977,7 @@ exports.replyToMessage = async (req, res) => {
     if (!parent) return res.status(404).json({ success: false, message: 'Conversation not found.' });
 
     const reply = await prisma.message.create({
-      data: { userId, threadId: parent.id, subject: parent.subject, content, sender: 'USER', isRead: true }
+      data: { userId, threadId: parent.id, subject: parent.subject, content, sender: 'USER', isRead: false }
     });
     notifyAdmins('new_client_message', {
       messageId: reply.id, threadId: parent.id, userId, subject: parent.subject, timestamp: reply.createdAt
@@ -2018,7 +2018,8 @@ exports.updateMessage = async (req, res) => {
     const userId = req.user.userId;
 
     const message = await prisma.message.findFirst({
-      where: { id, userId }
+      where: { id, userId, threadId: null },
+      include: { replies: { select: { id: true }, take: 1 } }
     });
 
     if (!message) {
@@ -2028,10 +2029,19 @@ exports.updateMessage = async (req, res) => {
     if (message.sender !== 'USER' || message.threadId) {
       return res.status(403).json({ success: false, message: 'Cannot edit system messages' });
     }
+    if (message.replies.length) {
+      return res.status(409).json({ success: false, message: 'This conversation has started. Its original message can no longer be edited.' });
+    }
+
+    const cleanSubject = typeof subject === 'string' ? subject.trim() : message.subject;
+    const cleanContent = typeof content === 'string' ? content.trim() : message.content;
+    if (!cleanSubject || cleanSubject.length > 180 || !cleanContent || cleanContent.length > 10000) {
+      return res.status(400).json({ success: false, message: 'Add a subject and message within the allowed length.' });
+    }
 
     const updatedMessage = await prisma.message.update({
       where: { id },
-      data: { subject, content }
+      data: { subject: cleanSubject, content: cleanContent }
     });
 
     res.json({ success: true, message: updatedMessage });
@@ -2060,94 +2070,6 @@ exports.getResources = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to retrieve resources'
-    });
-  }
-};
-
-// Get client support tickets
-exports.getSupportTickets = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { subscriptionId } = req.query;
-
-    const where = { userId };
-    if (subscriptionId) {
-      where.subscriptionId = subscriptionId;
-    }
-
-    const tickets = await prisma.supportTicket.findMany({
-      where,
-      include: {
-        messages: { orderBy: { createdAt: 'desc' }, take: 1 }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    res.json({
-      success: true,
-      data: tickets
-    });
-  } catch (error) {
-    logger.error('Failed to get support tickets', {
-      errorCode: 'GET_SUPPORT_TICKETS_ERROR',
-      error: error.message
-    });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve support tickets'
-    });
-  }
-};
-
-// Create support ticket
-exports.createSupportTicket = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { subject, message, priority, subscriptionId } = req.body;
-
-    if (!subject || !message) {
-      return res.status(400).json({
-        success: false,
-        message: 'Subject and message are required'
-      });
-    }
-
-    if (subscriptionId) {
-      const ownedSite = await prisma.subscription.findFirst({
-        where: { id: subscriptionId, userId },
-        select: { id: true }
-      });
-      if (!ownedSite) {
-        return res.status(403).json({
-          success: false,
-          message: 'This site is not available in your workspace'
-        });
-      }
-    }
-
-    const ticket = await prisma.supportTicket.create({
-      data: {
-        userId,
-        subscriptionId,
-        subject,
-        message,
-        priority: priority || 'medium',
-        status: 'open',
-      }
-    });
-
-    res.status(201).json({
-      success: true,
-      ticket
-    });
-  } catch (error) {
-    logger.error('Failed to create support ticket', {
-      errorCode: 'CREATE_SUPPORT_TICKET_ERROR',
-      error: error.message
-    });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create support ticket'
     });
   }
 };

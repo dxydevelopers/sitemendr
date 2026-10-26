@@ -35,6 +35,7 @@ interface AIChatMessage {
 
 interface SupportTicketsProps {
   subscriptionId?: string;
+  onRefresh?: () => void;
 }
 
 const statusColor: Record<string, string> = {
@@ -44,7 +45,7 @@ const statusColor: Record<string, string> = {
   closed: 'text-white/40',
 };
 
-const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
+const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId, onRefresh }) => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'chat' | 'create' | 'details'>('list');
@@ -58,6 +59,8 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [ticketReply, setTicketReply] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [ticketNotice, setTicketNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -71,11 +74,14 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   }, [aiChat, selectedTicket?.messages]);
 
   const fetchTickets = async () => {
+  setActionError('');
   try {
   const response = await apiClient.getClientSupportTickets(subscriptionId);
   if (response.success) setTickets(response.data as unknown as SupportTicket[]);
+  else setActionError('Your tickets could not be loaded. Please try again.');
   } catch (error) {
   console.error('Failed to fetch tickets:', error);
+  setActionError(error instanceof Error ? error.message : 'Your tickets could not be loaded. Please try again.');
   } finally {
   setLoading(false);
   }
@@ -86,15 +92,20 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   if (!newTicket.message.trim()) return;
 
   setIsSubmitting(true);
+  setActionError('');
+  setTicketNotice('');
   try {
   const response = await apiClient.createSupportTicket({ ...newTicket, subscriptionId });
   if (response.success) {
   setTickets([response.data.ticket as unknown as SupportTicket, ...tickets]);
+  setTicketNotice(response.data.aiResponse || 'Your request has been sent to Sitemendr Support. We’ll reply in this ticket.');
   setNewTicket({ subject: '', message: '', priority: 'medium' });
   setView('list');
-  }
+  if (onRefresh) onRefresh();
+  } else setActionError('Your ticket could not be created. Please try again.');
   } catch (error) {
   console.error('Failed to create ticket:', error);
+  setActionError(error instanceof Error ? error.message : 'Your ticket could not be created. Please try again.');
   } finally {
   setIsSubmitting(false);
   }
@@ -144,6 +155,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   setSelectedTicket(current => current?.id === ticket.id
   ? { ...current, messages: current.messages.map(m => m.isAdmin ? { ...m, isRead: true } : m) }
   : current);
+  if (onRefresh) onRefresh();
   } catch (error) {
   console.error('Failed to mark ticket as read:', error);
   }
@@ -153,16 +165,19 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   const handleReplyToTicket = async () => {
   if (!selectedTicket || !ticketReply.trim()) return;
   setIsSubmitting(true);
+  setActionError('');
   try {
   const response = await apiClient.addSupportMessage(selectedTicket.id, ticketReply);
   if (response.success) {
   const updatedMessages = [...selectedTicket.messages, response.data as unknown as TicketMessage];
-  setSelectedTicket({ ...selectedTicket, messages: updatedMessages });
+  setSelectedTicket({ ...selectedTicket, status: 'open', messages: updatedMessages });
   setTicketReply('');
-  setTickets(tickets.map(t => t.id === selectedTicket.id ? { ...t, messages: updatedMessages } : t));
-  }
+  setTickets(tickets.map(t => t.id === selectedTicket.id ? { ...t, status: 'open', messages: updatedMessages } : t));
+  if (onRefresh) onRefresh();
+  } else setActionError('Your reply could not be sent. Please try again.');
   } catch (error) {
   console.error('Failed to send reply:', error);
+  setActionError(error instanceof Error ? error.message : 'Your reply could not be sent. Please try again.');
   } finally {
   setIsSubmitting(false);
   }
@@ -179,6 +194,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
 
   return (
   <div className="animate-fade-in space-y-6">
+  {(actionError || ticketNotice) && <div role={actionError ? 'alert' : 'status'} className={`border px-4 py-3 text-xs ${actionError ? 'border-rose-300/20 bg-rose-300/[.05] text-rose-200' : 'border-emerald-300/20 bg-emerald-300/[.05] text-emerald-100'}`}>{actionError || ticketNotice}</div>}
   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
   <div className="flex min-w-0 items-center gap-3">
   <Headphones className="h-5 w-5 shrink-0 text-ai-blue" />
@@ -202,7 +218,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   <button onClick={() => setView('chat')} className="flex items-center gap-2 border border-white/10 bg-white/[0.02] px-4 py-2 text-[10px] font-semibold text-white/70 transition hover:border-ai-blue/30 hover:text-white">
   <Bot className="h-4 w-4" /> AI chat
   </button>
-  <button onClick={() => setView('create')} className="flex items-center gap-2 bg-ai-blue px-4 py-2 text-[10px] font-semibold text-white transition hover:bg-white hover:text-black">
+  <button onClick={() => { setActionError(''); setTicketNotice(''); setView('create'); }} className="flex items-center gap-2 bg-ai-blue px-4 py-2 text-[10px] font-semibold text-white transition hover:bg-white hover:text-black">
   <Plus className="h-4 w-4" /> New ticket
   </button>
   </>
@@ -219,7 +235,7 @@ const SupportTickets: React.FC<SupportTicketsProps> = ({ subscriptionId }) => {
   <h3 className="text-sm font-semibold text-white/50">No tickets yet</h3>
   <p className="mt-1 text-xs font-medium text-white/30">Nothing open right now.</p>
   </div>
-  <button onClick={() => setView('create')} className="border border-white/10 px-6 py-2.5 text-[10px] font-semibold text-white/80 transition hover:border-ai-blue/30 hover:text-white">
+  <button onClick={() => { setActionError(''); setTicketNotice(''); setView('create'); }} className="border border-white/10 px-6 py-2.5 text-[10px] font-semibold text-white/80 transition hover:border-ai-blue/30 hover:text-white">
   Create a ticket
   </button>
   </div>

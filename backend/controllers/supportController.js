@@ -4,24 +4,26 @@ const Groq = require('groq-sdk');
 const { notifyAdmins } = require('../services/socketService');
 const logger = require('../config/logger');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 /**
  * AI-powered support chat / ticket creation
  */
 exports.createTicket = async (req, res) => {
   try {
-    const { subject, message, priority = 'medium', subscriptionId } = req.body;
+    const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    const priority = req.body.priority || 'medium';
+    const subscriptionId = req.body.subscriptionId;
     const userId = req.user.userId;
 
-    if (!message) {
-      return res.status(400).json({ success: false, message: 'Message is required' });
+    if (!subject || subject.length > 180 || !message || message.length > 10000) {
+      return res.status(400).json({ success: false, message: 'Add a subject and details (up to 10,000 characters).' });
+    }
+    if (!['low', 'medium', 'high', 'urgent'].includes(priority)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid priority.' });
     }
 
     if (subscriptionId) {
@@ -50,6 +52,7 @@ exports.createTicket = async (req, res) => {
     // We use a timeout to prevent blocking the response for too long
     const classifyTicket = async () => {
       try {
+        if (!openai) throw new Error('OpenAI is not configured');
         const aiClassification = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [
@@ -71,6 +74,7 @@ exports.createTicket = async (req, res) => {
         
         // Fallback to Groq if OpenAI fails
         try {
+          if (!groq) throw new Error('Groq is not configured');
           const groqClassification = await groq.chat.completions.create({
             model: "llama-3.3-70b-versatile",
             messages: [
@@ -102,7 +106,15 @@ exports.createTicket = async (req, res) => {
       );
       
       const aiResult = await Promise.race([classifyTicket(), timeout]);
-      classification = { ...classification, ...aiResult };
+      if (aiResult && typeof aiResult === 'object') {
+        classification = {
+          ...classification,
+          autoResponse: typeof aiResult.autoResponse === 'string' ? aiResult.autoResponse.slice(0, 2000) : classification.autoResponse,
+          suggestedPriority: ['low', 'medium', 'high', 'urgent'].includes(aiResult.suggestedPriority)
+            ? aiResult.suggestedPriority
+            : classification.suggestedPriority
+        };
+      }
     } catch (raceError) {
       logger.warn('TICKET_CLASSIFICATION_SKIPPED_OR_TIMEOUT:', raceError.message);
       // Continue with default classification
@@ -116,7 +128,9 @@ exports.createTicket = async (req, res) => {
         subject: subject || `Support Request: ${classification.category}`,
         message,
         status: 'open',
-        priority: classification.suggestedPriority || priority,
+        priority: ['low', 'medium', 'high', 'urgent'].includes(classification.suggestedPriority)
+          ? classification.suggestedPriority
+          : priority,
         messages: {
           create: {
             senderId: userId,
@@ -157,8 +171,17 @@ exports.createTicket = async (req, res) => {
  */
 exports.getUserTickets = async (req, res) => {
   try {
+    const { subscriptionId } = req.query;
+    const where = { userId: req.user.userId };
+    if (typeof subscriptionId === 'string' && subscriptionId) {
+      const ownedSite = await prisma.subscription.findFirst({
+        where: { id: subscriptionId, userId: req.user.userId }, select: { id: true }
+      });
+      if (!ownedSite) return res.status(403).json({ success: false, message: 'This site is not available in your workspace.' });
+      where.subscriptionId = subscriptionId;
+    }
     const tickets = await prisma.supportTicket.findMany({
-      where: { userId: req.user.userId },
+      where,
       include: {
         messages: {
           orderBy: { createdAt: 'asc' }
@@ -208,10 +231,10 @@ exports.getTicketDetails = async (req, res) => {
 exports.addMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content } = req.body;
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
     const userId = req.user.userId;
 
-    if (!content) {
+    if (!content || content.length > 10000) {
       return res.status(400).json({ success: false, message: 'Content is required' });
     }
 
@@ -223,6 +246,9 @@ exports.addMessage = async (req, res) => {
     if (!ticket || ticket.userId !== userId) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
+    if (ticket.status === 'closed') {
+      return res.status(409).json({ success: false, message: 'This ticket is closed. Create a new ticket to continue.' });
+    }
 
     const newMessage = await prisma.supportMessage.create({
       data: {
@@ -231,6 +257,11 @@ exports.addMessage = async (req, res) => {
         content,
         isAdmin: false
       }
+    });
+
+    await prisma.supportTicket.update({
+      where: { id },
+      data: { status: 'open' }
     });
 
     // Notify admins of new support message
@@ -242,13 +273,6 @@ exports.addMessage = async (req, res) => {
     });
 
     // Reopen ticket if it was resolved
-    if (ticket.status === 'resolved') {
-      await prisma.supportTicket.update({
-        where: { id },
-        data: { status: 'open' }
-      });
-    }
-
     res.status(201).json({ success: true, data: newMessage });
   } catch (error) {
     logger.error('ADD_SUPPORT_MESSAGE_ERROR:', error);

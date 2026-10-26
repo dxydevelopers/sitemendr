@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   MessageSquare, 
   Mail, 
@@ -23,6 +23,9 @@ interface MessageItem {
   createdAt: string;
   sender?: string;
   isRead?: boolean;
+  threadId?: string | null;
+  replies?: MessageItem[];
+  user?: { name?: string; email?: string };
 }
 
 interface MessageViewerProps {
@@ -30,12 +33,19 @@ interface MessageViewerProps {
   onRefresh?: () => void;
 }
 
+const hasUnreadIncoming = (message: MessageItem) =>
+  (message.sender !== 'USER' && !message.isRead)
+  || Boolean(message.replies?.some(reply => reply.sender !== 'USER' && !reply.isRead));
+
 const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) => {
+  const [conversationList, setConversationList] = useState(messages);
   const [selectedMessage, setSelectedMessage] = useState<MessageItem | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [replyMode, setReplyMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [formData, setFormData] = useState({
@@ -43,7 +53,12 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   content: ''
   });
 
-  const filteredMessages = messages.filter(msg => 
+  useEffect(() => setConversationList(messages), [messages]);
+  useEffect(() => {
+    setSelectedMessage(current => current ? messages.find(message => message.id === current.id) || current : null);
+  }, [messages]);
+
+  const filteredMessages = conversationList.filter(msg =>
   msg.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
   msg.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -51,22 +66,34 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   const handleSendMessage = async (e: React.FormEvent) => {
   e.preventDefault();
   setIsSending(true);
+  setSendError('');
   try {
   if (editingMessageId) {
-  await apiClient.put(`/client/messages/${editingMessageId}`, formData);
+  const response = await apiClient.put<{ success: boolean; message?: string }>(`/client/messages/${editingMessageId}`, formData);
+  if (!response.success) throw new Error(response.message || 'The message could not be updated.');
+  } else if (replyMode && selectedMessage) {
+  const response = await apiClient.replyToClientMessage(selectedMessage.id, formData.content);
+  if (!response.success || !response.message) throw new Error('The reply could not be sent.');
+  const updated = { ...selectedMessage, replies: [...(selectedMessage.replies || []), response.message as unknown as MessageItem] };
+  setSelectedMessage(updated);
+  setConversationList(current => current.map(item => item.id === updated.id ? updated : item));
   } else {
-  await apiClient.sendClientMessage(formData.subject, formData.content);
+  const response = await apiClient.sendClientMessage(formData.subject, formData.content);
+  if (!response.success) throw new Error('The message could not be sent.');
   }
+  setReplyMode(false);
   setSendSuccess(true);
   setTimeout(() => {
   setSendSuccess(false);
   setShowCompose(false);
   setEditingMessageId(null);
+  setReplyMode(false);
   setFormData({ subject: '', content: '' });
   if (onRefresh) onRefresh();
   }, 2000);
   } catch (error) {
   console.error('Failed to send message:', error);
+  setSendError(error instanceof Error ? error.message : 'The message could not be sent. Please try again.');
   } finally {
   setIsSending(false);
   }
@@ -78,23 +105,29 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   content: msg.content
   });
   setEditingMessageId(msg.id);
+  setReplyMode(false);
   setShowCompose(true);
   };
 
   const handleReply = (msg: MessageItem) => {
   setEditingMessageId(null);
+  setReplyMode(true);
   setFormData({
-  subject: `RE: ${msg.subject}`,
-  content: `\n\n--- Original Message ---\nFrom: ${msg.sender || 'System'}\nDate: ${new Date(msg.createdAt).toLocaleString()}\n\n${msg.content}`
+  subject: msg.subject,
+  content: ''
   });
+  setSendError('');
   setShowCompose(true);
   };
 
   const handleSelectMessage = async (msg: MessageItem) => {
   setSelectedMessage(msg);
-  if (!msg.isRead) {
+  if (hasUnreadIncoming(msg)) {
   try {
   await apiClient.post(`/client/messages/${msg.id}/read`, {});
+  const updated = { ...msg, isRead: true, replies: (msg.replies || []).map(reply => reply.sender === 'USER' ? reply : { ...reply, isRead: true }) };
+  setSelectedMessage(updated);
+  setConversationList(current => current.map(item => item.id === updated.id ? updated : item));
   if (onRefresh) onRefresh();
   } catch (error) {
   console.error('Failed to mark message as read:', error);
@@ -112,12 +145,17 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   <div className="flex items-center justify-between">
   <h2 className="text-sm lg:text-base font-semibold flex items-center gap-3">
   <MessageSquare className="w-5 h-5 text-ai-blue" />
-  Comms Hub
+  Messages
   </h2>
   <button 
+  aria-label="Start a new conversation"
+  title="New conversation"
   onClick={() => {
   setEditingMessageId(null);
   setFormData({ subject: '', content: '' });
+  setReplyMode(false);
+  setSendError('');
+  setSendSuccess(false);
   setShowCompose(true);
   }}
   className="p-2 bg-ai-blue/10 text-ai-blue rounded-lg hover:bg-ai-blue hover:text-white transition-all"
@@ -147,19 +185,19 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   selectedMessage?.id === msg.id ? 'bg-white/[0.03]' : ''
   }`}
   >
-  {!msg.isRead && (
+  {hasUnreadIncoming(msg) && (
   <div className="absolute left-0 top-0 bottom-0 w-1 bg-ai-blue"></div>
   )}
   <div className="flex justify-between items-start mb-2">
   <span className={`text-[8px] font-semibold ${msg.sender === 'USER' ? 'text-expert-green' : 'text-ai-blue'}`}>
-  {msg.sender === 'USER' ? 'OUTGOING_NODE' : 'INCOMING_SYSTEM'}
+  {msg.sender === 'USER' ? 'YOU' : 'SITEMENDR'}
   </span>
   <span className="text-[8px] font-bold text-medium-gray ">
   {new Date(msg.createdAt).toLocaleDateString()}
   </span>
   </div>
   <h3 className={`text-xs font-semibold truncate mb-1 ${
-  !msg.isRead ? 'text-white' : 'text-white/40'
+  hasUnreadIncoming(msg) ? 'text-white' : 'text-white/40'
   }`}>
   {msg.subject}
   </h3>
@@ -172,7 +210,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   <div className="h-full flex flex-col items-center justify-center p-10 text-center">
   <Inbox className="w-12 h-12 text-white/5 mb-4" />
   <p className="text-[10px] font-semibold text-white/20 leading-relaxed">
-  Buffer empty - awaiting interaction
+  No conversations yet. Start one with the Sitemendr team.
   </p>
   </div>
   )}
@@ -209,7 +247,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   <span className={`text-[10px] font-semibold ${
   selectedMessage.sender === 'USER' ? 'text-expert-green' : 'text-ai-blue'
   }`}>
-  {selectedMessage.sender === 'USER' ? 'You (Client)' : 'System Orchestrator'}
+  {selectedMessage.sender === 'USER' ? 'You' : 'Sitemendr team'}
   </span>
   </div>
   <span className="text-white/10">|</span>
@@ -222,21 +260,22 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   </div>
   </div>
    
-  <div className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar bg-white/[0.01]">
-  <div className="prose prose-invert max-w-none">
-  <p className="text-xs lg:text-sm text-white/60 font-medium leading-relaxed whitespace-pre-wrap">
-  {selectedMessage.content}
-  </p>
-  </div>
+  <div className="flex-1 p-5 sm:p-8 lg:p-12 overflow-y-auto custom-scrollbar bg-white/[0.01] space-y-5">
+  {[selectedMessage, ...(selectedMessage.replies || [])].map(entry => (
+    <div key={entry.id} className={`max-w-[92%] rounded-2xl border p-4 sm:max-w-[80%] ${entry.sender === 'USER' ? 'ml-auto border-ai-blue/20 bg-ai-blue/[0.08]' : 'border-white/10 bg-white/[0.025]'}`}>
+      <p className="whitespace-pre-wrap text-xs leading-relaxed text-white/75">{entry.content}</p>
+      <p className="mt-2 text-[10px] text-white/35">{entry.sender === 'USER' ? 'You' : 'Sitemendr'} · {new Date(entry.createdAt).toLocaleString()}</p>
+    </div>
+  ))}
   </div>
    
   <div className="p-6 lg:p-8 border-t border-white/5 bg-white/[0.02] flex flex-col sm:flex-row justify-between items-center gap-4">
   <div className="flex items-center gap-4">
   <div className="flex items-center gap-2">
   <div className="w-1.5 h-1.5 bg-ai-blue rounded-full animate-pulse"></div>
-  <p className="text-[9px] font-semibold text-ai-blue ">Message thread open</p>
+  <p className="text-[9px] font-semibold text-ai-blue ">Conversation</p>
   </div>
-  {selectedMessage.sender === 'USER' && (
+  {selectedMessage.sender === 'USER' && !selectedMessage.replies?.length && (
   <button 
   onClick={() => handleEditMessage(selectedMessage)}
   className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[8px] font-semibold text-white/60 transition-all"
@@ -250,7 +289,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   className="w-full sm:w-auto px-8 py-4 bg-ai-blue text-white font-semibold text-[10px] rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-lg shadow-ai-blue/20"
   >
   <Send className="w-4 h-4" />
-  Reply
+  Reply to Sitemendr
   </button>
   </div>
   </>
@@ -274,19 +313,21 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   if (!isSending) {
   setShowCompose(false);
   setEditingMessageId(null);
+  setReplyMode(false);
   }
   }}></div>
   <div className="bg-darker-bg border border-white/10 rounded-[40px] w-full max-w-2xl relative z-10 overflow-hidden shadow-2xl">
   <div className="p-8 lg:p-10 border-b border-white/5 flex items-center justify-between">
   <h2 className="text-xl lg:text-2xl font-semibold text-white flex items-center gap-4">
   <Plus className="w-6 h-6 text-ai-blue" />
-  {editingMessageId ? 'Update' : 'New'} <span className="text-ai-blue italic">Message</span>
+  {editingMessageId ? 'Update' : replyMode ? 'Reply to' : 'New'} <span className="text-ai-blue italic">{replyMode ? 'Sitemendr' : 'Message'}</span>
   </h2>
   <button 
   disabled={isSending}
   onClick={() => {
   setShowCompose(false);
   setEditingMessageId(null);
+  setReplyMode(false);
   }} 
   className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-red-500/20 hover:border-red-500/30 hover:text-red-500 transition-all disabled:opacity-50"
   >
@@ -295,7 +336,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   </div>
    
   <form onSubmit={handleSendMessage} className="p-8 lg:p-10 space-y-8">
-  <div className="space-y-3">
+  {!replyMode && <div className="space-y-3">
   <label className="text-[10px] font-semibold text-white/40 ml-1">Subject</label>
   <input 
   type="text"
@@ -306,19 +347,21 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   value={formData.subject}
   onChange={(e) => setFormData({...formData, subject: e.target.value})}
   />
-  </div>
+  </div>}
    
   <div className="space-y-3">
   <label className="text-[10px] font-semibold text-white/40 ml-1">Message</label>
   <textarea 
   required
   disabled={isSending}
-  placeholder="Provide message details..."
+  placeholder={replyMode ? 'Write your reply...' : 'Provide message details...'}
   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-medium focus:border-ai-blue outline-none transition-all h-48 lg:h-64 resize-none leading-relaxed disabled:opacity-50"
   value={formData.content}
   onChange={(e) => setFormData({...formData, content: e.target.value})}
   />
   </div>
+
+  {sendError && <p role="alert" className="text-sm text-rose-300">{sendError}</p>}
 
   <div className="flex flex-col sm:flex-row gap-4 pt-4">
   <button 
@@ -327,6 +370,7 @@ const MessageViewer: React.FC<MessageViewerProps> = ({ messages, onRefresh }) =>
   onClick={() => {
   setShowCompose(false);
   setEditingMessageId(null);
+  setReplyMode(false);
   }}
   className="order-2 sm:order-1 flex-1 py-5 border border-white/10 rounded-2xl font-semibold text-[10px] hover:bg-white/5 transition-all disabled:opacity-50"
   >

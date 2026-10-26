@@ -87,7 +87,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen, isSidebarExpanded, setIsSidebarExpanded,
   openSidebarGroup, setOpenSidebarGroup, mobileRailGroup, setMobileRailGroup,
   stats, projects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, bookings, domains,
-  loading, user, fetchError, fetchData, selectedProjectId, setSelectedProjectId,
+  loading, user, fetchError, fetchData, refreshSupportData, selectedProjectId, setSelectedProjectId,
   setActiveBuildChapter, isAnalyzing, analysisResult, analysisProjectId, analysisError, handleAnalyzeSite, exportingId,
   handleExportCodebase, showAssessmentModal, setShowAssessmentModal, selectedAssessment,
   showProjectRequestModal, setShowProjectRequestModal,
@@ -121,7 +121,8 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   }, [pathname, searchParams, activeTab, setActiveTab]);
 
   const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
-  const unreadMessages = messages.filter(m => !m.isRead).length;
+  const unreadTicketThreads = tickets.filter(ticket => ticket.messages?.some(message => message.isAdmin && !message.isRead)).length;
+  const unreadMessages = messages.filter(m => (m.sender !== 'USER' && !m.isRead) || m.replies?.some(reply => reply.sender !== 'USER' && !reply.isRead)).length;
   const overviewProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : projects.find(p => p.isCurrent) || projects[0];
   const liveSites = projects.filter(p => p.recordType === 'project' && ['launched', 'handoff', 'completed'].includes(normalizeBuildStatus(p.status)));
 
@@ -132,7 +133,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   ];
   const manageNav: DashboardNavItem[] = [
   { id: 'business', label: 'Merchant', icon: <ShoppingBag className="w-5 h-5" /> },
-  { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" />, count: openTickets + unreadMessages },
+  { id: 'support', label: 'Support', icon: <LifeBuoy className="w-5 h-5" />, count: openTickets + unreadMessages + unreadTicketThreads },
   { id: 'repair', label: 'Repair', icon: <Wrench className="w-5 h-5" /> },
   ];
   const accountNav: DashboardNavItem[] = [
@@ -462,7 +463,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
   {activeTab === 'booking' && (scopedProject ? <div className="animate-fade-in"><BookingManager isAdmin={false} subscriptionId={scopedProject.id} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
 
-  {activeTab === 'tickets' && <div className="animate-fade-in"><SupportTickets /></div>}
+  {activeTab === 'tickets' && <div className="animate-fade-in"><SupportTickets onRefresh={refreshSupportData} /></div>}
   {activeTab === 'repair' && <div className="animate-fade-in"><RepairWorkspace projects={projects} /></div>}
 
   {activeTab === 'support' && (
@@ -498,7 +499,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   </div>
   )}
 
-  {activeTab === 'messages' && <div className="animate-fade-in"><MessageViewer messages={messages} /></div>}
+  {activeTab === 'messages' && <div className="animate-fade-in"><MessageViewer messages={messages} onRefresh={refreshSupportData} /></div>}
 
   {activeTab === 'resources' && <div className="animate-fade-in"><ResourceLibrary resources={resources} onSupportRequest={() => openTab('tickets')} /></div>}
 

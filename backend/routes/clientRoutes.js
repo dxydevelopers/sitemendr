@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const clientController = require('../controllers/client');
+const supportController = require('../controllers/supportController');
 const repairController = require('../controllers/repairController');
 const billingDocumentsController = require('../controllers/billingDocumentsController');
 const { authenticate } = require('../middleware/auth');
@@ -38,6 +39,16 @@ router.get('/billing/contract/:id', clientController.getContractBilling);
 router.get('/billing/invoices/:id/pdf', billingDocumentsController.invoicePdf);
 router.get('/billing/receipts/:id/pdf', billingDocumentsController.receiptPdf);
 
+// Support and messages remain available even when active site management is locked.
+router.get('/messages', clientController.getMessages);
+router.post('/messages', clientController.sendMessage);
+router.post('/messages/:id/replies', clientController.replyToMessage);
+router.post('/messages/:id/read', clientController.markMessageRead);
+router.put('/messages/:id', clientController.updateMessage);
+router.get('/resources', clientController.getResources);
+router.get('/support', supportController.getUserTickets);
+router.post('/support', supportController.createTicket);
+
 // Active management routes - require valid payment status
 router.use(enforcePaymentForAPI);
 
@@ -46,14 +57,6 @@ router.get('/performance/:subscriptionId/scans', clientController.getPerformance
 router.get('/performance/:subscriptionId/availability', clientController.getSiteAvailabilityHistory);
 router.get('/performance/:subscriptionId/requests', clientController.getPerformanceRequests);
 router.post('/performance/:subscriptionId/requests', clientController.createPerformanceRequest);
-router.get('/messages', clientController.getMessages);
-router.post('/messages', clientController.sendMessage);
-router.post('/messages/:id/replies', clientController.replyToMessage);
-router.post('/messages/:id/read', clientController.markMessageRead);
-router.put('/messages/:id', clientController.updateMessage);
-router.get('/resources', clientController.getResources);
-router.get('/support', clientController.getSupportTickets);
-router.post('/support', clientController.createSupportTicket);
 router.get('/domains', clientController.getDomains);
 router.post('/domains', clientController.addDomain);
 router.patch('/domains/:domainId/site', clientController.moveDomainToSite);

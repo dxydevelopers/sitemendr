@@ -28,6 +28,7 @@ import AdminRepairRequests from './AdminRepairRequests';
 
 const AssessmentModal = dynamic(() => import('../AssessmentModal'), { ssr: false });
 const SupportManager = dynamic(() => import('../dashboard/SupportManager'), { ssr: false });
+const ClientConversationManager = dynamic(() => import('./ClientConversationManager'), { ssr: false });
 const LiveSupportManager = dynamic(() => import('../dashboard/LiveSupportManager'), { ssr: false });
 const MilestoneManager = dynamic(() => import('../dashboard/MilestoneManager'), { ssr: false });
 const CommentManager = dynamic(() => import('../dashboard/CommentManager'), { ssr: false });
@@ -220,6 +221,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
   {activeTab === 'milestones' && <div className="animate-fade-in"><MilestoneManager /></div>}
   {activeTab === 'bookings' && <div className="animate-fade-in"><BookingManager isAdmin={true} /></div>}
+  {activeTab === 'messages' && <div className="animate-fade-in"><ClientConversationManager /></div>}
   {activeTab === 'tickets' && <div className="animate-fade-in"><SupportManager /></div>}
   {activeTab === 'live-support' && <div className="animate-fade-in"><LiveSupportManager /></div>}
   {activeTab === 'comments' && <div className="animate-fade-in"><CommentManager /></div>}

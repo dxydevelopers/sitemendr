@@ -221,6 +221,8 @@ export interface MessageItem {
   createdAt: string;
   sender?: string;
   isRead?: boolean;
+  threadId?: string | null;
+  replies?: MessageItem[];
 }
 
 export interface SupportTicket {
@@ -230,13 +232,14 @@ export interface SupportTicket {
   status: string;
   priority: string;
   createdAt: string;
+  messages?: Array<{ id: string; content: string; isAdmin: boolean; isRead: boolean; createdAt: string }>;
 }
 
 export interface ResourceItem {
   id: string;
   title: string;
   type: string;
-  url: string;
+  url?: string | null;
   description?: string;
 }
 

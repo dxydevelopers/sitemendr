@@ -2939,7 +2939,8 @@ exports.getAllSupportTickets = async (req, res) => {
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1
-        }
+        },
+        _count: { select: { messages: { where: { isAdmin: false, isRead: false } } } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -2960,14 +2961,101 @@ exports.getAllSupportTickets = async (req, res) => {
   }
 };
 
+exports.markSupportTicketRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ticket = await prisma.supportTicket.findUnique({ where: { id }, select: { id: true } });
+    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found.' });
+    await prisma.supportMessage.updateMany({
+      where: { ticketId: id, isAdmin: false, isRead: false },
+      data: { isRead: true }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('MARK_ADMIN_SUPPORT_TICKET_READ_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update ticket read state.' });
+  }
+};
+
+exports.getClientConversations = async (req, res) => {
+  try {
+    const messages = await prisma.message.findMany({
+      where: { threadId: null },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        replies: { orderBy: { createdAt: 'asc' } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    logger.error('GET_CLIENT_CONVERSATIONS_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve client conversations' });
+  }
+};
+
+exports.markClientConversationRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const root = await prisma.message.findFirst({ where: { id, threadId: null }, select: { id: true } });
+    if (!root) return res.status(404).json({ success: false, message: 'Conversation not found' });
+    await prisma.message.updateMany({
+      where: { OR: [{ id }, { threadId: id }], sender: 'USER', isRead: false },
+      data: { isRead: true }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('MARK_CLIENT_CONVERSATION_READ_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to update conversation' });
+  }
+};
+
+exports.replyToClientConversation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length > 10000) {
+      return res.status(400).json({ success: false, message: 'Write a reply of up to 10,000 characters.' });
+    }
+    const root = await prisma.message.findFirst({ where: { id, threadId: null } });
+    if (!root) return res.status(404).json({ success: false, message: 'Conversation not found' });
+    const message = await prisma.message.create({
+      data: { userId: root.userId, threadId: root.id, subject: root.subject, content, sender: 'ADMIN', isRead: false }
+    });
+    notifyUser(root.userId, 'new_client_conversation_reply', {
+      messageId: message.id, threadId: root.id, timestamp: message.createdAt
+    });
+    res.status(201).json({ success: true, data: message });
+  } catch (error) {
+    logger.error('REPLY_TO_CLIENT_CONVERSATION_ERROR:', error);
+    res.status(500).json({ success: false, message: 'Failed to send reply' });
+  }
+};
+
 exports.updateSupportTicket = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, priority } = req.body;
 
+    const allowedStatuses = ['open', 'pending', 'resolved', 'closed'];
+    const allowedPriorities = ['low', 'medium', 'high', 'urgent'];
+    if (status !== undefined && !allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid ticket status.' });
+    }
+    if (priority !== undefined && !allowedPriorities.includes(priority)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid ticket priority.' });
+    }
+    if (status === undefined && priority === undefined) {
+      return res.status(400).json({ success: false, message: 'Provide a status or priority to update.' });
+    }
+
     const ticket = await prisma.supportTicket.update({
       where: { id },
-      data: { status, priority }
+      data: { ...(status !== undefined ? { status } : {}), ...(priority !== undefined ? { priority } : {}) }
+    });
+
+    notifyUser(ticket.userId, 'support_ticket_updated', {
+      ticketId: ticket.id, status: ticket.status, priority: ticket.priority, updatedAt: ticket.updatedAt
     });
 
     res.json({
@@ -3028,29 +3116,33 @@ exports.addSupportTicketMessage = async (req, res) => {
     const { id } = req.params;
     const { content } = req.body;
 
-    if (!content) {
+    if (typeof content !== 'string' || !content.trim() || content.length > 10000) {
       return res.status(400).json({
         success: false,
-        message: 'Message content is required'
+        message: 'Message content is required and must be 10,000 characters or fewer.'
       });
     }
+
+    const ticket = await prisma.supportTicket.findUnique({ where: { id }, select: { id: true, userId: true, status: true } });
+    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found.' });
+    if (ticket.status === 'closed') return res.status(409).json({ success: false, message: 'This ticket is closed.' });
 
     const message = await prisma.supportMessage.create({
       data: {
         ticketId: id,
         senderId: req.user.userId, // Admin ID
-        content,
-        isAdmin: true
+        content: content.trim(),
+        isAdmin: true,
+        isRead: false
       }
     });
 
+    if (ticket.status === 'open' || ticket.status === 'resolved') {
+      await prisma.supportTicket.update({ where: { id }, data: { status: 'pending' } });
+    }
+
     // Notify the user of the new support message (in-app only — email removed as part of notification cleanup)
     try {
-      const ticket = await prisma.supportTicket.findUnique({
-        where: { id },
-        select: { userId: true }
-      });
-      
       if (ticket) {
         notifyUser(ticket.userId, 'new_support_message', {
           ticketId: id,

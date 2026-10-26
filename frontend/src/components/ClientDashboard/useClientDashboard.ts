@@ -251,6 +251,21 @@ export function useClientDashboard(initialTab?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProjectId]);
 
+  const refreshSupportData = useCallback(async () => {
+    const [messagesRes, ticketsRes] = await Promise.allSettled([
+      apiClient.getClientMessages(),
+      apiClient.getClientSupportTickets(),
+    ]);
+    if (messagesRes.status === 'fulfilled' && messagesRes.value.success) {
+      const list = readApiArray<MessageItem>(messagesRes.value as ApiRecord, ['messages', 'data']);
+      if (list) setMessages(list);
+    }
+    if (ticketsRes.status === 'fulfilled' && ticketsRes.value.success) {
+      const list = readApiArray<SupportTicket>(ticketsRes.value as ApiRecord, ['data', 'tickets']);
+      if (list) setTickets(list);
+    }
+  }, []);
+
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   useEffect(() => { selectedProjectIdRef.current = selectedProjectId; }, [selectedProjectId]);
@@ -282,13 +297,10 @@ export function useClientDashboard(initialTab?: string) {
       }
     });
 
-    socketRef.current.on('new_support_message', () => {
-      if (activeTabRef.current === 'support' || activeTabRef.current === 'dashboard') fetchData();
-    });
-
-    socketRef.current.on('new_system_message', () => {
-      if (activeTabRef.current === 'messages' || activeTabRef.current === 'dashboard') fetchData();
-    });
+    socketRef.current.on('new_support_message', () => { void refreshSupportData(); });
+    socketRef.current.on('new_client_conversation_reply', () => { void refreshSupportData(); });
+    socketRef.current.on('support_ticket_updated', () => { void refreshSupportData(); });
+    socketRef.current.on('new_system_message', () => { void refreshSupportData(); });
 
     socketRef.current.on('project_request_updated', (data: { request?: ApiRecord }) => {
       if (!data?.request) return;
@@ -349,7 +361,7 @@ export function useClientDashboard(initialTab?: string) {
 
     return () => { socketRef.current?.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData]);
+  }, [fetchData, refreshSupportData]);
 
   const handleExportCodebase = async (projectId: string) => {
     setExportingId(projectId);
@@ -991,7 +1003,7 @@ export function useClientDashboard(initialTab?: string) {
     mobileRailGroup, setMobileRailGroup,
     // data
     stats, projects, setProjects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, bookings, domains, setDomains, domainDnsTargets,
-    loading, user, fetchError, fetchData,
+    loading, user, fetchError, fetchData, refreshSupportData,
     // project selection / build journey
     selectedProjectId, setSelectedProjectId,
     activeBuildChapter, setActiveBuildChapter,
