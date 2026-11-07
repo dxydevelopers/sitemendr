@@ -1,6 +1,7 @@
 const { prisma } = require('../config/db');
 const { notifyUser, notifyAdmins } = require('../services/socketService');
 const logger = require('../config/logger');
+const { isBuildManagementUnlocked } = require('../services/siteManagement');
 const invoiceNumber = () => `SMI-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
 
 const publicUrl = value => {
@@ -22,21 +23,22 @@ exports.getClientRepairRequests = async (req, res) => {
 };
 
 exports.createRepairRequest = async (req, res) => {
-  const { siteUrl, title, description, steps, affectedPages, urgency, hostType, siteId, evidence } = req.body || {};
+  const { siteUrl, title, description, steps, affectedPages, urgency, hostType, siteId, evidence, performanceFinding } = req.body || {};
   if (!title?.trim() || title.trim().length > 180 || !description?.trim() || description.trim().length > 5000) return res.status(400).json({ success: false, message: 'Add a short issue title and describe what is happening (up to 5,000 characters).' });
   if (!['sitemendr', 'external'].includes(hostType)) return res.status(400).json({ success: false, message: 'Choose whether this is a Sitemendr or external site.' });
   if (hostType === 'external' && !publicUrl(siteUrl)) return res.status(400).json({ success: false, message: 'Enter a public website URL starting with http:// or https://.' });
   if (!['normal', 'urgent'].includes(urgency)) return res.status(400).json({ success: false, message: 'Choose a valid urgency.' });
   if (hostType === 'sitemendr' && !siteId) return res.status(400).json({ success: false, message: 'Choose the Sitemendr site that needs repair.' });
   if (hostType === 'sitemendr') {
-    const site = await prisma.subscription.findFirst({ where: { id: siteId, userId: req.user.userId }, select: { id: true } });
+    const site = await prisma.subscription.findFirst({ where: { id: siteId, userId: req.user.userId }, include: { projectRequests: { where: { serviceType: 'build' }, orderBy: { updatedAt: 'desc' }, take: 1, select: { status: true, completionAcknowledgedAt: true, handoffIssuesReportedAt: true, finalPaymentConfirmedAt: true, paymentConfirmedAt: true, totalAgreedAmount: true, quotedAmount: true, depositAmount: true } } } });
     if (!site) return res.status(403).json({ success: false, message: 'Choose a site in your workspace.' });
+    if (!isBuildManagementUnlocked(site.projectRequests[0] || null)) return res.status(403).json({ success: false, message: 'Repair requests for a Sitemendr site unlock after handoff acceptance and payment closeout. Follow the active build in Build Journey.' });
   }
   const links = Array.isArray(evidence) ? evidence.filter(item => typeof item === 'string' && publicUrl(item)).slice(0, 5) : [];
   const data = await prisma.projectRequest.create({ data: {
     userId: req.user.userId, subscriptionId: hostType === 'sitemendr' ? siteId : null, serviceType: 'repair',
     title: title.trim(), summary: description.trim(), priority: urgency,
-    status: 'submitted', repairContext: { hostType, siteUrl: hostType === 'external' ? new URL(siteUrl).origin : null, steps: String(steps || '').slice(0, 5000), affectedPages: String(affectedPages || '').slice(0, 2000), evidence: links, diagnosisFee: hostType === 'sitemendr' ? 0 : null, diagnosisFeeStatus: hostType === 'sitemendr' ? 'included' : 'pending_review', reviewReminderCount: 0 }
+    status: 'submitted', repairContext: { hostType, siteUrl: hostType === 'external' ? new URL(siteUrl).origin : null, steps: String(steps || '').slice(0, 5000), affectedPages: String(affectedPages || '').slice(0, 2000), evidence: links, ...(hostType === 'sitemendr' && typeof performanceFinding === 'string' && performanceFinding.trim() ? { performanceSource: { finding: performanceFinding.trim().slice(0, 1000) } } : {}), diagnosisFee: hostType === 'sitemendr' ? 0 : null, diagnosisFeeStatus: hostType === 'sitemendr' ? 'included' : 'pending_review', reviewReminderCount: 0 }
   } });
   await prisma.projectConversationMessage.create({ data: { projectRequestId: data.id, senderId: req.user.userId, senderRole: 'client', message: description.trim() } });
   notifyAdmins('repair_request_created', { request: data });

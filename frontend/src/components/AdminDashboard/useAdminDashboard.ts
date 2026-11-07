@@ -26,7 +26,8 @@ const mergeProjectConversationMessage = (messages: ReviewChatMessage[], incoming
 
 export function useAdminDashboard(initialTab?: string) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(initialTab || 'dashboard');
+  const requestedTab = initialTab === 'bookings' ? 'dashboard' : initialTab;
+  const [activeTab, setActiveTab] = useState(requestedTab || 'dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [openSidebarGroup, setOpenSidebarGroup] = useState<string | null>('work');
@@ -201,7 +202,9 @@ export function useAdminDashboard(initialTab?: string) {
   }, [fetchData]);
 
   useEffect(() => { fetchData(); }, [fetchData, activeTab]);
-  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab === 'bookings' ? 'dashboard' : initialTab);
+  }, [initialTab]);
 
   const handleRunSuspensionCheck = async () => {
     setIsSystemWorking(true);

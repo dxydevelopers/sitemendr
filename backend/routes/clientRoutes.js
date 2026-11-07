@@ -20,6 +20,15 @@ router.put('/messages/:id', clientController.updateMessage);
 router.get('/resources', clientController.getResources);
 router.get('/support', supportController.getUserTickets);
 router.post('/support', supportController.createTicket);
+// Repair requests are a separately quoted service and must remain accessible
+// so clients can report issues, follow progress, and pay repair invoices.
+router.get('/repair/requests', repairController.getClientRepairRequests);
+router.post('/repair/requests', repairController.createRepairRequest);
+router.post('/repair/requests/:requestId/proposal-response', repairController.respondToRepairProposal);
+router.post('/repair/requests/:requestId/review-response', repairController.respondToRepairReview);
+router.post('/repair/requests/:requestId/cancellation', repairController.requestRepairCancellation);
+router.get('/project-requests/:requestId/conversation', clientController.getProjectConversation);
+router.post('/project-requests/:requestId/conversation', clientController.createProjectConversationMessage);
 
 router.use(checkPaymentStatus);
 
@@ -30,13 +39,6 @@ router.post('/project-requests/:requestId/brief-clarification', clientController
 router.post('/project-requests/:requestId/quote-response', clientController.respondToProjectQuote);
 router.post('/project-requests/:requestId/performance-quote-response', clientController.respondToPerformanceQuote);
 router.post('/project-requests/:requestId/performance-review-response', clientController.respondToPerformanceReview);
-router.get('/repair/requests', repairController.getClientRepairRequests);
-router.post('/repair/requests', repairController.createRepairRequest);
-router.post('/repair/requests/:requestId/proposal-response', repairController.respondToRepairProposal);
-router.post('/repair/requests/:requestId/review-response', repairController.respondToRepairReview);
-router.post('/repair/requests/:requestId/cancellation', repairController.requestRepairCancellation);
-router.get('/project-requests/:requestId/conversation', clientController.getProjectConversation);
-router.post('/project-requests/:requestId/conversation', clientController.createProjectConversationMessage);
 router.post('/project-requests/:requestId/lifecycle-request', clientController.createProjectLifecycleRequest);
 router.post('/project-requests/:requestId/staging-review', clientController.respondToStagingReview);
 router.get('/project-requests/:requestId/review-chat', clientController.getReviewChatMessages);

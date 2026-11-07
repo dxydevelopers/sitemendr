@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Check, Clock3, ExternalLink, LoaderCircle, Plus, Wrench } from 'lucide-react';
 import { apiClient, type RepairRequestRecord } from '@/lib/api';
 import type { ClientProject } from './ClientDashboard_types';
@@ -11,6 +12,10 @@ const statusLabel: Record<string, string> = {
 const money = (amountMinor: number, currency: string) => `${currency} ${(amountMinor / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 export default function RepairWorkspace({ projects }: { projects: ClientProject[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const appliedPerformanceContext = useRef('');
   const [items, setItems] = useState<RepairRequestRecord[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -19,9 +24,9 @@ export default function RepairWorkspace({ projects }: { projects: ClientProject[
   const [notice, setNotice] = useState('');
   const [message, setMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ hostType: 'sitemendr', siteId: '', siteUrl: '', title: '', description: '', steps: '', affectedPages: '', urgency: 'normal', evidence: '' });
+  const [form, setForm] = useState({ hostType: 'sitemendr', siteId: '', siteUrl: '', title: '', description: '', steps: '', affectedPages: '', urgency: 'normal', evidence: '', performanceFinding: '' });
   const selected = items.find(item => item.id === selectedId) || items[0];
-  const managedSites = useMemo(() => projects.filter(project => project.recordType === 'project'), [projects]);
+  const managedSites = useMemo(() => projects.filter(project => project.recordType === 'project' && project.canManageSite === true), [projects]);
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -35,13 +40,30 @@ export default function RepairWorkspace({ projects }: { projects: ClientProject[
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
+  useEffect(() => {
+    if (searchParams.get('repairSource') !== 'performance') return;
+    const siteId = searchParams.get('siteId') || '';
+    const finding = searchParams.get('finding') || '';
+    const contextKey = `${siteId}:${finding}`;
+    if (!siteId || !finding || appliedPerformanceContext.current === contextKey) return;
+    appliedPerformanceContext.current = contextKey;
+    setForm(current => ({ ...current, hostType: 'sitemendr', siteId, siteUrl: searchParams.get('siteUrl') || '', title: `Performance repair: ${finding}`.slice(0, 180), description: finding, affectedPages: searchParams.get('siteUrl') || '', performanceFinding: finding }));
+    setShowForm(true);
+    setNotice('Performance finding added to a new repair request. Review the details before submitting.');
+  }, [searchParams]);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setSaving(true); setError(''); setNotice('');
     try {
       const response = await apiClient.createRepairRequest({ ...form, evidence: form.evidence.split('\n').map(value => value.trim()).filter(Boolean) });
       if (!response.success || !response.data) throw new Error(response.message || 'Could not submit your request.');
       setItems(current => [response.data!, ...current]); setSelectedId(response.data.id); setShowForm(false);
-      setForm({ hostType: 'sitemendr', siteId: '', siteUrl: '', title: '', description: '', steps: '', affectedPages: '', urgency: 'normal', evidence: '' });
+      setForm({ hostType: 'sitemendr', siteId: '', siteUrl: '', title: '', description: '', steps: '', affectedPages: '', urgency: 'normal', evidence: '', performanceFinding: '' });
+      if (searchParams.get('repairSource') === 'performance') {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('repairSource'); params.delete('siteId'); params.delete('siteUrl'); params.delete('finding');
+        router.replace(`${pathname}${params.toString() ? `?${params.toString()}` : ''}`);
+      }
       setNotice('Repair request received. We’ll review it and update this conversation.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your request.'); }
     finally { setSaving(false); }
@@ -107,7 +129,7 @@ export default function RepairWorkspace({ projects }: { projects: ClientProject[
     {showForm && <form onSubmit={submit} className="grid gap-4 border border-white/10 bg-white/[.025] p-4 sm:p-6 lg:grid-cols-2">
       <div className="lg:col-span-2"><h2 className="text-lg font-semibold">Tell us what needs fixing</h2><p className="mt-1 text-sm text-white/48">Never put passwords or private access keys in this form. We’ll arrange secure access only if diagnosis shows it is needed.</p></div>
       <label className="text-xs font-medium text-white/65">Website ownership<select className={field} value={form.hostType} onChange={event => setForm({ ...form, hostType: event.target.value, siteId: '' })}><option value="sitemendr">Site managed by Sitemendr</option><option value="external">Externally hosted site</option></select></label>
-      {form.hostType === 'sitemendr' ? <label className="text-xs font-medium text-white/65">Site<select className={field} required value={form.siteId} onChange={event => setForm({ ...form, siteId: event.target.value })}><option value="">Choose a managed site</option>{managedSites.map(site => <option key={site.id} value={site.subscriptionId || site.id}>{site.name}</option>)}</select></label> : <label className="text-xs font-medium text-white/65">Public website URL<input className={field} type="url" required placeholder="https://example.com" value={form.siteUrl} onChange={event => setForm({ ...form, siteUrl: event.target.value })} /></label>}
+      {form.hostType === 'sitemendr' ? <label className="text-xs font-medium text-white/65">Site<select className={field} required value={form.siteId} onChange={event => setForm({ ...form, siteId: event.target.value })}><option value="">Choose a managed site</option>{managedSites.map(site => <option key={site.id} value={site.subscriptionId || site.id}>{site.name}</option>)}</select>{managedSites.length === 0 && <span className="mt-2 block leading-5 text-white/40">Sitemendr site repairs unlock after handoff acceptance and payment closeout. Active builds stay in Build Journey.</span>}</label> : <label className="text-xs font-medium text-white/65">Public website URL<input className={field} type="url" required placeholder="https://example.com" value={form.siteUrl} onChange={event => setForm({ ...form, siteUrl: event.target.value })} /></label>}
       <label className="text-xs font-medium text-white/65">Issue title<input className={field} maxLength={180} required value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} placeholder="Checkout button stops responding" /></label>
       <label className="text-xs font-medium text-white/65">Requested urgency<select className={field} value={form.urgency} onChange={event => setForm({ ...form, urgency: event.target.value })}><option value="normal">Normal</option><option value="urgent">Urgent — team will confirm timing</option></select></label>
       <label className="text-xs font-medium text-white/65 lg:col-span-2">What is happening?<textarea className={`${field} min-h-24`} required maxLength={5000} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label>
@@ -119,7 +141,7 @@ export default function RepairWorkspace({ projects }: { projects: ClientProject[
     {loading ? <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-white/50"><LoaderCircle className="h-5 w-5 animate-spin" /> Loading your repair requests</div> : !items.length ? <div className="grid min-h-56 place-items-center border border-dashed border-white/12 p-6 text-center"><div><Wrench className="mx-auto h-6 w-6 text-sky-300"/><h2 className="mt-3 font-semibold">No repair requests yet</h2><p className="mt-1 text-sm text-white/48">When you report a problem, its updates and decisions will appear here.</p></div></div> : <div className="grid gap-4 lg:grid-cols-[minmax(250px,.75fr)_minmax(0,1.5fr)]">
       <nav className="space-y-2" aria-label="Repair requests">{items.map(item => <button key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full border p-4 text-left transition ${selected?.id === item.id ? 'border-sky-300/35 bg-sky-300/[.06]' : 'border-white/10 bg-white/[.02] hover:bg-white/[.05]'}`}><span className="block truncate text-sm font-semibold">{item.title}</span><span className="mt-2 block text-xs text-white/45">{statusLabel[item.status] || item.status.replaceAll('_', ' ')}</span><span className="mt-3 block text-[11px] text-white/30">Updated {new Date(item.updatedAt || item.createdAt).toLocaleDateString()}</span></button>)}</nav>
       {selected && <article className="min-w-0 space-y-5 border border-white/10 bg-white/[.02] p-4 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-white/40">Repair request</p><h2 className="mt-1 text-xl font-semibold">{selected.title}</h2><p className="mt-2 text-sm text-white/50">{selected.repairContext?.hostType === 'external' ? selected.repairContext?.siteUrl : selected.subscription?.customName || selected.subscription?.siteName || selected.subscription?.domain || 'Sitemendr managed site'} · {selected.priority === 'urgent' ? 'Urgency requested' : 'Normal priority'}</p></div><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-2 border border-sky-300/20 px-3 py-2 text-xs font-medium text-sky-100"><Clock3 className="h-3.5 w-3.5" />{statusLabel[selected.status] || selected.status}</span>{!['cancel_requested', 'cancelled', 'declined', 'completed'].includes(selected.status) && <button disabled={saving} onClick={() => void requestCancellation()} className="min-h-9 border border-rose-300/20 px-3 text-xs font-medium text-rose-200 disabled:opacity-40">Request cancellation</button>}</div></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-white/40">Repair request</p><h2 className="mt-1 text-xl font-semibold">{selected.title}</h2><p className="mt-2 text-sm text-white/50">{selected.repairContext?.hostType === 'external' ? selected.repairContext?.siteUrl : selected.subscription?.customName || selected.subscription?.siteName || selected.subscription?.domain || 'Sitemendr managed site'} · {selected.priority === 'urgent' ? 'Urgency requested' : 'Normal priority'}</p>{selected.repairContext?.performanceSource?.finding && <p className="mt-2 text-xs leading-5 text-sky-200/75">Performance finding: {selected.repairContext.performanceSource.finding}</p>}</div><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-2 border border-sky-300/20 px-3 py-2 text-xs font-medium text-sky-100"><Clock3 className="h-3.5 w-3.5" />{statusLabel[selected.status] || selected.status}</span>{!['cancel_requested', 'cancelled', 'declined', 'completed'].includes(selected.status) && <button disabled={saving} onClick={() => void requestCancellation()} className="min-h-9 border border-rose-300/20 px-3 text-xs font-medium text-rose-200 disabled:opacity-40">Request cancellation</button>}</div></div>
         {selected.status === 'awaiting_diagnosis_payment' && <div className="flex gap-3 border border-amber-300/20 bg-amber-300/[.05] p-4 text-sm"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200"/><div><p className="font-semibold text-amber-100">External site diagnosis needs approval</p><p className="mt-1 text-white/55">Investigation begins after the diagnosis invoice is paid. This is separate from approving the repair work.</p></div></div>}
         {(() => { const event = selected.conversationMessages?.slice().reverse().find(message => message.eventData?.type === 'repair_cancel_confirmed'); const settlement = event?.eventData?.settlement; return settlement ? <div className="space-y-2 border border-amber-300/20 bg-amber-300/[.04] p-4"><h3 className="text-sm font-semibold text-amber-100">Cancellation settlement</h3><p className="text-xs leading-5 text-white/60">{settlement.rule}</p><p className="text-sm text-white/75">Diagnosis {settlement.currency} {settlement.diagnosisCharge} · Completed work {settlement.currency} {settlement.completedWorkCharge}</p>{settlement.chargeReason && <p className="text-xs text-white/48">Work record: {settlement.chargeReason}</p>}<p className="text-sm font-semibold text-white">Charged {settlement.currency} {settlement.chargeTotal} · Paid {settlement.currency} {settlement.paidTotal}</p>{Number(settlement.refundDue) > 0 && <p className="text-sm font-semibold text-emerald-200">Refund remaining {settlement.currency} {Math.max(Number(settlement.refundDue) - Number(settlement.refundedTotal || 0), 0)} · {settlement.refundStatus}</p>}{settlement.lastRefundReference && <p className="break-all text-xs text-white/45">Paystack refund reference: {settlement.lastRefundReference}</p>}{Number(settlement.balanceDue) > 0 && <p className="text-sm font-semibold text-amber-200">Balance due {settlement.currency} {settlement.balanceDue}</p>}</div> : null; })()}
         {selected.status === 'proposal_ready' && (() => { const quote = selected.quoteVersions?.find(item => item.status === 'sent') || selected.quoteVersions?.[0]; const snap = quote?.snapshot || {}; const changeOrder = selected.repairContext?.proposalKind === 'change_order'; return <div className="space-y-3 border border-sky-300/20 bg-sky-300/[.04] p-4"><h3 className="font-semibold">{changeOrder ? 'Review a change to the approved scope' : 'Review proposed work'}</h3>{changeOrder && <p className="text-xs leading-5 text-white/50">Current work is paused while this extra scope and its price are reviewed. Declining it keeps the original approved repair in progress.</p>}<p className="whitespace-pre-wrap text-sm leading-6 text-white/70">{snap.scope}</p><p className="text-sm text-white/55">{snap.timeline} · {snap.paymentSchedule === 'deposit_balance' ? `Deposit ${snap.currency} ${snap.depositAmount} of ${snap.totalAgreedAmount}` : `Payment ${snap.currency} ${snap.totalAgreedAmount}`}</p><p className="text-xs leading-5 text-white/42">{snap.cancellationTerms}</p><label className="flex items-start gap-2 text-xs text-white/60"><input type="checkbox" id={`repair-terms-${selected.id}`} className="mt-0.5 accent-sky-300"/><span>I agree to the scope, timeline, payment schedule, and cancellation/refund terms above.</span></label><div className="flex flex-wrap gap-2"><button disabled={saving} onClick={() => { const checkbox = document.getElementById(`repair-terms-${selected.id}`) as HTMLInputElement; if (!checkbox?.checked) { setError('Accept the proposal terms before continuing.'); return; } void respondProposal('accept'); }} className="min-h-10 bg-sky-300 px-4 text-sm font-semibold text-slate-950 disabled:opacity-50">Accept proposal</button><button disabled={saving} onClick={() => void respondProposal('decline')} className="min-h-10 border border-white/15 px-4 text-sm text-white/70">Decline</button></div></div>; })()}

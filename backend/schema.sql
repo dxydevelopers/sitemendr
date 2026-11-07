@@ -28,6 +28,12 @@ CREATE TABLE "User" (
     "passwordResetExpires" TIMESTAMP(3),
     "banned" BOOLEAN NOT NULL DEFAULT false,
     "lastLogin" TIMESTAMP(3),
+    "entityName" TEXT,
+    "entityContactEmail" TEXT,
+    "entityPhone" TEXT,
+    "googleId" TEXT,
+    "githubId" TEXT,
+    "appleId" TEXT,
     "subdomainsClaimed" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -370,37 +376,11 @@ CREATE TABLE "OrderItem" (
     CONSTRAINT "OrderItem_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Service" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT NOT NULL,
-    "duration" INTEGER NOT NULL,
-    "price" DOUBLE PRECISION NOT NULL,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Service_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Booking" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "serviceId" TEXT NOT NULL,
-    "startTime" TIMESTAMP(3) NOT NULL,
-    "endTime" TIMESTAMP(3) NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'confirmed',
-    "notes" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Booking_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
+CREATE UNIQUE INDEX "User_githubId_key" ON "User"("githubId");
+CREATE UNIQUE INDEX "User_appleId_key" ON "User"("appleId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Assessment_sessionId_key" ON "Assessment"("sessionId");
@@ -482,12 +462,6 @@ ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("or
 
 -- AddForeignKey
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "Service"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 
 

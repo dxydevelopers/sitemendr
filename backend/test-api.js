@@ -166,7 +166,6 @@ const runTests = async () => {
   await testAuthEndpoint('GET', '/api/admin/system/health', authToken, null, 'Get System Health');
   await testAuthEndpoint('GET', '/api/admin/settings/enforcement', authToken, null, 'Get Enforcement Settings');
   await testAuthEndpoint('GET', '/api/admin/comments', authToken, null, 'Get All Comments');
-  await testAuthEndpoint('GET', '/api/admin/bookings', authToken, null, 'Get Admin Bookings');
   await testAuthEndpoint('GET', '/api/admin/blog', authToken, null, 'Get Admin Blog Posts');
 
   // 5. CLIENT DASHBOARD (Admin can also access)

@@ -51,7 +51,7 @@ export default function CustomSelect({ value, options, onChange, disabled, place
   </button>
 
   {isOpen && (
-  <div className="absolute z-50 mt-1 w-full min-w-[160px] bg-[0A0C10] border border-white/10 shadow-xl">
+  <div className="absolute z-50 mt-1 w-full min-w-[160px] bg-[#0A0C10] border border-white/10 shadow-xl">
   {options.map((option) => (
   <button
   key={option.value}

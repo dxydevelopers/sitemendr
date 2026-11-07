@@ -33,7 +33,6 @@ const ClientConversationManager = dynamic(() => import('./ClientConversationMana
 const LiveSupportManager = dynamic(() => import('../dashboard/LiveSupportManager'), { ssr: false });
 const MilestoneManager = dynamic(() => import('../dashboard/MilestoneManager'), { ssr: false });
 const CommentManager = dynamic(() => import('../dashboard/CommentManager'), { ssr: false });
-const BookingManager = dynamic(() => import('../dashboard/BookingManager'), { ssr: false });
 
 export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardProps) {
   const dashboard = useAdminDashboard(initialTab);
@@ -68,7 +67,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   };
 
   return (
-  <div className="flex h-screen bg-[0A0C10] text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
+  <div className="flex h-screen bg-[#0A0C10] text-white selection:bg-ai-blue/30 overflow-hidden font-sans relative">
   {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
   {mobileRailGroup && <button type="button" className="fixed inset-0 z-[70] bg-transparent lg:hidden" aria-label="Close mobile navigation" onClick={() => setMobileRailGroup(null)} />}
 
@@ -101,7 +100,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   })}
   </nav>
 
-  <aside className={`fixed inset-y-0 left-0 w-80 bg-[0A0C10]/96 backdrop-blur-2xl lg:bg-[0A0C10] border-r border-white/10 flex flex-col z-[110] lg:z-20 transform transition-[width,transform] duration-300 lg:relative lg:translate-x-0 ${isSidebarExpanded ? 'lg:w-80' : 'lg:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+  <aside className={`fixed inset-y-0 left-0 w-80 bg-[#0A0C10]/96 backdrop-blur-2xl lg:bg-[#0A0C10] border-r border-white/10 flex flex-col z-[110] lg:z-20 transform transition-[width,transform] duration-300 lg:relative lg:translate-x-0 ${isSidebarExpanded ? 'lg:w-80' : 'lg:w-20'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
   <div className={`border-b border-white/10 px-3 py-4 ${isSidebarExpanded ? '' : 'lg:px-3'}`}>
   <div className={`flex items-center gap-3 ${isSidebarExpanded ? 'justify-between' : 'lg:justify-center'}`}>
   <button type="button" onClick={() => openAdminTab('dashboard')} className={`group flex min-w-0 items-center gap-3 px-2 py-2 text-left transition hover:bg-white/[0.04] ${isSidebarExpanded ? 'flex-1' : 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}>
@@ -155,7 +154,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
 
   <div className={`relative z-10 flex flex-1 flex-col overflow-hidden transition-[padding] duration-200 lg:pl-0 ${mobileRailGroup ? 'pl-64' : 'pl-10'}`}>
   {activeTab !== 'project-requests' && activeTab !== 'system' && (
-  <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[0A0C10]/95 px-4 py-3 lg:px-6">
+  <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#0A0C10]/95 px-4 py-3 lg:px-6">
   <div className="flex min-w-0 items-center gap-3">
   {activeTab !== 'dashboard' && (
   <div className="min-w-0">
@@ -221,7 +220,6 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   )}
 
   {activeTab === 'milestones' && <div className="animate-fade-in"><MilestoneManager /></div>}
-  {activeTab === 'bookings' && <div className="animate-fade-in"><BookingManager isAdmin={true} /></div>}
   {activeTab === 'messages' && <div className="animate-fade-in"><ClientConversationManager /></div>}
   {activeTab === 'tickets' && <div className="animate-fade-in"><SupportManager /></div>}
   {activeTab === 'live-support' && <div className="animate-fade-in"><LiveSupportManager /></div>}

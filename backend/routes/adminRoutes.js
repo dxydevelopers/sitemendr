@@ -141,11 +141,6 @@ router.get('/comments', adminController.getComments);
 router.put('/comments/:id/status', adminController.updateCommentStatus);
 router.delete('/comments/:id', adminController.deleteComment);
 
-// Booking Management
-router.get('/bookings', adminController.getAdminBookings);
-router.put('/bookings/:id/status', adminController.updateBookingStatus);
-router.delete('/bookings/:id', adminController.deleteBooking);
-
 router.get('/transactions', adminController.getAllTransactions);
 
 module.exports = router;

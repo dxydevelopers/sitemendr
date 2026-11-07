@@ -62,6 +62,7 @@ interface PerformanceAuditProps {
   // Omit this prop entirely to hide the action (e.g. in the admin view) —
   // pass it to route to a support ticket pre-scoped to this project.
   onRequestOptimization?: () => void;
+  onRequestRepair?: (finding: string) => void;
 }
 
 interface PerformanceScanRecord {
@@ -129,7 +130,7 @@ interface PerformanceConversationItem {
   createdAt: string;
 }
 
-const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ subscriptionId, data, onRefresh, isRefreshing, errorMessage, disabledReason, actionsLocked = false, onRequestOptimization }) => {
+const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ subscriptionId, data, onRefresh, isRefreshing, errorMessage, disabledReason, actionsLocked = false, onRequestOptimization, onRequestRepair }) => {
   const [scans, setScans] = React.useState<PerformanceScanRecord[]>([]);
   const [requests, setRequests] = React.useState<PerformanceRequestRecord[]>([]);
   const [historyLoading, setHistoryLoading] = React.useState(false);
@@ -637,6 +638,7 @@ const PerformanceAudit: React.FC<PerformanceAuditProps> = ({ subscriptionId, dat
   <span className="text-[10px] font-semibold text-ai-blue">
   {rec.impact || 'Suggested improvement'}
   </span>
+  {onRequestRepair && !actionsLocked && <button type="button" onClick={() => onRequestRepair(rec.message)} className="mt-2 block min-h-9 border border-ai-blue/25 px-3 text-xs font-semibold text-ai-blue transition hover:bg-ai-blue/[.08]">Request repair</button>}
   </div>
   </div>
   ))}

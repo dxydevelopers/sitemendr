@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, FileText, Video, ExternalLink, Shield, Zap, Search as SearchIcon, ArrowRight } from 'lucide-react';
 
 interface ResourceItem {
@@ -9,6 +9,7 @@ interface ResourceItem {
   type: string;
   url?: string | null;
   description?: string;
+  content?: string | null;
   category?: string;
 }
 
@@ -20,6 +21,14 @@ interface ResourceLibraryProps {
 const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportRequest }) => {
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null);
+
+  useEffect(() => {
+    if (!selectedResource) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelectedResource(null); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedResource]);
 
   const filteredResources = resources.filter(res => {
   const type = res.type.toUpperCase();
@@ -92,9 +101,9 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   </div>
 
   <div className="flex items-center justify-between mt-auto pt-6 border-t border-white/5">
-  {(() => {
+  {resource.content?.trim() ? <button type="button" onClick={() => setSelectedResource(resource)} className="flex min-h-10 items-center gap-2 text-[10px] font-semibold text-ai-blue hover:text-white transition-colors">Read guide <ArrowRight className="w-3.5 h-3.5" /></button> : (() => {
     const href = getResourceHref(resource.url, resource.title);
-    return href ? <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} className="flex items-center gap-2 text-[10px] font-semibold text-ai-blue hover:text-white transition-colors">
+    return href ? <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} className="flex min-h-10 items-center gap-2 text-[10px] font-semibold text-ai-blue hover:text-white transition-colors">
       Open resource <ExternalLink className="w-3.5 h-3.5" />
     </a> : <span className="text-[10px] font-medium text-white/35">Content is being prepared</span>;
   })()}
@@ -137,13 +146,23 @@ const ResourceLibrary: React.FC<ResourceLibraryProps> = ({ resources, onSupportR
   </div>
   </div>
   </div>
+  {selectedResource && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedResource(null); }}>
+    <section role="dialog" aria-modal="true" aria-labelledby="resource-guide-title" className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d12] shadow-2xl sm:rounded-2xl">
+      <header className="flex items-start justify-between gap-4 border-b border-white/10 p-5 sm:p-7">
+        <div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-ai-blue">{selectedResource.type}</p><h2 id="resource-guide-title" className="mt-2 text-lg font-semibold text-white sm:text-xl">{selectedResource.title}</h2>{selectedResource.description && <p className="mt-2 text-sm leading-6 text-white/50">{selectedResource.description}</p>}</div>
+        <button type="button" onClick={() => setSelectedResource(null)} className="min-h-10 shrink-0 rounded-lg border border-white/10 px-3 text-xs font-semibold text-white/60 hover:bg-white/5" aria-label="Close guide">Close</button>
+      </header>
+      <div className="overflow-y-auto p-5 sm:p-7"><p className="whitespace-pre-wrap break-words text-sm leading-7 text-white/75">{selectedResource.content}</p></div>
+    </section>
+  </div>}
   </div>
   );
 };
 
 function getResourceHref(value?: string | null, title?: string) {
   if (!value) return null;
-  if (value.startsWith('/')) return value;
+  if (/[\\\u0000-\u001f\u007f]/.test(value)) return null;
+  if (value.startsWith('/')) return value.startsWith('//') ? null : value;
   try {
     const url = new URL(value);
     if (!['https:', 'http:'].includes(url.protocol)) return null;

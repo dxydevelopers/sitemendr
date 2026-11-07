@@ -15,6 +15,14 @@ model User {
   email                   String           @unique
   password                String
   phone                   String?
+  phoneVerified           Boolean          @default(false)
+  pendingPhone            String?
+  phoneVerificationCodeHash String?
+  phoneVerificationExpires DateTime?
+  phoneVerificationAttempts Int             @default(0)
+  pendingEmail            String?
+  emailChangeTokenHash     String?
+  emailChangeExpires       DateTime?
   role                    Role             @default(user)
   isEmailVerified         Boolean          @default(false)
   emailVerificationToken  String?
@@ -27,6 +35,17 @@ model User {
   defaultCurrency         String           @default("USD")
   accountType             String           @default("individual")
   billingRegion           String?
+  billingAddressLine1     String?
+  billingAddressLine2     String?
+  billingCity             String?
+  billingPostalCode       String?
+  billingCountry          String?
+  entityName              String?
+  entityContactEmail      String?
+  entityPhone             String?
+  googleId                String?          @unique
+  githubId                String?          @unique
+  appleId                 String?          @unique
   subdomainsClaimed       Int              @default(0)
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
@@ -45,7 +64,6 @@ model User {
   supportMessages         SupportMessage[]
   media                   Media[]
   orders                  Order[]
-  bookings                Booking[]
   assessments             Assessment[]
   projectRequests         ProjectRequest[]
 
@@ -331,9 +349,7 @@ model Subscription {
   milestones      Milestone[]
   template        Template?
   products        Product[]
-  services        Service[]
   orders          Order[]
-  bookings        Booking[]
   supportTickets  SupportTicket[]
   pages          Page[]
   themeSettings  ThemeSettings?
@@ -871,36 +887,6 @@ model OrderItem {
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
-}
-
-model Service {
-  id             String       @id @default(uuid())
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-  name           String
-  description    String
-  duration       Int
-  price          Float
-  isActive       Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  bookings       Booking[]
-}
-
-model Booking {
-  id             String       @id @default(uuid())
-  userId         String
-  user           User         @relation(fields: [userId], references: [id])
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-  serviceId      String
-  service        Service      @relation(fields: [serviceId], references: [id])
-  startTime      DateTime
-  endTime        DateTime
-  status         String       @default("confirmed")
-  notes          String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
 }
 
 // =============================================================================

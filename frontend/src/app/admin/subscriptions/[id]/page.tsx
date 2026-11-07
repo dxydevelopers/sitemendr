@@ -50,7 +50,7 @@ export default function AdminSubscriptionDetailPage() {
   }, [loadSubscription]);
 
   return (
-  <main className="min-h-screen bg-[0A0C10] px-4 py-6 text-white sm:px-6 lg:px-8">
+  <main className="min-h-screen bg-[#0A0C10] px-4 py-6 text-white sm:px-6 lg:px-8">
   <div className="relative mx-auto flex max-w-6xl flex-col gap-7 overflow-hidden">
   <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(255,184,0,0.12),transparent_70%)]" />
   <button
@@ -90,7 +90,7 @@ export default function AdminSubscriptionDetailPage() {
   { label: 'Tier', value: subscription?.tier || 'Unknown' },
   { label: 'Plan', value: subscription?.planType || 'Unknown' },
   ].map(item => (
-  <div key={item.label} className="bg-[0A0C10] px-5 py-5">
+  <div key={item.label} className="bg-[#0A0C10] px-5 py-5">
   <p className="text-[10px] font-semibold text-white/30">{item.label}</p>
   <p className="mt-3 text-[15px] font-semibold text-white">{item.value}</p>
   </div>
@@ -121,7 +121,7 @@ export default function AdminSubscriptionDetailPage() {
   <button
   type="button"
   key={item}
-  className={`group flex min-h-20 flex-col justify-between bg-[0A0C10] px-4 py-4 text-left transition hover:bg-white/[0.03] ${
+  className={`group flex min-h-20 flex-col justify-between bg-[#0A0C10] px-4 py-4 text-left transition hover:bg-white/[0.03] ${
   item === 'Review payment state' ? 'ring-1 ring-inset ring-amber-300/20' : ''
   }`}
   >

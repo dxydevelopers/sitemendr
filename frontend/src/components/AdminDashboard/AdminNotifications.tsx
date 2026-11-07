@@ -623,7 +623,7 @@ export default function AdminNotifications() {
   {/* Delete confirmation modal */}
   {deleteTarget && (
   <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-  <div className="w-full max-w-md border border-white/10 bg-[0A0C10] p-6 space-y-5">
+  <div className="w-full max-w-md border border-white/10 bg-[#0A0C10] p-6 space-y-5">
   <div className="flex items-center gap-3">
   <span className="text-red-400"><AlertTriangle className="h-4 w-4" /></span>
   <span className="text-[11px] font-semibold text-white">Delete Notification</span>

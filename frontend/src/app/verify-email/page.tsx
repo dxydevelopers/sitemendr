@@ -25,6 +25,11 @@ function VerifyEmailContent() {
         const data = await apiClient.verifyEmail(token);
 
         if (data.success) {
+          if (data.token && data.user) {
+            localStorage.setItem('sitemendr_auth_token', data.token);
+            localStorage.setItem('sitemendr_client_user', JSON.stringify(data.user));
+            localStorage.setItem('user', JSON.stringify(data.user));
+          }
           setStatus('success');
           setMessage(data.message || 'Email verified.');
           window.setTimeout(() => router.push('/dashboard'), 2500);

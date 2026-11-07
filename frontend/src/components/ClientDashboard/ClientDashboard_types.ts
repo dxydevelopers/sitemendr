@@ -150,6 +150,15 @@ export interface UserData {
   defaultCurrency?: string;
   accountType?: string;
   billingRegion?: string;
+  entityName?: string;
+  entityContactEmail?: string;
+  entityPhone?: string;
+  pendingEmail?: string;
+  billingAddressLine1?: string;
+  billingAddressLine2?: string;
+  billingCity?: string;
+  billingPostalCode?: string;
+  billingCountry?: string;
 }
 
 export interface BillingItem {
@@ -241,6 +250,7 @@ export interface ResourceItem {
   type: string;
   url?: string | null;
   description?: string;
+  content?: string | null;
 }
 
 export interface CustomDomain {
@@ -269,12 +279,6 @@ export type ClientAssessment = ApiRecord & {
   source?: string;
   responses: Record<string, unknown>;
 };
-
-export interface BookingItem {
-  id?: string;
-  status?: string;
-  createdAt?: string;
-}
 
 export interface AnalysisResult {
   insights: string;

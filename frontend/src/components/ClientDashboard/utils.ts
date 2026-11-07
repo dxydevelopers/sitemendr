@@ -10,6 +10,7 @@ export const normalizeDashboardTab = (tab?: string | null) => {
   const groupOnlyTabs: Record<string, string> = {
     workspaces: 'dashboard',
     account: 'settings',
+    booking: 'dashboard',
   };
 
   return tab ? groupOnlyTabs[tab] || tab : 'dashboard';

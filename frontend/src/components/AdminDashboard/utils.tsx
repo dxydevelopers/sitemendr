@@ -3,7 +3,7 @@
 // Pure helpers + static constants - no state, safe to import anywhere.
 
 import {
-  Layout, FileText, Eye, Activity, Clock, Users, BarChart3, CreditCard,
+  Layout, FileText, Eye, Activity, Users, BarChart3, CreditCard,
   Settings, MessageSquare, Folder, PenLine, Briefcase, PackagePlus, Wrench, BookOpen,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -92,7 +92,6 @@ export const adminTabs: AdminTab[] = [
   { id: 'review', name: 'Reviews & Approvals', shortName: 'Approvals', icon: <Eye className="w-4 h-4" /> },
   { id: 'milestones', name: 'Milestones', icon: <Activity className="w-4 h-4" /> },
   { id: 'health', name: 'Repair & Care', shortName: 'Care', icon: <Activity className="w-4 h-4" /> },
-  { id: 'bookings', name: 'Grow / Bookings', shortName: 'Bookings', icon: <Clock className="w-4 h-4" /> },
   { id: 'users', name: 'Client Records', shortName: 'Clients', icon: <Users className="w-4 h-4" /> },
   { id: 'leads', name: 'Leads', icon: <Folder className="w-4 h-4" /> },
   { id: 'assessments', name: 'Assessments', icon: <Activity className="w-4 h-4" /> },
@@ -113,7 +112,7 @@ export const adminTabs: AdminTab[] = [
 
 export const adminTabGroups: AdminTabGroup[] = [
   { id: 'overview', label: 'Overview', accent: 'text-ai-blue', icon: <BarChart3 className="w-4 h-4" />, tabs: ['dashboard'] },
-  { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'performance-requests', 'repair-requests', 'review', 'milestones', 'health', 'bookings'] },
+  { id: 'work', label: 'Work', accent: 'text-ai-blue', icon: <Layout className="w-4 h-4" />, tabs: ['project-requests', 'performance-requests', 'repair-requests', 'review', 'milestones', 'health'] },
   { id: 'clients', label: 'Clients', accent: 'text-expert-green', icon: <Users className="w-4 h-4" />, tabs: ['users', 'leads', 'assessments'] },
   { id: 'communication', label: 'Communication', accent: 'text-tech-purple', icon: <MessageSquare className="w-4 h-4" />, tabs: ['messages', 'tickets', 'live-support', 'comments', 'resources'] },
   { id: 'business', label: 'Business', accent: 'text-amber-300', icon: <CreditCard className="w-4 h-4" />, tabs: ['subscriptions', 'addon-fulfillment', 'transactions', 'analytics'] },

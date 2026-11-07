@@ -14,9 +14,21 @@ export interface User {
   defaultCurrency?: string;
   accountType?: string;
   billingRegion?: string;
+  entityName?: string;
+  entityContactEmail?: string;
+  entityPhone?: string;
+  pendingEmail?: string;
+  billingAddressLine1?: string;
+  billingAddressLine2?: string;
+  billingCity?: string;
+  billingPostalCode?: string;
+  billingCountry?: string;
   lastLogin?: string;
   createdAt?: string;
 }
+
+export type OAuthProvider = 'google' | 'github' | 'apple';
+export type OAuthProviderStatus = Partial<Record<OAuthProvider, { available: boolean; callbackUrl: string }>>;
 
 export interface RepairRequestRecord {
   id: string; title: string; status: string; priority?: string; summary?: string; createdAt: string; updatedAt?: string;
@@ -182,7 +194,9 @@ export interface ResourceItem {
   id: string;
   title: string;
   type: string;
-  url: string;
+  url?: string | null;
+  description?: string;
+  content?: string | null;
 }
 
 export interface CustomDomain {
@@ -411,7 +425,7 @@ class ApiClient {
   // Auth API methods
   async login(credentials: Record<string, unknown>) {
     this.cache = {}; // Clear cache on login
-    const data = await this.request<{ success: boolean; token: string; user: User; message?: string }>('/auth/login', {
+    const data = await this.request<{ success: boolean; token?: string; user?: User; message?: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -432,6 +446,24 @@ class ApiClient {
     return data;
   }
 
+  async getOAuthProviders() {
+    return this.request<{ success: boolean; providers: OAuthProviderStatus }>('/auth/oauth/providers');
+  }
+
+  beginOAuth(provider: OAuthProvider, flow: 'login' | 'register' = 'login') {
+    if (typeof window === 'undefined') return;
+    const nonceBytes = new Uint8Array(32);
+    window.crypto.getRandomValues(nonceBytes);
+    const browserNonce = btoa(String.fromCharCode(...nonceBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    this.cache = {};
+    localStorage.removeItem('sitemendr_auth_token');
+    localStorage.removeItem('sitemendr_admin_user');
+    localStorage.removeItem('sitemendr_client_user');
+    localStorage.removeItem('user');
+    sessionStorage.setItem('sitemendr_oauth_browser_nonce', browserNonce);
+    window.location.assign(`${this.baseURL}/api/auth/oauth/${provider}?flow=${flow}&browser_nonce=${browserNonce}`);
+  }
+
   async logout() {
     this.cache = {}; // Clear cache on logout
     if (typeof window !== 'undefined') {
@@ -444,6 +476,7 @@ class ApiClient {
   }
 
   async getProfile() {
+    this.cache = {};
     if (typeof window !== 'undefined') {
       const authToken = localStorage.getItem('sitemendr_auth_token');
       if (!authToken) {
@@ -454,7 +487,7 @@ class ApiClient {
   }
 
   async register(userData: Record<string, unknown>) {
-    return this.request<{ success: boolean; message: string; token?: string; user?: User }>('/auth/register', {
+    return this.request<{ success: boolean; message: string; verificationEmailSent?: boolean; user?: User }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -476,21 +509,64 @@ class ApiClient {
 
   async updateProfile(profileData: Record<string, unknown>) {
     this.cache = {}; // Clear cache on update
-    return this.request<{ success: boolean; user: User }>('/auth/profile', {
+    return this.request<{ success: boolean; user?: User; message?: string }>('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
   }
 
   async changePassword(passwordData: Record<string, unknown>) {
-    return this.request<{ success: boolean }>('/auth/change-password', {
+    return this.request<{ success: boolean; message?: string }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(passwordData),
     });
   }
 
+  async requestEmailChange(email: string, password: string) {
+    this.cache = {};
+    return this.request<{ success: boolean; message: string; pendingEmail?: string }>('/auth/request-email-change', {
+      method: 'POST', body: JSON.stringify({ email, password }),
+    });
+  }
+
+  async cancelEmailChange() {
+    this.cache = {};
+    return this.request<{ success: boolean; message: string }>('/auth/cancel-email-change', { method: 'POST' });
+  }
+
+  async getVerificationMethods() {
+    return this.request<{ success: boolean; email: boolean; sms: boolean; whatsapp: boolean }>('/auth/verification-methods');
+  }
+
+  async sendPhoneVerificationCode(phone: string, channel: 'sms' | 'whatsapp') {
+    return this.request<{ success: boolean; message: string; whatsappLink?: string; whatsappWebLink?: string }>('/auth/send-phone-otp', {
+      method: 'POST', body: JSON.stringify({ phone, channel }),
+    });
+  }
+
+  async getPhoneVerificationStatus() {
+    return this.request<{ success: boolean; verified: boolean; phone?: string | null; pending: boolean; expiresAt?: string | null }>('/auth/phone-verification-status');
+  }
+
+  async cancelPhoneVerification() {
+    return this.request<{ success: boolean; message: string }>('/auth/cancel-phone-verification', { method: 'POST' });
+  }
+
+  async verifyPhoneCode(otp: string) {
+    this.cache = {};
+    return this.request<{ success: boolean; message: string; phone?: string; phoneVerified?: boolean }>('/auth/verify-phone-otp', {
+      method: 'POST', body: JSON.stringify({ otp }),
+    });
+  }
+
+  async confirmEmailChange(token: string) {
+    return this.request<{ success: boolean; message: string; email?: string }>('/auth/confirm-email-change', {
+      method: 'POST', body: JSON.stringify({ token }),
+    });
+  }
+
   async verifyEmail(token: string) {
-    return this.request<{ success: boolean; message: string }>(`/auth/verify-email/${token}`);
+    return this.request<{ success: boolean; message: string; token?: string; user?: User }>(`/auth/verify-email/${token}`);
   }
 
   async checkUserExistence(email: string) {
@@ -500,9 +576,10 @@ class ApiClient {
     });
   }
 
-  async resendVerification() {
+  async resendVerification(email: string) {
     return this.request<{ success: boolean; message: string }>('/auth/resend-verification', {
       method: 'POST',
+      body: JSON.stringify({ email }),
     });
   }
 
@@ -1092,44 +1169,6 @@ class ApiClient {
     });
   }
 
-  // Booking API methods
-  async getAllServices(subscriptionId?: string) {
-    const query = subscriptionId ? `?subscriptionId=${subscriptionId}` : '';
-    return this.request<unknown[]>(`/booking/services${query}`);
-  }
-
-  async createBooking(bookingData: { serviceId: string; startTime: string; notes?: string; subscriptionId?: string }) {
-    return this.request('/booking/bookings', {
-      method: 'POST',
-      body: JSON.stringify(bookingData),
-    });
-  }
-
-  async getUserBookings(subscriptionId?: string) {
-    const query = subscriptionId ? `?subscriptionId=${subscriptionId}` : '';
-    return this.request(`/booking/my-bookings${query}`);
-  }
-
-  async createService(serviceData: Record<string, unknown>) {
-    return this.request('/booking/services', {
-      method: 'POST',
-      body: JSON.stringify(serviceData),
-    });
-  }
-
-  async updateService(id: string, serviceData: Record<string, unknown>) {
-    return this.request(`/booking/services/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(serviceData),
-    });
-  }
-
-  async deleteService(id: string) {
-    return this.request(`/booking/services/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
   // Analytics API methods
   async getAnalyticsDashboard(period: string = '30d') {
     return this.request(`/analytics/dashboard?period=${period}`);
@@ -1328,17 +1367,17 @@ class ApiClient {
   }
 
   async getAdminResources() {
-    return this.request<{ success: boolean; data: Array<{ id: string; title: string; description: string; type: string; url?: string | null }>; message?: string }>('/admin/resources');
+    return this.request<{ success: boolean; data: Array<{ id: string; title: string; description: string; content?: string | null; type: string; url?: string | null; isPublished: boolean }>; message?: string }>('/admin/resources');
   }
 
-  async createAdminResource(data: { title: string; description: string; type: string; url: string }) {
-    return this.request<{ success: boolean; data: { id: string; title: string; description: string; type: string; url?: string | null }; message?: string }>('/admin/resources', {
+  async createAdminResource(data: { title: string; description: string; content: string; type: string; url: string; isPublished: boolean }) {
+    return this.request<{ success: boolean; data: { id: string; title: string; description: string; content?: string | null; type: string; url?: string | null; isPublished: boolean }; message?: string }>('/admin/resources', {
       method: 'POST', body: JSON.stringify(data),
     });
   }
 
-  async updateAdminResource(id: string, data: { title: string; description: string; type: string; url: string }) {
-    return this.request<{ success: boolean; data: { id: string; title: string; description: string; type: string; url?: string | null }; message?: string }>(`/admin/resources/${id}`, {
+  async updateAdminResource(id: string, data: { title: string; description: string; content: string; type: string; url: string; isPublished: boolean }) {
+    return this.request<{ success: boolean; data: { id: string; title: string; description: string; content?: string | null; type: string; url?: string | null; isPublished: boolean }; message?: string }>(`/admin/resources/${id}`, {
       method: 'PUT', body: JSON.stringify(data),
     });
   }
@@ -1402,11 +1441,6 @@ class ApiClient {
     });
   }
 
-  // Admin Booking API
-  async getAdminBookings() {
-    return this.request<{ success: boolean; data: unknown[] }>('/admin/bookings');
-  }
-
   async getTransactions(params: { page?: number; limit?: number; status?: string; serviceType?: string; search?: string; startDate?: string; endDate?: string } = {}) {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -1414,19 +1448,6 @@ class ApiClient {
     });
     const qs = query.toString();
     return this.request<{ success: boolean; data: unknown[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(`/admin/transactions${qs ? `?${qs}` : ''}`);
-  }
-
-  async updateBookingStatus(id: string, status: string) {
-    return this.request<{ success: boolean }>(`/admin/bookings/${id}/status`, {
-      method: 'PUT',
-      body: JSON.stringify({ status }),
-    });
-  }
-
-  async deleteBooking(id: string) {
-    return this.request<{ success: boolean }>(`/admin/bookings/${id}`, {
-      method: 'DELETE',
-    });
   }
 
   async getAdminLeads() {

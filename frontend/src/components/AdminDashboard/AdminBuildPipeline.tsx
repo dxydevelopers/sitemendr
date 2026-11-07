@@ -157,7 +157,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <div className="space-y-5 animate-fade-in">
   <div className="grid gap-px overflow-hidden bg-white/10 md:grid-cols-2 xl:grid-cols-4">
   {buildOperatorCards.map(lane => (
-  <button key={lane.label} type="button" onClick={() => setBuildOperatorView(lane.id)} className="min-h-40 bg-[0A0C10] px-5 py-5 text-left transition hover:bg-white/[0.035]">
+  <button key={lane.label} type="button" onClick={() => setBuildOperatorView(lane.id)} className="min-h-40 bg-[#0A0C10] px-5 py-5 text-left transition hover:bg-white/[0.035]">
   <div className="flex items-start justify-between gap-5"><span className="text-3xl font-semibold text-white">{lane.requests.length}</span><ChevronRight className="h-4 w-4 text-white/24" /></div>
   <p className="mt-8 text-[10px] font-semibold text-white/52">{lane.label}</p>
   <p className="mt-2 text-xs leading-6 text-white/38">{lane.detail}</p>
@@ -668,7 +668,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   </section>
 
   <section className="grid gap-px bg-white/10 lg:grid-cols-3">
-  <div className="bg-[0A0C10] p-4">
+  <div className="bg-[#0A0C10] p-4">
   <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3 text-expert-green"><Eye className="h-4 w-4" /><p className="text-[9px] font-semibold ">Preview</p></div><span className={`text-[9px] font-semibold ${selectedPreviewIsReal ? 'text-expert-green' : selectedPreviewIsTest ? 'text-amber-300' : 'text-white/30'}`}>{selectedPreviewIsReal ? 'Public' : selectedPreviewIsTest ? 'Test' : 'Not connected'}</span></div>
   <div className="mt-4 border-y border-white/10 py-3">
   {selectedPreviewIsReal ? (
@@ -682,7 +682,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   )}
   <input defaultValue={selectedPreviewIsReal ? selectedPreviewUrl : ''} onBlur={(e) => handleCreatePreviewLink(selectedProjectRequest.id, e.target.value)} className="mt-3 w-full border-0 border-b border-white/10 bg-transparent px-0 py-3 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60" placeholder="Paste public staging URL" />
   </div>
-  <div className="bg-[0A0C10] p-4">
+  <div className="bg-[#0A0C10] p-4">
   <div className="flex items-center gap-3 text-ai-blue"><Layout className="h-4 w-4" /><p className="text-[9px] font-semibold ">Artifacts</p></div>
   <div className="mt-3 space-y-2">
   {selectedStudioArtifacts.filter(l => l.type !== 'preview').slice(0, 3).map(link => (
@@ -699,7 +699,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <button type="button" onClick={() => handleCreateStudioLink(selectedProjectRequest.id)} disabled={submitting || (!studioLinkDraft.label.trim() && !studioLinkDraft.url.trim())} className="pt-2 text-left text-[10px] font-semibold text-ai-blue transition hover:text-white disabled:opacity-40">Add artifact</button>
   </div>
   </div>
-  <div className="bg-[0A0C10] p-4">
+  <div className="bg-[#0A0C10] p-4">
   <div className="flex items-center gap-3 text-amber-300"><Package className="h-4 w-4" /><p className="text-[9px] font-semibold ">Needs</p></div>
   <div className="mt-3 space-y-2">
   {[...selectedStudioNeeds, ...selectedOpenStudioBlockers.map(b => b.title)].slice(0, 4).map(need => <p key={need} className="break-words border-b border-white/10 pb-2 text-sm font-semibold leading-6 text-white/76">{need}</p>)}
@@ -806,7 +806,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   </div>
 
   {reviewChatOpen && (
-  <div className="fixed inset-x-0 bottom-0 z-[90] flex h-[100dvh] flex-col border-t border-white/10 bg-[0A0C10] shadow-2xl sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[540px] sm:w-[410px] sm:border sm:shadow-black/50">
+  <div className="fixed inset-x-0 bottom-0 z-[90] flex h-[100dvh] flex-col border-t border-white/10 bg-[#0A0C10] shadow-2xl sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[540px] sm:w-[410px] sm:border sm:shadow-black/50">
   <div className="flex min-h-16 items-center justify-between gap-3 border-b border-white/10 bg-ai-blue px-4 text-white">
   <div><p className="text-sm font-semibold ">Review chat</p><p className="mt-0.5 text-[10px] font-semibold text-white/72">{reviewChatLoading ? 'Loading thread' : `${reviewChatMessages.length} message${reviewChatMessages.length === 1 ? '' : 's'}`}</p></div>
   <button type="button" onClick={() => setReviewChatOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold text-white/80 transition hover:bg-white/10 hover:text-white" aria-label="Close review chat"><X className="h-4 w-4" /></button>
@@ -814,7 +814,7 @@ export default function AdminBuildPipeline({ dashboard }: AdminBuildPipelineProp
   <div className="flex-1 space-y-4 overflow-y-auto bg-black/35 p-4">
   {reviewChatMessages.length ? <ProjectConversationEntries messages={reviewChatMessages} viewerRole="admin" onLifecycleDecision={decideLifecycleFromConversation} onRecordRefund={handleRecordCancellationRefund} /> : <div className="flex h-full items-center justify-center text-center"><p className="max-w-xs text-sm font-semibold leading-6 text-white/50">Start a direct review conversation with the client.</p></div>}
   </div>
-  <div className="border-t border-white/10 bg-[0A0C10] p-4">
+  <div className="border-t border-white/10 bg-[#0A0C10] p-4">
   <textarea value={reviewChatDraft} onChange={(e) => setReviewChatDraft(e.target.value)} rows={2} className="max-h-28 min-h-12 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60" placeholder="Write to the client about this review..." />
   <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
   <input value={reviewChatChoiceDraft} onChange={(e) => setReviewChatChoiceDraft(e.target.value)} className="w-full border-0 border-b border-white/10 bg-transparent px-0 py-2 text-xs font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/60" placeholder="Optional choices, comma separated" />

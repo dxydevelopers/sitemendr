@@ -30,7 +30,7 @@ export const countryOptions = countryCodes
 export const accountTypes = [
   { value: 'individual', label: 'Individual' },
   { value: 'business', label: 'Business' },
-  { value: 'organization', label: 'Organization' },
+  { value: 'organization', label: 'Organisation' },
   { value: 'agency', label: 'Agency' },
 ];
 

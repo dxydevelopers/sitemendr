@@ -27,7 +27,7 @@ export default function AdminOverview({ stats, loading, onOpenTab }: AdminOvervi
   { label: 'Billing', value: stats.revenue?.total ? `$${stats.revenue.total.toLocaleString()}` : '$0', detail: `${stats.subscriptions?.active || 0} active sites`, tab: 'subscriptions', icon: <CreditCard className="h-5 w-5" />, accent: 'text-amber-300' },
   { label: 'Support', value: stats.support?.openTickets ?? 0, detail: 'open tickets', tab: 'tickets', icon: <MessageSquare className="h-5 w-5" />, accent: 'text-tech-purple' },
   ].map(item => (
-  <button key={item.label} type="button" onClick={() => onOpenTab(item.tab)} className="group min-h-[168px] bg-[0A0C10] p-5 text-left transition hover:bg-white/[0.035]">
+  <button key={item.label} type="button" onClick={() => onOpenTab(item.tab)} className="group min-h-[168px] bg-[#0A0C10] p-5 text-left transition hover:bg-white/[0.035]">
   <div className="flex items-start justify-between gap-5">
   <span className={item.accent}>{item.icon}</span>
   <ChevronRight className="h-4 w-4 text-white/24 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
@@ -47,7 +47,7 @@ export default function AdminOverview({ stats, loading, onOpenTab }: AdminOvervi
   { label: 'Leads', value: stats.totalLeads },
   { label: 'Clients', value: stats.totalUsers },
   ].map(stat => (
-  <div key={stat.label} className="bg-[0A0C10] px-5 py-5">
+  <div key={stat.label} className="bg-[#0A0C10] px-5 py-5">
   <p className="text-[10px] font-semibold text-white/28">{stat.label}</p>
   <p className="mt-3 text-2xl font-semibold text-white">{stat.value}</p>
   </div>

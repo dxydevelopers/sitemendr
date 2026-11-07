@@ -103,7 +103,7 @@ app.use("/api", limiter);
 app.use(bodyParser.json({
   limit: '10mb',
   verify: (req, res, buf) => {
-    if (req.originalUrl.includes('/api/payments/webhook')) {
+    if (req.originalUrl.includes('/api/payments/webhook') || req.originalUrl.includes('/api/auth/whatsapp/webhook')) {
       req.rawBody = buf;
     }
   }
@@ -164,7 +164,6 @@ const monitoringRoutes = require("./routes/monitoringRoutes");
 const supportRoutes = require("./routes/supportRoutes");
 const mediaRoutes = require("./routes/mediaRoutes");
 const ecommerceRoutes = require("./routes/ecommerceRoutes");
-const bookingRoutes = require("./routes/bookingRoutes");
 const swaggerRoutes = require("./routes/swaggerRoutes");
 const pageEditorRoutes = require("./routes/pageEditorRoutes");
 const notificationRulesRoutes = require("./routes/notificationRulesRoutes");
@@ -187,7 +186,6 @@ app.use("/api/support", supportRoutes);
 app.use("/api/media", mediaRoutes);
 app.use("/api/editor", pageEditorRoutes);
 app.use("/api/ecommerce", ecommerceRoutes);
-app.use("/api/booking", bookingRoutes);
 app.use("/api-docs", swaggerRoutes);
 app.use("/api/admin/notification-rules", notificationRulesRoutes);
 app.use("/api/portfolio", portfolioRoutes);

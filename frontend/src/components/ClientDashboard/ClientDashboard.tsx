@@ -13,7 +13,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3, Rocket, MessageSquare, CreditCard, BookOpen, LifeBuoy, Terminal,
   Zap, Globe, ArrowLeft, FileText, ShoppingBag, LogOut, User,
-  Bell, Settings, Plus, Clock, Menu, X, PanelLeftClose, PanelLeftOpen, Wrench,
+  Bell, Settings, Plus, Menu, X, PanelLeftClose, PanelLeftOpen, Wrench,
 } from 'lucide-react';
 import { useClientDashboard } from './useClientDashboard';
 import { apiClient } from '@/lib/api';
@@ -37,7 +37,6 @@ const AddonMarketplace = dynamic(() => import('../dashboard/AddonMarketplace'), 
 const PageEditor = dynamic(() => import('../dashboard/PageEditor'), { ssr: false });
 const PerformanceAudit = dynamic(() => import('../dashboard/PerformanceAudit'), { ssr: false });
 const EcommerceManager = dynamic(() => import('../dashboard/EcommerceManager'), { ssr: false });
-const BookingManager = dynamic(() => import('../dashboard/BookingManager'), { ssr: false });
 const AssessmentQuestionnaire = dynamic(() => import('../AssessmentQuestionnaire'), { ssr: false });
 const AssessmentModal = dynamic(() => import('../AssessmentModal'), { ssr: false });
 
@@ -86,7 +85,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   const {
   activeTab, setActiveTab, isSidebarOpen, setIsSidebarOpen, isSidebarExpanded, setIsSidebarExpanded,
   openSidebarGroup, setOpenSidebarGroup, mobileRailGroup, setMobileRailGroup,
-  stats, projects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, bookings, domains,
+  stats, projects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, domains,
   loading, user, fetchError, fetchData, refreshSupportData, selectedProjectId, setSelectedProjectId,
   setActiveBuildChapter, isAnalyzing, analysisResult, analysisProjectId, analysisError, handleAnalyzeSite, exportingId,
   handleExportCodebase, showAssessmentModal, setShowAssessmentModal, selectedAssessment,
@@ -141,10 +140,9 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   ];
   const allNavItems = [...mainNav, ...manageNav, ...accountNav,
   { id: 'editor', label: 'Editor', icon: <Zap className="w-5 h-5" /> },
-  { id: 'audit', label: 'Performance', icon: <Zap className="w-5 h-5" /> },
+  { id: 'audit', label: 'Performance', icon: <BarChart3 className="w-5 h-5" /> },
   { id: 'domains', label: 'Domains', icon: <Globe className="w-5 h-5" /> },
   { id: 'ecommerce', label: 'Commerce', icon: <ShoppingBag className="w-5 h-5" /> },
-  { id: 'booking', label: 'Bookings', icon: <Clock className="w-5 h-5" /> },
   { id: 'addons', label: 'Add-ons', icon: <Plus className="w-5 h-5" /> },
   { id: 'messages', label: 'Messages', icon: <MessageSquare className="w-5 h-5" /> },
   { id: 'tickets', label: 'Tickets', icon: <LifeBuoy className="w-5 h-5" /> },
@@ -185,7 +183,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
   const navGroups: Record<string, string[]> = {
   'projects-hub': ['projects-hub', 'projects', 'domains', 'editor', 'audit'],
-  business: ['business', 'ecommerce', 'booking', 'addons'],
+  business: ['business', 'ecommerce', 'addons'],
   support: ['support', 'messages', 'tickets', 'resources'],
   'settings-hub': ['settings-hub', 'billing', 'settings'],
   };
@@ -195,7 +193,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   // gets no back button at all — only tabs one level below a list do.
   const drillParent: Record<string, string> = {
   projects: 'projects-hub', audit: 'projects-hub', editor: 'projects-hub', domains: 'projects-hub',
-  ecommerce: 'business', booking: 'business', addons: 'business',
+  ecommerce: 'business', addons: 'business',
   messages: 'support', tickets: 'support', resources: 'support',
   billing: 'settings-hub', settings: 'settings-hub',
   };
@@ -212,13 +210,32 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   else params.set('tab', tabId);
   router.push(`/dashboard${params.toString() ? `?${params.toString()}` : ''}`);
   };
+  const openRepairFromPerformance = (finding: string) => {
+  if (!scopedProject || scopedProject.canManageSite === false) return;
+  setSelectedProjectId(scopedProject.id);
+  setActiveTab('repair');
+  setOpenSidebarGroup(null);
+  setMobileRailGroup(null);
+  setIsSidebarOpen(false);
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete('view');
+  params.delete('id');
+  params.delete('site');
+  params.set('tab', 'repair');
+  params.set('repairSource', 'performance');
+  params.set('siteId', scopedProject.id);
+  if (scopedProject.siteUrl) params.set('siteUrl', scopedProject.siteUrl);
+  else params.delete('siteUrl');
+  params.set('finding', finding.slice(0, 1000));
+  router.push(`/dashboard?${params.toString()}`);
+  };
   const openBuildJourneyFromBilling = (projectRequestId: string) => {
   setSelectedProjectId(projectRequestId);
   setActiveBuildChapter(null);
   openTab('projects');
   };
 
-  const projectScopedTabs = ['editor', 'audit', 'ecommerce', 'booking', 'addons'];
+  const projectScopedTabs = ['editor', 'audit', 'ecommerce', 'addons'];
   const projectContexts = projects.filter(project => project.recordType === 'project');
   const selectedProject = selectedProjectId ? projects.find(project => project.id === selectedProjectId) : undefined;
   const scopedSubscriptionId = selectedProject?.recordType === 'project'
@@ -404,6 +421,13 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   </div>
   )}
 
+  {activeTab === 'dashboard' && user && user.isEmailVerified === false && (
+  <div role="status" className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-white/[0.025] px-4 py-3">
+  <p className="text-xs leading-5 text-white/58">Your email is not verified yet. You can keep using your workspace; verify it from My Account when convenient.</p>
+  <button type="button" onClick={() => openTab('settings')} className="min-h-9 shrink-0 border border-white/15 px-3 text-xs font-semibold text-white/75 transition hover:border-ai-blue/50 hover:text-white">Open My Account</button>
+  </div>
+  )}
+
   {activeTab === 'dashboard' && (
   <ClientOverview
   selectedProject={overviewProject}
@@ -423,7 +447,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   <DrillList
   items={[
   { id: 'projects', label: 'Build journey', meta: `${projects.length} project${projects.length === 1 ? '' : 's'}` },
-  { id: 'audit', label: 'Repair / Performance', meta: 'Audits & fixes' },
+  { id: 'audit', label: 'Performance', meta: 'Site health and recommendations' },
   { id: 'editor', label: 'Editor', meta: 'Edit page content' },
   { id: 'domains', label: 'Domains', meta: `${domains.length} connected` },
   ]}
@@ -432,7 +456,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   </div>
   )}
 
-  {activeTab === 'business' && <ClientMerchant bookings={bookings} onOpenTab={openTab} />}
+  {activeTab === 'business' && <ClientMerchant onOpenTab={openTab} />}
 
   {activeTab === 'projects' && <ClientBuildJourney dashboard={dashboard} onStartRequest={() => setShowProjectRequestModal(true)} />}
 
@@ -460,8 +484,6 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   {activeTab === 'domains' && <ClientDomains dashboard={dashboard} projects={projects} />}
 
   {activeTab === 'ecommerce' && (scopedProject ? <div className="animate-fade-in"><EcommerceManager subscriptionId={scopedProject.id} purchasedAddons={scopedProject.purchasedAddons} onBrowseAddons={() => openTab('addons')} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
-
-  {activeTab === 'booking' && (scopedProject ? <div className="animate-fade-in"><BookingManager isAdmin={false} subscriptionId={scopedProject.id} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
 
   {activeTab === 'tickets' && <div className="animate-fade-in"><SupportTickets onRefresh={refreshSupportData} /></div>}
   {activeTab === 'repair' && <div className="animate-fade-in"><RepairWorkspace projects={projects} /></div>}
@@ -495,7 +517,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
 
   {activeTab === 'audit' && (
   <div className="animate-fade-in">
-  {scopedProject ? <PerformanceAudit key={scopedProject.id} subscriptionId={scopedProject.id} data={analysisProjectId === scopedProject.id ? analysisResult : savedPerformance?.projectId === scopedProject.id ? savedPerformance.result : null} isRefreshing={isAnalyzing} errorMessage={analysisError?.projectId === scopedProject.id ? analysisError.message : null} actionsLocked={scopedProject.canManageSite === false} disabledReason={scopedProject.canManageSite === false ? 'Performance tools unlock after handoff acceptance and payment closeout.' : !scopedProject.siteUrl ? 'A live deployment is required before this site can be scanned.' : null} onRefresh={scopedProject.canManageSite !== false && scopedProject.siteUrl ? (strategy) => handleAnalyzeSite(scopedProject.id, scopedProject.siteUrl!, strategy) : undefined} onRequestOptimization={() => openTab('tickets')} /> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />}
+  {scopedProject ? <PerformanceAudit key={scopedProject.id} subscriptionId={scopedProject.id} data={analysisProjectId === scopedProject.id ? analysisResult : savedPerformance?.projectId === scopedProject.id ? savedPerformance.result : null} isRefreshing={isAnalyzing} errorMessage={analysisError?.projectId === scopedProject.id ? analysisError.message : null} actionsLocked={scopedProject.canManageSite === false} disabledReason={scopedProject.canManageSite === false ? 'Performance tools unlock after handoff acceptance and payment closeout.' : !scopedProject.siteUrl ? 'A live deployment is required before this site can be scanned.' : null} onRefresh={scopedProject.canManageSite !== false && scopedProject.siteUrl ? (strategy) => handleAnalyzeSite(scopedProject.id, scopedProject.siteUrl!, strategy) : undefined} onRequestOptimization={() => openTab('tickets')} onRequestRepair={openRepairFromPerformance} /> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />}
   </div>
   )}
 

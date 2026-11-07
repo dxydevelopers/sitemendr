@@ -161,7 +161,7 @@ export default function AdminBilling({
   placeholder="Search deployments"
   value={searchTerm}
   onChange={(e) => setSearchTerm(e.target.value)}
-  className="min-h-11 w-full border border-white/12 bg-[0A0C10] py-2.5 pl-6 pr-4 text-[11px] font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+  className="min-h-11 w-full border border-white/12 bg-[#0A0C10] py-2.5 pl-6 pr-4 text-[11px] font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
   />
   </label>
 
@@ -170,7 +170,7 @@ export default function AdminBilling({
   <select
   value={filterStatus}
   onChange={(e) => setFilterStatus(e.target.value)}
-  className="min-h-11 w-full appearance-none border border-white/12 bg-[0A0C10] px-3 py-2.5 text-[11px] font-semibold text-white outline-none transition focus:border-white/22 focus:ring-0"
+  className="min-h-11 w-full appearance-none border border-white/12 bg-[#0A0C10] px-3 py-2.5 text-[11px] font-semibold text-white outline-none transition focus:border-white/22 focus:ring-0"
   >
   <option value="ALL">All tiers</option>
   <option value="ai_foundation">AI foundation</option>
@@ -264,7 +264,7 @@ export default function AdminBilling({
   placeholder="Search projects"
   value={searchTerm}
   onChange={(e) => setSearchTerm(e.target.value)}
-  className="min-h-11 w-full border border-white/12 bg-[0A0C10] py-2.5 pl-6 pr-4 text-[11px] font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+  className="min-h-11 w-full border border-white/12 bg-[#0A0C10] py-2.5 pl-6 pr-4 text-[11px] font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
   />
   </label>
   </div>
@@ -308,7 +308,7 @@ export default function AdminBilling({
   onBlur={(e) => {
   if (e.target.value !== (project.reviewNotes || '')) onUpdateReview(project.id, e.target.value);
   }}
-  className="h-20 w-full resize-none border border-white/12 bg-[0A0C10] px-3 py-3 text-[10px] leading-5 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/40 focus:ring-0"
+  className="h-20 w-full resize-none border border-white/12 bg-[#0A0C10] px-3 py-3 text-[10px] leading-5 text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue/40 focus:ring-0"
   placeholder="Leave concise feedback..."
   />
   </div>

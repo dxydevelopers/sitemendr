@@ -1,21 +1,17 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Github } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import { apiClient, type OAuthProvider, type OAuthProviderStatus } from '@/lib/api';
 import {
   accountTypes,
   countryOptions,
   getDefaultCurrencyForCountry,
-  getDialCodeForCountry,
-  getEmailDomain,
   isValidEmail,
   isValidProfilePhone,
   normalizeEmail,
   normalizePhoneForCountry,
-  personalEmailDomains,
 } from '@/lib/account-profile';
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -45,17 +41,17 @@ const socialOptions = [
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const nameRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<'next' | 'back'>('next');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [inactiveSocial, setInactiveSocial] = useState(false);
-  const [pulseIdentity, setPulseIdentity] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [oauthProviders, setOauthProviders] = useState<OAuthProviderStatus>({});
+  const [oauthProvidersLoaded, setOauthProvidersLoaded] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -65,6 +61,9 @@ export default function RegisterPage() {
     phone: '',
     defaultCurrency: 'KES',
     accountType: '',
+    entityName: '',
+    entityContactEmail: '',
+    entityPhone: '',
   });
 
   const selectedCountry = useMemo(() => countryOptions.find(option => option.code === formData.country), [formData.country]);
@@ -80,18 +79,26 @@ export default function RegisterPage() {
       : passwordScore >= 3 ? { label: 'Good', color: 'bg-ai-blue', text: 'text-ai-blue' }
         : { label: 'Weak', color: 'bg-amber-300', text: 'text-amber-300' }
     : null;
-  const emailDomain = getEmailDomain(formData.email);
   const emailStatus = formData.email.trim()
     ? !isValidEmail(formData.email)
       ? { label: 'Invalid email', className: 'text-red-300' }
-      : formData.accountType !== 'individual' && personalEmailDomains.has(emailDomain)
-        ? { label: 'Personal email', className: 'text-amber-300' }
-        : null
+      : null
     : null;
 
-  const fieldClass = `w-full border-0 border-b bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue ${
-    pulseIdentity ? 'border-red-400 animate-pulse' : 'border-white/16'
-  }`;
+  const fieldClass = 'w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue';
+  const isEntityAccount = formData.accountType !== '' && formData.accountType !== 'individual';
+
+  useEffect(() => {
+    let mounted = true;
+    apiClient.getOAuthProviders().then(response => {
+      if (!mounted) return;
+      setOauthProviders(response.success ? response.providers || {} : {});
+      setOauthProvidersLoaded(true);
+    }).catch(() => {
+      if (mounted) setOauthProvidersLoaded(true);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const goToStep = (nextStep: number, nextDirection: 'next' | 'back') => {
     setDirection(nextDirection);
@@ -99,20 +106,7 @@ export default function RegisterPage() {
     setError('');
   };
 
-  const handleSocialClick = () => {
-    setInactiveSocial(true);
-    setPulseIdentity(true);
-    setStep(0);
-    nameRef.current?.focus();
-    window.setTimeout(() => setPulseIdentity(false), 900);
-  };
-
-  const clearInactiveSocial = () => {
-    if (inactiveSocial) setInactiveSocial(false);
-  };
-
   const clearFieldFeedback = () => {
-    clearInactiveSocial();
     if (error) setError('');
   };
 
@@ -121,6 +115,9 @@ export default function RegisterPage() {
       if (!formData.accountType) return 'Select an account type.';
       if (formData.name.trim().length < 2) return 'Enter your name.';
       if (!isValidEmail(formData.email)) return 'Enter a valid email.';
+      if (isEntityAccount && formData.entityName.trim().length < 2) return 'Enter the business, organisation, or agency name.';
+      if (formData.entityContactEmail.trim() && !isValidEmail(formData.entityContactEmail)) return 'Enter a valid entity contact email.';
+      if (!isValidProfilePhone(formData.entityPhone, formData.country)) return 'Enter a valid entity phone number.';
     }
     if (step === 1 && !isValidProfilePhone(formData.phone, formData.country)) {
       return 'Enter a valid phone number.';
@@ -138,8 +135,40 @@ export default function RegisterPage() {
       setError(stepError);
       return;
     }
-    setInactiveSocial(false);
     goToStep(Math.min(step + 1, 2), 'next');
+  };
+
+  const handleSocialSignup = (provider: OAuthProvider) => {
+    if (!formData.accountType) {
+      setError('Select an account type.');
+      return;
+    }
+    if (isEntityAccount && formData.entityName.trim().length < 2) {
+      setError('Enter the business, organisation, or agency name.');
+      return;
+    }
+    if (formData.entityContactEmail.trim() && !isValidEmail(formData.entityContactEmail)) {
+      setError('Enter a valid entity contact email.');
+      return;
+    }
+    if (!isValidProfilePhone(formData.entityPhone, formData.country)) {
+      setError('Enter a valid entity phone number.');
+      return;
+    }
+    if (step !== 0) {
+      setError('Return to account details before using social sign-up.');
+      return;
+    }
+    sessionStorage.setItem('sitemendr_oauth_signup_profile', JSON.stringify({
+      name: formData.name.trim(),
+      accountType: formData.accountType,
+      entityName: isEntityAccount ? formData.entityName.trim() : '',
+      entityContactEmail: isEntityAccount ? normalizeEmail(formData.entityContactEmail) : '',
+      entityPhone: isEntityAccount ? normalizePhoneForCountry(formData.entityPhone, formData.country) : '',
+      country: formData.country,
+      defaultCurrency: formData.defaultCurrency,
+    }));
+    apiClient.beginOAuth(provider, 'register');
   };
 
   const handleSubmit = async () => {
@@ -161,25 +190,32 @@ export default function RegisterPage() {
         defaultCurrency: formData.defaultCurrency,
         accountType: formData.accountType,
         billingRegion: formData.country,
+        entityName: isEntityAccount ? formData.entityName.trim() : undefined,
+        entityContactEmail: isEntityAccount ? normalizeEmail(formData.entityContactEmail) : undefined,
+        entityPhone: isEntityAccount ? normalizePhoneForCountry(formData.entityPhone, formData.country) : undefined,
       });
 
       if (!response.success) {
         throw new Error(response.message || 'Registration failed. Please try again.');
       }
 
-      if (response.token) {
-        localStorage.setItem('sitemendr_auth_token', response.token);
-      }
-      if (response.user) {
-        localStorage.setItem('sitemendr_client_user', JSON.stringify(response.user));
-        localStorage.setItem('user', JSON.stringify(response.user));
-      }
-
+      setVerificationEmailSent(response.verificationEmailSent === true);
       setRegisteredEmail(response.user?.email || normalizeEmail(formData.email));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!registeredEmail) return;
+    setResendState('sending');
+    try {
+      const response = await apiClient.resendVerification(registeredEmail);
+      setResendState(response.success ? 'sent' : 'error');
+    } catch {
+      setResendState('error');
     }
   };
 
@@ -189,13 +225,17 @@ export default function RegisterPage() {
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-5 py-14 sm:px-8 lg:px-10">
           <section className="border-y border-white/10 py-10">
             <div className="mb-8 h-1 w-24 bg-ai-blue" />
-            <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">Email sent.</h1>
+            <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{verificationEmailSent || resendState === 'sent' ? 'Check your email to finish signing up.' : 'Your account is created.'}</h1>
+            <p className="mt-5 text-sm leading-6 text-white/60">{verificationEmailSent || resendState === 'sent' ? 'We sent a verification link to:' : 'Email delivery is not available right now. Your account is saved, and you can request another verification email below.'}</p>
             <p className="mt-5 break-all text-lg font-bold text-white">{registeredEmail}</p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
-                Open dashboard
+            <div className="mt-9 flex flex-wrap items-center gap-4">
+              <button type="button" onClick={handleResendVerification} disabled={resendState === 'sending' || resendState === 'sent'} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
+                {resendState === 'sending' ? 'Sending...' : resendState === 'sent' ? 'Verification email sent' : 'Resend verification email'}
               </button>
+              <Link href="/login" className="text-sm font-semibold text-white/60 transition hover:text-white">Back to sign in</Link>
             </div>
+            {resendState === 'error' && <p role="alert" className="mt-4 text-sm font-semibold text-red-300">Could not resend the email. Check the address and try again later.</p>}
+            <p className="mt-5 text-xs leading-5 text-white/40">Verification links expire after 24 hours. Check your spam folder if the email does not arrive.</p>
           </section>
         </div>
       </main>
@@ -233,15 +273,17 @@ export default function RegisterPage() {
                       <div className="mt-6 flex flex-wrap items-center gap-5">
                         {socialOptions.map((option) => {
                           const Icon = option.Icon;
+                          const provider = option.label.toLowerCase() as OAuthProvider;
+                          const available = oauthProviders[provider]?.available === true;
                           return (
-                            <button key={option.label} type="button" onClick={handleSocialClick} className="grid h-12 w-12 place-items-center transition hover:opacity-70">
+                            <button key={option.label} type="button" onClick={() => handleSocialSignup(provider)} disabled={!oauthProvidersLoaded || !available} title={available ? `Continue with ${option.label}` : `${option.label} sign-up is not configured yet`} aria-label={available ? `Continue with ${option.label}` : `${option.label} sign-up is not available yet`} className={`grid h-12 w-12 place-items-center transition ${available ? 'hover:opacity-70' : 'cursor-not-allowed opacity-35'}`}>
                               <Icon className={`h-8 w-8 ${option.className || ''}`} />
                               <span className="sr-only">{option.label}</span>
                             </button>
                           );
                         })}
                       </div>
-                      {inactiveSocial && <p className="mt-3 text-xs font-bold text-red-300">Inactive</p>}
+                      <p className="mt-3 text-xs leading-5 text-white/42">{!oauthProvidersLoaded ? 'Checking social sign-up availability…' : Object.values(oauthProviders).some(provider => provider?.available) ? 'Or create an account with email and password.' : 'Google, GitHub, and Apple sign-up are not configured yet. Use your email and password for now.'}</p>
                     </div>
 
                     <div>
@@ -263,11 +305,34 @@ export default function RegisterPage() {
 
                     <div>
                       <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Name</label>
-                      <input ref={nameRef} type="text" value={formData.name} onFocus={clearFieldFeedback} onChange={(e) => {
+                      <input type="text" value={formData.name} onFocus={clearFieldFeedback} onChange={(e) => {
                         clearFieldFeedback();
                         setFormData({ ...formData, name: e.target.value });
                       }} className={fieldClass} placeholder="Your name" />
                     </div>
+                    {isEntityAccount && (
+                      <div className="space-y-5 border-l border-ai-blue/40 pl-4">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">{accountTypes.find(type => type.value === formData.accountType)?.label} details</p>
+                          <p className="mt-1 text-xs leading-5 text-white/48">These identify the client receiving Sitemendr’s services. Your personal sign-in stays yours.</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">{formData.accountType === 'agency' ? 'Agency name' : formData.accountType === 'organization' ? 'Organisation name' : 'Business name'}</label>
+                          <input type="text" maxLength={160} value={formData.entityName} onFocus={clearFieldFeedback} onChange={(e) => setFormData({ ...formData, entityName: e.target.value })} className={fieldClass} placeholder="Name of the entity" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Entity contact email <span className="normal-case text-white/30">(optional)</span></label>
+                          <input type="email" value={formData.entityContactEmail} onFocus={clearFieldFeedback} onChange={(e) => setFormData({ ...formData, entityContactEmail: e.target.value })} className={fieldClass} placeholder="team@example.com" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Entity phone <span className="normal-case text-white/30">(optional)</span></label>
+                          <div className="flex border-b border-white/16 transition focus-within:border-ai-blue">
+                            <span className="shrink-0 py-4 pr-3 text-base font-semibold text-white/36">{selectedCountry?.dialCode || '+'}</span>
+                            <input type="tel" value={formData.entityPhone} onFocus={clearFieldFeedback} onChange={(e) => setFormData({ ...formData, entityPhone: e.target.value })} className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24" placeholder="Optional" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <label className="text-xs font-bold uppercase tracking-[0.1em] text-white/36">Email</label>
                       <input type="email" value={formData.email} onFocus={clearFieldFeedback} onBlur={() => setFormData({ ...formData, email: normalizeEmail(formData.email) })} onChange={(e) => {
@@ -332,6 +397,9 @@ export default function RegisterPage() {
                         ['Country', selectedCountry?.name || formData.country],
                         ['Currency', formData.defaultCurrency],
                         ['Account type', accountTypes.find(type => type.value === formData.accountType)?.label || formData.accountType],
+                        ...(isEntityAccount ? [[formData.accountType === 'agency' ? 'Agency name' : formData.accountType === 'organization' ? 'Organisation name' : 'Business name', formData.entityName]] : []),
+                        ...(formData.entityContactEmail ? [['Entity contact email', formData.entityContactEmail]] : []),
+                        ...(formData.entityPhone ? [['Entity phone', normalizePhoneForCountry(formData.entityPhone, formData.country)]] : []),
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between gap-5 py-3 text-sm">
                           <span className="font-semibold text-white/36">{label}</span>

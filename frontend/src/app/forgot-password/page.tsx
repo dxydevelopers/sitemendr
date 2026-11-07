@@ -2,99 +2,118 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, CheckCircle2, Mail } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
-    setMessage('');
 
     try {
-      const response = await apiClient.forgotPassword(email);
-      setMessage(response.message || 'If an account exists with this email, a reset link has been sent.');
+      const response = await apiClient.forgotPassword(email.trim().toLowerCase());
+      if (!response.success) {
+        throw new Error(response.message || 'We couldn’t send the reset link. Please try again.');
+      }
+      setSubmitted(true);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to process request. Please try again.';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'We couldn’t send the reset link. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-darker-bg py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-mono">
-      {/* Infrastructure Grid Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-darker-bg via-transparent to-darker-bg"></div>
-      </div>
+    <main className="min-h-screen bg-[#05070a] pt-16 text-white">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-5 sm:px-8 lg:px-10">
+        <section className="grid flex-1 items-center gap-12 py-14 lg:grid-cols-[0.9fr_1fr] lg:gap-20">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">Account access</p>
+            <h1 className="mt-5 max-w-3xl text-3xl font-bold leading-[1.05] tracking-tight sm:text-4xl">
+              Get back into your workspace.
+            </h1>
+            <p className="mt-5 max-w-xl text-sm leading-6 text-white/52 sm:text-base">
+              Enter the email address you use for Sitemendr. We’ll send a password reset link if an account matches.
+            </p>
+          </div>
 
-      <div className="max-w-md w-full space-y-8 relative z-20">
-        <div className="text-center">
-          <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">
-            PASSWORD <span className="italic bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent">RECOVERY</span>
-          </h2>
-          <p className="text-medium-gray text-xs uppercase tracking-widest font-bold">
-            Initiate credential resynchronization
-          </p>
-        </div>
-
-        <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-3xl p-10 shadow-2xl relative overflow-hidden">
-          {message ? (
-            <div className="text-center space-y-6">
-              <div className="bg-expert-green/10 border border-expert-green/20 text-expert-green px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest">
-                SYSTEM_MSG: REQUEST_PROCESSED
-              </div>
-              <p className="text-white text-sm">{message}</p>
-              <Link href="/login" className="inline-block text-ai-blue font-bold hover:underline uppercase tracking-[0.1em] text-xs">
-                Return to Login
-              </Link>
-            </div>
-          ) : (
-            <form className="space-y-6 relative z-10" onSubmit={handleSubmit}>
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-center">
-                  ERR_CODE: {error}
+          <div className="w-full max-w-md lg:ml-auto">
+            <div className="border-y border-white/10 py-7">
+              {submitted ? (
+                <div aria-live="polite">
+                  <div className="flex h-12 w-12 items-center justify-center border border-emerald-300/25 bg-emerald-300/10 text-emerald-200">
+                    <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+                  </div>
+                  <h2 className="mt-6 text-2xl font-bold tracking-tight">Check your inbox</h2>
+                  <p className="mt-3 text-sm leading-6 text-white/55">
+                    If an account exists for <span className="font-semibold text-white">{email.trim()}</span>, we’ve sent a password reset link. Check your spam folder too. The link expires after one hour.
+                  </p>
+                  <p className="mt-4 text-xs leading-5 text-white/38">No email yet? Give it a minute, then check the address and try again.</p>
+                  <button
+                    type="button"
+                    onClick={() => setSubmitted(false)}
+                    className="mt-7 text-sm font-semibold text-white transition hover:text-ai-blue"
+                  >
+                    Try another email
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <div className="flex h-12 w-12 items-center justify-center border border-white/12 text-white/70">
+                    <Mail className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h2 className="mt-6 text-2xl font-bold tracking-tight">Reset your password</h2>
+                  <p className="mt-2 text-sm leading-6 text-white/48">We’ll email you a secure link to choose a new password.</p>
+
+                  <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
+                    {error && (
+                      <div role="alert" className="border border-red-400/40 bg-red-500/15 px-4 py-3 text-sm font-medium text-red-100">
+                        {error}
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="reset-email" className="text-xs font-bold uppercase tracking-[0.1em] text-white/40">Email address</label>
+                      <input
+                        id="reset-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        className="mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue"
+                        placeholder="name@company.com"
+                        value={email}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          if (error) setError('');
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="min-h-13 w-full bg-white px-5 text-sm font-bold uppercase tracking-[0.1em] text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-wait disabled:opacity-50"
+                    >
+                      {loading ? 'Sending link...' : 'Send reset link'}
+                    </button>
+                  </form>
+                </>
               )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-medium-gray uppercase tracking-widest px-1">Registered Email</label>
-                <input
-                  type="email"
-                  required
-                  className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue transition-all text-sm"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="group relative w-full bg-ai-blue text-white py-5 rounded-2xl font-bold text-sm uppercase tracking-[0.1em] overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-              >
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  {loading ? 'PROCESSING...' : 'SEND RECOVERY LINK'}
-                </span>
-              </button>
-              
-              <div className="text-center">
-                <Link href="/login" className="text-medium-gray text-xs uppercase tracking-widest hover:text-white transition-colors">
-                  Remember your security key?
-                </Link>
-              </div>
-            </form>
-          )}
-        </div>
+              <Link href="/login" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-white/48 transition hover:text-white">
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back to sign in
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

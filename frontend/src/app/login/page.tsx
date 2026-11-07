@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Github } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import { apiClient, type OAuthProvider, type OAuthProviderStatus } from '@/lib/api';
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -36,13 +36,35 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [inactiveSocial, setInactiveSocial] = useState(false);
-  const [pulseCredentials, setPulseCredentials] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [oauthProviders, setOauthProviders] = useState<OAuthProviderStatus>({});
+  const [oauthProvidersLoaded, setOauthProvidersLoaded] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
+  const oauthErrorCode = searchParams.get('oauthError');
+  const oauthErrorMessage = oauthErrorCode === 'provider_cancelled'
+    ? 'Sign-in was cancelled. You can try again or use email and password.'
+    : oauthErrorCode === 'provider_unavailable'
+      ? 'That sign-in provider is not configured yet.'
+      : oauthErrorCode === 'account_unavailable'
+        ? 'This account is unavailable. Contact Sitemendr support for help.'
+        : oauthErrorCode
+          ? 'Social sign-in could not be completed. Please try again.'
+          : '';
+
+  useEffect(() => {
+    let mounted = true;
+    apiClient.getOAuthProviders().then(response => {
+      if (!mounted) return;
+      setOauthProviders(response.success ? response.providers || {} : {});
+      setOauthProvidersLoaded(true);
+    }).catch(() => {
+      if (mounted) setOauthProvidersLoaded(true);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +74,10 @@ function LoginForm() {
     try {
       const response = await apiClient.login({ email: email.trim().toLowerCase(), password });
 
-      if (!response.success) {
-        throw new Error(response.message || 'Login failed. Please check your credentials.');
+      if (!response.success) throw new Error(response.message || 'Login failed. Please check your credentials.');
+
+      if (!response.user) {
+        throw new Error('The sign-in response was incomplete. Please try again.');
       }
 
       if (response.user.role === 'admin') {
@@ -70,20 +94,11 @@ function LoginForm() {
     }
   };
 
-  const handleSocialClick = () => {
-    setInactiveSocial(true);
-    setPulseCredentials(true);
-    window.setTimeout(() => setPulseCredentials(false), 900);
-  };
-
   const clearFeedback = () => {
-    if (inactiveSocial) setInactiveSocial(false);
     if (error) setError('');
   };
 
-  const inputClass = `mt-2 w-full border-0 border-b bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue ${
-    pulseCredentials ? 'border-red-400 animate-pulse' : 'border-white/16'
-  }`;
+  const inputClass = 'mt-2 w-full border-0 border-b border-white/16 bg-transparent px-0 py-4 text-base text-white outline-none transition placeholder:text-white/24 focus:border-ai-blue';
 
   return (
     <main className="min-h-screen bg-[#05070a] pt-16 text-white">
@@ -103,12 +118,17 @@ function LoginForm() {
               <div className="mt-6 flex flex-wrap items-center gap-5">
                 {socialOptions.map((option) => {
                   const Icon = option.Icon;
+                  const provider = option.label.toLowerCase() as OAuthProvider;
+                  const available = oauthProviders[provider]?.available === true;
                   return (
                     <button
                       key={option.label}
                       type="button"
-                      onClick={handleSocialClick}
-                      className="grid h-12 w-12 place-items-center transition hover:opacity-70"
+                      onClick={() => apiClient.beginOAuth(provider, 'login')}
+                      disabled={!oauthProvidersLoaded || !available}
+                      title={available ? `Continue with ${option.label}` : `${option.label} sign-in is not configured yet`}
+                      aria-label={available ? `Continue with ${option.label}` : `${option.label} sign-in is not available yet`}
+                      className={`grid h-12 w-12 place-items-center transition ${available ? 'hover:opacity-70' : 'cursor-not-allowed opacity-35'}`}
                     >
                       <Icon className={`h-8 w-8 ${option.className || ''}`} />
                       <span className="sr-only">{option.label}</span>
@@ -116,12 +136,12 @@ function LoginForm() {
                   );
                 })}
               </div>
-              {inactiveSocial && <p className="mt-3 text-xs font-bold text-red-300">Inactive</p>}
+              <p className="mt-3 text-xs leading-5 text-white/42">{!oauthProvidersLoaded ? 'Checking social sign-in availability…' : Object.values(oauthProviders).some(provider => provider?.available) ? 'Or sign in with email and password.' : 'Google, GitHub, and Apple sign-in are not configured yet. Use your email and password for now.'}</p>
 
               <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
-                {error && (
+                {(error || oauthErrorMessage) && (
                   <div role="alert" className="border border-red-400/40 bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100">
-                    {error}
+                    {error || oauthErrorMessage}
                   </div>
                 )}
 

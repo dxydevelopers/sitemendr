@@ -3172,19 +3172,25 @@ exports.addSupportTicketMessage = async (req, res) => {
 
 // Client resource library management
 const validateResourceInput = (body = {}) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'Provide valid resource details.' };
   const title = typeof body.title === 'string' ? body.title.trim() : '';
   const description = typeof body.description === 'string' ? body.description.trim() : '';
+  const content = typeof body.content === 'string' ? body.content.trim() : '';
   const type = typeof body.type === 'string' ? body.type.trim().toLowerCase() : '';
   const url = typeof body.url === 'string' ? body.url.trim() : '';
+  const isPublished = body.isPublished === undefined ? true : body.isPublished;
   const allowedTypes = ['documentation', 'guide', 'video', 'tool', 'other'];
   if (!title || title.length > 140) return { error: 'Title is required and must be 140 characters or fewer.' };
   if (description.length > 1000) return { error: 'Description must be 1,000 characters or fewer.' };
+  if (content.length > 20000) return { error: 'Resource content must be 20,000 characters or fewer.' };
   if (!allowedTypes.includes(type)) return { error: 'Choose a valid resource type.' };
+  if (typeof isPublished !== 'boolean') return { error: 'Choose whether this resource is published.' };
   if (url) {
     if (url.length > 2048) return { error: 'Resource link must be 2,048 characters or fewer.' };
+    if (/[\\\u0000-\u001f\u007f]/.test(url)) return { error: 'Resource links cannot contain backslashes or control characters.' };
     if (!url.startsWith('/') && !/^https?:\/\//i.test(url)) return { error: 'Use a site path or an http/https link.' };
     if (url.startsWith('/')) {
-      if (url.startsWith('//') || /[\r\n]/.test(url)) return { error: 'Enter a valid site path.' };
+      if (url.startsWith('//')) return { error: 'Enter a valid site path.' };
     } else {
       try {
         const parsed = new URL(url);
@@ -3192,7 +3198,7 @@ const validateResourceInput = (body = {}) => {
       } catch { return { error: 'Enter a valid resource link.' }; }
     }
   }
-  return { data: { title, description, type, url: url || null } };
+  return { data: { title, description, content: content || null, type, url: url || null, isPublished } };
 };
 
 exports.getAdminResources = async (_req, res) => {
@@ -3692,57 +3698,6 @@ exports.getSystemHealth = async (req, res) => {
   } catch (error) {
     logger.error('GET_SYSTEM_HEALTH_ERROR:', error);
     res.status(500).json({ success: false, message: 'Failed to retrieve system health' });
-  }
-};
-
-/**
- * Booking Management
- */
-exports.getAdminBookings = async (req, res) => {
-  try {
-    const bookings = await prisma.booking.findMany({
-      include: {
-        service: true,
-        user: { select: { name: true, email: true } }
-      },
-      orderBy: { startTime: 'desc' }
-    });
-    res.json({ success: true, data: bookings });
-  } catch (error) {
-    logger.error('GET_ADMIN_BOOKINGS_ERROR:', error);
-    res.status(500).json({ success: false, message: 'Failed to retrieve bookings' });
-  }
-};
-
-exports.updateBookingStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    const booking = await prisma.booking.update({
-      where: { id },
-      data: { status },
-      include: { user: { select: { name: true, email: true } } }
-    });
-
-    // NOTE: booking-status-updated notification email removed as part of
-    // notification cleanup. If this needs an email again later, wire it
-    // via notify() and the registry.
-
-    res.json({ success: true, data: booking, message: 'Booking status updated' });
-  } catch (error) {
-    logger.error('UPDATE_BOOKING_STATUS_ERROR:', error);
-    res.status(500).json({ success: false, message: 'Failed to update booking status' });
-  }
-};
-
-exports.deleteBooking = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.booking.delete({ where: { id } });
-    res.json({ success: true, message: 'Booking deleted' });
-  } catch (error) {
-    logger.error('DELETE_BOOKING_ERROR:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete booking' });
   }
 };
 

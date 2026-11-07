@@ -911,6 +911,7 @@ exports.getProjects = async (req, res) => {
       .map(({ site, request }) => ({
         id: site.id,
         recordType: 'project',
+        canManageSite: isBuildManagementUnlocked(request),
         name: site.siteName || site.customName || 'Completed build',
         businessName: site.siteName || site.customName || undefined,
         progress: 100,
@@ -2055,6 +2056,7 @@ exports.updateMessage = async (req, res) => {
 exports.getResources = async (req, res) => {
   try {
     const resources = await prisma.resource.findMany({
+      where: { isPublished: true },
       orderBy: { createdAt: 'desc' }
     });
 

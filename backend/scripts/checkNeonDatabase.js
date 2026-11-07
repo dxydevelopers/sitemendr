@@ -69,27 +69,6 @@ async function checkNeonDatabase() {
         console.log(`   - ${lead.name} (${lead.email}) - Status: ${lead.status}`);
       });
     }
-
-    // Check Services
-    const services = await prisma.service.findMany();
-    console.log(`\n🛠️  Services: ${services.length}`);
-    if (services.length > 0) {
-      console.log('   All services:');
-      services.forEach(service => {
-        console.log(`   - ${service.name} - $${service.price} - Duration: ${service.duration}min`);
-      });
-    }
-
-    // Check Bookings
-    const bookings = await prisma.booking.findMany();
-    console.log(`\n📅 Bookings: ${bookings.length}`);
-    if (bookings.length > 0) {
-      console.log('   Sample bookings:');
-      bookings.slice(0, 3).forEach(booking => {
-        console.log(`   - ${booking.startTime} - Status: ${booking.status}`);
-      });
-    }
-
     // Check Payments
     const payments = await prisma.payment.findMany();
     console.log(`\n💰 Payments: ${payments.length}`);

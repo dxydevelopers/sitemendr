@@ -106,7 +106,7 @@ export default function AdminTransactions() {
   placeholder="Search name, email, reference..."
   value={searchTerm}
   onChange={(e) => setSearchTerm(e.target.value)}
-  className="min-h-10 w-full rounded-xl border border-white/12 bg-[0A0C10] py-2.5 pl-9 pr-4 text-[11px] font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
+  className="min-h-10 w-full rounded-xl border border-white/12 bg-[#0A0C10] py-2.5 pl-9 pr-4 text-[11px] font-semibold text-white outline-none transition placeholder:text-white/24 focus:border-white/22 focus:ring-0"
   />
   </label>
 
@@ -121,13 +121,13 @@ export default function AdminTransactions() {
   e.stopPropagation();
   setOpenMenu(openMenu === 'status' ? null : 'status');
   }}
-  className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[0A0C10] px-3 py-2.5 text-left text-[11px] font-semibold text-white transition hover:border-white/20"
+  className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#0A0C10] px-3 py-2.5 text-left text-[11px] font-semibold text-white transition hover:border-white/20"
   >
   <span>{statusFilter === 'ALL' ? 'All status' : statusFilter}</span>
   <ChevronDown className="h-4 w-4 text-white/28" />
   </button>
   {openMenu === 'status' && (
-  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[0A0C10] shadow-2xl shadow-black/40">
+  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#0A0C10] shadow-2xl shadow-black/40">
   {[
   ['ALL', 'All status'],
   ['completed', 'Completed'],
@@ -163,13 +163,13 @@ export default function AdminTransactions() {
   e.stopPropagation();
   setOpenMenu(openMenu === 'type' ? null : 'type');
   }}
-  className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[0A0C10] px-3 py-2.5 text-left text-[11px] font-semibold text-white transition hover:border-white/20"
+  className="flex min-h-10 w-full items-center justify-between rounded-xl border border-white/12 bg-[#0A0C10] px-3 py-2.5 text-left text-[11px] font-semibold text-white transition hover:border-white/20"
   >
   <span>{serviceTypeFilter === 'ALL' ? 'All types' : serviceTypeFilter.replace(/_/g, ' ')}</span>
   <ChevronDown className="h-4 w-4 text-white/28" />
   </button>
   {openMenu === 'type' && (
-  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[0A0C10] shadow-2xl shadow-black/40">
+  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden border border-white/12 bg-[#0A0C10] shadow-2xl shadow-black/40">
   {[
   ['ALL', 'All types'],
   ['build', 'Build'],

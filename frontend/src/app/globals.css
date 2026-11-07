@@ -391,6 +391,20 @@ select {
   color-scheme: dark;
 }
 
+/* Native select menus do not inherit the select element's text/background
+   styles consistently across browsers. Keep every option readable in the
+   dashboard's dark UI, including the highlighted choice. */
+select option,
+select optgroup {
+  background-color: #0b1120;
+  color: #f8fafc;
+}
+
+select option:checked {
+  background-color: #1d4ed8;
+  color: #ffffff;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,

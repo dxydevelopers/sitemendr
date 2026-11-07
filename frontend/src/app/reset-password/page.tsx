@@ -1,137 +1,184 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const token = searchParams.get('token');
   const isSetup = searchParams.get('setup') === 'true';
 
-  useEffect(() => {
-    if (!token) {
-      setError('Invalid or missing reset token.');
-    }
-  }, [token]);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (!token) {
+      setError('This password link is missing or invalid. Request a new one to continue.');
       return;
     }
-
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+      setError('Use at least 8 characters for your password.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('The passwords don’t match yet. Check both fields and try again.');
       return;
     }
 
     setLoading(true);
-    setError('');
-
     try {
-      await apiClient.resetPassword({ token, password });
+      const response = await apiClient.resetPassword({ token, password });
+      if (!response.success) {
+        throw new Error(response.message || 'We couldn’t update your password. Request a new link and try again.');
+      }
       setSuccess(true);
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 3000);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'We couldn’t update your password. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-darker-bg py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-mono">
-      {/* Infrastructure Grid Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-darker-bg via-transparent to-darker-bg"></div>
-      </div>
+    <main className="min-h-screen bg-[#05070a] pt-16 text-white">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-5 sm:px-8 lg:px-10">
+        <section className="grid flex-1 items-center gap-12 py-14 lg:grid-cols-[0.9fr_1fr] lg:gap-20">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">Account access</p>
+            <h1 className="mt-5 max-w-3xl text-3xl font-bold leading-[1.05] tracking-tight sm:text-4xl">
+              {isSetup ? 'Finish setting up your account.' : 'Choose a new password.'}
+            </h1>
+            <p className="mt-5 max-w-xl text-sm leading-6 text-white/52 sm:text-base">
+              {isSetup
+                ? 'Create a password to finish setting up your Sitemendr account.'
+                : 'Set a new password to secure your Sitemendr account. You’ll sign in with it once it’s saved.'}
+            </p>
+          </div>
 
-      <div className="max-w-md w-full space-y-8 relative z-20">
-        <div className="text-center relative">
-          <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">
-            {isSetup ? 'ACCOUNT' : 'PASSWORD'} <span className="italic bg-gradient-to-r from-ai-blue to-tech-purple bg-clip-text text-transparent">{isSetup ? 'SETUP' : 'RESET'}</span>
-          </h2>
-          <p className="text-medium-gray text-xs uppercase tracking-widest">
-            {isSetup ? 'Complete your registration' : 'Secure your account with a new password'}
-          </p>
-        </div>
-
-        <div className="bg-white/[0.03] backdrop-blur-3xl border border-white/5 rounded-3xl p-10 shadow-2xl relative">
-          {success ? (
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-expert-green/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-expert-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-white font-bold">Success! Your password has been {isSetup ? 'set' : 'reset'}.</p>
-              <p className="text-medium-gray text-sm">Redirecting to dashboard...</p>
-            </div>
-          ) : (
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-center">
-                  ERROR: {error}
+          <div className="w-full max-w-md lg:ml-auto">
+            <div className="border-y border-white/10 py-7">
+              {success ? (
+                <div aria-live="polite">
+                  <div className="flex h-12 w-12 items-center justify-center border border-emerald-300/25 bg-emerald-300/10 text-emerald-200">
+                    <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+                  </div>
+                  <h2 className="mt-6 text-2xl font-bold tracking-tight">Password {isSetup ? 'created' : 'updated'}</h2>
+                  <p className="mt-3 text-sm leading-6 text-white/55">
+                    Your password is ready. Sign in with your new password to continue to your workspace.
+                  </p>
+                  <Link href="/login" className="mt-7 inline-flex min-h-12 w-full items-center justify-center bg-white px-5 text-sm font-bold uppercase tracking-[0.1em] text-black transition hover:bg-ai-blue hover:text-white">
+                    Continue to sign in
+                  </Link>
                 </div>
+              ) : (
+                <>
+                  <div className="flex h-12 w-12 items-center justify-center border border-white/12 text-white/70">
+                    <KeyRound className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h2 className="mt-6 text-2xl font-bold tracking-tight">{isSetup ? 'Create a password' : 'Set a new password'}</h2>
+                  <p className="mt-2 text-sm leading-6 text-white/48">Choose at least 8 characters. You can use a password manager to create and save one.</p>
+
+                  {!token && (
+                    <div role="alert" className="mt-6 border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                      This password link is missing. Request a new reset link to continue.
+                    </div>
+                  )}
+
+                  <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
+                    {error && (
+                      <div role="alert" className="border border-red-400/40 bg-red-500/15 px-4 py-3 text-sm font-medium text-red-100">
+                        {error}
+                      </div>
+                    )}
+
+                    <div>
+                      <label htmlFor="new-password" className="text-xs font-bold uppercase tracking-[0.1em] text-white/40">New password</label>
+                      <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
+                        <input
+                          id="new-password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          minLength={8}
+                          required
+                          className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24"
+                          placeholder="At least 8 characters"
+                          value={password}
+                          onChange={(event) => {
+                            setPassword(event.target.value);
+                            if (error) setError('');
+                          }}
+                        />
+                        <button type="button" onClick={() => setShowPassword(value => !value)} className="grid w-10 place-items-center text-white/36 transition hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="confirm-password" className="text-xs font-bold uppercase tracking-[0.1em] text-white/40">Confirm password</label>
+                      <div className="mt-2 flex border-b border-white/16 transition focus-within:border-ai-blue">
+                        <input
+                          id="confirm-password"
+                          type={showConfirmation ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          minLength={8}
+                          required
+                          className="min-w-0 flex-1 bg-transparent py-4 text-base text-white outline-none placeholder:text-white/24"
+                          placeholder="Enter the password again"
+                          value={confirmPassword}
+                          onChange={(event) => {
+                            setConfirmPassword(event.target.value);
+                            if (error) setError('');
+                          }}
+                        />
+                        <button type="button" onClick={() => setShowConfirmation(value => !value)} className="grid w-10 place-items-center text-white/36 transition hover:text-white" aria-label={showConfirmation ? 'Hide confirmation password' : 'Show confirmation password'}>
+                          {showConfirmation ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      {confirmPassword && (
+                        <p className={`mt-2 text-xs ${password === confirmPassword ? 'text-emerald-200/80' : 'text-white/38'}`} aria-live="polite">
+                          {password === confirmPassword ? 'Passwords match' : 'Re-enter the same password'}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading || !token}
+                      className="min-h-13 w-full bg-white px-5 text-sm font-bold uppercase tracking-[0.1em] text-black transition hover:bg-ai-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {loading ? 'Saving password...' : isSetup ? 'Create password' : 'Save new password'}
+                    </button>
+                  </form>
+                </>
               )}
 
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-medium-gray uppercase tracking-[0.1em]">New Password</label>
-                  <input
-                    type="password"
-                    required
-                    className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue transition-all"
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-medium-gray uppercase tracking-[0.1em]">Confirm Password</label>
-                  <input
-                    type="password"
-                    required
-                    className="w-full px-6 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-ai-blue transition-all"
-                    placeholder="••••••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !token}
-                className="w-full bg-ai-blue text-white py-5 rounded-2xl font-bold text-sm uppercase tracking-[0.1em] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-              >
-                {loading ? 'PROCESSING...' : (isSetup ? 'FINALIZE SETUP' : 'RESET PASSWORD')}
-              </button>
-            </form>
-          )}
-        </div>
+              <Link href={success ? '/login' : '/forgot-password'} className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-white/48 transition hover:text-white">
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                {success ? 'Back to sign in' : 'Request another reset link'}
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-darker-bg flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ai-blue"></div></div>}>
+    <Suspense fallback={<main className="min-h-screen bg-[#05070a]" aria-label="Loading password reset" />}>
       <ResetPasswordForm />
     </Suspense>
   );

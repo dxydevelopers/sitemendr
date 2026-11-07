@@ -14,6 +14,7 @@ import { io, Socket } from 'socket.io-client';
 import { apiClient } from '@/lib/api';
 import {
   getDefaultCurrencyForCountry,
+  isValidEmail,
   isValidProfilePhone,
   normalizePhoneForCountry,
 } from '@/lib/account-profile';
@@ -27,7 +28,7 @@ import {
 import type {
   ClientStats, ClientProject, ClientActivity, BillingItem, MessageItem,
   BillingInvoiceItem, BillingReceiptItem, BillingRefundItem,
-  SupportTicket, ResourceItem, BookingItem, CustomDomain, UserData,
+  SupportTicket, ResourceItem, CustomDomain, UserData,
   ApiRecord, ClientAssessment, ReviewChatMessage, AnalysisResult, DomainDnsTargets,
 } from './ClientDashboard_types';
 
@@ -53,7 +54,6 @@ export function useClientDashboard(initialTab?: string) {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [resources, setResources] = useState<ResourceItem[]>([]);
-  const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [domains, setDomains] = useState<CustomDomain[]>([]);
   const [domainDnsTargets, setDomainDnsTargets] = useState<DomainDnsTargets>({ a: '' });
   const [loading, setLoading] = useState(true);
@@ -103,6 +103,8 @@ export function useClientDashboard(initialTab?: string) {
   const [profileData, setProfileData] = useState({
     name: '', phone: '', country: 'US', defaultCurrency: 'USD',
     accountType: 'individual', billingRegion: 'US',
+    entityName: '', entityContactEmail: '', entityPhone: '',
+    billingAddressLine1: '', billingAddressLine2: '', billingCity: '', billingPostalCode: '', billingCountry: 'US',
   });
   const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
   const [passwordData, setPasswordData] = useState({
@@ -144,7 +146,7 @@ export function useClientDashboard(initialTab?: string) {
         }
       };
 
-      const [statsRes, projectsRes, activitiesRes, billingRes, messagesRes, ticketsRes, resourcesRes, domainsRes, bookingsRes] = await Promise.all([
+      const [statsRes, projectsRes, activitiesRes, billingRes, messagesRes, ticketsRes, resourcesRes, domainsRes] = await Promise.all([
         fetchWithTimeout(apiClient.getClientStats(projectId), 'stats'),
         fetchWithTimeout(apiClient.getClientProjects(), 'projects'),
         fetchWithTimeout(apiClient.getClientActivities(), 'activities'),
@@ -153,7 +155,6 @@ export function useClientDashboard(initialTab?: string) {
         fetchWithTimeout(apiClient.getClientSupportTickets(), 'tickets'),
         fetchWithTimeout(apiClient.getClientResources(), 'resources'),
         fetchWithTimeout(apiClient.getClientDomains(), 'domains', 30000),
-        fetchWithTimeout(apiClient.getUserBookings(projectId), 'bookings'),
       ]);
 
       const safeStatsRes = (statsRes || { success: false, stats: null }) as { success: boolean; stats: ClientStats | null };
@@ -164,7 +165,6 @@ export function useClientDashboard(initialTab?: string) {
       const safeTicketsRes = (ticketsRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
       const safeResourcesRes = (resourcesRes || { success: false, data: [] }) as ApiRecord & { success: boolean };
       const safeDomainsRes = (domainsRes || { success: false, domains: [] }) as ApiRecord & { success: boolean };
-      const safeBookingsRes = bookingsRes || [];
 
       if (safeStatsRes.success && safeStatsRes.stats) setStats(safeStatsRes.stats);
 
@@ -224,7 +224,6 @@ export function useClientDashboard(initialTab?: string) {
         if (typeof targets.a === 'string') setDomainDnsTargets({ a: targets.a });
       }
 
-      if (Array.isArray(safeBookingsRes)) setBookings(safeBookingsRes as BookingItem[]);
 
       const userData = localStorage.getItem('sitemendr_client_user') || localStorage.getItem('user');
       if (userData) {
@@ -238,6 +237,14 @@ export function useClientDashboard(initialTab?: string) {
             defaultCurrency: parsedUser.defaultCurrency || getDefaultCurrencyForCountry(parsedUser.country || 'US'),
             accountType: parsedUser.accountType || 'individual',
             billingRegion: parsedUser.billingRegion || parsedUser.country || 'US',
+            entityName: parsedUser.entityName || '',
+            entityContactEmail: parsedUser.entityContactEmail || '',
+            entityPhone: parsedUser.entityPhone || '',
+            billingAddressLine1: parsedUser.billingAddressLine1 || '',
+            billingAddressLine2: parsedUser.billingAddressLine2 || '',
+            billingCity: parsedUser.billingCity || '',
+            billingPostalCode: parsedUser.billingPostalCode || '',
+            billingCountry: parsedUser.billingCountry || parsedUser.country || 'US',
           });
         }
       }
@@ -396,26 +403,51 @@ export function useClientDashboard(initialTab?: string) {
       setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
       return;
     }
+    if (profileData.accountType !== 'individual' && profileData.entityName.trim().length < 2) {
+      setProfileMessage({ text: 'Enter your business, organisation, or agency name.', type: 'error' });
+      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+      return;
+    }
+    if (profileData.entityContactEmail.trim() && !isValidEmail(profileData.entityContactEmail)) {
+      setProfileMessage({ text: 'Enter a valid entity contact email.', type: 'error' });
+      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+      return;
+    }
+    if (!isValidProfilePhone(profileData.entityPhone, profileData.country)) {
+      setProfileMessage({ text: 'Enter a valid entity phone number.', type: 'error' });
+      setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
+      return;
+    }
     const cleanProfileData = {
       ...profileData,
       phone: normalizePhoneForCountry(profileData.phone, profileData.country),
+      entityName: profileData.accountType === 'individual' ? '' : profileData.entityName.trim(),
+      entityContactEmail: profileData.accountType === 'individual' ? '' : profileData.entityContactEmail.trim().toLowerCase(),
+      entityPhone: profileData.accountType === 'individual' ? '' : normalizePhoneForCountry(profileData.entityPhone, profileData.country),
       billingRegion: profileData.country,
+      billingAddressLine1: profileData.billingAddressLine1.trim(),
+      billingAddressLine2: profileData.billingAddressLine2.trim(),
+      billingCity: profileData.billingCity.trim(),
+      billingPostalCode: profileData.billingPostalCode.trim(),
+      billingCountry: profileData.billingCountry,
     };
     try {
-      const res = await apiClient.updateProfile(cleanProfileData);
+      const profileUpdateData: Partial<typeof cleanProfileData> = { ...cleanProfileData };
+      delete profileUpdateData.phone;
+      const res = await apiClient.updateProfile(profileUpdateData);
       if (res.success) {
         setProfileMessage({ text: 'Settings saved.', type: 'success' });
-        const updatedUser: UserData = { ...(user || { id: '', email: '' }), ...(res.user || {}), ...cleanProfileData };
+        const updatedUser: UserData = { ...(user || { id: '', email: '' }), ...(res.user || {}), ...cleanProfileData, phone: user?.phone || '' };
         localStorage.setItem('sitemendr_client_user', JSON.stringify(updatedUser));
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
         setProfileData(cleanProfileData);
         await fetchData(selectedProjectId || undefined);
       } else {
-        setProfileMessage({ text: 'Could not save settings.', type: 'error' });
+        setProfileMessage({ text: res.message || 'Could not save settings.', type: 'error' });
       }
-    } catch {
-      setProfileMessage({ text: 'Could not save settings.', type: 'error' });
+    } catch (error) {
+      setProfileMessage({ text: error instanceof Error ? error.message : 'Could not save settings.', type: 'error' });
     }
     setTimeout(() => setProfileMessage({ text: '', type: '' }), 3000);
   };
@@ -430,6 +462,14 @@ export function useClientDashboard(initialTab?: string) {
       setPasswordMessage({ text: 'New passwords do not match.', type: 'error' });
       return;
     }
+    if (passwordData.newPassword.length < 8) {
+      setPasswordMessage({ text: 'Use at least 8 characters for your new password.', type: 'error' });
+      return;
+    }
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      setPasswordMessage({ text: 'Choose a password different from your current one.', type: 'error' });
+      return;
+    }
     try {
       const res = await apiClient.changePassword({
         currentPassword: passwordData.currentPassword,
@@ -439,10 +479,10 @@ export function useClientDashboard(initialTab?: string) {
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setPasswordMessage({ text: 'Password updated.', type: 'success' });
       } else {
-        setPasswordMessage({ text: 'Could not update password.', type: 'error' });
+        setPasswordMessage({ text: res.message || 'Could not update password.', type: 'error' });
       }
-    } catch {
-      setPasswordMessage({ text: 'Could not update password.', type: 'error' });
+    } catch (error) {
+      setPasswordMessage({ text: error instanceof Error ? error.message : 'Could not update password.', type: 'error' });
     }
     setTimeout(() => setPasswordMessage({ text: '', type: '' }), 3000);
   };
@@ -1006,8 +1046,8 @@ export function useClientDashboard(initialTab?: string) {
     openSidebarGroup, setOpenSidebarGroup,
     mobileRailGroup, setMobileRailGroup,
     // data
-    stats, projects, setProjects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, bookings, domains, setDomains, domainDnsTargets,
-    loading, user, fetchError, fetchData, refreshSupportData,
+    stats, projects, setProjects, activities, billing, billingInvoices, billingReceipts, billingRefunds, billingUnavailable, messages, tickets, resources, domains, setDomains, domainDnsTargets,
+    loading, user, setUser, fetchError, fetchData, refreshSupportData,
     // project selection / build journey
     selectedProjectId, setSelectedProjectId,
     activeBuildChapter, setActiveBuildChapter,

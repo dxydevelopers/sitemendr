@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle, Mail, MessageCircle, Phone, Send, ShieldCheck, Clock, ExternalLink } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
@@ -7,11 +8,8 @@ import { useAuth } from "../context/AuthContext";
 // email works today; phone shows as "coming soon" until at least one of
 // SMS or WhatsApp has real credentials configured on the backend.
 //
-// SMS and WhatsApp use genuinely different flows:
-//  - SMS: we send a code, the user types it back in here.
-//  - WhatsApp (loop trick): we hand them a pre-filled wa.me link, THEY send
-//    the code to us, and a backend webhook catches it — this component
-//    polls for that to happen rather than accepting typed input directly.
+// SMS uses Twilio Verify. WhatsApp is inbound-only: clients send a prefilled
+// challenge to Sitemendr and the Meta webhook verifies it automatically.
 export default function VerificationCenter() {
   const { user, refreshUser } = useAuth();
   const [caps, setCaps] = useState(null);
@@ -31,9 +29,8 @@ export default function VerificationCenter() {
 
   // WhatsApp loop flow state
   const [whatsappLink, setWhatsappLink] = useState("");
-  const [whatsappCode, setWhatsappCode] = useState("");
+  const [whatsappWebLink, setWhatsappWebLink] = useState("");
   const [polling, setPolling] = useState(false);
-  const [manualCode, setManualCode] = useState("");
   const pollTimer = useRef(null);
 
   useEffect(() => {
@@ -71,7 +68,7 @@ export default function VerificationCenter() {
 
       if (channel === "whatsapp") {
         setWhatsappLink(res.data.whatsappLink);
-        setWhatsappCode(res.data.code);
+        setWhatsappWebLink(res.data.whatsappWebLink || res.data.whatsappLink);
         startPolling();
       } else {
         setPhoneMsg(res.data.message);
@@ -111,27 +108,6 @@ export default function VerificationCenter() {
       await refreshUser();
       setOtpSent(false);
       setOtp("");
-    } catch (err) {
-      setPhoneError(err.response?.data?.message || "Incorrect or expired code");
-    } finally {
-      setVerifying(false);
-    }
-  }
-
-  // Manual fallback for the WhatsApp flow — in case the webhook doesn't
-  // catch it (network hiccup, the delivery got delayed, etc.), the same
-  // code can just be typed in directly instead of waiting on the loop.
-  async function handleManualVerify(e) {
-    e.preventDefault();
-    setPhoneError("");
-    if (!manualCode.trim()) { setPhoneError("Enter the code"); return; }
-    setVerifying(true);
-    try {
-      await api.post("/auth/verify-phone-otp", { otp: manualCode.trim() });
-      clearInterval(pollTimer.current);
-      setPolling(false);
-      setWhatsappLink("");
-      await refreshUser();
     } catch (err) {
       setPhoneError(err.response?.data?.message || "Incorrect or expired code");
     } finally {
@@ -294,43 +270,28 @@ export default function VerificationCenter() {
                   </button>
                 </form>
               ) : (
-                <div>
-                  <a
-                    href={whatsappLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 bg-[#25D366]/15 text-[#25D366] font-semibold py-3 rounded-xl hover:bg-[#25D366] hover:text-white transition text-sm mb-2.5"
-                  >
-                    Open WhatsApp & Tap Send <ExternalLink size={13} />
-                  </a>
-                  <p className="text-cream/30 text-[11px] text-center mb-3">
-                    Your code: <span className="text-cream/60 font-mono-tag">{whatsappCode}</span>
-                  </p>
+                <div className="space-y-4">
+                  <p className="text-cream/55 text-xs leading-5">Send the prefilled message from the WhatsApp account for {phone.trim()}. Sitemendr will verify it automatically when it arrives.</p>
+                  <div className="flex flex-col items-center gap-4 md:flex-row">
+                    <div className="hidden shrink-0 rounded-lg bg-white p-3 md:block">
+                      <QRCodeSVG value={whatsappLink} size={176} level="M" marginSize={2} title="Scan to open the Sitemendr WhatsApp verification chat" />
+                    </div>
+                    <div className="w-full space-y-2">
+                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-[#25D366]/15 text-[#25D366] font-semibold py-3 rounded-xl hover:bg-[#25D366] hover:text-white transition text-sm md:hidden">
+                        Open WhatsApp <ExternalLink size={13} />
+                      </a>
+                      <a href={whatsappWebLink} target="_blank" rel="noopener noreferrer" className="hidden items-center justify-center gap-2 bg-[#25D366]/15 text-[#25D366] font-semibold py-3 rounded-xl hover:bg-[#25D366] hover:text-white transition text-sm md:flex">
+                        Open WhatsApp Web <ExternalLink size={13} />
+                      </a>
+                      <p className="text-cream/35 text-[11px] text-center">On a laptop, scan the QR with the phone for this number or open WhatsApp Web. Tap Send in WhatsApp.</p>
+                    </div>
+                  </div>
                   {polling && (
                     <div className="flex items-center justify-center gap-2 text-cream/40 text-xs mb-3">
                       <div className="w-3 h-3 border-2 border-mall-accent/30 border-t-mall-accent rounded-full animate-spin" />
                       Waiting for confirmation...
                     </div>
                   )}
-                  <div className="pt-3 border-t border-cream/8">
-                    <p className="text-cream/25 text-[10px] mb-2">Not detected automatically? Enter the code manually:</p>
-                    <form onSubmit={handleManualVerify} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={manualCode}
-                        onChange={(e) => setManualCode(e.target.value)}
-                        placeholder="6-digit code"
-                        className="flex-1 bg-mall-700 rounded-lg px-3 py-2 text-cream placeholder-cream/25 text-sm outline-none focus:ring-1 focus:ring-mall-accent transition"
-                      />
-                      <button
-                        type="submit"
-                        disabled={verifying}
-                        className="bg-cream/10 text-cream/70 font-medium text-xs px-3.5 rounded-lg hover:bg-cream/15 transition disabled:opacity-50 shrink-0"
-                      >
-                        {verifying ? "..." : "Verify"}
-                      </button>
-                    </form>
-                  </div>
                 </div>
               )
             )}
