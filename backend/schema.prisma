@@ -811,6 +811,7 @@ model Resource {
   type        String
   url         String?
   content     String?
+  isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())
 }
 

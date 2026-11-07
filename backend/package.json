@@ -11,10 +11,10 @@
                     "dev":  "nodemon server.js",
                     "build:ts":  "tsc",
                     "type-check":  "tsc --noEmit",
-                    "db:generate": "prisma generate",
+                    "db:generate": "prisma generate --schema=prisma/schema.prisma",
                     "db:remove-booking": "node scripts/removeBookingSystem.js",
                     "db:migrate:support-message-threads": "node scripts/applySupportMessageThreads.js",
-                    "postinstall": "prisma generate"
+                    "postinstall": "prisma generate --schema=prisma/schema.prisma"
                 },
     "keywords":  [
                      "sitemendr",
