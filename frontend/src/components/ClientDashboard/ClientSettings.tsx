@@ -98,7 +98,7 @@ interface SettingsRowProps {
 function SettingsRow({ label, value, badge, actionLabel, extraAction, open, onToggle, children, message }: SettingsRowProps) {
   return (
     <div className="border-t border-white/[0.08] first:border-t-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-4 sm:grid-cols-[10rem_minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-4 sm:gap-x-4 md:grid-cols-[8rem_minmax(0,1fr)_auto] xl:grid-cols-[10rem_minmax(0,1fr)_auto]">
         <span className="col-span-2 text-xs font-medium text-white/45 sm:col-span-1">{label}</span>
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-white">
           <span className="min-w-0 break-words">{value}</span>
@@ -118,8 +118,8 @@ function SettingsRow({ label, value, badge, actionLabel, extraAction, open, onTo
           )}
         </div>
       </div>
-      {open && children && <div className="pb-5 sm:pl-[11rem]">{children}</div>}
-      {message && <div className="pb-4 sm:pl-[11rem]">{message}</div>}
+      {open && children && <div className="pb-5 md:pl-36 xl:pl-44">{children}</div>}
+      {message && <div className="pb-4 md:pl-36 xl:pl-44">{message}</div>}
     </div>
   );
 }
@@ -1064,10 +1064,15 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
   const localEntityPhone = getLocalPhoneForCountry(profileData.entityPhone, profileData.country);
 
   return (
-    <div className="max-w-3xl animate-fade-in space-y-6 pb-20 pt-2">
-      <h1 className="sr-only">My account</h1>
+    <div className="w-full max-w-7xl animate-fade-in space-y-6 pb-20 pt-2">
+      <header className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ai-blue">Account settings</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">My account</h1>
+        <p className="max-w-2xl text-sm leading-6 text-white/50">Manage your profile, sign-in security, and invoice details.</p>
+      </header>
 
-      <SettingsSection title="My account" description="Your details and how you sign in.">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.9fr)]">
+      <SettingsSection title="Profile" description="Your personal or business identity in Sitemendr.">
         <TextFieldRow
           id="account-name" label="Name" value={profileData.name} placeholder="Your name" required
           open={openRow === 'name'} onToggle={() => toggle('name')} message={rowMessage('name')}
@@ -1114,16 +1119,18 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
           onSave={(patch) => commitProfile('currency', patch)}
         />
 
+      </SettingsSection>
+
+      <SettingsSection title="Sign-in & security" description="Your login email, verified phone, and password.">
         <EmailRow user={user} open={openRow === 'email'} onToggle={() => toggle('email')} onUserChange={persistUser} />
-
         <PhoneRow user={user} open={openRow === 'phone'} onToggle={() => toggle('phone')} onVerified={handlePhoneVerified} />
-
         <PasswordRow
           open={openRow === 'password'} onToggle={() => toggle('password')}
           passwordData={passwordData} setPasswordData={setPasswordData}
           passwordMessage={passwordMessage} onSubmit={handleChangePassword}
         />
       </SettingsSection>
+      </div>
 
       <SettingsSection title="Invoice details" description="The address that appears on your invoices.">
         <BillingAddressRow
