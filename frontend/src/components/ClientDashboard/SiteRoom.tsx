@@ -123,6 +123,8 @@ export default function SiteRoom({
   receipts,
   refunds,
   onOpenBuildJourney,
+  onOpenRepairJourney,
+  onOpenPerformance,
   view,
   onChangeView,
 }: {
@@ -132,6 +134,8 @@ export default function SiteRoom({
   receipts: BillingReceiptItem[];
   refunds: BillingRefundItem[];
   onOpenBuildJourney: (projectRequestId: string) => void;
+  onOpenRepairJourney: (projectRequestId: string) => void;
+  onOpenPerformance: (siteId: string) => void;
   view: RoomView;
   onChangeView: (v: RoomView) => void;
 }) {
@@ -191,12 +195,14 @@ export default function SiteRoom({
   const relatedRequestIds = relatedBuildRequests.map(project => project.id);
   const siteBilling = billing.filter((item: BillingItem) => item.metadata?.subscriptionId === site.id
     || relatedRequestIds.includes(String(item.metadata?.projectRequestId || '')));
-  const siteInvoices = invoices.filter(invoice => invoice.snapshot?.subscriptionId === site.id
+  const siteInvoices = invoices.filter(invoice => invoice.snapshot?.siteId === site.id
+    || invoice.snapshot?.subscriptionId === site.id
     || Boolean(invoice.projectRequestId && relatedRequestIds.includes(invoice.projectRequestId)));
   const siteInvoiceIds = new Set(siteInvoices.map(invoice => invoice.id));
   const siteReceipts = receipts.filter(receipt => siteInvoiceIds.has(String(receipt.invoiceId || ''))
     || siteBilling.some(payment => payment.id === receipt.paymentId));
-  const siteRefunds = refunds.filter(refund => Boolean(refund.projectRequestId && relatedRequestIds.includes(refund.projectRequestId)));
+  const siteRefunds = refunds.filter(refund => refund.siteId === site.id
+    || Boolean(refund.projectRequestId && relatedRequestIds.includes(refund.projectRequestId)));
 
   return (
   <div className="animate-fade-in space-y-6">
@@ -245,7 +251,7 @@ export default function SiteRoom({
   <AddonMarketplace subscription={site} onRequestCustom={() => onChangeView('support')} />
   )}
 
-  {!siteIsReadOnly && visibleView === 'billing' && <SiteBilling site={site} billing={siteBilling} invoices={siteInvoices} receipts={siteReceipts} refunds={siteRefunds} unavailable={billingUnavailable} onRefreshBilling={dashboard.fetchData} onOpenBuildJourney={onOpenBuildJourney} onOpenAddons={() => onChangeView('addons')} />}
+  {!siteIsReadOnly && visibleView === 'billing' && <SiteBilling site={site} billing={siteBilling} invoices={siteInvoices} receipts={siteReceipts} refunds={siteRefunds} unavailable={billingUnavailable} onRefreshBilling={dashboard.fetchData} onOpenBuildJourney={onOpenBuildJourney} onOpenRepairJourney={onOpenRepairJourney} onOpenPerformance={onOpenPerformance} onOpenAddons={() => onChangeView('addons')} />}
 
   {!siteIsReadOnly && visibleView === 'performance' && (
   <PerformanceAudit

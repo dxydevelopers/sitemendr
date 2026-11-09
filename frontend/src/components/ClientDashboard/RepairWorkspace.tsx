@@ -16,6 +16,7 @@ export default function RepairWorkspace({ projects }: { projects: ClientProject[
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const appliedPerformanceContext = useRef('');
+  const appliedRepairSelection = useRef('');
   const [items, setItems] = useState<RepairRequestRecord[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,13 @@ export default function RepairWorkspace({ projects }: { projects: ClientProject[
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const requestedId = searchParams.get('repairRequestId') || '';
+    if (!requestedId || appliedRepairSelection.current === requestedId || !items.some(item => item.id === requestedId)) return;
+    appliedRepairSelection.current = requestedId;
+    setSelectedId(requestedId);
+  }, [items, searchParams]);
 
   useEffect(() => {
     if (searchParams.get('repairSource') !== 'performance') return;

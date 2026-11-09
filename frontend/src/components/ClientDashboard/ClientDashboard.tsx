@@ -234,6 +234,27 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   setActiveBuildChapter(null);
   openTab('projects');
   };
+  const openRepairJourneyFromBilling = (projectRequestId: string) => {
+  setActiveTab('repair');
+  setOpenSidebarGroup(null);
+  setMobileRailGroup(null);
+  setIsSidebarOpen(false);
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete('view');
+  params.delete('id');
+  params.delete('site');
+  params.set('tab', 'repair');
+  params.set('repairRequestId', projectRequestId);
+  router.push(`/dashboard?${params.toString()}`);
+  };
+  const openPerformanceFromBilling = (siteId: string) => {
+  setSelectedProjectId(siteId);
+  openTab('audit');
+  };
+  const openAddonsFromBilling = (subscriptionId?: string) => {
+  if (subscriptionId) setSelectedProjectId(subscriptionId);
+  openTab('addons');
+  };
 
   const projectScopedTabs = ['editor', 'audit', 'ecommerce', 'addons'];
   const projectContexts = projects.filter(project => project.recordType === 'project');
@@ -470,6 +491,8 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   receipts={billingReceipts}
   refunds={billingRefunds}
   onOpenBuildJourney={openBuildJourneyFromBilling}
+  onOpenRepairJourney={openRepairJourneyFromBilling}
+  onOpenPerformance={openPerformanceFromBilling}
   view={mySiteView}
   onChangeView={changeSiteView}
   />
@@ -501,7 +524,7 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   </div>
   )}
 
-  {activeTab === 'billing' && <ClientBilling billing={billing} invoices={billingInvoices} receipts={billingReceipts} refunds={billingRefunds} projects={projects} unavailable={billingUnavailable} onRetry={fetchData} onOpenBuildJourney={openBuildJourneyFromBilling} onOpenAddons={() => openTab('addons')} />}
+  {activeTab === 'billing' && <ClientBilling billing={billing} invoices={billingInvoices} receipts={billingReceipts} refunds={billingRefunds} projects={projects} unavailable={billingUnavailable} onRetry={fetchData} onOpenBuildJourney={openBuildJourneyFromBilling} onOpenRepairJourney={openRepairJourneyFromBilling} onOpenPerformance={openPerformanceFromBilling} onOpenAddons={openAddonsFromBilling} />}
 
   {activeTab === 'addons' && (scopedProject ? <div className="animate-fade-in"><AddonMarketplace subscription={scopedProject} onRequestCustom={() => openTab('tickets')} /></div> : <ProjectContextPrompt projects={projectContexts} onSelect={setSelectedProjectId} />)}
 

@@ -1834,22 +1834,26 @@ exports.getBilling = async (req, res) => {
     ]);
 
     const preferredCurrency = user?.defaultCurrency || 'USD';
-    const buildRequestIds = [...new Set(payments
-      .filter(payment => ['build_agreement', 'build_final_balance'].includes(payment.serviceType))
+    const requestIds = [...new Set([
+      ...payments
+      .filter(payment => ['build_agreement', 'build_final_balance', 'build_cancellation_closeout', 'performance_payment', 'repair_payment'].includes(payment.serviceType))
       .map(payment => payment.metadata?.projectRequestId)
-      .filter((id) => typeof id === 'string'))];
-    const buildRequests = buildRequestIds.length
+      .filter((id) => typeof id === 'string'),
+      ...invoices.map(invoice => invoice.projectRequestId).filter((id) => typeof id === 'string'),
+      ...refunds.map(refund => refund.projectRequestId).filter((id) => typeof id === 'string')
+    ])];
+    const relatedRequests = requestIds.length
       ? await prisma.projectRequest.findMany({
-          where: { id: { in: buildRequestIds }, userId, serviceType: 'build' },
-          select: { id: true, title: true, businessName: true, subscriptionId: true }
+          where: { id: { in: requestIds }, userId, serviceType: { in: ['build', 'performance', 'repair'] } },
+          select: { id: true, title: true, businessName: true, subscriptionId: true, serviceType: true }
         })
       : [];
-    const buildById = new Map(buildRequests.map(request => [request.id, request]));
+    const requestById = new Map(relatedRequests.map(request => [request.id, request]));
     const billing = payments.map((payment) => {
       const majorUnitAmount = (payment.amount || 0) / 100;
       const showConverted = normalizeCurrency(payment.currency) !== normalizeCurrency(preferredCurrency);
       const projectRequestId = payment.metadata?.projectRequestId;
-      const buildRequest = typeof projectRequestId === 'string' ? buildById.get(projectRequestId) : undefined;
+      const serviceRequest = typeof projectRequestId === 'string' ? requestById.get(projectRequestId) : undefined;
       return {
         id: payment.id,
         amount: payment.amount,
@@ -1865,10 +1869,10 @@ exports.getBilling = async (req, res) => {
         updatedAt: payment.updatedAt,
         metadata: {
           ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
-          ...(buildRequest ? {
-            projectRequestId: buildRequest.id,
-            projectName: buildRequest.businessName || buildRequest.title,
-            subscriptionId: buildRequest.subscriptionId || undefined
+          ...(serviceRequest ? {
+            projectRequestId: serviceRequest.id,
+            projectName: serviceRequest.businessName || serviceRequest.title,
+            subscriptionId: serviceRequest.subscriptionId || undefined
           } : {})
         },
         preferredCurrency,
@@ -1880,9 +1884,23 @@ exports.getBilling = async (req, res) => {
     res.json({
       success: true,
       billing,
-      invoices,
+      invoices: invoices.map(invoice => {
+        const serviceRequest = invoice.projectRequestId ? requestById.get(invoice.projectRequestId) : undefined;
+        return serviceRequest ? {
+          ...invoice,
+          snapshot: {
+            ...(invoice.snapshot && typeof invoice.snapshot === 'object' ? invoice.snapshot : {}),
+            serviceType: serviceRequest.serviceType,
+            projectName: (invoice.snapshot && typeof invoice.snapshot === 'object' && invoice.snapshot.projectName) || serviceRequest.businessName || serviceRequest.title,
+            siteId: serviceRequest.subscriptionId || null
+          }
+        } : invoice;
+      }),
       receipts,
-      refunds
+      refunds: refunds.map(refund => {
+        const serviceRequest = refund.projectRequestId ? requestById.get(refund.projectRequestId) : undefined;
+        return serviceRequest ? { ...refund, siteId: serviceRequest.subscriptionId || null } : refund;
+      })
     });
   } catch (error) {
     logger.error('Failed to get billing info', {
@@ -2806,9 +2824,10 @@ exports.getContractBilling = async (req, res) => {
     const { id } = req.params;
 
     const request = await prisma.projectRequest.findFirst({
-      where: { id, userId, serviceType: 'build' },
+      where: { id, userId, serviceType: { in: ['build', 'performance', 'repair'] } },
       select: {
         id: true,
+        serviceType: true,
         subscriptionId: true,
         title: true,
         businessName: true,
@@ -2831,13 +2850,13 @@ exports.getContractBilling = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Contract not found' });
     }
 
-    const settlementEvents = await prisma.$queryRawUnsafe(
+    const settlementEvents = request.serviceType === 'build' ? await prisma.$queryRawUnsafe(
       `SELECT "eventData"->'cancellationSettlement' AS "cancellationSettlement"
        FROM "ProjectConversationMessage"
        WHERE "projectRequestId" = $1 AND "kind" = 'event' AND "eventData"->>'type' = 'cancel_confirmed'
        ORDER BY "createdAt" DESC LIMIT 1`,
       id
-    );
+    ) : [];
 
     const payments = await prisma.payment.findMany({
       where: {

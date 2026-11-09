@@ -61,7 +61,9 @@ export default function SiteBilling({ site, billing, invoices, receipts, refunds
   unavailable: boolean;
   onRefreshBilling: () => Promise<unknown>;
   onOpenBuildJourney: (projectRequestId: string) => void;
-  onOpenAddons: () => void;
+  onOpenRepairJourney: (projectRequestId: string) => void;
+  onOpenPerformance: (siteId: string) => void;
+  onOpenAddons: (subscriptionId?: string) => void;
 }) {
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<{ kind: 'invoice' | 'receipt'; id: string } | null>(null);
@@ -88,7 +90,7 @@ export default function SiteBilling({ site, billing, invoices, receipts, refunds
   const refreshBilling = () => onRefreshBilling();
 
   if (selectedDocument?.kind === 'invoice' && selectedInvoice) {
-    return <div className="space-y-5"><button type="button" onClick={() => setSelectedDocument(null)} className="inline-flex items-center gap-2 text-[10px] font-semibold text-white/50 transition hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Back to site billing</button><BillingDocumentDetail kind="invoice" invoice={selectedInvoice} onOpenBuildJourney={onOpenBuildJourney} onOpenAddons={onOpenAddons} /></div>;
+    return <div className="space-y-5"><button type="button" onClick={() => setSelectedDocument(null)} className="inline-flex items-center gap-2 text-[10px] font-semibold text-white/50 transition hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Back to site billing</button><BillingDocumentDetail kind="invoice" invoice={selectedInvoice} onOpenBuildJourney={onOpenBuildJourney} onOpenRepairJourney={onOpenRepairJourney} onOpenPerformance={onOpenPerformance} onOpenAddons={onOpenAddons} /></div>;
   }
   if (selectedDocument?.kind === 'receipt' && selectedReceipt) {
     return <div className="space-y-5"><button type="button" onClick={() => setSelectedDocument(null)} className="inline-flex items-center gap-2 text-[10px] font-semibold text-white/50 transition hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Back to site billing</button><BillingDocumentDetail kind="receipt" receipt={selectedReceipt} payment={selectedReceiptPayment} /></div>;
@@ -104,7 +106,7 @@ export default function SiteBilling({ site, billing, invoices, receipts, refunds
   >
   <ArrowLeft className="h-3.5 w-3.5" /> Back to billing
   </button>
-  <TransactionDetail transaction={selectedTransaction} />
+  <TransactionDetail transaction={selectedTransaction} onOpenBuildJourney={onOpenBuildJourney} onOpenRepairJourney={onOpenRepairJourney} onOpenPerformance={onOpenPerformance} />
   </div>
   );
   }

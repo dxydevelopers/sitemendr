@@ -228,6 +228,7 @@ export interface BillingRefundItem {
   id: string;
   refundNumber: string;
   projectRequestId?: string | null;
+  siteId?: string | null;
   amountMinor: number;
   processedAmountMinor?: number;
   currency: string;

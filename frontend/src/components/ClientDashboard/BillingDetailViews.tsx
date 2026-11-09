@@ -40,6 +40,7 @@ export function BillingDocumentDetail({
   payment,
   onOpenBuildJourney,
   onOpenRepairJourney,
+  onOpenPerformance,
   onOpenAddons,
 }: {
   kind: 'invoice' | 'receipt';
@@ -48,7 +49,8 @@ export function BillingDocumentDetail({
   payment?: BillingItem;
   onOpenBuildJourney?: (projectRequestId: string) => void;
   onOpenRepairJourney?: (projectRequestId: string) => void;
-  onOpenAddons?: () => void;
+  onOpenPerformance?: (siteId: string) => void;
+  onOpenAddons?: (subscriptionId?: string) => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
@@ -161,18 +163,23 @@ export function BillingDocumentDetail({
         {isInvoice && invoice && !invoiceIsVoided && invoice.status !== 'paid' && (() => {
           const isBuild = invoice.serviceType === 'build';
           const isRepair = invoice.serviceType === 'repair';
+          const isPerformance = invoice.serviceType === 'performance';
           const isAddon = invoice.serviceType === 'addon';
           const action = isBuild && invoice.projectRequestId && onOpenBuildJourney
             ? { label: 'Open Build Journey', run: () => onOpenBuildJourney(invoice.projectRequestId!) }
             : isRepair && invoice.projectRequestId && onOpenRepairJourney
               ? { label: 'Open Repair', run: () => onOpenRepairJourney(invoice.projectRequestId!) }
+              : isPerformance && invoice.snapshot?.siteId && onOpenPerformance
+                ? { label: 'Open Performance', run: () => onOpenPerformance(String(invoice.snapshot?.siteId)) }
               : isAddon && onOpenAddons
-                ? { label: 'Open Add-ons', run: onOpenAddons }
+                ? { label: 'Open Add-ons', run: () => onOpenAddons(typeof invoice.snapshot?.subscriptionId === 'string' ? invoice.snapshot.subscriptionId : undefined) }
                 : null;
           const description = isBuild
             ? 'Continue this build payment in Build Journey.'
             : isRepair
               ? 'Continue this repair payment in Repair, where diagnosis, approved scope, and delivery are tracked.'
+              : isPerformance
+                ? 'Review the related site’s performance status and this request with Sitemendr.'
               : isAddon
                 ? 'Review this site add-on in Add-ons.'
                 : 'This invoice belongs to a Sitemendr service request. Updates remain in its related service conversation.';
@@ -336,9 +343,10 @@ interface TransactionDetailProps {
   transaction: BillingItem & { metadata?: { projectRequestId?: string } | null };
   onOpenBuildJourney?: (projectRequestId: string) => void;
   onOpenRepairJourney?: (projectRequestId: string) => void;
+  onOpenPerformance?: (siteId: string) => void;
 }
 
-export function TransactionDetail({ transaction, onOpenBuildJourney, onOpenRepairJourney }: TransactionDetailProps) {
+export function TransactionDetail({ transaction, onOpenBuildJourney, onOpenRepairJourney, onOpenPerformance }: TransactionDetailProps) {
   const [relatedAttempts, setRelatedAttempts] = useState<ContractPayment[]>([]);
   const projectRequestId = transaction.metadata?.projectRequestId;
 
@@ -347,7 +355,8 @@ export function TransactionDetail({ transaction, onOpenBuildJourney, onOpenRepai
   let cancelled = false;
   apiClient.getContractBilling(projectRequestId).then((res) => {
   if (cancelled || !res.success) return;
-  const others = (res.payments as ContractPayment[]).filter((p) => p.id !== transaction.id);
+  const currentCreatedAt = new Date(transaction.createdAt).getTime();
+  const others = (res.payments as ContractPayment[]).filter((p) => p.id !== transaction.id && new Date(p.createdAt).getTime() < currentCreatedAt);
   setRelatedAttempts(others);
   }).catch(() => {});
   return () => { cancelled = true; };
@@ -403,6 +412,13 @@ export function TransactionDetail({ transaction, onOpenBuildJourney, onOpenRepai
   <div className="mt-5 flex flex-col gap-3 rounded-xl border border-red-400/15 bg-red-400/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
   <p className="text-xs leading-5 text-white/60">This repair payment did not complete. Return to Repair to review the open invoice and try again.</p>
   <button type="button" onClick={() => onOpenRepairJourney(projectRequestId)} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-300/25 px-4 text-xs font-semibold text-red-100 transition hover:bg-red-300/10">Open Repair</button>
+  </div>
+  )}
+
+  {transaction.status === 'failed' && transaction.serviceType === 'performance_payment' && typeof transaction.metadata?.subscriptionId === 'string' && onOpenPerformance && (
+  <div className="mt-5 flex flex-col gap-3 rounded-xl border border-red-400/15 bg-red-400/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
+  <p className="text-xs leading-5 text-white/60">This Performance payment did not complete. Open the related site to review its status and follow up with Sitemendr.</p>
+  <button type="button" onClick={() => onOpenPerformance(String(transaction.metadata?.subscriptionId))} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-300/25 px-4 text-xs font-semibold text-red-100 transition hover:bg-red-300/10">Open Performance</button>
   </div>
   )}
 
