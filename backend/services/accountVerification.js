@@ -17,7 +17,8 @@ const requestPhoneCode = async ({ to, channel, code }) => {
   if (channel === 'whatsapp') {
     if (!channels.whatsapp) throw new Error('WhatsApp verification is not configured.');
     const businessNumber = process.env.WHATSAPP_BUSINESS_NUMBER.replace(/\D/g, '');
-    const message = `SITEMENDR VERIFY ${code}`;
+    const formattedCode = `${code.slice(0, 3)} XXX ${code.slice(3)}`;
+    const message = `Hi Sitemendr, I'm verifying my phone number. Code: ${formattedCode}`;
     const encodedMessage = encodeURIComponent(message);
     return {
       whatsappLink: `https://wa.me/${businessNumber}?text=${encodedMessage}`,

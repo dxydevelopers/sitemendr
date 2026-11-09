@@ -2,6 +2,7 @@ const { prisma } = require('../config/db');
 const { notifyUser, notifyAdmins } = require('../services/socketService');
 const logger = require('../config/logger');
 const { isBuildManagementUnlocked } = require('../services/siteManagement');
+const { getBillingIdentity } = require('../services/billingRecords');
 const invoiceNumber = () => `SMI-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
 
 const publicUrl = value => {
@@ -119,7 +120,8 @@ exports.setRepairDiagnosisFee = async (req, res) => {
   if (!request || request.repairContext?.hostType !== 'external') return res.status(404).json({ success: false, message: 'External repair request not found.' });
   if (request.status !== 'submitted') return res.status(409).json({ success: false, message: 'Diagnosis pricing can only be set during initial review.' });
   if (!Number.isFinite(fee) || fee <= 0 || fee > 10000000 || !/^[A-Z]{3}$/.test(currency)) return res.status(400).json({ success: false, message: 'Set a valid diagnosis fee and currency.' });
-  const invoice = await prisma.billingInvoice.create({ data: { invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: request.id, stage: 'repair_diagnosis', serviceType: 'repair', description: `External site repair diagnosis: ${request.title}`, amountMinor: Math.round(fee * 100), currency, dueAt: new Date(Date.now() + 7 * 86400000) } });
+  const billingIdentity = await getBillingIdentity(request.userId);
+  const invoice = await prisma.billingInvoice.create({ data: { invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: request.id, stage: 'repair_diagnosis', serviceType: 'repair', description: `External site repair diagnosis: ${request.title}`, amountMinor: Math.round(fee * 100), currency, dueAt: new Date(Date.now() + 7 * 86400000), snapshot: { projectRequestId: request.id, projectName: request.title, billingIdentity } } });
   const updated = await prisma.projectRequest.update({ where: { id: request.id }, data: { status: 'awaiting_diagnosis_payment', repairContext: { ...request.repairContext, diagnosisFee: fee, diagnosisCurrency: currency, diagnosisReport: report, diagnosisFeeStatus: 'awaiting_payment', diagnosisInvoiceId: invoice.id } } });
   await prisma.projectConversationMessage.create({ data: { projectRequestId: request.id, senderRole: 'system', kind: 'event', message: `Sitemendr reviewed the request and set an external diagnosis fee of ${currency} ${fee}. Investigation begins after this invoice is paid.`, eventData: { type: 'repair_diagnosis_fee_set', invoiceId: invoice.id, amountMinor: invoice.amountMinor, currency, report } } });
   notifyUser(request.userId, 'repair_request_updated', { request: updated });
@@ -136,6 +138,7 @@ exports.sendRepairProposal = async (req, res) => {
     const priorQuote = await prisma.projectQuoteVersion.findFirst({ where: { projectRequestId: request.id, status: 'accepted' }, orderBy: { version: 'desc' }, select: { snapshot: true } });
     if (priorQuote && String(priorQuote.snapshot?.currency || 'USD').toUpperCase() !== String(currency).toUpperCase()) return res.status(409).json({ success: false, message: 'A change order must use the currency from the accepted repair scope.' });
   }
+  const billingIdentity = await getBillingIdentity(request.userId);
   const result = await prisma.$transaction(async tx => {
     const latest = await tx.projectQuoteVersion.findFirst({ where: { projectRequestId: request.id }, orderBy: { version: 'desc' }, select: { version: true } });
     const version = (latest?.version || 0) + 1;
@@ -145,8 +148,9 @@ exports.sendRepairProposal = async (req, res) => {
     const quote = await tx.projectQuoteVersion.create({ data: { projectRequestId: request.id, version, status: 'sent', snapshot } });
     const firstDue = new Date(Date.now() + 7 * 86400000);
     const firstAmount = paymentSchedule === 'deposit_balance' ? deposit : total;
-    const invoice = await tx.billingInvoice.create({ data: { invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: request.id, stage: `${changeOrder ? 'repair_change' : 'repair_quote'}_${version}`, serviceType: 'repair', description: `${changeOrder ? 'Approved-scope change' : `Repair ${paymentSchedule === 'deposit_balance' ? 'deposit' : 'work payment'}`}: ${request.title}`, amountMinor: Math.round((changeOrder ? total : firstAmount) * 100), currency, dueAt: firstDue } });
-    if (!changeOrder && paymentSchedule === 'deposit_balance') await tx.billingInvoice.create({ data: { invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: request.id, stage: `repair_balance_${version}`, serviceType: 'repair', description: `Repair remaining balance: ${request.title}`, amountMinor: Math.round((total - deposit) * 100), currency, dueAt: firstDue } });
+    const invoiceSnapshot = { projectRequestId: request.id, projectName: request.title, quoteVersionId: quote.id, quoteVersion: version, acceptedQuote: snapshot, billingIdentity };
+    const invoice = await tx.billingInvoice.create({ data: { invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: request.id, stage: `${changeOrder ? 'repair_change' : 'repair_quote'}_${version}`, serviceType: 'repair', description: `${changeOrder ? 'Approved-scope change' : `Repair ${paymentSchedule === 'deposit_balance' ? 'deposit' : 'work payment'}`}: ${request.title}`, amountMinor: Math.round((changeOrder ? total : firstAmount) * 100), currency, dueAt: firstDue, snapshot: invoiceSnapshot } });
+    if (!changeOrder && paymentSchedule === 'deposit_balance') await tx.billingInvoice.create({ data: { invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: request.id, stage: `repair_balance_${version}`, serviceType: 'repair', description: `Repair remaining balance: ${request.title}`, amountMinor: Math.round((total - deposit) * 100), currency, dueAt: firstDue, snapshot: { ...invoiceSnapshot, paymentStage: 'balance' } } });
     await tx.projectRequest.update({ where: { id: request.id }, data: { status: 'proposal_ready', repairContext: { ...(request.repairContext || {}), proposalVersion: version, proposalKind: changeOrder ? 'change_order' : 'initial', diagnosisReport: String(report || request.repairContext?.diagnosisReport || '').slice(0, 5000), ...(!changeOrder ? { diagnosisCompletedAt: request.repairContext?.diagnosisCompletedAt || new Date().toISOString() } : {}), paymentSchedule: changeOrder ? 'full_upfront' : paymentSchedule } } });
     await event(tx, request.id, changeOrder ? 'repair_change_order_sent' : 'repair_proposal_sent', changeOrder ? 'Sitemendr paused work and sent a priced change order for approval.' : 'Sitemendr sent a repair scope, timeline, and payment proposal.', { quoteVersionId: quote.id, invoiceId: invoice.id });
     return { quote, invoice };
@@ -249,10 +253,11 @@ exports.decideRepairCancellation = async (req, res) => {
         } });
       }
       if (settlement.balanceDue > 0) {
+        const billingIdentity = await getBillingIdentity(request.userId, tx);
         closeoutInvoice = await tx.billingInvoice.create({ data: {
           invoiceNumber: invoiceNumber(), userId: request.userId, projectRequestId: id, stage: 'repair_cancellation_closeout', serviceType: 'repair',
           description: `Repair cancellation closeout: ${request.title}`, amountMinor: Math.round(settlement.balanceDue * 100), currency: settlement.currency,
-          dueAt: new Date(Date.now() + 7 * 86400000), snapshot: { projectRequestId: id, cancellationCloseout: true, chargeTotal: settlement.chargeTotal, paidTotal: settlement.paidTotal }
+          dueAt: new Date(Date.now() + 7 * 86400000), snapshot: { projectRequestId: id, projectName: request.title, cancellationCloseout: true, chargeTotal: settlement.chargeTotal, paidTotal: settlement.paidTotal, billingIdentity }
         } });
       }
     }

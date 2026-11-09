@@ -4,6 +4,41 @@ const logger = require('../config/logger');
 
 const makeNumber = (prefix) => `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}`;
 
+async function getBillingIdentity(userId, db = prisma) {
+  if (!userId) return null;
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      name: true,
+      email: true,
+      accountType: true,
+      entityName: true,
+      entityContactEmail: true,
+      billingAddressLine1: true,
+      billingAddressLine2: true,
+      billingCity: true,
+      billingRegion: true,
+      billingPostalCode: true,
+      billingCountry: true
+    }
+  });
+  if (!user) return null;
+  return {
+    name: user.name || null,
+    email: user.email || null,
+    accountType: user.accountType || 'individual',
+    billedTo: user.entityName || user.name || 'Sitemendr client',
+    entityName: user.entityName || null,
+    contactEmail: user.entityContactEmail || user.email || null,
+    addressLine1: user.billingAddressLine1 || null,
+    addressLine2: user.billingAddressLine2 || null,
+    city: user.billingCity || null,
+    region: user.billingRegion || null,
+    postalCode: user.billingPostalCode || null,
+    country: user.billingCountry || null
+  };
+}
+
 async function issueBuildInvoice(request, stage) {
   if (!request?.id || !request.userId) return null;
   const amount = stage === 'deposit'
@@ -26,6 +61,7 @@ async function issueBuildInvoice(request, stage) {
     orderBy: { version: 'desc' },
     select: { id: true, version: true, snapshot: true }
   });
+  const billingIdentity = await getBillingIdentity(request.userId);
   try {
     return await prisma.billingInvoice.create({
     data: {
@@ -43,6 +79,7 @@ async function issueBuildInvoice(request, stage) {
       snapshot: {
         projectRequestId: request.id,
         projectName: request.title || request.businessName || 'Website project',
+        billingIdentity,
         quoteVersionId: quote?.id || null,
         quoteVersion: quote?.version || null,
         acceptedQuote: quote?.snapshot || null,
@@ -62,6 +99,7 @@ async function issueAddonInvoice({ userId, subscriptionId, addon, siteName }) {
   const where = { subscriptionId_stage: { subscriptionId, stage: `addon:${addon.id}` } };
   const existing = await prisma.billingInvoice.findUnique({ where });
   if (existing) return existing;
+  const billingIdentity = await getBillingIdentity(userId);
   try {
     return await prisma.billingInvoice.create({
       data: {
@@ -74,7 +112,7 @@ async function issueAddonInvoice({ userId, subscriptionId, addon, siteName }) {
         amountMinor: Math.round(Number(addon.price) * 100),
         currency: 'USD',
         status: 'open',
-        snapshot: { addonId: addon.id, addonName: addon.name, subscriptionId, siteName: siteName || null }
+        snapshot: { addonId: addon.id, addonName: addon.name, subscriptionId, siteName: siteName || null, billingIdentity }
       }
     });
   } catch (error) {
@@ -88,6 +126,8 @@ async function issueReceiptForPayment(payment) {
   const existing = await prisma.billingReceipt.findUnique({ where: { paymentId: payment.id } });
   if (existing) return existing;
   const invoiceId = payment.invoiceId || null;
+  const invoice = invoiceId ? await prisma.billingInvoice.findUnique({ where: { id: invoiceId }, select: { snapshot: true } }) : null;
+  const billingIdentity = invoice?.snapshot?.billingIdentity || await getBillingIdentity(payment.userId);
   try {
     return await prisma.billingReceipt.create({
     data: {
@@ -101,7 +141,8 @@ async function issueReceiptForPayment(payment) {
         reference: payment.reference,
         description: payment.description,
         serviceType: payment.serviceType,
-        paidAt: payment.updatedAt || payment.createdAt
+        paidAt: payment.updatedAt || payment.createdAt,
+        billingIdentity
       }
     }
     });
@@ -316,6 +357,7 @@ async function reconcilePayableBuildInvoices() {
 }
 
 module.exports = {
+  getBillingIdentity,
   issueBuildInvoice,
   issueAddonInvoice,
   issueReceiptForPayment,

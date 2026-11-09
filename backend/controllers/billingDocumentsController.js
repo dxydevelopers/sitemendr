@@ -52,6 +52,15 @@ const addAmount = (pdf, description, amountMinor, currency, statusLabel) => {
   }
 };
 
+const addBillingIdentity = (pdf, identity, user) => {
+  addField(pdf, 'Issued to', identity?.billedTo || identity?.entityName || user?.name || 'Sitemendr client');
+  addField(pdf, 'Account email', identity?.contactEmail || identity?.email || user?.email);
+  const address = [identity?.addressLine1, identity?.addressLine2, [identity?.city, identity?.region].filter(Boolean).join(', '), identity?.postalCode, identity?.country]
+    .filter(Boolean)
+    .join('\n');
+  if (address) addField(pdf, 'Billing address', address);
+};
+
 exports.invoicePdf = async (req, res) => {
   try {
     const invoice = await prisma.billingInvoice.findFirst({
@@ -64,8 +73,7 @@ exports.invoicePdf = async (req, res) => {
       kind: 'Invoice',
       draw: pdf => {
         addHeader(pdf, 'Invoice', invoice.invoiceNumber, invoice.issuedAt);
-        addField(pdf, 'Issued to', invoice.user?.name || 'Sitemendr client');
-        addField(pdf, 'Account email', invoice.user?.email);
+        addBillingIdentity(pdf, invoice.snapshot?.billingIdentity, invoice.user);
         if (invoice.snapshot?.projectName) addField(pdf, 'Project', invoice.snapshot.projectName);
         addAmount(pdf, invoice.description, invoice.amountMinor, invoice.currency, invoice.status);
         addField(pdf, invoice.status === 'paid' ? 'Paid on' : 'Due date', invoice.status === 'paid' ? invoice.paidAt?.toISOString?.().slice(0, 10) : invoice.dueAt?.toISOString?.().slice(0, 10) || 'Due upon request');
@@ -96,8 +104,7 @@ exports.receiptPdf = async (req, res) => {
       kind: 'Receipt',
       draw: pdf => {
         addHeader(pdf, 'Payment receipt', receipt.receiptNumber, receipt.issuedAt);
-        addField(pdf, 'Issued to', receipt.user?.name || 'Sitemendr client');
-        addField(pdf, 'Account email', receipt.user?.email);
+        addBillingIdentity(pdf, receipt.snapshot?.billingIdentity, receipt.user);
         addAmount(pdf, receipt.payment?.description || 'Sitemendr payment', receipt.amountMinor, receipt.currency, 'Verified and completed');
         addField(pdf, 'Payment reference', receipt.payment?.reference || receipt.snapshot?.reference);
         addField(pdf, 'Payment method', receipt.payment?.paymentMethod || 'Online payment');

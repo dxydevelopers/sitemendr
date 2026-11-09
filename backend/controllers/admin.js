@@ -6,7 +6,7 @@ const { verifyDomains } = require('../scripts/dnsWorker');
 const logger = require('../config/logger');
 const { recordProjectEvent } = require('../services/projectConversation');
 const { ensureCompletedBuildSite } = require('../services/projectSiteService');
-const { issueBuildInvoice } = require('../services/billingRecords');
+const { issueBuildInvoice, getBillingIdentity } = require('../services/billingRecords');
 const { ADDONS, getAddon } = require('../services/addonCatalog');
 const { isBuildManagementUnlocked } = require('../services/siteManagement');
 const { AVAILABILITY_SUMMARY_DAYS, AVAILABILITY_HISTORY_RETENTION_DAYS, UPTIME_CHECK_INTERVAL_MINUTES } = require('../services/performancePolicy');
@@ -1652,6 +1652,7 @@ exports.decideProjectLifecycleRequest = async (req, res) => {
       }
 
       if (decision === 'confirm' && lifecycleType === 'cancel' && Number(cancellationSettlement?.balanceDue) > 0) {
+        const billingIdentity = await getBillingIdentity(request.userId, tx);
         await tx.billingInvoice.upsert({
           where: { projectRequestId_stage: { projectRequestId: id, stage: 'cancellation_closeout' } },
           create: {
@@ -1664,7 +1665,7 @@ exports.decideProjectLifecycleRequest = async (req, res) => {
             amountMinor: Math.round(Number(cancellationSettlement.balanceDue) * 100),
             currency: String(cancellationSettlement.currency || request.quoteCurrency || 'USD').toUpperCase(),
             status: 'open',
-            snapshot: { projectRequestId: id, projectName: request.title || 'Website project', cancellationCloseout: true, chargeTotal: cancellationSettlement.chargeTotal, paidTotal: cancellationSettlement.paidTotal }
+            snapshot: { projectRequestId: id, projectName: request.title || 'Website project', cancellationCloseout: true, chargeTotal: cancellationSettlement.chargeTotal, paidTotal: cancellationSettlement.paidTotal, billingIdentity }
           },
           update: {
             amountMinor: Math.round(Number(cancellationSettlement.balanceDue) * 100),
@@ -1672,7 +1673,7 @@ exports.decideProjectLifecycleRequest = async (req, res) => {
             status: 'open',
             voidedAt: null,
             paidAt: null,
-            snapshot: { projectRequestId: id, projectName: request.title || 'Website project', cancellationCloseout: true, chargeTotal: cancellationSettlement.chargeTotal, paidTotal: cancellationSettlement.paidTotal }
+            snapshot: { projectRequestId: id, projectName: request.title || 'Website project', cancellationCloseout: true, chargeTotal: cancellationSettlement.chargeTotal, paidTotal: cancellationSettlement.paidTotal, billingIdentity }
           }
         });
       }

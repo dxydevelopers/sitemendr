@@ -1,6 +1,6 @@
 # WhatsApp phone verification setup
 
-Sitemendr uses an inbound-only WhatsApp verification flow. It does not send OTP messages through Twilio or Meta. The client starts a challenge in My Account, then sends the prefilled `SITEMENDR VERIFY <code>` message to Sitemendr. Meta forwards the incoming message to the backend webhook, which validates the sender number and one-time code.
+Sitemendr uses an inbound-only WhatsApp verification flow. It does not send OTP messages through Twilio or Meta. The client starts a challenge in My Account, then sends the prefilled message `Hi Sitemendr, I'm verifying my phone number. Code: 123 XXX 456` to Sitemendr. The three digits on each side of `XXX` are the same six-digit verification code, grouped for readability. Meta forwards the incoming message to the backend webhook, which validates the sender number and one-time code.
 
 ## Backend environment
 

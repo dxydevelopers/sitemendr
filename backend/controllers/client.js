@@ -7,7 +7,7 @@ const { convertCurrencyAmount, normalizeCurrency } = require('../utils/currency'
 const { recordProjectEvent } = require('../services/projectConversation');
 const { ensureCompletedBuildSite } = require('../services/projectSiteService');
 const { verifyDomainDns, getHostingDomainTarget } = require('../services/domainDnsService');
-const { issueBuildInvoice } = require('../services/billingRecords');
+const { issueBuildInvoice, getBillingIdentity } = require('../services/billingRecords');
 const { isBuildManagementUnlocked, getSiteManagementLockReason } = require('../services/siteManagement');
 const { AVAILABILITY_SUMMARY_DAYS, AVAILABILITY_HISTORY_RETENTION_DAYS } = require('../services/performancePolicy');
 
@@ -575,6 +575,7 @@ exports.respondToPerformanceQuote = async (req, res) => {
       return res.status(409).json({ success: false, message: 'The proposal does not contain valid payment terms. Ask Sitemendr to review it.' });
     }
 
+    const billingIdentity = await getBillingIdentity(userId);
     const result = await prisma.$transaction(async tx => {
       const quoteTransition = await tx.projectQuoteVersion.updateMany({ where: { id: quote.id, status: 'sent' }, data: { status: 'accepted', acceptedAt: new Date() } });
       const requestTransition = await tx.projectRequest.updateMany({
@@ -607,6 +608,7 @@ exports.respondToPerformanceQuote = async (req, res) => {
           snapshot: {
             projectRequestId: requestId,
             projectName: request.title,
+            billingIdentity,
             quoteVersionId: quote.id,
             quoteVersion: quote.version,
             acceptedQuote: snapshot,
@@ -688,6 +690,7 @@ exports.respondToPerformanceReview = async (req, res) => {
     const paymentSchedule = snapshot.paymentSchedule;
     const balanceAmount = Math.max(0, Math.round((Number(snapshot.totalAgreedAmount || snapshot.amount || 0) - Number(snapshot.depositAmount || 0)) * 100) / 100);
     let invoice = null;
+    const billingIdentity = await getBillingIdentity(userId);
     const outcome = await prisma.$transaction(async tx => {
       const shouldInvoiceBalance = paymentSchedule === 'deposit_balance' && balanceAmount > 0;
       const changed = await tx.projectRequest.updateMany({
@@ -711,7 +714,7 @@ exports.respondToPerformanceReview = async (req, res) => {
               currency: String(snapshot.currency || 'USD').toUpperCase(), status: 'open', issuedAt: now,
               dueAt,
               nextReminderAt: new Date(Math.max(now.getTime() + 24 * 60 * 60 * 1000, dueAt.getTime() - 24 * 60 * 60 * 1000)),
-              snapshot: { projectRequestId: requestId, projectName: request.title, quoteVersionId: quote.id, quoteVersion: quote.version, paymentStage: 'balance', acceptedQuote: snapshot }
+              snapshot: { projectRequestId: requestId, projectName: request.title, quoteVersionId: quote.id, quoteVersion: quote.version, paymentStage: 'balance', acceptedQuote: snapshot, billingIdentity }
             }
           });
         }

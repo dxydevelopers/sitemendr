@@ -193,8 +193,23 @@ export interface BillingInvoiceItem {
   dueAt?: string | null;
   paidAt?: string | null;
   projectRequestId?: string | null;
-  snapshot?: Record<string, unknown> | null;
+  snapshot?: Record<string, unknown> & { billingIdentity?: BillingIdentitySnapshot | null; siteId?: string | null } | null;
   user?: { name?: string; email?: string };
+}
+
+export interface BillingIdentitySnapshot {
+  name?: string | null;
+  email?: string | null;
+  accountType?: string | null;
+  billedTo?: string | null;
+  entityName?: string | null;
+  contactEmail?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  region?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
 }
 
 export interface BillingReceiptItem {
@@ -205,7 +220,7 @@ export interface BillingReceiptItem {
   amountMinor: number;
   currency: string;
   issuedAt: string;
-  snapshot?: { reference?: string; description?: string; serviceType?: string; paidAt?: string } | null;
+  snapshot?: { reference?: string; description?: string; serviceType?: string; paidAt?: string; billingIdentity?: BillingIdentitySnapshot | null } | null;
   user?: { name?: string; email?: string };
 }
 

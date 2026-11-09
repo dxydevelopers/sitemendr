@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, RefreshCw, Clock, Printer, CheckCircle2, FileText, Download } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { BillingInvoiceItem, BillingItem, BillingReceiptItem } from './ClientDashboard_types';
+import type { BillingIdentitySnapshot, BillingInvoiceItem, BillingItem, BillingReceiptItem } from './ClientDashboard_types';
 
 const formatMoney = (amountInSubunits: number, currency?: string) =>
   `${currency || 'USD'} ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((amountInSubunits || 0) / 100)}`;
@@ -39,6 +39,7 @@ export function BillingDocumentDetail({
   receipt,
   payment,
   onOpenBuildJourney,
+  onOpenRepairJourney,
   onOpenAddons,
 }: {
   kind: 'invoice' | 'receipt';
@@ -46,6 +47,7 @@ export function BillingDocumentDetail({
   receipt?: BillingReceiptItem;
   payment?: BillingItem;
   onOpenBuildJourney?: (projectRequestId: string) => void;
+  onOpenRepairJourney?: (projectRequestId: string) => void;
   onOpenAddons?: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
@@ -56,6 +58,10 @@ export function BillingDocumentDetail({
   const amount = isInvoice ? invoice?.amountMinor : receipt?.amountMinor;
   const currency = isInvoice ? invoice?.currency : receipt?.currency;
   const account = isInvoice ? invoice?.user : receipt?.user;
+  const billingIdentity: BillingIdentitySnapshot | null | undefined = isInvoice ? invoice?.snapshot?.billingIdentity : receipt?.snapshot?.billingIdentity;
+  const billedTo = billingIdentity?.billedTo || billingIdentity?.entityName || account?.name || 'Sitemendr client';
+  const billingEmail = billingIdentity?.contactEmail || billingIdentity?.email || account?.email;
+  const billingAddress = [billingIdentity?.addressLine1, billingIdentity?.addressLine2, [billingIdentity?.city, billingIdentity?.region].filter(Boolean).join(', '), billingIdentity?.postalCode, billingIdentity?.country].filter(Boolean);
   const projectName = typeof invoice?.snapshot?.projectName === 'string' ? invoice.snapshot.projectName : null;
   const paymentReference = receipt?.snapshot?.reference || payment?.reference;
   const documentDate = isInvoice ? invoice?.issuedAt : receipt?.issuedAt;
@@ -121,8 +127,9 @@ export function BillingDocumentDetail({
               <div><p className="text-lg font-semibold tracking-tight">Sitemendr</p><p className="text-[11px] text-white/42">Client workspace billing</p></div>
             </div>
             <p className="mt-7 text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">{isInvoice ? 'Invoice issued to' : 'Receipt issued to'}</p>
-            <p className="mt-2 text-sm font-semibold">{account?.name || 'Sitemendr client'}</p>
-            {account?.email && <p className="mt-1 text-xs text-white/55">{account.email}</p>}
+            <p className="mt-2 text-sm font-semibold">{billedTo}</p>
+            {billingEmail && <p className="mt-1 text-xs text-white/55">{billingEmail}</p>}
+            {billingAddress.length > 0 && <p className="mt-2 max-w-xs whitespace-pre-line text-xs leading-5 text-white/45">{billingAddress.join('\n')}</p>}
           </div>
           <div className="min-w-52 text-left sm:text-right">
             <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">{isInvoice ? 'Invoice number' : 'Receipt number'}</p>
@@ -151,7 +158,26 @@ export function BillingDocumentDetail({
 
         {isInvoice && invoice && invoice.snapshot && (typeof invoice.snapshot.agreedTotal === 'number' || typeof invoice.snapshot.deposit === 'number') && <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 rounded-xl border border-white/10 px-4 py-3 text-xs"><span className="text-white/48">Agreed project total <strong className="ml-1 font-semibold text-white/80">{formatMajorUnits(Number(invoice.snapshot.agreedTotal || 0), invoice.currency)}</strong></span><span className="text-white/48">Deposit <strong className="ml-1 font-semibold text-white/80">{formatMajorUnits(Number(invoice.snapshot.deposit || 0), invoice.currency)}</strong></span></div>}
         {invoiceIsVoided && <div role="status" className="mt-7 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 text-xs leading-5 text-white/55">This invoice has been voided and can’t be paid. Contact Sitemendr if you believe a new payment request should be issued.</div>}
-        {isInvoice && invoice && !invoiceIsVoided && invoice.status !== 'paid' && <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ai-blue/20 bg-ai-blue/[0.06] px-4 py-3"><p className="text-xs leading-5 text-white/65">{invoice.serviceType === 'addon' ? 'Retry or review this site add-on from the Add-ons area. Payments are verified automatically before a receipt is issued.' : 'Continue this project payment in Build Journey. Payments are verified automatically before a receipt is issued.'}</p>{invoice.projectRequestId && onOpenBuildJourney ? <button type="button" onClick={() => onOpenBuildJourney(invoice.projectRequestId!)} className="min-h-9 shrink-0 rounded-lg border border-ai-blue/30 px-3 text-xs font-semibold text-ai-blue transition hover:bg-ai-blue/10">Open Build Journey</button> : invoice.serviceType === 'addon' && onOpenAddons ? <button type="button" onClick={onOpenAddons} className="min-h-9 shrink-0 rounded-lg border border-ai-blue/30 px-3 text-xs font-semibold text-ai-blue transition hover:bg-ai-blue/10">Open Add-ons</button> : null}</div>}
+        {isInvoice && invoice && !invoiceIsVoided && invoice.status !== 'paid' && (() => {
+          const isBuild = invoice.serviceType === 'build';
+          const isRepair = invoice.serviceType === 'repair';
+          const isAddon = invoice.serviceType === 'addon';
+          const action = isBuild && invoice.projectRequestId && onOpenBuildJourney
+            ? { label: 'Open Build Journey', run: () => onOpenBuildJourney(invoice.projectRequestId!) }
+            : isRepair && invoice.projectRequestId && onOpenRepairJourney
+              ? { label: 'Open Repair', run: () => onOpenRepairJourney(invoice.projectRequestId!) }
+              : isAddon && onOpenAddons
+                ? { label: 'Open Add-ons', run: onOpenAddons }
+                : null;
+          const description = isBuild
+            ? 'Continue this build payment in Build Journey.'
+            : isRepair
+              ? 'Continue this repair payment in Repair, where diagnosis, approved scope, and delivery are tracked.'
+              : isAddon
+                ? 'Review this site add-on in Add-ons.'
+                : 'This invoice belongs to a Sitemendr service request. Updates remain in its related service conversation.';
+          return <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ai-blue/20 bg-ai-blue/[0.06] px-4 py-3"><p className="text-xs leading-5 text-white/65">{description} Payments are verified automatically before a receipt is issued.</p>{action && <button type="button" onClick={action.run} className="min-h-9 shrink-0 rounded-lg border border-ai-blue/30 px-3 text-xs font-semibold text-ai-blue transition hover:bg-ai-blue/10">{action.label}</button>}</div>;
+        })()}
         {!isInvoice && <p className="mt-8 border-t border-white/10 pt-5 text-xs leading-5 text-white/45">This receipt confirms that Sitemendr verified the payment shown above. Keep the receipt number and payment reference for your records.</p>}
       </article>
     </div>
@@ -309,9 +335,10 @@ export function SubscriptionDetail({}: SubscriptionDetailProps) {
 interface TransactionDetailProps {
   transaction: BillingItem & { metadata?: { projectRequestId?: string } | null };
   onOpenBuildJourney?: (projectRequestId: string) => void;
+  onOpenRepairJourney?: (projectRequestId: string) => void;
 }
 
-export function TransactionDetail({ transaction, onOpenBuildJourney }: TransactionDetailProps) {
+export function TransactionDetail({ transaction, onOpenBuildJourney, onOpenRepairJourney }: TransactionDetailProps) {
   const [relatedAttempts, setRelatedAttempts] = useState<ContractPayment[]>([]);
   const projectRequestId = transaction.metadata?.projectRequestId;
 
@@ -320,7 +347,7 @@ export function TransactionDetail({ transaction, onOpenBuildJourney }: Transacti
   let cancelled = false;
   apiClient.getContractBilling(projectRequestId).then((res) => {
   if (cancelled || !res.success) return;
-  const others = (res.payments as ContractPayment[]).filter((p) => p.id !== transaction.id && p.status !== transaction.status);
+  const others = (res.payments as ContractPayment[]).filter((p) => p.id !== transaction.id);
   setRelatedAttempts(others);
   }).catch(() => {});
   return () => { cancelled = true; };
@@ -365,10 +392,17 @@ export function TransactionDetail({ transaction, onOpenBuildJourney }: Transacti
   </div>
   </div>
 
-  {transaction.status === 'failed' && projectRequestId && onOpenBuildJourney && (
+  {transaction.status === 'failed' && projectRequestId && ['build_agreement', 'build_final_balance', 'build_cancellation_closeout'].includes(transaction.serviceType || '') && onOpenBuildJourney && (
   <div className="mt-5 flex flex-col gap-3 rounded-xl border border-red-400/15 bg-red-400/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
   <p className="text-xs leading-5 text-white/60">This build payment did not complete. Return to Build Journey to review the current payment step and try again.</p>
   <button type="button" onClick={() => onOpenBuildJourney(projectRequestId)} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-300/25 px-4 text-xs font-semibold text-red-100 transition hover:bg-red-300/10">Open Build Journey</button>
+  </div>
+  )}
+
+  {transaction.status === 'failed' && projectRequestId && transaction.serviceType === 'repair_payment' && onOpenRepairJourney && (
+  <div className="mt-5 flex flex-col gap-3 rounded-xl border border-red-400/15 bg-red-400/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
+  <p className="text-xs leading-5 text-white/60">This repair payment did not complete. Return to Repair to review the open invoice and try again.</p>
+  <button type="button" onClick={() => onOpenRepairJourney(projectRequestId)} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-red-300/25 px-4 text-xs font-semibold text-red-100 transition hover:bg-red-300/10">Open Repair</button>
   </div>
   )}
 

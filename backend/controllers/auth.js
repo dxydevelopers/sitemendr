@@ -654,14 +654,15 @@ const isValidWhatsAppSignature = (req) => {
 
 const verifyIncomingWhatsAppCode = async ({ sender, body }) => {
   const senderDigits = String(sender || '').replace(/\D/g, '');
-  const match = /^SITEMENDR\s+VERIFY\s+(\d{6})$/i.exec(String(body || '').trim());
+  const match = /^Hi\s+Sitemendr,\s*I['’]m\s+verifying\s+my\s+phone\s+number\.\s*Code:\s*(\d{3})\s+XXX\s+(\d{3})\.?$/i.exec(String(body || '').trim());
   if (!senderDigits || !match) return;
+  const code = `${match[1]}${match[2]}`;
   const senderPhone = `+${senderDigits}`;
   const rows = await prisma.$queryRaw`SELECT "id", "pendingPhone", "phoneVerificationCodeHash", "phoneVerificationExpires", "phoneVerificationAttempts" FROM "User" WHERE "pendingPhone" = ${senderPhone} AND "phoneVerificationExpires" > NOW() AND "phoneVerificationAttempts" < 5 LIMIT 1`;
   const pending = rows[0];
   if (!pending?.phoneVerificationCodeHash) return;
 
-  const submittedHash = hashPhoneCode({ userId: pending.id, phone: pending.pendingPhone, code: match[1] });
+  const submittedHash = hashPhoneCode({ userId: pending.id, phone: pending.pendingPhone, code });
   const approved = safeEqualHex(pending.phoneVerificationCodeHash, submittedHash);
   if (!approved) {
     await prisma.$executeRaw`UPDATE "User" SET "phoneVerificationAttempts" = "phoneVerificationAttempts" + 1 WHERE "id" = ${pending.id} AND "pendingPhone" = ${senderPhone} AND "phoneVerificationExpires" > NOW() AND "phoneVerificationAttempts" < 5`;
