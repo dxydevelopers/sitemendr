@@ -52,7 +52,7 @@ const sumByCurrency = <T,>(items: T[], getAmount: (item: T) => number, getCurren
     return totals;
   }, {});
 
-export default function SiteBilling({ site, billing, invoices, receipts, refunds, unavailable, onRefreshBilling, onOpenBuildJourney, onOpenAddons }: {
+export default function SiteBilling({ site, billing, invoices, receipts, refunds, unavailable, onRefreshBilling, onOpenBuildJourney, onOpenRepairJourney, onOpenPerformance, onOpenAddons }: {
   site: ClientProject;
   billing: BillingItem[];
   invoices: BillingInvoiceItem[];
