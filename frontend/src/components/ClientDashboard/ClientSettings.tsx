@@ -2,7 +2,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Loader2, MessageCircle, MessageSquare, ShieldCheck, TriangleAlert, X } from 'lucide-react';
+import { Clock3, Loader2, MessageCircle, MessageSquare, ShieldCheck, TriangleAlert, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiClient } from '@/lib/api';
 import {
@@ -11,6 +11,8 @@ import {
   getDefaultCurrencyForCountry,
   getDialCodeForCountry,
   getLocalPhoneForCountry,
+  isValidProfilePhone,
+  normalizePhoneForCountry,
 } from '@/lib/account-profile';
 import type { UseClientDashboardReturn } from './useClientDashboard';
 
@@ -45,7 +47,7 @@ function StatusBadge({ status }: { status: keyof typeof badgeStyles }) {
       {status === 'verified' ? (
         <ShieldCheck className="h-3.5 w-3.5" />
       ) : status === 'pending' ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Clock3 className="h-3.5 w-3.5" />
       ) : (
         <TriangleAlert className="h-3.5 w-3.5" />
       )}
@@ -98,7 +100,7 @@ interface SettingsRowProps {
 function SettingsRow({ label, value, badge, actionLabel, extraAction, open, onToggle, children, message }: SettingsRowProps) {
   return (
     <div className="border-t border-white/[0.08] first:border-t-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-4 sm:gap-x-4 md:grid-cols-[8rem_minmax(0,1fr)_auto] xl:grid-cols-[10rem_minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-4 sm:gap-x-4 md:grid-cols-[8rem_minmax(0,1fr)_auto]">
         <span className="col-span-2 text-xs font-medium text-white/45 sm:col-span-1">{label}</span>
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-white">
           <span className="min-w-0 break-words">{value}</span>
@@ -118,8 +120,8 @@ function SettingsRow({ label, value, badge, actionLabel, extraAction, open, onTo
           )}
         </div>
       </div>
-      {open && children && <div className="pb-5 md:pl-36 xl:pl-44">{children}</div>}
-      {message && <div className="pb-4 md:pl-36 xl:pl-44">{message}</div>}
+      {open && children && <div className="pb-5 md:pl-36">{children}</div>}
+      {message && <div className="pb-4 md:pl-36">{message}</div>}
     </div>
   );
 }
@@ -499,6 +501,7 @@ function EmailRow({ user, open, onToggle, onUserChange }: EmailRowProps) {
 
 type Channel = 'sms' | 'whatsapp';
 type Tone = 'success' | 'error' | 'info';
+const PHONE_VERIFICATION_AVAILABLE = false;
 
 interface PhoneRowProps {
   user: ClientUser | null;
@@ -515,6 +518,20 @@ function formatPhone(phone?: string | null) {
   return ke ? `+254 ${ke[1]} ${ke[2]} ${ke[3]}` : phone;
 }
 
+const phoneCountryOptions = accountCountryOptions.filter((country) => country.dialCode);
+
+function getPhoneCountryForNumber(phone: string, fallback?: string) {
+  const matches = phoneCountryOptions
+    .filter((country) => phone.trim().startsWith(country.dialCode))
+    .sort((a, b) => b.dialCode.length - a.dialCode.length);
+  if (!matches.length) return fallback && phoneCountryOptions.some((country) => country.code === fallback) ? fallback : '';
+  return matches.find((country) => country.code === fallback)?.code || matches[0].code;
+}
+
+function phoneCountryLabel(code: string, dialCode: string) {
+  return `${code === 'KE' ? 'KEN' : code} ${dialCode}`;
+}
+
 const channelButtonClass =
   'flex min-h-11 items-center gap-2 border px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ai-blue';
 
@@ -522,7 +539,10 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
   const [methods, setMethods] = useState<{ sms: boolean; whatsapp: boolean } | null>(null);
   const [methodsLoading, setMethodsLoading] = useState(false);
   const [methodsError, setMethodsError] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState('');
   const [draft, setDraft] = useState('');
+  const [savedPendingPhone, setSavedPendingPhone] = useState<string | null>(null);
+  const [savingPendingPhone, setSavingPendingPhone] = useState(false);
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [waLink, setWaLink] = useState('');
@@ -551,13 +571,27 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
   // Fresh start every time the row opens.
   useEffect(() => {
     if (!open) return;
-    setDraft(user?.phone && !user.phoneVerified ? user.phone : '');
+    const defaultPhoneCountry = getPhoneCountryForNumber(user?.phone || '', user?.country);
+    setPhoneCountry(defaultPhoneCountry);
+    setDraft(user?.phone && !user.phoneVerified ? getLocalPhoneForCountry(user.phone, defaultPhoneCountry) : '');
     setCode('');
     setCodeSent(false);
     setWaLink('');
     setWaWebLink('');
     setNote(null);
+    let active = true;
+    void apiClient.getPhoneVerificationStatus().then((status) => {
+      if (!active || !status.success) return;
+      const pendingPhone = status.pendingPhone || null;
+      setSavedPendingPhone(pendingPhone);
+      if (pendingPhone) {
+        const pendingCountry = getPhoneCountryForNumber(pendingPhone, user?.country);
+        setPhoneCountry(pendingCountry);
+        setDraft(getLocalPhoneForCountry(pendingPhone, pendingCountry));
+      }
+    }).catch(() => undefined);
     if (!methods) void loadMethods();
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -569,12 +603,12 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
       try {
         const status = await apiClient.getPhoneVerificationStatus();
         if (!active) return;
-        if (status.verified && status.phone === draft.trim()) {
+        if (status.verified && status.phone === normalizePhoneForCountry(draft, phoneCountry)) {
           active = false;
           setWaLink('');
           setWaWebLink('');
           setNote({ text: 'Your WhatsApp number is verified.', tone: 'success' });
-          onVerifiedRef.current(status.phone || draft.trim());
+          onVerifiedRef.current(status.phone || normalizePhoneForCountry(draft, phoneCountry));
           return;
         }
         if (status.expiresAt && Date.now() >= new Date(status.expiresAt).getTime()) {
@@ -588,7 +622,7 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
     void check();
     const timer = setInterval(() => { void check(); }, 3000);
     return () => { active = false; clearInterval(timer); };
-  }, [waLink, draft]);
+  }, [waLink, draft, phoneCountry]);
 
   const handleToggle = () => {
     if (open && waLink) void apiClient.cancelPhoneVerification().catch(() => undefined);
@@ -596,7 +630,11 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
   };
 
   const start = async (channel: Channel) => {
-    const phone = draft.trim();
+    if (!PHONE_VERIFICATION_AVAILABLE) {
+      setNote({ text: 'Phone verification is temporarily unavailable. You can continue using your account without verifying a phone number.', tone: 'info' });
+      return;
+    }
+    const phone = normalizePhoneForCountry(draft, phoneCountry);
     if (!phone) { setNote({ text: 'Enter a phone number first.', tone: 'error' }); return; }
     if (methodsLoading) { setNote({ text: 'Checking which options are available…', tone: 'info' }); return; }
     if (!methods) { setNote({ text: 'Couldn’t check which verification options are available.', tone: 'error' }); return; }
@@ -642,7 +680,7 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
       setCodeSent(false);
       setCode('');
       setNote({ text: res.message || 'Your phone number is verified.', tone: 'success' });
-      onVerifiedRef.current(res.phone || draft.trim());
+      onVerifiedRef.current(res.phone || normalizePhoneForCountry(draft, phoneCountry));
     } catch (error) {
       setNote({ text: error instanceof Error ? error.message : 'The code could not be verified.', tone: 'error' });
     } finally {
@@ -653,7 +691,7 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
   const useDifferentNumber = async () => {
     setBusy('cancel');
     try {
-      if (waLink) {
+      if (waLink || savedPendingPhone) {
         const res = await apiClient.cancelPhoneVerification();
         if (!res.success) { setNote({ text: res.message || 'Could not cancel this verification request.', tone: 'error' }); return; }
       }
@@ -661,6 +699,10 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
       setWaWebLink('');
       setCodeSent(false);
       setCode('');
+      setSavedPendingPhone(null);
+      const defaultPhoneCountry = getPhoneCountryForNumber(user?.phone || '', user?.country);
+      setPhoneCountry(defaultPhoneCountry);
+      setDraft(user?.phone && !user.phoneVerified ? getLocalPhoneForCountry(user.phone, defaultPhoneCountry) : '');
       setNote(null);
     } catch (error) {
       setNote({ text: error instanceof Error ? error.message : 'Could not cancel this verification request.', tone: 'error' });
@@ -669,18 +711,50 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
     }
   };
 
+  const savePendingPhone = async () => {
+    if (!phoneCountry) {
+      setNote({ text: 'Choose a country calling code first.', tone: 'error' });
+      return;
+    }
+    if (!draft.trim() || !isValidProfilePhone(draft, phoneCountry)) {
+      setNote({ text: 'Enter a valid phone number for your selected country.', tone: 'error' });
+      return;
+    }
+    const phone = normalizePhoneForCountry(draft, phoneCountry);
+    const currentPhoneCountry = getPhoneCountryForNumber(user?.phone || '', user?.country);
+    const currentPhone = normalizePhoneForCountry(user?.phone || '', currentPhoneCountry);
+    if (phone === currentPhone) {
+      setNote({ text: 'Enter a different number to change your phone.', tone: 'info' });
+      return;
+    }
+    setSavingPendingPhone(true);
+    setNote(null);
+    try {
+      const res = await apiClient.savePendingPhoneChange(phone);
+      if (!res.success) { setNote({ text: res.message || 'Could not save this number for verification.', tone: 'error' }); return; }
+      const savedPhone = res.pendingPhone || phone;
+      setSavedPendingPhone(savedPhone);
+      setDraft(getLocalPhoneForCountry(savedPhone, phoneCountry));
+      setNote({ text: 'New number saved for verification. Your current number remains active until the replacement is verified.', tone: 'success' });
+    } catch (error) {
+      setNote({ text: error instanceof Error ? error.message : 'Could not save this number for verification.', tone: 'error' });
+    } finally {
+      setSavingPendingPhone(false);
+    }
+  };
+
   const hasPhone = Boolean(user?.phone);
   const verified = Boolean(user?.phoneVerified);
   const stage = waLink ? 'whatsapp' : codeSent ? 'sms' : 'choose';
-  const smsOff = methods ? !methods.sms : false;
-  const waOff = methods ? !methods.whatsapp : false;
+  const smsOff = !PHONE_VERIFICATION_AVAILABLE;
+  const waOff = !PHONE_VERIFICATION_AVAILABLE;
 
   return (
     <SettingsRow
       label="Phone"
       value={hasPhone ? formatPhone(user?.phone) : <span className="text-white/40">Not added</span>}
-      badge={waLink || codeSent ? <StatusBadge status="pending" /> : hasPhone ? <StatusBadge status={verified ? 'verified' : 'unverified'} /> : undefined}
-      actionLabel={!hasPhone ? 'Add' : verified ? 'Change' : 'Verify'}
+      badge={waLink || codeSent || savedPendingPhone ? <StatusBadge status="pending" /> : hasPhone ? <StatusBadge status={verified ? 'verified' : 'unverified'} /> : undefined}
+      actionLabel={!hasPhone ? 'Add' : 'Change'}
       open={open}
       onToggle={handleToggle}
       message={note ? <div className="max-w-xl"><FeedbackMessage tone={note.tone}>{note.text}</FeedbackMessage></div> : undefined}
@@ -690,7 +764,33 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
           <>
             <div className="max-w-md">
               <label htmlFor="phone-number" className={fieldLabelClass}>{hasPhone && verified ? 'New phone number' : 'Phone number'}</label>
-              <input id="phone-number" type="tel" autoComplete="tel" value={draft} onChange={(e) => { setDraft(e.target.value); setNote(null); }} placeholder="+254 712 345 678" className={inputClass} />
+              <div className="flex min-w-0">
+                <label htmlFor="phone-country-code" className="sr-only">Phone country calling code</label>
+                <select
+                  id="phone-country-code"
+                  value={phoneCountry}
+                  onChange={(event) => { setPhoneCountry(event.target.value); setNote(null); }}
+                  className="min-h-11 max-w-[8.5rem] shrink-0 border border-r-0 border-white/[0.12] bg-[#11151c] px-3 text-sm font-semibold text-white outline-none transition hover:border-white/20 focus:border-ai-blue focus:ring-2 focus:ring-ai-blue/20"
+                >
+                  {!phoneCountry && <option value="">Code</option>}
+                  {phoneCountryOptions.map((country) => (
+                    <option key={country.code} value={country.code} className="bg-[#11151c] text-white">
+                      {phoneCountryLabel(country.code, country.dialCode)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  id="phone-number"
+                  type="tel"
+                  autoComplete="tel-national"
+                  inputMode="tel"
+                  value={draft}
+                  onChange={(e) => { setDraft(e.target.value); setNote(null); }}
+                  placeholder={phoneCountry === 'KE' ? '712 345 678' : 'Phone number'}
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-white/40">Choose a calling code, then enter the number without the country code.</p>
             </div>
             <div>
               <p className="mb-2 text-xs text-white/45">Verify with</p>
@@ -698,7 +798,7 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
                 <button
                   type="button"
                   onClick={() => void start('sms')}
-                  aria-disabled={smsOff}
+                  disabled={smsOff || busy !== null}
                   className={`${channelButtonClass} ${smsOff ? 'border-white/10 text-white/35' : 'border-white/15 text-white hover:border-ai-blue/60 hover:bg-ai-blue/10'}`}
                 >
                   {busy === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
@@ -708,7 +808,7 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
                 <button
                   type="button"
                   onClick={() => void start('whatsapp')}
-                  aria-disabled={waOff}
+                  disabled={waOff || busy !== null}
                   className={`${channelButtonClass} ${waOff ? 'border-white/10 text-white/35' : 'border-white/15 text-white hover:border-ai-blue/60 hover:bg-ai-blue/10'}`}
                 >
                   {busy === 'whatsapp' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
@@ -716,6 +816,14 @@ function PhoneRow({ user, open, onToggle, onVerified }: PhoneRowProps) {
                   {waOff && <span className="ml-auto text-[11px] font-medium text-white/40">Unavailable</span>}
                 </button>
               </div>
+              {smsOff && waOff && <p className="mt-2 max-w-md text-xs leading-5 text-white/45">Phone verification is temporarily unavailable. Your account remains usable, and your current number stays unchanged.</p>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => void savePendingPhone()} disabled={savingPendingPhone || !draft.trim()} className={secondaryButtonClass}>
+                {savingPendingPhone && <Loader2 className="h-4 w-4 animate-spin" />}
+                {savedPendingPhone ? 'Update pending number' : 'Save number for later'}
+              </button>
+              {savedPendingPhone && <button type="button" onClick={() => void useDifferentNumber()} disabled={busy !== null || savingPendingPhone} className={secondaryButtonClass}>Remove pending change</button>}
             </div>
             {methodsError && (
               <div className="flex flex-wrap items-center gap-3">
@@ -1071,7 +1179,7 @@ export default function ClientSettings({ dashboard }: { dashboard: UseClientDash
         <p className="max-w-2xl text-sm leading-6 text-white/50">Manage your profile, sign-in security, and invoice details.</p>
       </header>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.9fr)]">
+      <div className="grid items-start gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
       <SettingsSection title="Profile" description="Your personal or business identity in Sitemendr.">
         <TextFieldRow
           id="account-name" label="Name" value={profileData.name} placeholder="Your name" required

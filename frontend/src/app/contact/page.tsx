@@ -81,9 +81,14 @@ const contactGroups = [
 
 const projectTypes = [
   'Custom development',
+  'Website or platform build',
   'Business website',
   'Repair or recovery',
-  'Maintenance',
+  'Performance improvement',
+  'Ongoing maintenance',
+  'Online store',
+  'Dropshipping setup',
+  'Affiliate commerce',
   'eCommerce or dropshipping',
   'Workspace or account help',
 ];
@@ -114,7 +119,12 @@ export default function Contact() {
   useEffect(() => {
     setIsLoaded(true);
 
-    if (window.location.search.includes('intent=sales')) {
+    const params = new URLSearchParams(window.location.search);
+    const requestedService = params.get('service');
+
+    if (requestedService && projectTypes.includes(requestedService)) {
+      setFormData((prev) => ({ ...prev, projectType: requestedService }));
+    } else if (params.get('intent') === 'sales') {
       setFormData((prev) => ({ ...prev, projectType: prev.projectType || 'Custom development' }));
     }
   }, []);

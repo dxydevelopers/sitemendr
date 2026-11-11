@@ -1,3 +1,5 @@
+import { getCountryCallingCode, type CountryCode } from 'libphonenumber-js';
+
 export const countryCodes = ['AF','AL','DZ','AS','AD','AO','AI','AG','AR','AM','AW','AU','AT','AZ','BS','BH','BD','BB','BY','BE','BZ','BJ','BM','BT','BO','BA','BW','BR','BN','BG','BF','BI','KH','CM','CA','CV','KY','CF','TD','CL','CN','CO','KM','CG','CD','CR','CI','HR','CU','CY','CZ','DK','DJ','DM','DO','EC','EG','SV','GQ','ER','EE','SZ','ET','FJ','FI','FR','GA','GM','GE','DE','GH','GI','GR','GD','GT','GN','GW','GY','HT','HN','HK','HU','IS','IN','ID','IR','IQ','IE','IL','IT','JM','JP','JO','KZ','KE','KI','KR','KW','KG','LA','LV','LB','LS','LR','LY','LI','LT','LU','MG','MW','MY','MV','ML','MT','MH','MR','MU','MX','MD','MC','MN','ME','MA','MZ','MM','NA','NR','NP','NL','NZ','NI','NE','NG','MK','NO','OM','PK','PW','PS','PA','PG','PY','PE','PH','PL','PT','QA','RO','RW','KN','LC','VC','WS','SM','ST','SA','SN','RS','SC','SL','SG','SK','SI','SB','SO','ZA','SS','ES','LK','SD','SR','SE','CH','TW','TJ','TZ','TH','TL','TG','TO','TT','TN','TR','TM','UG','UA','AE','GB','US','UY','UZ','VU','VN','YE','ZM','ZW'];
 
 export const countryCurrencyByCode: Record<string, string> = {
@@ -23,7 +25,7 @@ export const countryOptions = countryCodes
     code,
     name: displayNames.of(code) || code,
     currency: countryCurrencyByCode[code] || 'USD',
-    dialCode: countryDialCodeByCode[code] || '',
+    dialCode: countryDialCodeByCode[code] || `+${getCountryCallingCode(code as CountryCode)}`,
   }))
   .sort((a, b) => a.name.localeCompare(b.name));
 

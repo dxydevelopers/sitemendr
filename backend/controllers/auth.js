@@ -700,13 +700,31 @@ exports.getPhoneVerificationStatus = async (req, res) => {
   const userId = req.user?.userId || req.user?.id;
   const rows = await prisma.$queryRaw`SELECT "phone", "phoneVerified", "pendingPhone", "phoneVerificationExpires" FROM "User" WHERE "id" = ${userId} LIMIT 1`;
   const account = rows[0];
-  const verified = Boolean(account?.phoneVerified && !account?.pendingPhone);
+  const verified = Boolean(account?.phoneVerified);
   return res.json({
     success: true,
     verified,
     phone: verified ? account.phone : null,
     pending: Boolean(account?.pendingPhone),
+    pendingPhone: account?.pendingPhone || null,
     expiresAt: account?.phoneVerificationExpires || null,
+  });
+};
+
+exports.savePendingPhoneChange = async (req, res) => {
+  const userId = req.user?.userId || req.user?.id;
+  const phone = req.body.phone.trim();
+  const rows = await prisma.$queryRaw`SELECT "phone" FROM "User" WHERE "id" = ${userId} LIMIT 1`;
+  const currentPhone = rows[0]?.phone || '';
+  if (phone.replace(/\D/g, '') === currentPhone.replace(/\D/g, '')) {
+    return res.status(400).json({ success: false, message: 'Enter a different number to change your phone.' });
+  }
+
+  await prisma.$executeRaw`UPDATE "User" SET "pendingPhone" = ${phone}, "phoneVerificationCodeHash" = NULL, "phoneVerificationExpires" = NULL, "phoneVerificationAttempts" = 0 WHERE "id" = ${userId}`;
+  return res.json({
+    success: true,
+    message: 'The new number is saved and will replace the current number after verification.',
+    pendingPhone: phone,
   });
 };
 

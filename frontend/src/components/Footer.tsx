@@ -15,28 +15,27 @@ import {
 
 const footerLinks = {
   Services: [
-    { name: 'All Services', href: '/services' },
+    { name: 'All Services', href: '/#services' },
     { name: 'Development Path', href: '/services/development' },
     { name: 'Business Websites', href: '/services/development#business-websites' },
     { name: 'Commerce & Dropshipping', href: '/services/ecommerce' },
   ],
-  Workspace: [
-    { name: 'Create Workspace', href: '/register' },
-    { name: 'Workspace Preview', href: '/workspace' },
-    { name: 'Operating Flow', href: '/process' },
-    { name: 'Client Login', href: '/login' },
+  'How it works': [
+    { name: 'How Sitemendr works', href: '/#process' },
+    { name: 'Delivery process', href: '/process' },
   ],
-  Company: [
+  'Portfolio & Company': [
+    { name: 'Published work', href: '/#work' },
     { name: 'About', href: '/about' },
-    { name: 'Portfolio', href: '/portfolio' },
     { name: 'Case Studies', href: '/case-studies' },
-    { name: 'Contact', href: '/contact' },
   ],
-  Library: [
+  'Contact & Resources': [
+    { name: 'Contact', href: '/contact' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'Resources', href: '/resources' },
     { name: 'Blog', href: '/blog' },
     { name: 'Community', href: '/community' },
+    { name: 'Help center', href: '/help' },
   ],
 };
 
@@ -193,14 +192,14 @@ export default function Footer() {
                 href="/register"
                 className="group inline-flex items-center gap-2 border-b border-white/40 pb-1 text-sm font-semibold text-white transition hover:border-ai-blue hover:text-ai-blue"
               >
-                Create workspace
+                Create account
                 <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="/contact"
+                href="/login"
                 className="group inline-flex items-center gap-2 border-b border-white/18 pb-1 text-sm font-semibold text-white/64 transition hover:border-white hover:text-white"
               >
-                Speak with the team
+                Sign in
                 <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </Link>
             </div>

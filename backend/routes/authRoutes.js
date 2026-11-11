@@ -110,6 +110,11 @@ router.post('/request-email-change', [
 router.post('/cancel-email-change', authController.cancelEmailChange);
 router.get('/verification-methods', authController.getVerificationMethods);
 router.get('/phone-verification-status', authController.getPhoneVerificationStatus);
+router.post('/save-pending-phone-change', [
+  rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false }),
+  body('phone').trim().matches(/^\+[1-9]\d{7,14}$/).withMessage('Enter the new phone in international format, such as +254712345678'),
+  validate,
+], authController.savePendingPhoneChange);
 router.post('/cancel-phone-verification', authController.cancelPhoneVerification);
 router.post('/send-phone-otp', [
   rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false }),

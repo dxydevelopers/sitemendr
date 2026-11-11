@@ -545,7 +545,14 @@ class ApiClient {
   }
 
   async getPhoneVerificationStatus() {
-    return this.request<{ success: boolean; verified: boolean; phone?: string | null; pending: boolean; expiresAt?: string | null }>('/auth/phone-verification-status');
+    return this.request<{ success: boolean; verified: boolean; phone?: string | null; pending: boolean; pendingPhone?: string | null; expiresAt?: string | null }>('/auth/phone-verification-status');
+  }
+
+  async savePendingPhoneChange(phone: string) {
+    this.cache = {};
+    return this.request<{ success: boolean; message: string; pendingPhone?: string }>('/auth/save-pending-phone-change', {
+      method: 'POST', body: JSON.stringify({ phone }),
+    });
   }
 
   async cancelPhoneVerification() {
