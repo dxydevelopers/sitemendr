@@ -107,8 +107,8 @@ export default function Services() {
               Sitemendr helps businesses establish, repair, maintain, and prepare the digital systems they rely on. The work may begin as a website, a platform, a store, a recovery request, or a maintenance concern; the goal is always the same: make the digital side of the business clearer, stronger, and easier to own.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:mt-10 md:gap-4">
-              <ServiceAction href="/register" tone="light">
-                Create Workspace
+              <ServiceAction href="/contact?intent=sales" tone="light">
+                Discuss your project
               </ServiceAction>
               <ServiceAction href="#service-types">
                 Explore Services
@@ -152,7 +152,7 @@ export default function Services() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:grid-cols-[0.82fr_1.18fr] lg:py-20">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.82fr_1.18fr] lg:py-14">
           <div>
             <h2 className="max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The request is never treated as a small isolated task.
@@ -170,7 +170,7 @@ export default function Services() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div className="relative min-h-[320px] overflow-hidden rounded-tr-[2.5rem] bg-white/10 ring-1 ring-white/12 sm:min-h-[400px] md:rounded-tr-[4rem] lg:min-h-[560px]">
               <Image
@@ -207,7 +207,7 @@ export default function Services() {
       </section>
 
       <section id="service-types" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -258,7 +258,7 @@ export default function Services() {
             src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1500&h=1100&fit=crop&crop=center"
             className="min-h-[340px] sm:min-h-[440px] lg:min-h-[740px]"
           />
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 When the business needs something built, recovered, or kept alive with care.
@@ -279,7 +279,7 @@ export default function Services() {
 
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="grid lg:grid-cols-2">
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
                 Online selling needs more than a store that happens to load.
@@ -288,7 +288,7 @@ export default function Services() {
                 Commerce work is about the complete buying condition: product presentation, category structure, checkout confidence, payment readiness, order expectations, and the practical route from interest to delivery.
               </p>
               <p className="mt-5 text-base leading-8 text-white/64">
-                For dropshipping, the same care matters even more. The offer, supplier flow, customer promise, and delivery expectation must be organized before the business begins inviting buyers into the store.
+                Dropshipping is still being defined at Sitemendr. Any future store work will need an agreed supplier, order, payment, and delivery plan before a launch can be promised.
               </p>
               <div className="mt-9">
                 <ServiceAction href="/services/ecommerce">View Commerce Path</ServiceAction>
@@ -303,7 +303,7 @@ export default function Services() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:grid-cols-[0.95fr_1.05fr] lg:py-20">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.95fr_1.05fr] lg:py-14">
           <div>
             <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Completion is not enough. The client must understand what they now own.
@@ -344,7 +344,7 @@ export default function Services() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-16 lg:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-end">
             <div>
               <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -382,17 +382,17 @@ export default function Services() {
           className="object-cover opacity-42 saturate-125"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.94)_0%,rgba(5,7,10,0.72)_45%,rgba(5,7,10,0.24)_100%)]" />
-        <div className="relative mx-auto flex min-h-[480px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[560px] md:px-10 md:py-16">
+        <div className="relative mx-auto flex min-h-[420px] max-w-7xl items-center px-5 py-10 sm:px-6 md:min-h-[480px] md:px-10 md:py-14">
           <div className="max-w-3xl">
             <h2 className="break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
-              Start privately, then let the right service path become clear.
+              Start by telling us what you need.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              The workspace is where the request stops being a loose idea and becomes something that can be reviewed in context. Goals, references, access notes, files, questions, scope, and delivery decisions can sit in one place before the work begins.
+              Contact Sitemendr to discuss your goals and questions. If you approve a project, its files, messages, scope, and delivery updates can then be followed in your client dashboard.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:mt-10 md:gap-4">
-              <ServiceAction href="/register" tone="light">
-                Start a Workspace
+              <ServiceAction href="/contact?intent=sales" tone="light">
+                Contact Sitemendr
               </ServiceAction>
               <ServiceAction href="/services/development">
                 Review Development

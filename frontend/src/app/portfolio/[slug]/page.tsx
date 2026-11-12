@@ -55,7 +55,7 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#05070a] pb-24 pt-24 text-white">
+      <main className="min-h-screen bg-[#05070a] pb-16 pt-24 text-white">
         <div className="mx-auto max-w-3xl px-5 sm:px-6">
           <p className="text-sm text-white/40">Loading project…</p>
         </div>
@@ -65,7 +65,7 @@ export default function ProjectDetailPage() {
 
   if (notFound || !project) {
     return (
-      <main className="min-h-screen bg-[#05070a] pb-24 pt-24 text-white">
+      <main className="min-h-screen bg-[#05070a] pb-16 pt-24 text-white">
         <div className="mx-auto max-w-3xl px-5 sm:px-6">
           <p className="text-sm text-white/50">
             This project couldn&apos;t be found.{' '}
@@ -79,7 +79,7 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#05070a] pb-24 pt-24 text-white">
+    <main className="min-h-screen bg-[#05070a] pb-16 pt-24 text-white">
       <div className="mx-auto max-w-3xl px-5 sm:px-6">
         {/* Back button */}
         <Link
@@ -100,7 +100,7 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Image-by-image narrative: each image, immediately followed by its own description */}
-        <div className="mt-16 space-y-16">
+        <div className="mt-12 space-y-12">
           {project.images.map((img, i) => (
             <figure key={img.id}>
               <div className="relative aspect-[16/10] overflow-hidden bg-white/[0.03]">
@@ -122,7 +122,7 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* The wider story, once images are done */}
-        <div className="mt-16 space-y-10 border-t border-white/10 pt-12">
+        <div className="mt-12 space-y-8 border-t border-white/10 pt-10">
           <div>
             <p className="text-xs font-medium text-white/38">The problem</p>
             <p className="mt-3 text-base leading-8 text-white/68">{project.problem}</p>
@@ -138,7 +138,7 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Live link + closing CTA */}
-        <div className="mt-16 flex flex-col gap-3 border-t border-white/10 pt-12 sm:flex-row sm:flex-wrap">
+        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-10 sm:flex-row sm:flex-wrap">
           {project.liveUrl && (
             <a
               href={project.liveUrl}

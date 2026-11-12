@@ -65,7 +65,7 @@ const notify = async (slug, data = {}) => {
 
   const subject = renderTemplate(rule.subject, data);
   const innerHtml = renderTemplate(rule.htmlTemplate, data);
-  const html = wrapEmailShell(innerHtml);
+  const html = wrapEmailShell(innerHtml, { preheader: subject });
 
   if (!subject || !innerHtml) {
     logger.warn('NOTIFY_EMPTY_CONTENT', { slug, hasSubject: !!subject, hasHtml: !!innerHtml });

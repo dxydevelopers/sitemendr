@@ -4,7 +4,6 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
-  CheckCircle2,
   CreditCard,
   FileSearch,
   Gauge,
@@ -35,10 +34,10 @@ const images = {
 };
 
 const pricingPaths = [
-  ['Build', 'From a fixed floor, or quoted after a call', 'Websites, portals, dashboards, integrations, custom systems.'],
+  ['Build', 'From a fixed floor, or quoted after scope review', 'Websites, portals, dashboards, integrations, custom systems.'],
   ['Repair', 'Priced after diagnosis', 'Audits, recovery, bugs, broken flows, performance and security issues.'],
   ['Care', 'A plan you choose, billed on your rhythm', 'Monitoring, updates, backups, small fixes, support and reporting.'],
-  ['Commerce', 'Access or setup path', 'Stores, product structure, checkout, dropshipping access and connections.'],
+  ['Commerce', 'Discuss scope and availability', 'Store and dropshipping ideas; managed supplier, order, and seller payout systems are not available yet.'],
 ];
 
 const buildFixedTiers = [
@@ -101,26 +100,10 @@ const addonCategories = [
 ];
 
 const dropshippingModes = [
-  ['Free product access', 'A seller uses approved Sitemendr product catalogs and follows the Sitemendr-managed order, payment and fulfillment flow.'],
-  ['Paid store creation', 'Sitemendr creates, brands, structures or prepares the seller store for product presentation, checkout and launch.'],
-  ['Paid store connection', 'An existing store or website is connected into Sitemendr product, order, payment and tracking operations.'],
-  ['Own product selling', 'If the seller wants to use a Sitemendr-built store for their own products, setup and store work are priced separately.'],
-];
-
-const commerceFlow = [
-  'Seller chooses eligible products from Sitemendr-connected catalogs.',
-  'Seller sets the final selling price above the Sitemendr base product cost.',
-  'Sitemendr handles buyer payment and order coordination.',
-  'Supply partners confirm stock, shipping and fulfillment updates through Sitemendr.',
-  'Buyer support, delivery issues and disputes are routed through Sitemendr with partner coordination.',
-];
-
-const payoutRules = [
-  'Seller profit is the difference between the final selling price and the Sitemendr base product cost, after applicable fees.',
-  'Payouts are sent on the first Friday of every month.',
-  'Sales made within the final seven days before payout day move to the next payout cycle.',
-  'A sale becomes payout-eligible after delivery and after its refund, return or complaint window has cleared.',
-  'Transaction fees and minimum payout rules apply.',
+  ['Store setup', 'A possible scope is planning and building a storefront. The required features, payment provider, and delivery setup must be agreed first.'],
+  ['Selling your own products', 'A possible scope is presenting your products online. Product management, checkout, and order handling depend on the agreed project.'],
+  ['Dropshipping', 'The Sitemendr dropshipping program is still being defined. Supplier access, fulfillment, and seller payouts are not available yet.'],
+  ['Connecting an existing store', 'Connections to an existing site or store require a technical review. Availability and risks are confirmed before any changes are approved.'],
 ];
 
 function BackgroundImage({ src, alt = '' }: { src: string; alt?: string }) {
@@ -140,9 +123,9 @@ function FeatureMark({ included }: { included: boolean }) {
 export default function PricingPage() {
   return (
     <main className="min-h-screen bg-[#05070a] text-white">
-      <section className="relative min-h-[760px] overflow-hidden pt-24">
+      <section className="relative min-h-[640px] overflow-hidden pt-24">
         <BackgroundImage src={images.desk} />
-        <div className="relative z-10 mx-auto flex min-h-[680px] max-w-7xl flex-col justify-end px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="relative z-10 mx-auto flex min-h-[560px] max-w-7xl flex-col justify-end px-4 pb-10 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
               <h1 className="mt-5 max-w-3xl text-2xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
@@ -153,13 +136,13 @@ export default function PricingPage() {
                 </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/register" className="inline-flex items-center gap-2 bg-white px-5 py-3 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
-                  Get an instant quote
+                <Link href="/contact?intent=sales" className="inline-flex items-center gap-2 bg-white px-5 py-3 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">
+                  Request a quote
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link href="/contact?intent=sales" className="inline-flex items-center gap-2 border border-white/18 px-5 py-3 text-sm font-bold text-white/80 transition hover:border-white/40 hover:text-white">
                   <CalendarDays className="h-4 w-4" />
-                  Book a call
+                  Talk with the team
                 </Link>
               </div>
             </div>
@@ -179,9 +162,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="relative min-h-[820px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.build} />
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/48">Build pricing</p>
           <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-white sm:text-4xl">Two ways to start a build.</h2>
           <p className="mt-6 max-w-2xl text-base leading-8 text-white/64">
@@ -212,8 +195,8 @@ export default function PricingPage() {
                 ))}
               </div>
               <div className="border-t border-white/10 pt-5">
-                <Link href="/register" className="inline-flex items-center gap-2 text-sm font-bold text-expert-green transition hover:text-white">
-                  Get an instant quote <ArrowRight className="h-4 w-4" />
+                <Link href="/contact?intent=sales" className="inline-flex items-center gap-2 text-sm font-bold text-expert-green transition hover:text-white">
+                  Request a quote <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -221,7 +204,7 @@ export default function PricingPage() {
             <div className="border-y border-white/14 py-2">
               <div className="flex items-center gap-3 py-4">
                 <FileSearch className="h-5 w-5 text-ai-blue" />
-                <p className="text-sm font-bold uppercase tracking-[0.1em] text-ai-blue">Pro &amp; custom — quoted after a call</p>
+                <p className="text-sm font-bold uppercase tracking-[0.1em] text-ai-blue">Pro &amp; custom — quoted after scope review</p>
               </div>
               <p className="border-t border-white/10 py-5 text-sm leading-7 text-white/64">
                 Portals, dashboards, integrations, and anything with real business logic behind it get scoped properly first. A build is quoted by what the business needs the system to do:
@@ -236,7 +219,7 @@ export default function PricingPage() {
               </div>
               <div className="border-t border-white/10 pt-5">
                 <Link href="/contact?intent=sales" className="inline-flex items-center gap-2 text-sm font-bold text-ai-blue transition hover:text-white">
-                  Book a call <ArrowRight className="h-4 w-4" />
+                  Discuss your project <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -244,9 +227,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="relative min-h-[760px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.repair} />
-        <div className="relative z-10 mx-auto grid min-h-[760px] max-w-7xl content-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
+        <div className="relative z-10 mx-auto grid min-h-[640px] max-w-7xl content-center gap-10 px-4 py-10 sm:px-6 md:py-14 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
           <div>
             <Wrench className="h-8 w-8 text-amber-300" />
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.1em] text-white/48">Repair pricing</p>
@@ -266,9 +249,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="relative min-h-[900px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.maintenance} />
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
           <RefreshCw className="h-8 w-8 text-expert-green" />
           <p className="mt-6 text-xs font-bold uppercase tracking-[0.1em] text-white/48">Ongoing care</p>
           <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-white sm:text-4xl">Choose the level of care your site actually needs.</h2>
@@ -315,14 +298,14 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="relative min-h-[820px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.addons} />
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
           <Plug className="h-8 w-8 text-ai-blue" />
           <p className="mt-6 text-xs font-bold uppercase tracking-[0.1em] text-white/48">Add-ons</p>
           <h2 className="mt-4 max-w-2xl text-3xl font-bold leading-tight text-white sm:text-4xl">Already have a site with us? Add to it, without starting over.</h2>
           <p className="mt-6 max-w-2xl text-base leading-8 text-white/64">
-            Add-ons are one-time purchases that plug into a site we&apos;ve already built for you. No rebuild, no downtime, no risk to what&apos;s already working.
+            Add-ons are optional improvements for a site after its initial delivery. The catalog and safe installation flow are still being defined, so these examples are not available for self-service purchase yet. We can discuss a specific change and confirm its scope before any work is agreed.
           </p>
 
           <div className="mt-10 grid gap-px overflow-hidden bg-white/10 sm:grid-cols-2 lg:grid-cols-3">
@@ -335,19 +318,19 @@ export default function PricingPage() {
             ))}
           </div>
 
-          <p className="mt-8 text-sm font-semibold text-white/36">Pricing for each add-on is confirmed inside your workspace, based on what&apos;s already built.</p>
+          <p className="mt-8 text-sm font-semibold text-white/52">Examples only. Availability, compatibility, price, and any recurring costs must be confirmed with Sitemendr before work begins.</p>
         </div>
       </section>
 
-      <section className="relative min-h-[860px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.commerce} />
-        <div className="relative z-10 mx-auto grid min-h-[860px] max-w-7xl content-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+        <div className="relative z-10 mx-auto grid min-h-[640px] max-w-7xl content-center gap-10 px-4 py-10 sm:px-6 md:py-14 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
           <div>
             <Store className="h-8 w-8 text-ai-blue" />
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.1em] text-white/48">Commerce and dropshipping</p>
             <h2 className="mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">Commerce pricing depends on access, setup and who owns the selling environment.</h2>
             <p className="mt-6 text-base leading-8 text-white/64">
-              Sitemendr dropshipping gives sellers access to approved product catalogs through Sitemendr-managed shops and connected commerce partners. The seller does not manage supplier relationships directly.
+              Sitemendr is planning commerce and dropshipping services. The supplier, order, payment, delivery, and support systems are not yet available as a managed Sitemendr program. Contact us to discuss a store project; we will confirm what can be delivered before quoting it.
             </p>
           </div>
           <div className="grid gap-8">
@@ -360,54 +343,44 @@ export default function PricingPage() {
               ))}
             </div>
             <div className="border-y border-white/14 py-4">
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.1em] text-white/36">Managed order flow</p>
-              {commerceFlow.map((item, index) => (
-                <div key={item} className="flex gap-4 border-b border-white/10 py-3 last:border-b-0">
-                  <span className="text-xs font-bold text-ai-blue">{index + 1}</span>
-                  <p className="text-sm leading-6 text-white/64">{item}</p>
-                </div>
-              ))}
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.1em] text-white/36">What to expect</p>
+              <p className="text-sm leading-7 text-white/64">A store or dropshipping request needs a confirmed scope covering products, suppliers, checkout, fulfillment, customer support, and ownership. We will explain which parts are available for your project before asking you to approve or pay.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="relative min-h-[760px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.payout} />
-        <div className="relative z-10 mx-auto grid min-h-[760px] max-w-7xl content-end gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
+        <div className="relative z-10 mx-auto grid min-h-[640px] max-w-7xl content-end gap-10 px-4 py-10 sm:px-6 md:py-14 lg:grid-cols-[1fr_1fr] lg:px-8">
           <div>
             <HandCoins className="h-8 w-8 text-amber-300" />
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.1em] text-white/48">Seller payouts</p>
-            <h2 className="mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">Dropshipping profit is tracked, cleared and paid on schedule.</h2>
+            <h2 className="mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">Seller payouts are not available yet.</h2>
             <p className="mt-6 text-base leading-8 text-white/64">
-              Sellers see store activity, orders, pending earnings, approved earnings, analytics, store connections and support status inside their dashboard.
+              Sitemendr has not launched the seller account, earnings, or payout service. No payout dates, fees, or seller earnings are currently promised.
             </p>
           </div>
           <div className="border-y border-white/14 py-4">
-            {payoutRules.map((rule) => (
-              <div key={rule} className="flex gap-4 border-b border-white/10 py-4 last:border-b-0">
-                <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-amber-300" />
-                <p className="text-sm leading-7 text-white/64">{rule}</p>
-              </div>
-            ))}
+            <p className="py-4 text-sm leading-7 text-white/64">If you are exploring a store or dropshipping idea, contact the team to discuss the project. We will be clear about what can be built now and what is still being developed.</p>
           </div>
         </div>
       </section>
 
-      <section className="relative min-h-[760px] overflow-hidden border-t border-white/10">
+      <section className="relative min-h-[640px] overflow-hidden border-t border-white/10">
         <BackgroundImage src={images.workspace} />
-        <div className="relative z-10 mx-auto grid min-h-[760px] max-w-7xl content-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+        <div className="relative z-10 mx-auto grid min-h-[640px] max-w-7xl content-center gap-10 px-4 py-10 sm:px-6 md:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
             <FileSearch className="h-8 w-8 text-ai-blue" />
             <p className="mt-6 text-xs font-bold uppercase tracking-[0.1em] text-white/48">Before payment</p>
-            <h2 className="mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">The quote lives inside a workspace record.</h2>
+            <h2 className="mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">Agree on the work before a project record begins.</h2>
             <p className="mt-6 text-base leading-8 text-white/64">
-              A workspace keeps the request, scope, quote, payment context, delivery updates, files, messages and support trail connected. Pricing becomes part of the delivery record instead of a loose conversation.
+              Start by contacting Sitemendr. We clarify the service, scope, and price with you. After you approve the proposal, the project record keeps its messages, payment details, files, and delivery updates together.
             </p>
           </div>
           <div className="grid gap-0 border-y border-white/14 py-3 sm:grid-cols-2">
             {[
-              ['Request', 'Fill out an instant quote, or book a call for anything custom.'],
+              ['Request', 'Contact Sitemendr and tell us what you need.'],
               ['Scope', 'Sitemendr places the request into the right pricing path.'],
               ['Approval', 'The quote, responsibilities and payment terms are made visible.'],
               ['Delivery', 'Work, updates, files, decisions and support remain attached to the workspace.'],
@@ -422,26 +395,26 @@ export default function PricingPage() {
       </section>
 
       <section className="relative overflow-hidden border-t border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
           <div className="grid gap-6 border-y border-white/14 py-10 lg:grid-cols-2">
-            <Link href="/register" className="group flex flex-col justify-between border border-white/14 bg-white/[0.02] p-8 transition hover:border-expert-green/40 hover:bg-expert-green/[0.04]">
+            <Link href="/contact?intent=sales" className="group flex flex-col justify-between border border-white/14 bg-white/[0.02] p-8 transition hover:border-expert-green/40 hover:bg-expert-green/[0.04]">
               <div>
                 <Rocket className="h-6 w-6 text-expert-green" />
-                <p className="mt-5 text-xl font-bold text-white">Get an instant quote</p>
-                <p className="mt-3 text-sm leading-6 text-white/48">For a Starter or Core site. Answer a few questions, see a starting price, begin right away.</p>
+                <p className="mt-5 text-xl font-bold text-white">Discuss a project</p>
+                <p className="mt-3 text-sm leading-6 text-white/48">Tell us what you need. We will clarify the scope, availability, and price before you decide.</p>
               </div>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-expert-green transition group-hover:gap-3">
-                Start now <ArrowRight className="h-4 w-4" />
+                Contact Sitemendr <ArrowRight className="h-4 w-4" />
               </span>
             </Link>
             <Link href="/contact?intent=sales" className="group flex flex-col justify-between border border-white/14 bg-white/[0.02] p-8 transition hover:border-ai-blue/40 hover:bg-ai-blue/[0.04]">
               <div>
                 <CalendarDays className="h-6 w-6 text-ai-blue" />
-                <p className="mt-5 text-xl font-bold text-white">Book a call</p>
-                <p className="mt-3 text-sm leading-6 text-white/48">For Pro, custom builds, repairs, or anything a form can&apos;t fully capture.</p>
+                <p className="mt-5 text-xl font-bold text-white">Ask the team</p>
+                <p className="mt-3 text-sm leading-6 text-white/48">Use the contact form for custom builds, repairs, or a question about any service.</p>
               </div>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-ai-blue transition group-hover:gap-3">
-                Choose a time <ArrowRight className="h-4 w-4" />
+                Send a message <ArrowRight className="h-4 w-4" />
               </span>
             </Link>
           </div>

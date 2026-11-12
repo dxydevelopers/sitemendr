@@ -56,7 +56,7 @@ export default function LegalPage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-20 pt-24 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-14 pt-24 text-white">
       <div className="fixed inset-0 pointer-events-none">
         <div
           className="absolute inset-0 opacity-[0.04]"
@@ -68,7 +68,7 @@ export default function LegalPage() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 md:px-10">
-        <section className={`grid min-h-[620px] items-end gap-12 pb-16 transition duration-700 lg:grid-cols-[1fr_0.9fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <section className={`grid min-h-[560px] items-end gap-12 pb-12 transition duration-700 lg:grid-cols-[1fr_0.9fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div>
             <Scale className="h-10 w-10 text-ai-blue" />
             <h1 className="mt-8 max-w-5xl text-2xl font-bold leading-[0.95] tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
@@ -82,7 +82,7 @@ export default function LegalPage() {
           </div>
         </section>
 
-        <section className="mb-24 grid gap-10 lg:grid-cols-[0.74fr_1.26fr] lg:items-start">
+        <section className="mb-14 grid gap-10 lg:mb-20 lg:grid-cols-[0.74fr_1.26fr] lg:items-start">
           <div className="lg:sticky lg:top-28">
             <h2 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
               Policy documents.
@@ -113,7 +113,7 @@ export default function LegalPage() {
           </div>
         </section>
 
-        <section className="mb-24 border-y border-white/10 py-14 md:py-20">
+        <section className="mb-14 border-y border-white/10 py-10 md:mb-20 md:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
               <FileText className="h-9 w-9 text-expert-green" />

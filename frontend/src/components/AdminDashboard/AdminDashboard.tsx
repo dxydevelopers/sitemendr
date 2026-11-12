@@ -8,8 +8,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import {
-  Layout, PanelLeftClose, PanelLeftOpen, ChevronRight,
+  PanelLeftClose, PanelLeftOpen, ChevronRight,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAdminDashboard } from './useAdminDashboard';
@@ -104,7 +105,7 @@ export default function AdminDashboard({ onLogout, initialTab }: AdminDashboardP
   <div className={`border-b border-white/10 px-3 py-4 ${isSidebarExpanded ? '' : 'lg:px-3'}`}>
   <div className={`flex items-center gap-3 ${isSidebarExpanded ? 'justify-between' : 'lg:justify-center'}`}>
   <button type="button" onClick={() => openAdminTab('dashboard')} className={`group flex min-w-0 items-center gap-3 px-2 py-2 text-left transition hover:bg-white/[0.04] ${isSidebarExpanded ? 'flex-1' : 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}>
-  <div className="grid h-10 w-10 shrink-0 place-items-center bg-white text-[0A0C10]"><Layout className="h-4 w-4" /></div>
+  <Image src="/brand/icon-512.png" alt="" width={40} height={40} className="h-10 w-10 shrink-0 object-contain" />
   <div className="min-w-0"><h2 className="truncate text-sm font-semibold text-white">Sitemendr</h2><p className="mt-1 truncate text-[10px] font-semibold text-white/42">Admin operations</p></div>
   </button>
   <button type="button" onClick={() => setIsSidebarExpanded(v => !v)} className="hidden h-10 w-10 shrink-0 place-items-center text-white/52 transition hover:bg-white/[0.06] hover:text-white lg:grid" aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}>

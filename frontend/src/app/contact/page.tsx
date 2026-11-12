@@ -31,8 +31,8 @@ const contactRoutes = [
     tone: 'text-expert-green',
   },
   {
-    label: 'Private workspace',
-    detail: 'Use this when you want the conversation to move into a client account with messages, approvals, and delivery context.',
+    label: 'Service question',
+    detail: 'Use this if you are unsure which service fits or want to ask a question before requesting work.',
     icon: ShieldCheck,
     tone: 'text-tech-purple',
   },
@@ -89,7 +89,6 @@ const projectTypes = [
   'Online store',
   'Dropshipping setup',
   'Affiliate commerce',
-  'eCommerce or dropshipping',
   'Workspace or account help',
 ];
 
@@ -176,7 +175,7 @@ export default function Contact() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-20 pt-24 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-14 pt-24 text-white">
       <div className="fixed inset-0 pointer-events-none">
         <div
           className="absolute inset-0 opacity-[0.04]"
@@ -188,17 +187,17 @@ export default function Contact() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 md:px-10">
-        <section className={`grid min-h-[690px] items-center gap-12 transition duration-700 lg:grid-cols-[0.9fr_1.1fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <section className={`grid min-h-[620px] items-center gap-12 transition duration-700 lg:grid-cols-[0.9fr_1.1fr] ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div>
             <h1 className="max-w-5xl text-2xl font-bold leading-[0.95] tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
               Start the conversation with the right context.
             </h1>
             <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-xl">
-              Contact is not a waiting room. It is where the work begins to take shape: what you need, what already exists, what is broken, what must be built, and how the next decision should be handled.
+              Tell us what you need, what you already have, and what you want to change. We will review your message and clarify the service, scope, and next step before you decide.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <ContactButton href="/register" tone="light">
-                Create workspace
+              <ContactButton href="#message-form" tone="light">
+                Send us a message
               </ContactButton>
               <ContactButton href="/services">
                 View services
@@ -228,7 +227,7 @@ export default function Contact() {
           </div>
         </section>
 
-        <section className="mb-24 grid gap-10 border-y border-white/10 py-14 md:py-20 lg:grid-cols-[0.72fr_1.28fr]">
+        <section className="mb-14 grid gap-10 border-y border-white/10 py-10 md:mb-20 md:py-14 lg:grid-cols-[0.72fr_1.28fr]">
           <div>
             <h2 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
               Choose the kind of conversation you need.
@@ -251,7 +250,7 @@ export default function Contact() {
           </div>
         </section>
 
-        <section className="grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+        <section id="message-form" className="grid scroll-mt-24 gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
           <aside>
             <h2 className="text-xl font-bold leading-tight tracking-tight md:text-2xl">
               Direct channels.

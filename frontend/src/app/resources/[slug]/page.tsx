@@ -40,21 +40,21 @@ const resourceGuides: Record<string, { title: string; summary: string; sections:
     ],
   },
   editor: {
-    title: 'Working with your site editor',
-    summary: 'A safe routine for making changes to pages that already serve your business.',
+    title: 'Planning a website content change',
+    summary: 'A checklist for planning a change to a website you already manage.',
     sections: [
-      { title: 'Start with the right site', body: 'Choose the correct site and confirm its current publishing state before editing.' },
-      { title: 'Make focused changes', body: 'Update one area at a time, review the result on desktop and mobile, and save or publish only when the content is ready.' },
-      { title: 'Ask before changing infrastructure', body: 'Domain, hosting, and integration changes can affect a live site. Open a support ticket if a change needs Sitemendr to review it.' },
+      { title: 'Confirm how the site is managed', body: 'Use the editing tools provided by your site platform or hosting provider. Sitemendr’s visual editor is not currently available.' },
+      { title: 'Make and review a small change', body: 'Update one area at a time and check the result on desktop and mobile before publishing.' },
+      { title: 'Ask before changing infrastructure', body: 'Domain, hosting, and integration changes can affect a live site. Contact Sitemendr if an agreed project needs us to review a change.' },
     ],
   },
   commerce: {
     title: 'Commerce setup basics',
-    summary: 'Keep products, checkout, fulfillment, and customer updates connected in a clear store workflow.',
+    summary: 'Questions to prepare before planning an online store or dropshipping project.',
     sections: [
       { title: 'Prepare product details', body: 'Gather accurate names, prices, descriptions, images, stock levels, and delivery information before adding products.' },
       { title: 'Review the checkout path', body: 'Check payment settings and the customer confirmation flow before accepting orders.' },
-      { title: 'Keep operations visible', body: 'Review new orders, fulfillment status, and customer questions regularly. Ask support if an order or payment state looks wrong.' },
+      { title: 'Agree on operations first', body: 'Decide who handles new orders, fulfillment, and customer questions. Sitemendr’s managed commerce and dropshipping systems are still being defined, so confirm available scope before proceeding.' },
     ],
   },
   security: {
@@ -78,17 +78,17 @@ export default async function ResourceGuidePage({ params }: { params: Promise<{ 
   if (!guide) notFound();
 
   return (
-    <main className="min-h-screen bg-[#07090d] px-4 py-12 text-white sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#07090d] px-4 pb-12 pt-24 text-white sm:px-6 lg:px-8">
       <article className="mx-auto max-w-3xl">
         <Link href="/resources" className="inline-flex items-center gap-2 text-xs font-semibold text-white/50 transition hover:text-white"><ArrowLeft className="h-4 w-4" /> Resource library</Link>
-        <div className="mt-12 border-b border-white/10 pb-8">
+        <div className="mt-8 border-b border-white/10 pb-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/15 bg-sky-300/[.06] px-3 py-1.5 text-[11px] font-semibold text-sky-200"><BookOpen className="h-3.5 w-3.5" /> Sitemendr guide</div>
           <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">{guide.title}</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/55">{guide.summary}</p>
         </div>
         <div className="divide-y divide-white/10">
           {guide.sections.map((section, index) => (
-            <section key={section.title} className="grid gap-3 py-7 sm:grid-cols-[56px_1fr] sm:gap-5">
+            <section key={section.title} className="grid gap-3 py-5 sm:grid-cols-[56px_1fr] sm:gap-5">
               <span className="text-xs font-semibold text-sky-200/70">0{index + 1}</span>
               <div><h2 className="text-base font-semibold">{section.title}</h2><p className="mt-2 text-sm leading-7 text-white/55">{section.body}</p></div>
             </section>

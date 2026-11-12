@@ -11,7 +11,7 @@ export function OrganizationSchema() {
     '@type': 'Organization',
     name: 'Sitemendr',
     url: 'https://sitemendr.com',
-    logo: 'https://sitemendr.com/logo.png',
+    logo: 'https://sitemendr.com/brand/logo-full-1200.png',
     description: 'Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.',
     foundingDate: '2024',
     address: {
@@ -91,7 +91,7 @@ export function LocalBusinessSchema() {
     '@type': 'LocalBusiness',
     '@id': 'https://sitemendr.com/#organization',
     name: 'Sitemendr Technologies',
-    image: 'https://sitemendr.com/og-image.jpg',
+    image: 'https://sitemendr.com/og-image.png',
     address: {
       '@type': 'PostalAddress',
       streetAddress: 'Nairobi',

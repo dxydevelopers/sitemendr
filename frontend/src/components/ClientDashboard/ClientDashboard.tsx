@@ -8,6 +8,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -340,14 +341,14 @@ export default function ClientDashboard({ onLogout, initialTab }: ClientDashboar
   <div className="h-full flex flex-col px-3 py-4 pb-8">
   <div className="mb-6 flex items-center justify-between px-2 md:hidden">
   <button type="button" onClick={() => openTab('dashboard')} className="flex items-center gap-3 text-left">
-  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#0A0C10]"><Terminal className="h-4 w-4" /></span>
+  <Image src="/brand/icon-512.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0 object-contain" />
   <span><span className="block text-sm font-semibold text-white">Sitemendr</span><span className="block text-[10px] font-semibold text-white/42">Client workspace</span></span>
   </button>
   <button type="button" onClick={() => setIsSidebarOpen(false)} aria-label="Close navigation" className="grid h-10 w-10 place-items-center rounded-lg text-white/60 transition hover:bg-white/[0.06] hover:text-white"><X className="h-5 w-5" /></button>
   </div>
   <div className={`mb-6 flex items-center gap-3 px-1 transition-all duration-200 ${isSidebarExpanded ? 'justify-between' : 'justify-center'}`}>
   <button type="button" onClick={() => openTab('dashboard')} className={`group hidden min-w-0 items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.05] md:flex ${isSidebarExpanded ? 'w-auto opacity-100' : 'w-0 overflow-hidden opacity-0'}`}>
-  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#0A0C10]"><Terminal className="h-4 w-4" /></span>
+  <Image src="/brand/icon-512.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0 object-contain" />
   <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">Sitemendr</span><span className="block truncate text-[10px] font-semibold text-white/42">Client workspace</span></span>
   </button>
   <button type="button" onClick={() => setIsSidebarExpanded(v => !v)} className="hidden md:grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white/52 transition hover:bg-white/[0.06] hover:text-white" aria-label={isSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'} aria-expanded={isSidebarExpanded}>

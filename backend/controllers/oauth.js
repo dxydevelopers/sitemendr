@@ -233,7 +233,7 @@ const getIdentity = async (provider, code, stateClaims, appleUserData) => {
   return { id: String(claims.sub), email: claims.email, name, verified: true };
 };
 
-const findOrCreateUser = async (provider, identity) => {
+const findOrCreateUser = async (provider, identity, allowCreate) => {
   const field = providerFields[provider];
   const linkedRows = await prisma.$queryRawUnsafe(`SELECT * FROM "User" WHERE "${field}" = $1 LIMIT 1`, identity.id);
   const linked = linkedRows[0];
@@ -254,6 +254,8 @@ const findOrCreateUser = async (provider, identity) => {
     const updatedRows = await prisma.$queryRawUnsafe('SELECT * FROM "User" WHERE "id" = $1 LIMIT 1', user.id);
     return { user: updatedRows[0], isNew: false };
   }
+
+  if (!allowCreate) throw new Error('account_not_found');
 
   const randomPassword = crypto.randomBytes(48).toString('base64url');
   const password = await bcrypt.hash(randomPassword, 12);
@@ -287,7 +289,7 @@ exports.callback = async (req, res) => {
 
     const identity = await getIdentity(provider, code, stateClaims, req.body?.user);
     if (!identity.verified) throw new Error('unverified_email');
-    const { user, isNew } = await findOrCreateUser(provider, identity);
+    const { user, isNew } = await findOrCreateUser(provider, identity, flow === 'register');
     if (user.banned || user.role !== 'user') throw new Error('account_unavailable');
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
     const callback = new URL('/oauth/callback', frontendUrl());

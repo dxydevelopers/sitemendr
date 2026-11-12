@@ -146,7 +146,7 @@ export default function BlogPage() {
         <div className="absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/5 blur-[120px]" />
       </div>
 
-      <section className="relative z-10 pt-24 pb-16 md:pt-32 md:pb-24">
+      <section className="relative z-10 pt-24 pb-12 md:pt-32 md:pb-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 backdrop-blur-sm">
@@ -165,7 +165,7 @@ export default function BlogPage() {
         </div>
       </section>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
         <div className="mb-8 space-y-4 lg:hidden">
           <div className="border-y border-white/10 py-4">
             <form onSubmit={handleSearch} className="relative">
@@ -400,7 +400,7 @@ export default function BlogPage() {
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center border border-white/10 bg-slate-900/55 py-24 text-center backdrop-blur-xl">
+              <div className="flex flex-col items-center border border-white/10 bg-slate-900/55 py-16 text-center backdrop-blur-xl">
                 <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-800/60">
                   <FileQuestion className="h-10 w-10 text-slate-600" />
                 </div>

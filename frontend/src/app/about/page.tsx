@@ -27,13 +27,11 @@ import {
   MessageSquareText,
   MonitorCheck,
   Puzzle,
-  Quote,
   Rocket,
   Server,
   Shield,
   ShieldCheck,
   ShoppingBag,
-  Star,
   Target,
   Terminal,
   UploadCloud,
@@ -43,9 +41,8 @@ import {
 } from 'lucide-react';
 
 const stats = [
-  { value: '4', label: 'Service paths', icon: <Layers2 className="h-5 w-5" />, note: 'Build, repair, maintain, grow' },
+  { value: '3', label: 'Core service paths', icon: <Layers2 className="h-5 w-5" />, note: 'Build, repair, grow' },
   { value: '1', label: 'Client workspace', icon: <MessageSquareText className="h-5 w-5" />, note: 'Project memory kept together' },
-  { value: '24h', label: 'First review aim', icon: <Clock className="h-5 w-5" />, note: 'Clear next step after request' },
 ];
 
 const tabs = [
@@ -133,7 +130,7 @@ const timeline = [
   {
     year: '01',
     title: 'Request',
-    desc: 'The client opens a workspace or starts a conversation with the team.',
+    desc: 'The client contacts Sitemendr and explains what they need.',
     icon: <Terminal className="h-5 w-5" />,
     tone: 'text-ai-blue',
   },
@@ -269,33 +266,6 @@ const technologies = [
   { name: 'Content systems', category: 'Publishing', icon: <Layers2 className="h-5 w-5" />, tone: 'text-amber-300' },
 ];
 
-const testimonials = [
-  {
-    name: 'Business owner',
-    role: 'Website repair client',
-    content:
-      'The value was not only that the issue was fixed. The value was understanding what had gone wrong and what needed to happen next.',
-    rating: 5,
-    avatar: 'BO',
-  },
-  {
-    name: 'Store founder',
-    role: 'Commerce setup',
-    content:
-      'The store finally felt organized. Products, checkout, delivery notes, and support were no longer treated like separate problems.',
-    rating: 5,
-    avatar: 'SF',
-  },
-  {
-    name: 'Operations lead',
-    role: 'Workspace delivery',
-    content:
-      'Having files, messages, approvals, and payments connected made the project easier to follow than a normal agency handoff.',
-    rating: 5,
-    avatar: 'OL',
-  },
-];
-
 export default function AboutPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -317,7 +287,7 @@ export default function AboutPage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-20 pt-24 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-14 pt-24 text-white">
       <div className="fixed left-0 right-0 top-0 z-50 h-1 bg-white/8">
         <div className="h-full bg-ai-blue transition-all duration-300" style={{ width: `${scrollProgress}%` }} />
       </div>
@@ -333,7 +303,7 @@ export default function AboutPage() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-6 md:px-10">
-        <section className={`mb-24 text-center transition duration-700 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <section className={`mb-14 md:mb-20 text-center transition duration-700 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div className="inline-flex items-center gap-3 border-b border-ai-blue/40 px-1 pb-3">
             <Terminal className="h-4 w-4 text-ai-blue" />
             <span className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">
@@ -365,7 +335,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24 border-y border-white/10 py-12 md:py-16">
+        <section className="mb-14 md:mb-20 border-y border-white/10 py-10 md:py-14">
           <div className="mb-10 flex flex-wrap justify-center gap-2">
             {tabs.map((tab) => (
               <button
@@ -401,7 +371,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24 grid gap-12 lg:grid-cols-2 lg:items-center">
+        <section className="mb-14 md:mb-20 grid gap-12 lg:grid-cols-2 lg:items-center">
           <div className="relative">
             <div className="relative aspect-[4/3] overflow-hidden">
               <Image
@@ -459,11 +429,11 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24">
+        <section className="mb-14 md:mb-20">
           <SectionIntro
             eyebrow="Why choose us"
             title="Built for the parts of digital work that usually become messy."
-            copy="The company needs to explain more than design and development. It needs to show the system around the work."
+            copy="Sitemendr helps clients understand the service, agree on the work, and follow project progress after approval."
           />
           <div className="mt-12 grid gap-x-10 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
@@ -477,10 +447,10 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24">
+        <section className="mb-14 md:mb-20">
           <SectionIntro
-            title="The journey is visible before the client commits deeper."
-            copy="This keeps the old step-by-step feeling, but makes the steps more specific to the new Sitemendr."
+            title="A clear path from first message to handoff."
+            copy="Contact the team first. After the scope and price are agreed, the client dashboard keeps project communication and delivery details together."
           />
           <div className="relative mt-14">
             <div className="absolute bottom-0 left-1/2 top-0 hidden w-px bg-white/10 md:block" />
@@ -504,11 +474,11 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24">
+        <section className="mb-14 md:mb-20">
           <SectionIntro
             eyebrow="Core principles"
             title="What the company stands for."
-            copy="The icons and compact proof points stay, but the claims are grounded in how Sitemendr actually works."
+            copy="These principles guide how Sitemendr explains, scopes, and delivers client work."
           />
           <div className="mt-12 grid gap-x-10 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
             {principles.map((principle) => (
@@ -524,7 +494,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24 grid gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
+        <section className="mb-14 md:mb-20 grid gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
           <div className="relative min-h-[520px] overflow-hidden">
             <Image
               src="https://images.unsplash.com/photo-1573164713988-8665fc963095?w=1600&h=1700&fit=crop&crop=center"
@@ -538,9 +508,9 @@ export default function AboutPage() {
           </div>
           <div>
             <SectionIntro
-              eyebrow="Working groups"
-              title="The team is presented by responsibility, not noise."
-              copy="This keeps the original team section feeling while making it more truthful and useful for the company page."
+              eyebrow="Areas of work"
+              title="The work spans a few clear areas."
+              copy="Strategy, development, care, and client operations describe the work Sitemendr handles. They are service areas, not separate client teams or departments."
               align="left"
             />
             <div className="mt-10 grid gap-x-8 gap-y-10 sm:grid-cols-2">
@@ -557,10 +527,10 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24">
+        <section className="mb-14 md:mb-20">
           <SectionIntro
-            title="The stack exists to support the service, not to decorate the page."
-            copy="This keeps the older technology-grid idea but makes it cleaner and more connected to the actual Sitemendr offering."
+            title="Technology follows the needs of the project."
+            copy="The tools shown here are examples of technologies used to build and support web projects. The exact stack depends on the agreed scope."
           />
           <div className="mt-12 grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
             {technologies.map((tech) => (
@@ -573,32 +543,12 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className="mb-24">
+        <section className="mb-14 md:mb-20">
           <SectionIntro
-            eyebrow="Client voices"
-            title="The proof should sound like outcomes, not exaggerated praise."
-            copy="These are framed as service-context examples until real case studies are formalized."
+            eyebrow="Client stories"
+            title="We publish client work only when it is real and approved."
+            copy="There are no client testimonials or case studies published here yet. We will add them when clients have approved the work and their words for publication."
           />
-          <div className="mt-12 grid gap-x-10 gap-y-12 md:grid-cols-3">
-            {testimonials.map((testimonial) => (
-              <div key={testimonial.name} className="relative border-t border-white/10 pt-7">
-                <Quote className="absolute right-0 top-7 h-8 w-8 text-white/24" />
-                <div className="mb-6 flex gap-1">
-                  {[...Array(testimonial.rating)].map((_, index) => (
-                    <Star key={index} className="h-4 w-4 fill-amber-300 text-amber-300" />
-                  ))}
-                </div>
-                <p className="text-sm leading-7 text-white/64">&quot;{testimonial.content}&quot;</p>
-                <div className="mt-7 flex items-center gap-4">
-                  <div className="grid h-12 w-12 place-items-center bg-white text-sm font-bold text-black">{testimonial.avatar}</div>
-                  <div>
-                    <p className="text-sm font-bold">{testimonial.name}</p>
-                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-white/36">{testimonial.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
 
         <section className="mb-16 overflow-hidden border-y border-white/10">
@@ -609,7 +559,7 @@ export default function AboutPage() {
                 Ready to place the work inside a clear system?
               </h2>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-white/64">
-                Start with a service path, open a workspace, or speak with the team before a project begins.
+                Start by telling us what you need. We will clarify the service and next step with you.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <AboutButton href="/contact?intent=sales" tone="light">

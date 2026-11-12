@@ -11,14 +11,16 @@ function ConfirmEmailChangeContent() {
   const router = useRouter();
   const token = searchParams.get('token') || '';
   const [state, setState] = useState<'ready' | 'saving' | 'success' | 'error'>('ready');
+  const [canRetry, setCanRetry] = useState(false);
   const [message, setMessage] = useState('Confirm the new email to make it your Sitemendr sign-in address.');
 
   const confirm = async () => {
-    if (!token) { setState('error'); setMessage('This confirmation link is incomplete. Request a new email change from My Account.'); return; }
+    if (!token) { setCanRetry(false); setState('error'); setMessage('This confirmation link is incomplete. Request a new email change from My Account.'); return; }
+    setCanRetry(false);
     setState('saving');
     let result: { success: boolean; message: string; email?: string };
     try { result = await apiClient.confirmEmailChange(token); }
-    catch { setState('error'); setMessage('Could not reach Sitemendr. Check your connection and try again.'); return; }
+    catch { setCanRetry(true); setState('error'); setMessage('Could not reach Sitemendr. Check your connection and try again.'); return; }
     if (!result.success || !result.email) {
       setState('error'); setMessage(result.message || 'This link is invalid or expired. Request a new one from My Account.'); return;
     }
@@ -51,7 +53,8 @@ function ConfirmEmailChangeContent() {
           <div className="mt-9 flex flex-wrap gap-3">
             {state === 'ready' && <button type="button" onClick={confirm} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">Confirm email change</button>}
             {state === 'success' && <button type="button" onClick={() => router.push(localStorage.getItem('sitemendr_auth_token') ? '/dashboard' : '/login')} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">Continue</button>}
-            {state === 'error' && <Link href="/login" className="inline-flex min-h-11 items-center bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">Sign in</Link>}
+            {state === 'error' && canRetry && <button type="button" onClick={confirm} className="min-h-11 bg-white px-5 text-sm font-bold text-black transition hover:bg-ai-blue hover:text-white">Try again</button>}
+            {state === 'error' && <Link href="/login" className="inline-flex min-h-11 items-center border border-white/20 px-5 text-sm font-bold text-white transition hover:border-white/50">Sign in</Link>}
           </div>
         </section>
       </div>

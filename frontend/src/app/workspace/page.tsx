@@ -110,11 +110,11 @@ export default function WorkspacePage() {
               A private workspace for work that should not live in scattered messages.
             </h1>
             <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              The Sitemendr workspace is where a client request becomes organized: service path, files, messages, approvals, payments, delivery notes, and support all stay connected to the same relationship.
+              Contact Sitemendr first to discuss the work. When a project is agreed, your client dashboard keeps its messages, files, approvals, payments, and delivery updates together.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <WorkspaceAction href="/register" tone="light">
-                Create Workspace
+              <WorkspaceAction href="/contact?intent=sales" tone="light">
+                Contact Sitemendr
               </WorkspaceAction>
               <WorkspaceAction href="/process">
                 See Process
@@ -137,7 +137,7 @@ export default function WorkspacePage() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
           <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             The workspace is not decoration. It is how Sitemendr protects the shape of the work.
           </h2>
@@ -153,7 +153,7 @@ export default function WorkspacePage() {
       </section>
 
       <section id="workspace-preview" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
             <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Before the dashboard is a feature, it is a promise of order.
@@ -192,7 +192,7 @@ export default function WorkspacePage() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.72),rgba(5,7,10,0.06))]" />
           </div>
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <ShieldCheck className="h-6 w-6 text-expert-green" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -222,7 +222,7 @@ export default function WorkspacePage() {
       </section>
 
       <section id="operating-flow" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
             <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The request enters once, then everything important stays connected.
@@ -247,7 +247,7 @@ export default function WorkspacePage() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
           <div>
             <LayoutDashboard className="h-6 w-6 text-ai-blue" />
             <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -291,14 +291,14 @@ export default function WorkspacePage() {
           <div className="max-w-3xl">
             <CreditCard className="h-6 w-6 text-ai-blue" />
             <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
-              Create the workspace first, then let the right service path become clear.
+              Start with the work you need done.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              A workspace gives the request a private beginning. From there, Sitemendr can understand the work, organize the next step, and keep the relationship connected from review to support.
+              Tell us what you need and we’ll clarify the service, scope, and next step with you. After you approve the work, your client dashboard keeps project updates and records in one place.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <WorkspaceAction href="/register" tone="light">
-                Create Workspace
+              <WorkspaceAction href="/contact?intent=sales" tone="light">
+                Start a conversation
               </WorkspaceAction>
               <WorkspaceAction href="/process">
                 Review Full Process

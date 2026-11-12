@@ -14,38 +14,37 @@ import {
   Rocket,
   SearchCheck,
   ShieldCheck,
-  UserPlus,
 } from 'lucide-react';
 
 const processSteps = [
   {
-    title: 'Create the private workspace',
-    copy: 'The client opens an account so the request has a secure place to begin. This creates the room where files, messages, billing, approvals, and delivery notes can stay connected.',
-    icon: UserPlus,
-  },
-  {
-    title: 'Describe the request in context',
-    copy: 'Sitemendr needs the business situation, not only the task name. The client can explain the goal, upload references, add files, and share the details that make the work understandable.',
+    title: 'Tell us what you need',
+    copy: 'Start with a message or service request. You can explain the situation and ask questions before creating an account or committing to work.',
     icon: ClipboardCheck,
   },
   {
-    title: 'Review the correct service path',
-    copy: 'The request is studied and connected to the right route: development, repair, maintenance, commerce, delivery ownership, or support. The point is to protect the work from being shaped too quickly.',
+    title: 'We review the request together',
+    copy: 'Sitemendr clarifies the goal, checks the details, and asks for any references needed to understand the work.',
+    icon: ClipboardCheck,
+  },
+  {
+    title: 'Agree on the service and scope',
+    copy: 'We confirm whether the request is for a build, repair, ongoing care, commerce work, or another service, then explain the scope and price.',
     icon: SearchCheck,
   },
   {
-    title: 'Approve scope and payment',
-    copy: 'Before serious work begins, the client should understand what will be done, how responsibility is measured, what the cost means, and what is expected from both sides.',
+    title: 'Approve before work starts',
+    copy: 'You review the agreed work, payment terms, responsibilities, and expected next steps before approving the project.',
     icon: CreditCard,
   },
   {
-    title: 'Track progress in one place',
-    copy: 'Messages, status, questions, documents, blockers, and approvals remain visible. The project should not depend on memory or scattered conversations to move forward.',
+    title: 'Follow the work in your dashboard',
+    copy: 'Once the project is set up, its messages, status, files, decisions, and payment records are available in your Sitemendr client dashboard.',
     icon: MonitorCheck,
   },
   {
-    title: 'Receive delivery and support',
-    copy: 'The final handoff includes the finished work, ownership context, notes, files, next steps, and a support route if the business needs care after launch.',
+    title: 'Review handoff and next steps',
+    copy: 'At completion, we share the agreed deliverables, access and handoff information, then explain any available support or follow-up work.',
     icon: PackageCheck,
   },
 ];
@@ -106,7 +105,7 @@ export default function ProcessPage() {
         <div className="relative mx-auto grid min-h-[640px] max-w-7xl items-center gap-12 px-5 py-12 sm:px-6 md:min-h-[720px] md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:py-16">
           <div>
             <div className="mb-7 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.1em] text-white/48">
-              <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Account</span>
+              <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Request</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Review</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Approval</span>
               <span className="border border-white/12 bg-white/[0.04] px-3 py-2">Delivery</span>
@@ -115,11 +114,11 @@ export default function ProcessPage() {
               How Sitemendr turns a request into organized delivery.
             </h1>
             <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              The process is built to keep work private, readable, and accountable. A client creates a workspace, explains the request, receives review, approves the path, tracks the work, and leaves with delivery records that still make sense later.
+              Start by telling us what you need. We clarify the work and price with you; once you approve, the project and its updates are organized in your client dashboard.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <ProcessAction href="/register" tone="light">
-                Create Workspace
+              <ProcessAction href="/contact?intent=sales" tone="light">
+                Tell us what you need
               </ProcessAction>
               <ProcessAction href="/workspace">
                 View Workspace
@@ -147,7 +146,7 @@ export default function ProcessPage() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
           <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             The point is not to make the project feel complicated. It is to make it trustworthy.
           </h2>
@@ -163,10 +162,10 @@ export default function ProcessPage() {
       </section>
 
       <section id="full-process" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
             <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
-              From first account to final support route.
+              From first message through delivery and support.
             </h2>
             <p className="max-w-2xl text-base leading-8 text-white/64 lg:ml-auto">
               Every stage has a reason. The process protects privacy, gives the request enough context, keeps payment attached to scope, and makes delivery easier to understand after launch.
@@ -202,7 +201,7 @@ export default function ProcessPage() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.72),rgba(5,7,10,0.06))]" />
           </div>
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <Rocket className="h-6 w-6 text-amber-300" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -225,7 +224,7 @@ export default function ProcessPage() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
             <div>
               <ShieldCheck className="h-6 w-6 text-ai-blue" />
@@ -255,7 +254,7 @@ export default function ProcessPage() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
           <div>
             <MessageSquare className="h-6 w-6 text-amber-300" />
             <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -305,8 +304,8 @@ export default function ProcessPage() {
               That is the purpose of the Sitemendr process: make the client relationship easier to trust before, during, and after the work.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <ProcessAction href="/register" tone="light">
-                Create Workspace
+              <ProcessAction href="/contact?intent=sales" tone="light">
+                Contact Sitemendr
               </ProcessAction>
               <ProcessAction href="/services">
                 Review Services

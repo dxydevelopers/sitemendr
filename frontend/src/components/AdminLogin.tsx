@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ArrowRight, Shield } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
@@ -41,6 +42,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
     <main className="min-h-screen bg-[#05070a] text-white">
       <section className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.9fr_1fr] lg:px-10">
         <div className="max-w-xl">
+          <Image src="/brand/logo-full-600.png" alt="Sitemendr Tech" width={300} height={69} className="mb-8 h-10 w-auto object-contain object-left" priority />
           <div className="flex h-12 w-12 items-center justify-center text-ai-blue">
             <Shield className="h-8 w-8" />
           </div>

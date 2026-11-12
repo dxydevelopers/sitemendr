@@ -7,6 +7,7 @@ const { withTimeout } = require('../utils/promise');
 const { convertCurrencyAmount, replaceCurrencyAmountInText } = require('../utils/currency');
 const { notify } = require('../services/notify');
 const { sendEmail } = require('../config/email');
+const { wrapEmailShell } = require('../services/emailShell');
 const { getPhoneChannels, hashToken, hashPhoneCode, requestPhoneCode, checkPhoneCode } = require('../services/accountVerification');
 
 const getAccountExtraFields = async (userId) => {
@@ -591,7 +592,7 @@ exports.requestEmailChange = async (req, res) => {
       await sendEmail({
         to: email,
         subject: 'Confirm your new Sitemendr sign-in email',
-        html: `<p>Hello ${escapeHtml(user.name)},</p><p>Confirm that you want to use <strong>${escapeHtml(email)}</strong> to sign in to Sitemendr.</p><p><a href="${confirmationUrl}">Confirm email change</a></p><p>This link expires in 30 minutes. Your current email remains active until you confirm.</p>`,
+        html: wrapEmailShell(`<h1 style="margin:0 0 18px;color:#101828;font-size:24px;line-height:1.3;font-weight:700;">Confirm your sign-in email</h1><p>Hello ${escapeHtml(user.name)},</p><p>Confirm that you want to use <strong>${escapeHtml(email)}</strong> to sign in to Sitemendr.</p><p style="margin:28px 0;"><a href="${confirmationUrl}" style="display:inline-block;padding:12px 20px;background:#155eef;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Confirm email change</a></p><p style="color:#667085;font-size:13px;">This link expires in 30 minutes. Your current email remains active until you confirm.</p>`, { preheader: 'Confirm the new email address for your Sitemendr account.' }),
       });
     } catch (mailError) {
       await prisma.$executeRaw`UPDATE "User" SET "pendingEmail" = NULL, "emailChangeTokenHash" = NULL, "emailChangeExpires" = NULL WHERE "id" = ${userId}`;
@@ -799,12 +800,12 @@ exports.forgotPassword = async (req, res) => {
 
     const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user) {
-      return res.json({
-        success: true,
-        message: 'If an account with that email exists, a password reset link has been sent.',
-      });
-    }
+    const genericResponse = {
+      success: true,
+      message: 'If an account with that email exists, reset instructions will be sent to that address.',
+    };
+
+    if (!user) return res.json(genericResponse);
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -819,15 +820,15 @@ exports.forgotPassword = async (req, res) => {
       }
     });
 
-    // Send reset email
-    sendPasswordResetEmail(email, resetToken).catch(async (emailError) => {
-      logger.error('PASSWORD_RESET_EMAIL_SENDING_FAILED:', emailError);
-    });
+    // Wait for the mail provider attempt before acknowledging the request.
+    // Keep the response identical for known and unknown addresses to avoid
+    // exposing whether an account exists.
+    const emailResult = await sendPasswordResetEmail(email, resetToken);
+    if (!emailResult?.sent) {
+      logger.error('PASSWORD_RESET_EMAIL_SENDING_FAILED', { reason: emailResult?.reason || 'unknown_reason' });
+    }
 
-    res.json({
-      success: true,
-      message: 'Password reset link sent to your email',
-    });
+    return res.json(genericResponse);
   } catch (error) {
     logger.error('FORGOT_PASSWORD_ERROR:', error);
     res.status(500).json({

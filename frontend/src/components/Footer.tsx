@@ -179,8 +179,7 @@ export default function Footer() {
         <div className="grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[1fr_1.6fr]">
           <div className="max-w-xl">
            <Link href="/" className="inline-flex items-center gap-3">
-  <Image src="/Sitemendr_Tech_Logo.png" alt="Sitemendr" width={56} height={36} className="h-9 w-auto object-contain" />
-  <span className="text-2xl font-semibold tracking-tight">Sitemendr</span>
+  <Image src="/brand/logo-full-600.png" alt="Sitemendr Tech" width={300} height={69} className="h-10 w-auto object-contain" />
 </Link>
 
             <p className="mt-6 max-w-lg text-base leading-7 text-white/64">

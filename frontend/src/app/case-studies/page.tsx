@@ -25,11 +25,11 @@ const caseStudies = [
     placement: 'items-end justify-start',
     width: 'max-w-xl',
     problem:
-      'The business had services, credibility, and active conversations, but the website made visitors work too hard before they understood the offer.',
+      'A business has several services, but visitors struggle to understand the offer and how to make contact.',
     decision:
-      'The structure was rebuilt around the first question a serious visitor asks: what do you do, why should I trust you, and how do I begin?',
+      'Clarify the service hierarchy, explain the offer in plain language, and make the contact step easy to find.',
     result:
-      'The page became clearer, faster to scan, and easier to act on. Service explanation, proof, and contact flow stopped competing with each other.',
+      'Before work begins, Sitemendr and the client would agree on the pages, content, and changes included in the project.',
     details: ['Service hierarchy', 'Trust language', 'Cleaner contact path'],
   },
   {
@@ -40,11 +40,11 @@ const caseStudies = [
     placement: 'items-start justify-end',
     width: 'max-w-2xl',
     problem:
-      'Project notes, approvals, billing context, support requests, and delivery expectations were living in too many places.',
+      'A client and service provider need a reliable way to keep project updates, approvals, and files together.',
     decision:
-      'The work needed a private operating space where the client could return, see progress, understand decisions, and keep the record intact.',
+      'Use the Sitemendr client dashboard to keep the agreed project record and its updates in one place.',
     result:
-      'The workspace model turned delivery into something visible. Projects, messages, files, support, and payment context could be understood together.',
+      'The dashboard features and records available for a project would be confirmed with the client before the work starts.',
     details: ['Project status', 'Approval record', 'Support continuity'],
   },
   {
@@ -55,11 +55,11 @@ const caseStudies = [
     placement: 'items-center justify-start',
     width: 'max-w-xl',
     problem:
-      'The store idea had products, but the buyer journey was thin: product meaning, delivery expectations, support, and checkout confidence were not connected.',
+      'A business wants to sell online but has not settled the product pages, delivery terms, checkout, or customer support plan.',
     decision:
-      'The store had to be shaped around trust before transaction. Product pages, policies, checkout, and support needed to read as one path.',
+      'Define the buyer journey and agree which store features can be delivered for the project.',
     result:
-      'The commerce structure became easier to understand and easier to launch. Customers could move from interest to purchase with fewer unanswered questions.',
+      'Sitemendr commerce and dropshipping services are still being defined. Availability and scope must be confirmed before a project is quoted.',
     details: ['Product flow', 'Checkout clarity', 'Delivery expectations'],
   },
   {
@@ -70,11 +70,11 @@ const caseStudies = [
     placement: 'items-end justify-end',
     width: 'max-w-xl',
     problem:
-      'The site looked like a design issue at first, but the real risk was deeper: broken structure, slow behavior, unfinished sections, and weak maintenance habits.',
+      'A website has errors or slow pages, and the owner is unsure whether to repair it or rebuild it.',
     decision:
-      'Repair came before decoration. The work was treated as a recovery job: inspect the foundation, remove what was failing, and stabilize what had to remain.',
+      'Inspect the reported issue, explain the findings, and agree on repair scope before making changes.',
     result:
-      'The business received a more dependable technical base, clearer pages, and a better path for future maintenance instead of another fragile redesign.',
+      'The diagnosis, price, repair work, and any follow-up care would be agreed with the client before work begins.',
     details: ['Technical audit', 'Stability repair', 'Maintenance readiness'],
   },
 ];
@@ -125,7 +125,7 @@ export default function CaseStudiesPage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-20 pt-24 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-14 pt-24 text-white">
       <div className="fixed left-0 right-0 top-0 z-50 h-1 bg-white/8">
         <div className="h-full bg-expert-green transition-all duration-300" style={{ width: `${scrollProgress}%` }} />
       </div>
@@ -144,12 +144,12 @@ export default function CaseStudiesPage() {
         <section className={`grid min-h-[620px] items-end gap-12 pb-16 transition duration-700 lg:grid-cols-[1.02fr_0.98fr] ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <div>
             <h1 className="max-w-5xl text-2xl font-bold leading-[0.95] tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
-              Outcome stories, told inside the work.
+              Examples of the work Sitemendr can take on.
             </h1>
           </div>
           <div className="border-l border-white/10 pl-6 md:pl-9">
             <p className="max-w-xl text-base leading-8 text-white/64 md:text-xl">
-              Case studies are not here to decorate the page. Each story shows the business pressure, the decision that shaped the work, the delivery path, and what became easier for the client after the work was handled.
+              These are illustrative project scenarios, not completed client case studies. They show the kinds of problems Sitemendr can discuss and how we would agree on an approach before work begins.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <CaseButton href="/contact?intent=sales" tone="light">
@@ -162,9 +162,9 @@ export default function CaseStudiesPage() {
           </div>
         </section>
 
-        <section className="mb-24 space-y-8 md:space-y-12">
+        <section className="mb-14 space-y-8 md:mb-20 md:space-y-10" aria-label="Illustrative project scenarios">
           {caseStudies.map((study, index) => (
-            <article key={study.title} className="group relative min-h-[780px] overflow-hidden border border-white/10 md:min-h-[860px]">
+            <article key={study.title} className="group relative min-h-[600px] overflow-hidden border border-white/10 md:min-h-[680px]">
               <Image
                 src={study.image}
                 alt=""
@@ -185,9 +185,9 @@ export default function CaseStudiesPage() {
                   <h2 className="mt-7 text-xl font-bold leading-tight tracking-tight md:text-2xl">{study.title}</h2>
 
                   <div className="mt-8 grid gap-6">
-                    <CaseText label="Problem" text={study.problem} />
-                    <CaseText label="Decision" text={study.decision} />
-                    <CaseText label="Result" text={study.result} />
+                    <CaseText label="Example situation" text={study.problem} />
+                    <CaseText label="Possible approach" text={study.decision} />
+                    <CaseText label="What we would agree" text={study.result} />
                   </div>
 
                   <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -204,13 +204,13 @@ export default function CaseStudiesPage() {
           ))}
         </section>
 
-        <section className="mb-24 grid gap-10 border-y border-white/10 py-14 md:py-20 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="mb-14 grid gap-10 border-y border-white/10 py-10 md:mb-20 md:py-14 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
             <h2 className="text-xl font-bold leading-tight tracking-tight md:text-3xl">
               The story is judged by what changed.
             </h2>
             <p className="mt-7 max-w-xl text-base leading-8 text-white/64">
-              A strong case study does not stop at the image. It explains why the work mattered, how the decision was made, and what the business can now do with less confusion.
+              When approved client work is available to publish, each case study will explain the original need, the agreed approach, and the delivered result. The examples above are hypothetical and make no claims about completed projects.
             </p>
           </div>
           <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2">
@@ -237,14 +237,14 @@ export default function CaseStudiesPage() {
           <div className="absolute inset-0 flex items-end p-6 sm:p-10 md:p-14">
             <div className="max-w-3xl">
               <h2 className="text-xl font-bold leading-tight tracking-tight md:text-3xl">
-                Bring the next story into a private workspace.
+              Have a project to discuss?
               </h2>
               <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-                If the problem is unclear, damaged, unfinished, or ready to grow, Sitemendr can shape it into a practical path before the work begins.
+                Tell us what you need. We will discuss the scope and confirm what we can deliver before any work is approved.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <CaseButton href="/register" tone="light">
-                  Create workspace
+                <CaseButton href="/contact?intent=sales" tone="light">
+                  Contact Sitemendr
                 </CaseButton>
                 <CaseButton href="/contact?intent=sales">
                   Speak with the team

@@ -34,7 +34,7 @@ const commerceFoundations = [
   },
   {
     title: 'Dropshipping needs an operating route, not only attractive products.',
-    body: 'The work has to clarify product direction, supplier expectations, price logic, delivery promise, order handling, and customer support. A dropshipping launch becomes stronger when the business understands the movement behind the storefront.',
+    body: 'A future dropshipping project would need clear decisions about products, suppliers, pricing, delivery, orders, and customer support. Sitemendr is still defining this service and cannot yet promise a managed supplier or fulfillment program.',
     image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1500&h=1100&fit=crop&crop=center',
     icon: Boxes,
   },
@@ -122,11 +122,11 @@ export default function EcommerceServices() {
               Commerce pages for businesses that need selling online to feel organized.
             </h1>
             <p className="mt-8 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              This path covers storefronts, product presentation, dropshipping setup, checkout confidence, order movement, and the operating details that turn a store from a display into a business system.
+              This page outlines possible store and dropshipping work. Sitemendr&apos;s commerce and dropshipping systems are still being defined, so features, suppliers, payment handling, fulfillment, and availability must be confirmed with the team before a project is quoted.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <CommerceAction href="/register" tone="light">
-                Create Workspace
+              <CommerceAction href="/contact?intent=sales" tone="light">
+                Discuss commerce work
               </CommerceAction>
               <CommerceAction href="#storefront">
                 See Commerce Work
@@ -149,7 +149,7 @@ export default function EcommerceServices() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
           <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             A store is only convincing when the whole buying condition feels complete.
           </h2>
@@ -165,7 +165,7 @@ export default function EcommerceServices() {
       </section>
 
       <section id="storefront-setup" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The storefront and the operation have to be designed together.
@@ -209,7 +209,7 @@ export default function EcommerceServices() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.72),rgba(5,7,10,0.06))]" />
           </div>
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <CreditCard className="h-6 w-6 text-amber-300" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -232,7 +232,7 @@ export default function EcommerceServices() {
       </section>
 
       <section id="operations" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
             <div>
               <Truck className="h-6 w-6 text-amber-300" />
@@ -262,14 +262,14 @@ export default function EcommerceServices() {
       </section>
 
       <section id="growth" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <Megaphone className="h-6 w-6 text-ai-blue" />
             <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               Growth needs a launch surface that can be tested, measured, and improved.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              Campaigns, product tests, bundles, affiliate movement, and paid traffic all need pages that explain the offer quickly. Sitemendr prepares the commerce path so the store can grow without rebuilding the foundation every time the business learns something.
+              Future commerce work could include campaign pages, product tests, bundles, affiliate links, or paid traffic. Sitemendr&apos;s commerce and affiliate systems are still being defined, so availability and scope need to be confirmed before a project is agreed.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-2">
               {growthItems.map((item) => (
@@ -302,7 +302,7 @@ export default function EcommerceServices() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.66),rgba(5,7,10,0.05))]" />
           </div>
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <ReceiptText className="h-6 w-6 text-amber-300" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -328,7 +328,7 @@ export default function EcommerceServices() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
             <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The path is direct, but it respects the weight of selling online.
@@ -369,11 +369,11 @@ export default function EcommerceServices() {
               Start with the store idea. Let the commercial system become clear.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              The private workspace gives Sitemendr the room to review the products, customer promise, checkout needs, dropshipping route, operational risks, and launch direction before the store is treated as ready.
+              Contact Sitemendr to discuss the products, customer promise, checkout needs, and launch goals. Commerce and dropshipping systems are still being defined; we will confirm what is available for your project before agreeing on scope or price.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <CommerceAction href="/register" tone="light">
-                Create Workspace
+              <CommerceAction href="/contact?intent=sales" tone="light">
+                Discuss a store idea
               </CommerceAction>
               <CommerceAction href="/services/development">
                 View Development Path

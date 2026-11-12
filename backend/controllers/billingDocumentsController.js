@@ -1,6 +1,8 @@
 const PDFDocument = require('pdfkit');
+const path = require('path');
 const { prisma } = require('../config/db');
 const logger = require('../config/logger');
+const brandLogoPath = path.join(__dirname, '..', 'assets', 'sitemendr-logo.png');
 
 const money = (minor, currency) => `${String(currency || 'USD').toUpperCase()} ${(Number(minor || 0) / 100).toFixed(2)}`;
 const safeName = value => String(value || 'sitemendr-document').replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'sitemendr-document';
@@ -22,7 +24,8 @@ const streamDocument = (res, { number, kind, draw }) => {
 };
 
 const addHeader = (pdf, eyebrow, number, date) => {
-  pdf.fillColor('#15263a').font('Helvetica-Bold').fontSize(23).text('Sitemendr');
+  pdf.image(brandLogoPath, 54, 54, { fit: [190, 44] });
+  pdf.y = 105;
   pdf.moveDown(0.25).fillColor('#64748b').font('Helvetica').fontSize(9).text('Client workspace billing');
   pdf.moveDown(2).fillColor('#2563eb').font('Helvetica-Bold').fontSize(10).text(eyebrow.toUpperCase(), { characterSpacing: 1 });
   pdf.moveDown(0.35).fillColor('#111827').fontSize(20).text(number);

@@ -3,6 +3,7 @@ const { getAddon } = require('./addonCatalog');
 const logger = require('../config/logger');
 const { generateTemplateAI } = require('../controllers/assessment');
 const { sendEmail } = require('../config/email');
+const { wrapEmailShell } = require('./emailShell');
 const { deployTemplate } = require('./deploymentService');
 const { recordProjectEvent } = require('./projectConversation');
 const { ensureCompletedBuildSite } = require('./projectSiteService');
@@ -917,17 +918,27 @@ async function handleAddonProvisioning(payment) {
 
 async function sendPaymentSuccessEmail(user, subscription) {
   try {
+    const escapeHtml = value => String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+    const siteName = escapeHtml(subscription.siteName || 'your website');
+    const status = escapeHtml(subscription.status || 'Active');
+    const frontendUrl = (process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://sitemendr.com').replace(/\/$/, '');
     await sendEmail({
       to: user.email,
       subject: '✅ Payment Successful - Sitemendr',
-      html: `
-        <h2>Hi ${user.name},</h2>
-        <p>Your payment was successful and your subscription for <strong>${subscription.siteName || 'your website'}</strong> is now active.</p>
-        <p>Status: ${subscription.status}</p>
-        ${subscription.expiresAt ? `<p>Expires: ${subscription.expiresAt.toDateString()}</p>` : '<p>Lifetime Access: One-time purchase</p>'}
-        <p>You can access your dashboard to manage your site.</p>
-        <a href="${process.env.FRONTEND_URL}/dashboard" style="background:#007bff;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Go to Dashboard</a>
-      `
+      html: wrapEmailShell(`
+        <h1 style="margin:0 0 18px;color:#101828;font-size:24px;line-height:1.3;font-weight:700;">Payment received</h1>
+        <p>Hello ${escapeHtml(user.name || 'there')},</p>
+        <p>Your payment was successful. The subscription for <strong>${siteName}</strong> is active.</p>
+        <p><strong>Status:</strong> ${status}</p>
+        ${subscription.expiresAt ? `<p><strong>Renewal date:</strong> ${escapeHtml(subscription.expiresAt.toDateString())}</p>` : '<p>Your one-time purchase includes lifetime access.</p>'}
+        <p>You can open your dashboard to manage your site.</p>
+        <p style="margin:28px 0;"><a href="${frontendUrl}/dashboard" style="display:inline-block;padding:12px 20px;background:#155eef;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Open dashboard</a></p>
+      `, { preheader: 'Your payment was successful and your subscription is active.' })
     });
   } catch (error) {
     logger.error('Failed to send payment success email', { error: error.message });

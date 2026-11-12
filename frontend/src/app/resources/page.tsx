@@ -46,22 +46,22 @@ const shelves = [
   {
     name: 'Commerce',
     icon: Store,
-    purpose: 'For stores, checkout and dropshipping',
-    items: ['Product readiness', 'Store connection guide', 'Order flow notes', 'Seller payout explanation'],
+    purpose: 'Planning information for store and commerce requests',
+    items: ['Product readiness', 'Store planning notes', 'Order-flow questions', 'Dropshipping availability update'],
   },
   {
     name: 'Workspace',
     icon: LockKeyhole,
-    purpose: 'For clients and sellers using dashboards',
+    purpose: 'For clients following approved Sitemendr work',
     items: ['Account setup', 'Billing record guide', 'Project tracking', 'Support request guide'],
   },
 ];
 
 const learningPath = [
   ['01', 'Understand the work', 'Use the resources to describe the project, issue, store, or care need clearly.'],
-  ['02', 'Prepare the right details', 'Collect access, content, product information, screenshots, files, and decisions before opening a workspace.'],
+  ['02', 'Prepare the right details', 'Collect access, content, product information, screenshots, files, and decisions before work is agreed.'],
   ['03', 'Choose the correct path', 'Build, repair, maintenance, commerce and dropshipping each need different information.'],
-  ['04', 'Keep the record connected', 'Once a workspace begins, resources, support, billing, messages and project decisions stay attached.'],
+  ['04', 'Keep the record connected', 'After a project is approved, its resources, support, billing, messages, and decisions are organized in the client dashboard.'],
 ];
 
 const featured = [
@@ -78,8 +78,8 @@ const featured = [
     href: '/services/development',
   },
   {
-    title: 'Before You Start Dropshipping',
-    text: 'How sellers should think about product access, store setup, payments, fulfillment, delivery updates, and payout timing.',
+    title: 'Planning a Commerce Request',
+    text: 'Questions to consider when discussing products, store setup, payment, fulfillment, and customer support. Sitemendr’s managed dropshipping program is still being defined.',
     image: images.commerce,
     href: '/pricing',
   },
@@ -88,7 +88,7 @@ const featured = [
 export default function ResourcesPage() {
   return (
     <main className="min-h-screen bg-[#05070a] text-white">
-      <section className="relative min-h-[700px] overflow-hidden pt-24">
+      <section className="relative min-h-[640px] overflow-hidden pt-24">
         <Image
           src={images.library}
           alt=""
@@ -98,14 +98,14 @@ export default function ResourcesPage() {
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.94),rgba(5,7,10,0.54)_55%,rgba(5,7,10,0.84))]" />
-        <div className="relative z-10 mx-auto grid min-h-[620px] max-w-7xl content-end gap-10 px-4 pb-12 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
+        <div className="relative z-10 mx-auto grid min-h-[560px] max-w-7xl content-end gap-10 px-4 pb-12 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.1em] text-white/48">Resources</p>
             <h1 className="mt-5 max-w-3xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
               A working library for clearer digital decisions.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-white/64">
-              Sitemendr resources help clients, sellers, founders, and builders prepare better before opening a workspace, requesting a quote, asking for repair, launching a store, or joining a commerce flow.
+              These public guides help you prepare for a Sitemendr conversation about a website, repair, performance, or ongoing care. Store and dropshipping services are still being defined.
             </p>
           </div>
 
@@ -113,7 +113,7 @@ export default function ResourcesPage() {
             <div className="relative">
               <Search className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-white/36" />
               <p className="border-b border-white/12 pb-4 pl-8 text-sm text-white/48">
-                Search and downloadable files will live inside the dashboard library. Public resources below explain what to prepare first.
+                Use these public guides to prepare before contacting Sitemendr. A client dashboard keeps project information after work has been agreed.
               </p>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -128,7 +128,7 @@ export default function ResourcesPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[320px_1fr]">
           <div>
             <BookOpen className="h-8 w-8 text-ai-blue" />
@@ -182,10 +182,10 @@ export default function ResourcesPage() {
         </div>
       </section>
 
-      <section className="relative min-h-[680px] overflow-hidden">
+      <section className="relative min-h-[560px] overflow-hidden">
         <Image src={images.workspace} alt="" fill className="object-cover brightness-[0.62] contrast-[1.08]" sizes="100vw" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.94),rgba(5,7,10,0.58),rgba(5,7,10,0.9))]" />
-        <div className="relative z-10 mx-auto grid min-h-[680px] max-w-7xl content-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+        <div className="relative z-10 mx-auto grid min-h-[560px] max-w-7xl content-center gap-10 px-4 py-10 sm:px-6 md:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
             <MonitorCheck className="h-8 w-8 text-expert-green" />
             <h2 className="mt-6 text-3xl font-bold leading-tight sm:text-4xl">How resources move into the workspace</h2>
@@ -207,7 +207,7 @@ export default function ResourcesPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
           <div>
             <Boxes className="h-8 w-8 text-amber-300" />
@@ -216,7 +216,7 @@ export default function ResourcesPage() {
           <div className="border-y border-white/12 py-4">
             {[
               ['Client resources', 'Project-specific guides, access notes, files, handoff material and approved documents.'],
-              ['Seller resources', 'Store setup notes, product rules, order status, payout explanations and support records.'],
+              ['Commerce planning', 'Guidance for discussing product setup, store requirements, payment, fulfillment, and customer support. The managed dropshipping and seller payout systems are not available yet.'],
               ['Support resources', 'Ticket history, troubleshooting notes, maintenance reports and recurring care references.'],
               ['Community resources', 'Learning material, member updates, events, opportunities and tier-based access.'],
             ].map(([title, text]) => (
@@ -240,8 +240,8 @@ export default function ResourcesPage() {
             <LifeBuoy className="h-4 w-4" />
             Support center
           </Link>
-          <Link href="/register" className="inline-flex items-center gap-2 border border-white/14 px-5 py-3 text-sm font-bold text-white/80 transition hover:border-white/34 hover:text-white">
-            Create workspace
+          <Link href="/contact?intent=sales" className="inline-flex items-center gap-2 border border-white/14 px-5 py-3 text-sm font-bold text-white/80 transition hover:border-white/34 hover:text-white">
+            Ask about a project
           </Link>
         </div>
       </section>

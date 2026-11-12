@@ -10,13 +10,13 @@ export const metadata: Metadata = {
     default: "Sitemendr - Build, Repair, and Grow Online",
     template: "%s | Sitemendr",
   },
-  description: "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
+  description: "Sitemendr builds websites and digital platforms, repairs existing sites, improves performance, and provides ongoing care. Ask us about online stores and commerce projects; we confirm availability and scope before work is agreed.",
   keywords: [
     "custom website development", 
     "technical website repair", 
     "website maintenance", 
     "Sitemendr", 
-    "dropshipping program", 
+    "dropshipping planning",
     "affiliate marketing", 
     "commerce storefronts", 
     "client workspace", 
@@ -28,11 +28,11 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://sitemendr.com",
     title: "Sitemendr - Build, Repair, and Grow Online",
-    description: "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
+    description: "Sitemendr builds websites and digital platforms, repairs existing sites, improves performance, and provides ongoing care. Ask us about online stores and commerce projects; we confirm availability and scope before work is agreed.",
     siteName: "Sitemendr",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "Sitemendr - Build, Repair, and Grow Online",
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Sitemendr - Build, Repair, and Grow Online",
-    description: "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
+    description: "Sitemendr builds websites and digital platforms, repairs existing sites, improves performance, and provides ongoing care. Ask us about online stores and commerce projects; we confirm availability and scope before work is agreed.",
     creator: "@sitemendr",
-    images: ["/og-image.jpg"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -75,16 +75,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://sitemendr.com"),
   icons: {
     icon: [
-      { url: '/favicon.ico' },
-      { url: '/api/favicon/S', sizes: '32x32', type: 'image/svg+xml' }
+      { url: '/brand/sitemendr-tab-icon-v9.ico', sizes: 'any', type: 'image/x-icon' },
+      { url: '/brand/sitemendr-tab-icon-v9-32.png', sizes: '32x32', type: 'image/png' }
     ],
-    shortcut: "/favicon-16x16.png",
+    shortcut: "/brand/sitemendr-tab-icon-v9.ico",
     apple: "/apple-touch-icon.png",
-    other: {
-      url: '/api/favicon/S',
-      rel: 'icon',
-      type: 'image/svg+xml'
-    }
   },
   category: "technology",
 };
@@ -132,7 +127,7 @@ export default function RootLayout({
             "@type": "Organization",
             "name": "Sitemendr",
             "url": "https://sitemendr.com",
-            "description": "Sitemendr brings custom websites, technical repairs, maintenance, dropshipping, and affiliate commerce into one private workspace.",
+            "description": "Sitemendr builds websites and digital platforms, repairs existing sites, improves performance, and provides ongoing care. Ask us about online stores and commerce projects; we confirm availability and scope before work is agreed.",
             "contactPoint": [{
               "@type": "ContactPoint",
               "telephone": "+254-790-057-596",

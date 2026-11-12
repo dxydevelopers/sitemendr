@@ -36,7 +36,7 @@ export default function LegalPolicyPage({
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-20 pt-24 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-[#05070a] pb-14 pt-24 text-white">
       <div className="fixed inset-0 pointer-events-none">
         <div
           className="absolute inset-0 opacity-[0.035]"
@@ -48,7 +48,7 @@ export default function LegalPolicyPage({
       </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-6 md:px-10">
-        <section className={`min-h-[520px] pb-14 pt-16 transition duration-700 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <section className={`min-h-[380px] pb-10 pt-12 transition duration-700 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           <Link
             href="/legal"
             className="inline-flex items-center gap-3 text-xs font-black uppercase tracking-[0.14em] text-white/46 transition hover:text-white"
@@ -57,7 +57,7 @@ export default function LegalPolicyPage({
             Legal
           </Link>
 
-          <div className="mt-16 grid gap-10 lg:grid-cols-[1fr_0.82fr] lg:items-end">
+          <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_0.82fr] lg:items-end">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-ai-blue">{effectiveLabel}</p>
               <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.95] tracking-tight md:text-7xl">
@@ -70,9 +70,9 @@ export default function LegalPolicyPage({
           </div>
         </section>
 
-        <section className="mb-20 divide-y divide-white/10 border-y border-white/10">
+        <section className="mb-14 divide-y divide-white/10 border-y border-white/10 md:mb-20">
           {sections.map((section, index) => (
-            <article key={section.title} className="grid gap-8 py-10 lg:grid-cols-[0.34fr_0.66fr]">
+            <article key={section.title} className="grid gap-8 py-8 lg:grid-cols-[0.34fr_0.66fr]">
               <div className="flex items-start gap-5">
                 <span className="text-sm font-black text-ai-blue">{String(index + 1).padStart(2, '0')}</span>
                 <h2 className="text-2xl font-black leading-tight tracking-tight md:text-3xl">{section.title}</h2>
@@ -95,7 +95,7 @@ export default function LegalPolicyPage({
 
         {children}
 
-        <section className="mt-20 border-y border-white/10 py-10">
+        <section className="mt-14 border-y border-white/10 py-8">
           <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
             <div>
               <h2 className="text-3xl font-black tracking-tight">Questions about this policy</h2>

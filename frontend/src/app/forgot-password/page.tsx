@@ -19,11 +19,11 @@ export default function ForgotPasswordPage() {
     try {
       const response = await apiClient.forgotPassword(email.trim().toLowerCase());
       if (!response.success) {
-        throw new Error(response.message || 'We couldn’t send the reset link. Please try again.');
+        throw new Error(response.message || 'We could not process your request. Please try again.');
       }
       setSubmitted(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'We couldn’t send the reset link. Please try again.');
+      setError(err instanceof Error ? err.message : 'We could not process your request. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -36,10 +36,10 @@ export default function ForgotPasswordPage() {
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[0.1em] text-ai-blue">Account access</p>
             <h1 className="mt-5 max-w-3xl text-3xl font-bold leading-[1.05] tracking-tight sm:text-4xl">
-              Get back into your workspace.
+              Reset your Sitemendr password.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-6 text-white/52 sm:text-base">
-              Enter the email address you use for Sitemendr. We’ll send a password reset link if an account matches.
+              Enter the email address you use for Sitemendr.
             </p>
           </div>
 
@@ -52,15 +52,15 @@ export default function ForgotPasswordPage() {
                   </div>
                   <h2 className="mt-6 text-2xl font-bold tracking-tight">Check your inbox</h2>
                   <p className="mt-3 text-sm leading-6 text-white/55">
-                    If an account exists for <span className="font-semibold text-white">{email.trim()}</span>, we’ve sent a password reset link. Check your spam folder too. The link expires after one hour.
+                    If an account exists for <span className="font-semibold text-white">{email.trim()}</span>, reset instructions will be sent to that address. Check your spam folder too. The link expires after one hour.
                   </p>
-                  <p className="mt-4 text-xs leading-5 text-white/38">No email yet? Give it a minute, then check the address and try again.</p>
+                  <p className="mt-4 text-xs leading-5 text-white/38">No email yet? Check the address and try again.</p>
                   <button
                     type="button"
                     onClick={() => setSubmitted(false)}
                     className="mt-7 text-sm font-semibold text-white transition hover:text-ai-blue"
                   >
-                    Try another email
+                    Try again or use another email
                   </button>
                 </div>
               ) : (
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
                     <Mail className="h-5 w-5" aria-hidden="true" />
                   </div>
                   <h2 className="mt-6 text-2xl font-bold tracking-tight">Reset your password</h2>
-                  <p className="mt-2 text-sm leading-6 text-white/48">We’ll email you a secure link to choose a new password.</p>
+                  <p className="mt-2 text-sm leading-6 text-white/48">We will email reset instructions if the address matches an account.</p>
 
                   <form className="mt-7 space-y-6" onSubmit={handleSubmit}>
                     {error && (

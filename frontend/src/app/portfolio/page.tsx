@@ -45,17 +45,16 @@ export default function PortfolioPage() {
   }, [activeCategory]);
 
   return (
-    <main className="min-h-screen bg-[#05070a] pb-24 pt-24 text-white">
+    <main className="min-h-screen bg-[#05070a] pb-16 pt-24 text-white">
       <div className="mx-auto max-w-6xl px-5 sm:px-6 md:px-10">
         {/* Hero — one statement, one action */}
-        <section className="mb-16 max-w-2xl">
+        <section className="mb-12 max-w-2xl md:mb-16">
           <p className="text-sm font-medium text-white/48">Portfolio</p>
           <h1 className="mt-5 text-2xl font-bold leading-[1.05] tracking-tight sm:text-3xl">
-            Real work, browsable by the kind of problem it solved.
+            Published client work, organized by project type.
           </h1>
           <p className="mt-6 text-base leading-8 text-white/64">
-            Each project below is a live piece of client work — the situation it started from, the
-            decisions made, and what changed.
+            We publish work here after it is delivered and approved for sharing. Each project describes what the client needed and what Sitemendr delivered.
           </p>
           <div className="mt-8">
             <Link
@@ -69,7 +68,7 @@ export default function PortfolioPage() {
         </section>
 
         {/* Category filter — given real visual weight, not a thin utility bar */}
-        <section className="mb-14 border-y border-white/10 py-6">
+        <section className="mb-10 border-y border-white/10 py-5 md:mb-12">
           <div className="flex flex-wrap gap-x-8 gap-y-3">
             {CATEGORIES.map((cat) => {
               const isActive = activeCategory === cat.value;
@@ -94,17 +93,17 @@ export default function PortfolioPage() {
         {/* Project grid */}
         <section>
           {loading ? (
-            <p className="text-sm text-white/36">Loading work…</p>
+            <p className="text-sm text-white/36">Loading published work...</p>
           ) : projects.length === 0 ? (
-            <div className="border border-dashed border-white/15 p-14 text-center">
+            <div className="border border-dashed border-white/15 p-10 text-center sm:p-12">
               <p className="mx-auto max-w-md text-sm leading-7 text-white/48">
                 {activeCategory === 'ALL'
-                  ? 'Projects will appear here as they ship.'
-                  : 'No work in this category yet — check back soon, or browse all work.'}
+                  ? 'There are no published projects yet. We will add client work here when it is delivered and approved for sharing.'
+                  : 'There is no published work in this category yet. Try another project type.'}
               </p>
             </div>
           ) : (
-            <div className="grid gap-x-8 gap-y-16 sm:grid-cols-2">
+            <div className="grid gap-x-8 gap-y-12 sm:grid-cols-2">
               {projects.map((project, i) => (
                 <Link
                   key={project.id}

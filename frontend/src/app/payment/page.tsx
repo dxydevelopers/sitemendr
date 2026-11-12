@@ -372,24 +372,24 @@ export default function PaymentPage() {
             <div className="flex items-start gap-4">
               <ShieldCheck className="w-6 h-6 text-expert-green mt-0.5" />
               <div>
-                <h3 className="font-black text-white uppercase tracking-tight">Bank-Level Security</h3>
-                <p className="text-medium-gray text-sm mt-1">Your payment information is encrypted and secure.</p>
+                <h3 className="font-black text-white uppercase tracking-tight">Payment security</h3>
+                <p className="text-medium-gray text-sm mt-1">Payment is handled by the provider shown during checkout.</p>
               </div>
             </div>
             
             <div className="flex items-start gap-4">
               <Globe className="w-6 h-6 text-ai-blue mt-0.5" />
               <div>
-                <h3 className="font-black text-white uppercase tracking-tight">Global Payments</h3>
-                <p className="text-medium-gray text-sm mt-1">Accept payments from anywhere in the world.</p>
+                <h3 className="font-black text-white uppercase tracking-tight">Payment options</h3>
+                <p className="text-medium-gray text-sm mt-1">Available payment methods are shown at checkout.</p>
               </div>
             </div>
 
             <div className="flex items-start gap-4">
               <Users className="w-6 h-6 text-tech-purple mt-0.5" />
               <div>
-                <h3 className="font-black text-white uppercase tracking-tight">Trusted Provider</h3>
-                <p className="text-medium-gray text-sm mt-1">Powered by Paystack, trusted by thousands of businesses.</p>
+                <h3 className="font-black text-white uppercase tracking-tight">Payment provider</h3>
+                <p className="text-medium-gray text-sm mt-1">The provider processes the payment; Sitemendr records the transaction status.</p>
               </div>
             </div>
           </div>
@@ -423,7 +423,7 @@ export default function PaymentPage() {
         {/* Support Info */}
         <div className="mt-12 text-center text-medium-gray text-sm">
           <p>Need help choosing a plan? Contact our support team at <Link href="mailto:support@sitemendr.com" className="text-ai-blue hover:text-white transition-colors">support@sitemendr.com</Link></p>
-          <p className="mt-2">All plans include a 14-day money-back guarantee.</p>
+          <p className="mt-2">Refunds follow the terms shown for the service and the Sitemendr refund policy.</p>
         </div>
       </div>
     </main>

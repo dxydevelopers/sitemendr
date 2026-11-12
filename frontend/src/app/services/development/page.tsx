@@ -137,8 +137,8 @@ export default function DevelopmentServices() {
               This page is for the work behind serious business presence: new websites, custom systems, broken platforms, maintenance requests, and the kind of handoff that lets a client understand what they now own.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <DevelopmentAction href="/register" tone="light">
-                Create Workspace
+              <DevelopmentAction href="/contact?intent=sales" tone="light">
+                Discuss a build
               </DevelopmentAction>
               <DevelopmentAction href="#build">
                 See The Work
@@ -161,7 +161,7 @@ export default function DevelopmentServices() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
           <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
             A technical request usually carries a business problem inside it.
           </h2>
@@ -177,7 +177,7 @@ export default function DevelopmentServices() {
       </section>
 
       <section id="build" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <h2 className="max-w-4xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               When the business needs something new, the build has to begin before the code.
@@ -222,7 +222,7 @@ export default function DevelopmentServices() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.72),rgba(5,7,10,0.06))]" />
           </div>
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <Wrench className="h-6 w-6 text-expert-green" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -245,7 +245,7 @@ export default function DevelopmentServices() {
       </section>
 
       <section id="maintenance" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <RefreshCw className="h-6 w-6 text-ai-blue" />
             <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -276,7 +276,7 @@ export default function DevelopmentServices() {
       </section>
 
       <section id="self-hosted" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-12 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
             <div>
               <ServerCog className="h-6 w-6 text-ai-blue" />
@@ -315,7 +315,7 @@ export default function DevelopmentServices() {
             />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.66),rgba(5,7,10,0.05))]" />
           </div>
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <Globe2 className="h-6 w-6 text-ai-blue" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -345,7 +345,7 @@ export default function DevelopmentServices() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
             <h2 className="max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
               The process is simple because the responsibility is not.
@@ -385,11 +385,11 @@ export default function DevelopmentServices() {
               Start with the request. Let the correct technical shape become clear.
             </h2>
             <p className="mt-7 max-w-2xl text-base leading-8 text-white/64 md:text-lg">
-              The private workspace is where Sitemendr can review the business, the existing material, the technical condition, the desired outcome, and the level of care the project needs after launch.
+              Contact Sitemendr to discuss the business, existing material, technical condition, desired outcome, and any support needed after launch. Once you approve the agreed scope, your client dashboard keeps project updates together.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <DevelopmentAction href="/register" tone="light">
-                Create Workspace
+              <DevelopmentAction href="/contact?intent=sales" tone="light">
+                Discuss a project
               </DevelopmentAction>
               <DevelopmentAction href="/services/ecommerce">
                 View Commerce Path

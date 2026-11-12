@@ -102,7 +102,7 @@ const contactMethods = [
 export default function HelpCenter() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#05070a] text-white">
-      <section className="relative min-h-[760px] overflow-hidden border-b border-white/10 pt-20">
+      <section className="relative min-h-[680px] overflow-hidden border-b border-white/10 pt-20">
         <Image
           src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=2200&h=1400&fit=crop&crop=center"
           alt=""
@@ -115,7 +115,7 @@ export default function HelpCenter() {
         <div className="absolute inset-0 bg-[linear-gradient(90deg,#05070a_0%,rgba(5,7,10,0.9)_40%,rgba(5,7,10,0.28)_100%)]" />
         <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(to_top,#05070a,transparent)]" />
 
-        <div className="relative mx-auto grid min-h-[680px] max-w-7xl items-center gap-12 px-5 py-14 sm:px-6 md:px-10 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="relative mx-auto grid min-h-[600px] max-w-7xl items-center gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
             <div className="mb-8 inline-flex items-center gap-3 border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/64">
               <Headphones className="h-4 w-4 text-tech-purple" />
@@ -171,7 +171,7 @@ export default function HelpCenter() {
       </section>
 
       <section id="public-guidance" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[0.78fr_1.22fr]">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[0.78fr_1.22fr]">
           <div className="lg:sticky lg:top-28 lg:self-start">
             <CircleHelp className="h-6 w-6 text-tech-purple" />
             <h2 className="mt-7 max-w-2xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -207,7 +207,7 @@ export default function HelpCenter() {
 
       <section className="border-b border-white/10 bg-[#05070a]">
         <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="relative min-h-[420px] overflow-hidden sm:min-h-[560px] lg:min-h-[760px]">
+          <div className="relative min-h-[360px] overflow-hidden sm:min-h-[460px] lg:min-h-[640px]">
             <ImageFrame
               src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1800&h=1300&fit=crop&crop=center"
               sizes="(min-width: 1024px) 50vw, 100vw"
@@ -216,7 +216,7 @@ export default function HelpCenter() {
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(5,7,10,0.72),rgba(5,7,10,0.06))]" />
           </div>
 
-          <div className="flex items-center px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:px-16">
+          <div className="flex items-center px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:px-16">
             <div className="max-w-2xl">
               <LockKeyhole className="h-6 w-6 text-expert-green" />
               <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -239,7 +239,7 @@ export default function HelpCenter() {
       </section>
 
       <section id="technical-care" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
               <Wrench className="h-6 w-6 text-tech-purple" />
@@ -252,7 +252,7 @@ export default function HelpCenter() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-5 md:grid-cols-2">
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
             {careTypes.map((item) => (
               <div key={item} className="min-h-[180px] border-l border-white/12 bg-white/[0.025] p-6">
                 <SearchCheck className="h-5 w-5 text-tech-purple" />
@@ -264,7 +264,7 @@ export default function HelpCenter() {
       </section>
 
       <section id="billing-support" className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:px-6 md:px-10 md:py-20 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-10 sm:px-6 md:px-10 md:py-14 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
           <div>
             <ReceiptText className="h-6 w-6 text-ai-blue" />
             <h2 className="mt-7 max-w-3xl break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
@@ -295,7 +295,7 @@ export default function HelpCenter() {
       </section>
 
       <section className="border-b border-white/10 bg-[#05070a]">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:px-10 md:py-20">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 md:px-10 md:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.76fr_1.24fr] lg:items-start">
             <div>
               <ShieldCheck className="h-6 w-6 text-expert-green" />
@@ -331,7 +331,7 @@ export default function HelpCenter() {
           className="object-cover object-[50%_42%] opacity-34 saturate-125"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,7,10,0.95)_0%,rgba(5,7,10,0.76)_48%,rgba(5,7,10,0.28)_100%)]" />
-        <div className="relative mx-auto flex min-h-[520px] max-w-7xl items-center px-5 py-14 sm:px-6 md:min-h-[620px] md:px-10 md:py-20">
+        <div className="relative mx-auto flex min-h-[440px] max-w-7xl items-center px-5 py-10 sm:px-6 md:min-h-[500px] md:px-10 md:py-14">
           <div className="max-w-3xl">
             <BadgeCheck className="h-6 w-6 text-tech-purple" />
             <h2 className="mt-7 break-words font-[var(--font-space-grotesk)] text-xl font-semibold leading-[1.06] tracking-[-0.02em] sm:text-2xl md:text-3xl md:tracking-[-0.03em]">
